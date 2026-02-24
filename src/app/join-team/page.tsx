@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Navbar from "@/components/NavBar";
 import { Loader2 } from "lucide-react";
 import InviteClient from "./InviteClient";
+export const dynamic = 'force-dynamic';
 
 export default function AcceptInvitePage() {
   return (
