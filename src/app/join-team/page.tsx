@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Users, CheckCircle2, XCircle, Loader2, ArrowRight, ShieldCheck, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/axios";
-import Navbar from "@/components/Navbar";
+import Navbar from "@/components/NavBar";
 import Link from "next/link";
 
 interface InviteDetails {
