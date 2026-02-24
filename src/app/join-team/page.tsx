@@ -9,6 +9,8 @@ import { api } from "@/lib/axios";
 import Navbar from "@/components/NavBar";
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 interface InviteDetails {
   emailInvited: string;
   teamName: string;
