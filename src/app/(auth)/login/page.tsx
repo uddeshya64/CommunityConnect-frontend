@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { ArrowRight, Sparkles, Loader2, KeyRound, MailCheck, RotateCcw } from "lucide-react";
+import { ArrowRight, Sparkles, Loader2, KeyRound, MailCheck, RotateCcw, Eye, EyeOff } from "lucide-react";
 import PageTransition from "@/components/layout/PageTransition";
 import { authService } from "@/services/auth.service";
 
@@ -30,6 +30,11 @@ export default function LoginPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // Password visibility toggles
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(LoginSchema),
     defaultValues: { email: "", password: "" },
@@ -41,7 +46,7 @@ export default function LoginPage() {
       setIsLoading(true);
       setServerError("");
       await authService.login(data);
-      router.push("/home"); 
+      router.push("/home");
     } catch (error: any) {
       setServerError(error.response?.data?.error || "Failed to login. Please try again.");
     } finally {
@@ -53,7 +58,7 @@ export default function LoginPage() {
   const handleSendResetOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetEmail) return setServerError("Please enter your email address.");
-    
+
     try {
       setIsLoading(true);
       setServerError("");
@@ -84,10 +89,10 @@ export default function LoginPage() {
     }
   };
 
-// --- FORGOT PASSWORD: STEP 3 (Set New Password) ---
+  // --- FORGOT PASSWORD: STEP 3 (Set New Password) ---
   const handleSetNewPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (newPassword.length < 6) {
       return setServerError("Password must be at least 6 characters.");
     }
@@ -98,14 +103,14 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       setServerError("");
-      
+
       // Pass BOTH passwords to the service
       await authService.resetPassword(resetToken, newPassword, confirmPassword);
-      
+
       // Success! Send them back to login
       setSuccessMessage("Password reset successfully! You can now log in.");
       setView("LOGIN");
-      
+
       // Clear out all states
       setResetEmail("");
       setResetOtp("");
@@ -125,7 +130,7 @@ export default function LoginPage() {
         {/* LEFT SIDE - Form Area */}
         <div className="w-full lg:w-1/2 flex flex-col justify-center p-8 sm:p-16 xl:p-24">
           <div className="w-full max-w-md mx-auto space-y-8">
-            
+
             <Link href="/" className="flex items-center gap-2 font-extrabold text-xl mb-12 text-zinc-900 w-fit hover:opacity-80 transition-opacity">
               <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-600 to-violet-600 shadow-sm"></div>
               CommunityConnect
@@ -158,7 +163,7 @@ export default function LoginPage() {
                     <Input id="email" type="email" placeholder="m@example.com" {...form.register("email")} disabled={isLoading} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
                     {form.formState.errors.email && <p className="text-sm text-red-500 font-medium">{form.formState.errors.email.message}</p>}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password" className="font-semibold text-zinc-900">Password</Label>
@@ -166,7 +171,12 @@ export default function LoginPage() {
                         Forgot password?
                       </button>
                     </div>
-                    <Input id="password" type="password" {...form.register("password")} disabled={isLoading} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                    <div className="relative">
+                      <Input id="password" type={showLoginPassword ? "text" : "password"} {...form.register("password")} disabled={isLoading} className="rounded-xl px-4 py-6 pr-12 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                      <button type="button" tabIndex={-1} onClick={() => setShowLoginPassword(!showLoginPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors">
+                        {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
                     {form.formState.errors.password && <p className="text-sm text-red-500 font-medium">{form.formState.errors.password.message}</p>}
                   </div>
 
@@ -204,7 +214,7 @@ export default function LoginPage() {
                   <Button type="submit" disabled={isLoading} className="w-full rounded-xl py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]">
                     {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Send Reset Code"}
                   </Button>
-                  
+
                   <button type="button" onClick={() => setView("LOGIN")} className="w-full text-center text-sm font-semibold text-zinc-500 hover:text-zinc-900 transition-colors">
                     Back to login
                   </button>
@@ -234,7 +244,7 @@ export default function LoginPage() {
                   <Button type="submit" disabled={isLoading} className="w-full rounded-xl py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]">
                     {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Verify Code"}
                   </Button>
-                  
+
                   <button type="button" onClick={() => setView("FORGOT_EMAIL")} className="w-full text-center text-sm font-semibold text-zinc-500 hover:text-zinc-900 transition-colors">
                     Didn't receive it? Go back
                   </button>
@@ -258,13 +268,23 @@ export default function LoginPage() {
                 <form onSubmit={handleSetNewPassword} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="new-password" className="font-semibold text-zinc-900">New Password</Label>
-                    <Input id="new-password" type="password" placeholder="••••••••" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={isLoading} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                    <div className="relative">
+                      <Input id="new-password" type={showNewPassword ? "text" : "password"} placeholder="••••••••" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={isLoading} className="rounded-xl px-4 py-6 pr-12 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                      <button type="button" tabIndex={-1} onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors">
+                        {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Add Confirm Password Input */}
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password" className="font-semibold text-zinc-900">Confirm Password</Label>
-                    <Input id="confirm-password" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isLoading} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                    <div className="relative">
+                      <Input id="confirm-password" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isLoading} className="rounded-xl px-4 py-6 pr-12 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                      <button type="button" tabIndex={-1} onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors">
+                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
                   </div>
 
                   <Button type="submit" disabled={isLoading} className="w-full rounded-xl py-6 bg-green-600 hover:bg-green-700 text-white font-semibold text-lg shadow-md shadow-green-500/20 transition-all hover:scale-[1.02]">
@@ -282,7 +302,7 @@ export default function LoginPage() {
           {/* ... Glowing orbs and testimonial exactly as before ... */}
           <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-600/30 rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '4s' }} />
           <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-rose-500/20 rounded-full blur-[100px] animate-pulse" style={{ animationDuration: '6s', animationDelay: '1s' }} />
-          
+
           <div className="relative z-10 w-full max-w-lg p-10 backdrop-blur-md bg-white/5 border border-white/10 rounded-3xl shadow-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white text-sm font-medium mb-8">
               <Sparkles className="w-4 h-4 text-indigo-400" />

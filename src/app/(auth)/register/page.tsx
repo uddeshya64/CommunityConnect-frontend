@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { ArrowRight, Users, Loader2, MailCheck } from "lucide-react";
+import { ArrowRight, Users, Loader2, MailCheck, Eye, EyeOff } from "lucide-react";
 import PageTransition from "@/components/layout/PageTransition";
 import { authService } from "@/services/auth.service";
 
@@ -19,6 +19,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState("");
   const [otp, setOtp] = useState(""); // Simple state for our OTP string
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(RegisterSchema),
@@ -30,13 +31,13 @@ export default function RegisterPage() {
     try {
       setIsLoading(true);
       setServerError("");
-      
+
       // Trigger the backend to email the OTP
       await authService.sendOtp(data);
-      
+
       // Move to the OTP verification screen
       setStep(2);
-      
+
     } catch (error: any) {
       setServerError(error.response?.data?.error || "Failed to send OTP. Please try again.");
     } finally {
@@ -55,14 +56,14 @@ export default function RegisterPage() {
     try {
       setIsLoading(true);
       setServerError("");
-      
+
       // We send ALL the data (from react-hook-form) plus the OTP to create the user
       const formData = form.getValues();
       await authService.verifyAndRegister({ ...formData, otp });
-      
+
       // Success! Welcome to the app.
       router.push("/home");
-      
+
     } catch (error: any) {
       setServerError(error.response?.data?.error || "Invalid OTP. Please try again.");
     } finally {
@@ -76,7 +77,7 @@ export default function RegisterPage() {
         {/* LEFT SIDE - Form */}
         <div className="w-full lg:w-1/2 flex flex-col justify-center p-8 sm:p-16 xl:p-24">
           <div className="w-full max-w-md mx-auto space-y-8">
-            
+
             <Link href="/" className="flex items-center gap-2 font-extrabold text-xl mb-12 text-zinc-900 w-fit hover:opacity-80 transition-opacity">
               <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-600 to-violet-600 shadow-sm"></div>
               CommunityConnect
@@ -108,10 +109,15 @@ export default function RegisterPage() {
                     <Input id="email" type="email" placeholder="m@example.com" {...form.register("email")} disabled={isLoading} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
                     {form.formState.errors.email && <p className="text-sm text-red-500 font-medium">{form.formState.errors.email.message}</p>}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="password" className="font-semibold text-zinc-900">Password</Label>
-                    <Input id="password" type="password" {...form.register("password")} disabled={isLoading} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                    <div className="relative">
+                      <Input id="password" type={showPassword ? "text" : "password"} {...form.register("password")} disabled={isLoading} className="rounded-xl px-4 py-6 pr-12 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                      <button type="button" tabIndex={-1} onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors">
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
                     {form.formState.errors.password && <p className="text-sm text-red-500 font-medium">{form.formState.errors.password.message}</p>}
                   </div>
 
@@ -143,22 +149,22 @@ export default function RegisterPage() {
                 <form onSubmit={onVerifyOtp} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="otp" className="font-semibold text-zinc-900">Verification Code</Label>
-                    <Input 
-                      id="otp" 
-                      type="text" 
+                    <Input
+                      id="otp"
+                      type="text"
                       maxLength={6}
-                      placeholder="Enter 6-digit OTP" 
+                      placeholder="Enter 6-digit OTP"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value)}
-                      disabled={isLoading} 
-                      className="rounded-xl text-center tracking-[0.5em] text-2xl font-bold px-4 py-8 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all" 
+                      disabled={isLoading}
+                      className="rounded-xl text-center tracking-[0.5em] text-2xl font-bold px-4 py-8 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all"
                     />
                   </div>
 
                   <Button type="submit" disabled={isLoading} className="w-full rounded-xl py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]">
                     {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Verify & Create Account"}
                   </Button>
-                  
+
                   <button type="button" onClick={() => setStep(1)} className="w-full text-center text-sm font-semibold text-zinc-500 hover:text-zinc-900 transition-colors">
                     Wrong email address? Go back
                   </button>
@@ -174,7 +180,7 @@ export default function RegisterPage() {
           {/* ... Keep the glowing orbs and feature list here ... */}
           <div className="absolute top-1/3 right-1/4 w-[450px] h-[450px] bg-violet-600/30 rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '5s' }} />
           <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-indigo-500/20 rounded-full blur-[100px] animate-pulse" style={{ animationDuration: '7s', animationDelay: '2s' }} />
-          
+
           <div className="relative z-10 w-full max-w-lg p-10 backdrop-blur-md bg-white/5 border border-white/10 rounded-3xl shadow-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white text-sm font-medium mb-8">
               <Users className="w-4 h-4 text-indigo-400" />
@@ -184,9 +190,9 @@ export default function RegisterPage() {
               Connect with developers around the world.
             </h2>
             <ul className="space-y-4 text-zinc-300 font-medium text-lg">
-               <li className="flex items-center gap-3"><div className="h-2 w-2 rounded-full bg-indigo-500" /> Discover local meetups</li>
-               <li className="flex items-center gap-3"><div className="h-2 w-2 rounded-full bg-violet-500" /> Form teams for hackathons</li>
-               <li className="flex items-center gap-3"><div className="h-2 w-2 rounded-full bg-rose-500" /> Grow your technical network</li>
+              <li className="flex items-center gap-3"><div className="h-2 w-2 rounded-full bg-indigo-500" /> Discover local meetups</li>
+              <li className="flex items-center gap-3"><div className="h-2 w-2 rounded-full bg-violet-500" /> Form teams for hackathons</li>
+              <li className="flex items-center gap-3"><div className="h-2 w-2 rounded-full bg-rose-500" /> Grow your technical network</li>
             </ul>
           </div>
         </div>
