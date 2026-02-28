@@ -31,9 +31,8 @@ export default function Navbar({ theme = "light" }: { theme?: "light" | "dark" }
           initial={{ y: -100 }}
           animate={{ y: 0 }}
           exit={{ y: -100 }}
-          className={`fixed top-0 w-full z-[100] transition-all duration-300 px-6 py-4 ${
-            isDark ? "bg-zinc-950/80 border-white/5" : "bg-white/80 border-zinc-200"
-          } backdrop-blur-md border-b`}
+          className={`fixed top-0 w-full z-[100] transition-all duration-300 px-6 py-4 ${isDark ? "bg-zinc-950/80 border-white/5" : "bg-white/80 border-zinc-200"
+            } backdrop-blur-md border-b`}
         >
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <Link href="/home" className={`flex items-center gap-2 font-black text-2xl tracking-tighter ${isDark ? "text-white" : "text-zinc-900"}`}>
@@ -48,10 +47,12 @@ export default function Navbar({ theme = "light" }: { theme?: "light" | "dark" }
                 </Button>
               </Link>
               <div className={`h-8 w-px ${isDark ? "bg-white/10" : "bg-zinc-200"}`} />
-              <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${isDark ? "bg-white/5 text-zinc-300" : "bg-zinc-100 text-zinc-700"}`}>
-                <UserIcon className="w-4 h-4" />
-                <span className="text-sm font-bold">Profile</span>
-              </div>
+              <Link href="/profile">
+                <div className={`flex items-center gap-2 px-3 py-1 rounded-full cursor-pointer transition-all hover:scale-105 ${isDark ? "bg-white/5 text-zinc-300 hover:bg-white/10" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"}`}>
+                  <UserIcon className="w-4 h-4" />
+                  <span className="text-sm font-bold">Profile</span>
+                </div>
+              </Link>
             </div>
           </div>
         </motion.nav>
