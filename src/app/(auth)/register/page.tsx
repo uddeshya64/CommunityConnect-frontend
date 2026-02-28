@@ -61,8 +61,14 @@ export default function RegisterPage() {
       const formData = form.getValues();
       await authService.verifyAndRegister({ ...formData, otp });
 
-      // Success! Welcome to the app.
-      router.push("/home");
+      // Check if there's a return URL (e.g. from a team invite)
+      const returnUrl = localStorage.getItem("returnUrl");
+      if (returnUrl) {
+        localStorage.removeItem("returnUrl");
+        router.push(returnUrl);
+      } else {
+        router.push("/home");
+      }
 
     } catch (error: any) {
       setServerError(error.response?.data?.error || "Invalid OTP. Please try again.");

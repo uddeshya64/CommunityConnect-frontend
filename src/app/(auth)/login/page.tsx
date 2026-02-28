@@ -46,7 +46,15 @@ export default function LoginPage() {
       setIsLoading(true);
       setServerError("");
       await authService.login(data);
-      router.push("/home");
+
+      // Check if there's a return URL (e.g. from a team invite)
+      const returnUrl = localStorage.getItem("returnUrl");
+      if (returnUrl) {
+        localStorage.removeItem("returnUrl");
+        router.push(returnUrl);
+      } else {
+        router.push("/home");
+      }
     } catch (error: any) {
       setServerError(error.response?.data?.error || "Failed to login. Please try again.");
     } finally {
