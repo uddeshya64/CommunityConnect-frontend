@@ -26,7 +26,7 @@ interface EventFormData {
   max_team_size: string;
 }
 
-const CATEGORIES = ["meetup", "hackathon", "workshop"];
+const CATEGORIES = ["meetup", "hackathon", "workshop", "other"];
 const MODES = ["online", "offline", "hybrid"];
 const REG_TYPES = ["solo", "team"];
 
@@ -35,6 +35,8 @@ export default function CreateEventPage() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
+  const [customCategoryEditMode, setCustomCategoryEditMode] = useState(false);
 
   const [formData, setFormData] = useState<EventFormData>({
     title: "",
@@ -55,9 +57,36 @@ export default function CreateEventPage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleCategorySelect = (value: string) => {
+    updateForm("category", value);
+    if (value !== "other") {
+      setCustomCategory("");
+      setCustomCategoryEditMode(false);
+    } else {
+      setCustomCategoryEditMode(true);
+    }
+  };
+
+  const handleCustomCategoryDone = () => {
+    if (customCategory.trim()) {
+      setCustomCategoryEditMode(false);
+    }
+  };
+
+  const clearCustomCategory = () => {
+    setCustomCategory("");
+    setCustomCategoryEditMode(true);
+    updateForm("category", "meetup");
+  };
+
+  const resolvedCategory = formData.category === "other" && customCategory.trim()
+    ? customCategory.trim()
+    : formData.category;
+
   const nextStep = () => {
     setError("");
     if (step === 1 && !formData.title) return setError("Please provide an event title.");
+    if (step === 1 && formData.category === "other" && !customCategory.trim()) return setError("Please enter a custom event category.");
     if (step === 2 && (!formData.start_date || !formData.end_date)) return setError("Start and End dates are required.");
     if (step === 2 && formData.mode !== "online" && !formData.location) return setError("Location is required for offline/hybrid events.");
     if (step === 3 && !formData.description) return setError("Please provide a description.");
@@ -78,7 +107,7 @@ export default function CreateEventPage() {
       const payload = {
         title: formData.title,
         description: formData.description,
-        type: formData.category, // Map 'category' to 'type'
+        type: resolvedCategory, // Map 'category' to 'type'
         mode: formData.mode,
         location: formData.location || "Online",
         start_date: new Date(formData.start_date).toISOString(), // Convert to valid ISO Date
@@ -161,9 +190,46 @@ export default function CreateEventPage() {
                       <Label className="text-base font-bold text-zinc-900">Type</Label>
                       <div className="flex flex-wrap gap-2">
                         {CATEGORIES.map((cat) => (
-                          <button key={cat} onClick={() => updateForm("category", cat)} className={`px-4 py-2 rounded-xl font-semibold text-sm capitalize transition-all ${formData.category === cat ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20" : "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>{cat}</button>
+                          <button key={cat} onClick={() => handleCategorySelect(cat)} className={`px-4 py-2 rounded-xl font-semibold text-sm capitalize transition-all ${formData.category === cat ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20" : "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>{cat}</button>
                         ))}
                       </div>
+                      {formData.category === "other" && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-semibold text-zinc-700">Custom category</Label>
+                          {customCategoryEditMode ? (
+                            <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-2">
+                              <Input
+                                placeholder="e.g. Cultural Fest"
+                                value={customCategory}
+                                onChange={(e) => setCustomCategory(e.target.value)}
+                                className="border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleCustomCategoryDone}
+                                disabled={!customCategory.trim()}
+                                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                aria-label="Done"
+                              >
+                                Done
+                              </button>
+                            </div>
+                          ) : null}
+                          {customCategory.trim() && !customCategoryEditMode && (
+                            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700">
+                              <span>{customCategory.trim()}</span>
+                              <button
+                                type="button"
+                                onClick={clearCustomCategory}
+                                className="rounded-full text-indigo-600 transition hover:bg-indigo-100"
+                                aria-label="Remove custom category"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-3">
                       <Label className="text-base font-bold text-zinc-900">Mode</Label>
@@ -260,7 +326,7 @@ export default function CreateEventPage() {
                   <div className="w-full max-w-sm bg-white rounded-3xl p-3 border border-zinc-200 shadow-xl shadow-zinc-200/50">
                     <div className="w-full h-40 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 relative overflow-hidden">
                       <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-zinc-900 shadow-sm capitalize">
-                        {formData.category} • {formData.mode}
+                        {resolvedCategory} • {formData.mode}
                       </div>
                     </div>
                     <div className="p-5">
