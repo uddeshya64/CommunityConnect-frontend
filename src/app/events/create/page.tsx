@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Sparkles, MapPin, Calendar, Users, AlignLeft, CheckCircle2, Loader2, Ticket } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, MapPin, Calendar, AlignLeft, CheckCircle2, Loader2, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,16 @@ interface EventFormData {
   max_team_size: string;
 }
 
+interface FormErrors {
+  title?: string;
+  category?: string;
+  customCategory?: string;
+  start_date?: string;
+  end_date?: string;
+  location?: string;
+  description?: string;
+}
+
 const CATEGORIES = ["meetup", "hackathon", "workshop", "other"];
 const MODES = ["online", "offline", "hybrid"];
 const REG_TYPES = ["solo", "team"];
@@ -34,9 +44,13 @@ export default function CreateEventPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
+  const [locationSuggestions, setLocationSuggestions] = useState<Array<{ label: string; value: string }>>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [isLocationSelected, setIsLocationSelected] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
   const [customCategoryEditMode, setCustomCategoryEditMode] = useState(false);
+  const locationControllerRef = useRef<AbortController | null>(null);
 
   const [formData, setFormData] = useState<EventFormData>({
     title: "",
@@ -55,10 +69,83 @@ export default function CreateEventPage() {
 
   const updateForm = (field: keyof EventFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  const clearFieldError = (field: keyof FormErrors) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  useEffect(() => {
+    const searchTerm = formData.location.trim();
+
+    if (isLocationSelected || searchTerm.length < 3) {
+      if (isLocationSelected) {
+        setLocationSuggestions([]);
+      }
+      setIsLoadingSuggestions(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      locationControllerRef.current?.abort();
+      const controller = new AbortController();
+      locationControllerRef.current = controller;
+      setIsLoadingSuggestions(true);
+
+      fetch(`http://localhost:3000/api/locations/search?q=${encodeURIComponent(searchTerm)}`, {
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("Unable to fetch locations");
+          const result = await response.json();
+          const suggestions = Array.isArray(result?.data)
+            ? result.data.map((item: unknown) => {
+                if (typeof item === "object" && item !== null) {
+                  const place = item as { name?: string; address?: string; mapboxId?: string };
+                  const label = [place.name, place.address].filter(Boolean).join(" - ");
+                  return {
+                    label: label || "Unknown location",
+                    value: label || "Unknown location",
+                  };
+                }
+                return null;
+              })
+            : [];
+          setLocationSuggestions(suggestions.filter(Boolean) as Array<{ label: string; value: string }>);
+        })
+        .catch(() => {
+          setLocationSuggestions([]);
+        })
+        .finally(() => {
+          if (locationControllerRef.current === controller) {
+            setIsLoadingSuggestions(false);
+          }
+        });
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [formData.location]);
+
+  const handleLocationSelect = (value: string) => {
+    updateForm("location", value);
+    setLocationSuggestions([]);
+    setIsLocationSelected(true);
+    clearFieldError("location");
+  };
+
+  const clearSelectedLocation = () => {
+    updateForm("location", "");
+    setLocationSuggestions([]);
+    setIsLocationSelected(false);
   };
 
   const handleCategorySelect = (value: string) => {
     updateForm("category", value);
+    clearFieldError("category");
+    clearFieldError("customCategory");
     if (value !== "other") {
       setCustomCategory("");
       setCustomCategoryEditMode(false);
@@ -70,6 +157,7 @@ export default function CreateEventPage() {
   const handleCustomCategoryDone = () => {
     if (customCategory.trim()) {
       setCustomCategoryEditMode(false);
+      clearFieldError("customCategory");
     }
   };
 
@@ -83,25 +171,83 @@ export default function CreateEventPage() {
     ? customCategory.trim()
     : formData.category;
 
+  const validateForm = (targetStep = step) => {
+    const nextErrors: FormErrors = {};
+    const trimmedTitle = formData.title.trim();
+    const trimmedDescription = formData.description.trim();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (targetStep === 1 || targetStep === 4) {
+      if (!trimmedTitle) {
+        nextErrors.title = "Title is required.";
+      } else if (trimmedTitle.length < 5) {
+        nextErrors.title = "Title must be at least 5 characters long.";
+      }
+
+      if (formData.category === "other" && !customCategory.trim()) {
+        nextErrors.customCategory = "Please enter a custom category.";
+      }
+    }
+
+    if (targetStep === 2 || targetStep === 4) {
+      if (!formData.start_date) {
+        nextErrors.start_date = "Start date is required.";
+      } else {
+        const startDate = new Date(formData.start_date);
+        if (startDate < today) {
+          nextErrors.start_date = "Start date cannot be before today.";
+        }
+      }
+
+      if (!formData.end_date) {
+        nextErrors.end_date = "End date is required.";
+      } else {
+        const endDate = new Date(formData.end_date);
+        if (endDate < today) {
+          nextErrors.end_date = "End date cannot be before today.";
+        }
+      }
+
+      if (formData.start_date && formData.end_date) {
+        const startDate = new Date(formData.start_date);
+        const endDate = new Date(formData.end_date);
+        if (endDate < startDate) {
+          nextErrors.end_date = "End date cannot be before start date.";
+        }
+      }
+
+      if (formData.mode !== "online" && !formData.location.trim()) {
+        nextErrors.location = "Location is required for offline or hybrid events.";
+      }
+    }
+
+    if (targetStep === 3 || targetStep === 4) {
+      if (!trimmedDescription) {
+        nextErrors.description = "Description is required.";
+      } else if (trimmedDescription.length < 30) {
+        nextErrors.description = "Please add a more detailed description (at least 30 characters).";
+      }
+    }
+
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const nextStep = () => {
-    setError("");
-    if (step === 1 && !formData.title) return setError("Please provide an event title.");
-    if (step === 1 && formData.category === "other" && !customCategory.trim()) return setError("Please enter a custom event category.");
-    if (step === 2 && (!formData.start_date || !formData.end_date)) return setError("Start and End dates are required.");
-    if (step === 2 && formData.mode !== "online" && !formData.location) return setError("Location is required for offline/hybrid events.");
-    if (step === 3 && !formData.description) return setError("Please provide a description.");
+    if (!validateForm(step)) return;
     setStep((prev) => prev + 1);
   };
 
   const prevStep = () => {
-    setError("");
     setStep((prev) => prev - 1);
   };
 
   const onSubmit = async () => {
+    if (!validateForm(4)) return;
+
     try {
       setIsLoading(true);
-      setError("");
       
       // Transform our frontend state into the EXACT payload the backend Zod schema wants
       const payload = {
@@ -122,15 +268,7 @@ export default function CreateEventPage() {
       await eventService.createEvent(payload);
       router.push("/home");
       
-    } catch (err: any) {
-      // Smart Zod Error Parser: If backend returns an array of errors, format them nicely!
-      const backendError = err.response?.data?.error;
-      if (Array.isArray(backendError)) {
-        const errorMessages = backendError.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(" | ");
-        setError(errorMessages);
-      } else {
-        setError(backendError?.message || backendError || "Failed to create event. Please check your inputs.");
-      }
+    } catch {
       setIsLoading(false);
     }
   };
@@ -164,25 +302,25 @@ export default function CreateEventPage() {
 
         <div className="w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl shadow-zinc-200/50 border border-zinc-100 p-8 md:p-12 relative overflow-hidden min-h-[550px] flex flex-col">
           
-          {error && (
-             <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 text-sm font-bold border border-red-100 animate-in fade-in">
-                {error}
-             </div>
-          )}
-
           <AnimatePresence mode="wait" custom={1}>
             
             {/* --- STEP 1: BASICS --- */}
             {step === 1 && (
               <motion.div key="step1" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.4 }} className="flex-1 flex flex-col">
                 <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-8"><Sparkles className="w-8 h-8" /></div>
-                <h1 className="text-3xl font-extrabold text-zinc-900 mb-2">Let's start with the basics</h1>
+                <h1 className="text-3xl font-extrabold text-zinc-900 mb-2">Let&apos;s start with the basics</h1>
                 <p className="text-zinc-500 font-medium mb-10">What kind of event are you hosting?</p>
 
                 <div className="space-y-8 flex-1">
                   <div className="space-y-3">
                     <Label className="text-base font-bold text-zinc-900">Event Title</Label>
-                    <Input placeholder="e.g., CodeHack 2026..." value={formData.title} onChange={(e) => updateForm("title", e.target.value)} className="text-lg py-7 px-5 rounded-2xl bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600" />
+                    <Input
+                      placeholder="e.g., CodeHack 2026..."
+                      value={formData.title}
+                      onChange={(e) => updateForm("title", e.target.value)}
+                      className={`text-lg py-7 px-5 rounded-2xl bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 ${fieldErrors.title ? "border-red-400" : ""}`}
+                    />
+                    {fieldErrors.title && <p className="text-sm text-red-500">{fieldErrors.title}</p>}
                   </div>
                   
                   <div className="grid grid-cols-2 gap-6">
@@ -193,6 +331,7 @@ export default function CreateEventPage() {
                           <button key={cat} onClick={() => handleCategorySelect(cat)} className={`px-4 py-2 rounded-xl font-semibold text-sm capitalize transition-all ${formData.category === cat ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20" : "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>{cat}</button>
                         ))}
                       </div>
+                      {fieldErrors.category && <p className="text-sm text-red-500">{fieldErrors.category}</p>}
                       {formData.category === "other" && (
                         <div className="space-y-2">
                           <Label className="text-sm font-semibold text-zinc-700">Custom category</Label>
@@ -215,6 +354,7 @@ export default function CreateEventPage() {
                               </button>
                             </div>
                           ) : null}
+                          {fieldErrors.customCategory && <p className="text-sm text-red-500">{fieldErrors.customCategory}</p>}
                           {customCategory.trim() && !customCategoryEditMode && (
                             <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700">
                               <span>{customCategory.trim()}</span>
@@ -255,17 +395,69 @@ export default function CreateEventPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-3">
                       <Label className="text-base font-bold text-zinc-900">Start Date & Time</Label>
-                      <Input type="datetime-local" value={formData.start_date} onChange={(e) => updateForm("start_date", e.target.value)} className="py-6 px-4 rounded-2xl bg-zinc-50 border-zinc-200" />
+                      <Input
+                        type="datetime-local"
+                        value={formData.start_date}
+                        onChange={(e) => updateForm("start_date", e.target.value)}
+                        className={`py-6 px-4 rounded-2xl bg-zinc-50 border-zinc-200 ${fieldErrors.start_date ? "border-red-400" : ""}`}
+                      />
+                      {fieldErrors.start_date && <p className="text-sm text-red-500">{fieldErrors.start_date}</p>}
                     </div>
                     <div className="space-y-3">
                       <Label className="text-base font-bold text-zinc-900">End Date & Time</Label>
-                      <Input type="datetime-local" value={formData.end_date} onChange={(e) => updateForm("end_date", e.target.value)} className="py-6 px-4 rounded-2xl bg-zinc-50 border-zinc-200" />
+                      <Input
+                        type="datetime-local"
+                        value={formData.end_date}
+                        onChange={(e) => updateForm("end_date", e.target.value)}
+                        className={`py-6 px-4 rounded-2xl bg-zinc-50 border-zinc-200 ${fieldErrors.end_date ? "border-red-400" : ""}`}
+                      />
+                      {fieldErrors.end_date && <p className="text-sm text-red-500">{fieldErrors.end_date}</p>}
                     </div>
                   </div>
                   
                   <div className="space-y-3">
                     <Label className="text-base font-bold text-zinc-900">Location {formData.mode === 'online' && '(Optional for Online)'}</Label>
-                    <Input placeholder="e.g., Tech Hub Jaipur, or Zoom URL" value={formData.location} onChange={(e) => updateForm("location", e.target.value)} className="text-lg py-7 px-5 rounded-2xl bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600" />
+                    <div className="relative">
+                      <Input
+                        placeholder="e.g., Tech Hub Jaipur, or Zoom URL"
+                        value={formData.location}
+                        onChange={(e) => {
+                          updateForm("location", e.target.value);
+                          setIsLocationSelected(false);
+                        }}
+                        className={`text-lg py-7 px-5 pr-12 rounded-2xl bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 ${fieldErrors.location ? "border-red-400" : ""}`}
+                      />
+                      {formData.location.trim() && (
+                        <button
+                          type="button"
+                          onClick={clearSelectedLocation}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800"
+                          aria-label="Clear location"
+                        >
+                          ×
+                        </button>
+                      )}
+                      {isLoadingSuggestions && formData.location.trim().length >= 3 && (
+                        <p className="mt-2 text-sm text-zinc-500">Searching locations...</p>
+                      )}
+                      {locationSuggestions.length > 0 && (
+                        <ul className="absolute z-20 mt-2 w-full rounded-2xl border border-zinc-200 bg-white shadow-lg">
+                          {locationSuggestions.map((suggestion) => (
+                            <li
+                              key={suggestion.value}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                handleLocationSelect(suggestion.value);
+                              }}
+                              className="cursor-pointer px-4 py-3 text-sm text-zinc-700 hover:bg-zinc-50"
+                            >
+                              <div className="font-medium text-zinc-900">{suggestion.label}</div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    {fieldErrors.location && <p className="text-sm text-red-500">{fieldErrors.location}</p>}
                   </div>
                 </div>
               </motion.div>
@@ -281,7 +473,13 @@ export default function CreateEventPage() {
                 <div className="space-y-6 flex-1">
                   <div className="space-y-3">
                     <Label className="text-base font-bold text-zinc-900">Description</Label>
-                    <textarea placeholder="What is the agenda? Who are the speakers?" value={formData.description} onChange={(e) => updateForm("description", e.target.value)} className="w-full h-24 text-base py-4 px-5 rounded-2xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-none" />
+                    <textarea
+                      placeholder="What is the agenda? Who are the speakers?"
+                      value={formData.description}
+                      onChange={(e) => updateForm("description", e.target.value)}
+                      className={`w-full h-24 text-base py-4 px-5 rounded-2xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-none ${fieldErrors.description ? "border-red-400" : ""}`}
+                    />
+                    {fieldErrors.description && <p className="text-sm text-red-500">{fieldErrors.description}</p>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
