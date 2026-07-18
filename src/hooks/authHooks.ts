@@ -196,3 +196,108 @@ export function useLogout() {
 
   return { logout, isLoading, error };
 }
+
+export function useSendResetOtp() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const sendResetOtp = async (email: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { data } = await axios.post(
+        `${API_BASE_URL}/auth/register/init`,
+        {
+          email,
+          context: "RESET",
+        }
+      );
+
+      return data;
+    } catch (err: any) {
+      const message =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to send reset code.";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { sendResetOtp, isLoading, error };
+}
+
+export function useVerifyResetOtp() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const verifyResetOtp = async (email: string, otp: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { data } = await axios.post(
+        `${API_BASE_URL}/auth/register/verify`,
+        {
+          email,
+          otp,
+          context: "RESET",
+        }
+      );
+
+      return data;
+    } catch (err: any) {
+      const message =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Invalid reset code.";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { verifyResetOtp, isLoading, error };
+}
+
+export function useResetPassword() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const resetPassword = async (
+    token: string,
+    newPassword: string,
+    confirmPassword: string
+  ) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { data } = await axios.post(
+        `${API_BASE_URL}/auth/reset-password`,
+        {
+          token,
+          newPassword,
+          confirmPassword,
+        }
+      );
+
+      return data;
+    } catch (err: any) {
+      const message =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to reset password.";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { resetPassword, isLoading, error };
+}
