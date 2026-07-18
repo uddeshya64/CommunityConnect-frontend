@@ -11,8 +11,12 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { ArrowRight, Sparkles, Loader2, KeyRound, MailCheck, RotateCcw, Eye, EyeOff } from "lucide-react";
 import PageTransition from "@/components/layout/PageTransition";
-import { authService } from "@/services/auth.service";
-import { useLogin } from "@/hooks/authHooks";
+import {
+  useLogin,
+  useSendResetOtp,
+  useVerifyResetOtp,
+  useResetPassword,
+} from "@/hooks/authHooks";
 
 // Define our view states
 type ViewState = "LOGIN" | "FORGOT_EMAIL" | "FORGOT_OTP" | "FORGOT_NEW_PASSWORD";
@@ -25,6 +29,10 @@ export default function LoginPage() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const { login, isLoading: isLoggingIn } = useLogin();
+
+  const { sendResetOtp } = useSendResetOtp();
+  const { verifyResetOtp } = useVerifyResetOtp();
+  const { resetPassword } = useResetPassword();
 
   // States for the forgot password flow
   const [resetEmail, setResetEmail] = useState("");
@@ -74,7 +82,7 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       setServerError("");
-      await authService.sendResetOtp(resetEmail);
+      await sendResetOtp(resetEmail);
       setView("FORGOT_OTP");
     } catch (error: any) {
       setServerError(error.response?.data?.error || "Failed to send reset code.");
@@ -91,7 +99,7 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       setServerError("");
-      const res = await authService.verifyResetOtp(resetEmail, resetOtp);
+      const res = await verifyResetOtp(resetEmail, resetOtp);
       setResetToken(res.token); // Save the secure token for the final step!
       setView("FORGOT_NEW_PASSWORD");
     } catch (error: any) {
@@ -117,7 +125,11 @@ export default function LoginPage() {
       setServerError("");
 
       // Pass BOTH passwords to the service
-      await authService.resetPassword(resetToken, newPassword, confirmPassword);
+      await resetPassword(
+        resetToken,
+        newPassword,
+        confirmPassword
+      );
 
       // Success! Send them back to login
       setSuccessMessage("Password reset successfully! You can now log in.");
