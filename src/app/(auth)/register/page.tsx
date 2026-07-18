@@ -11,15 +11,17 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { ArrowRight, Users, Loader2, MailCheck, Eye, EyeOff } from "lucide-react";
 import PageTransition from "@/components/layout/PageTransition";
-import { authService } from "@/services/auth.service";
+import { useRegisterInit, useVerifyRegister } from "@/hooks/authHooks";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
-  const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState("");
   const [otp, setOtp] = useState(""); // Simple state for our OTP string
   const [showPassword, setShowPassword] = useState(false);
+
+  const { registerInit, isLoading: isSendingOtp } = useRegisterInit();
+  const { verifyRegister, isLoading: isVerifying } = useVerifyRegister();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(RegisterSchema),
@@ -29,19 +31,16 @@ export default function RegisterPage() {
   // Handles Step 1: Submitting Details & Requesting OTP
   const onSubmitDetails = async (data: RegisterFormValues) => {
     try {
-      setIsLoading(true);
       setServerError("");
 
       // Trigger the backend to email the OTP
-      await authService.sendOtp(data);
+      await registerInit(data.email, data.password);
 
       // Move to the OTP verification screen
       setStep(2);
 
     } catch (error: any) {
-      setServerError(error.response?.data?.error || "Failed to send OTP. Please try again.");
-    } finally {
-      setIsLoading(false);
+      setServerError(error.message || "Failed to send OTP. Please try again.");
     }
   };
 
@@ -54,12 +53,15 @@ export default function RegisterPage() {
     }
 
     try {
-      setIsLoading(true);
       setServerError("");
 
-      // We send ALL the data (from react-hook-form) plus the OTP to create the user
-      const formData = form.getValues();
-      await authService.verifyAndRegister({ ...formData, otp });
+      // We send name + email (from react-hook-form) plus the OTP to create the user
+      const { name, email } = form.getValues();
+      const result = await verifyRegister(name, email, otp);
+
+      // Persist auth tokens
+      localStorage.setItem("accessToken", result.accessToken);
+      localStorage.setItem("refreshToken", result.refreshToken);
 
       // Check if there's a return URL (e.g. from a team invite)
       const returnUrl = localStorage.getItem("returnUrl");
@@ -71,9 +73,7 @@ export default function RegisterPage() {
       }
 
     } catch (error: any) {
-      setServerError(error.response?.data?.error || "Invalid OTP. Please try again.");
-    } finally {
-      setIsLoading(false);
+      setServerError(error.message || "Invalid OTP. Please try again.");
     }
   };
 
@@ -106,20 +106,20 @@ export default function RegisterPage() {
                 <form onSubmit={form.handleSubmit(onSubmitDetails)} className="space-y-5">
                   <div className="space-y-2">
                     <Label htmlFor="name" className="font-semibold text-zinc-900">Full Name</Label>
-                    <Input id="name" placeholder="John Doe" {...form.register("name")} disabled={isLoading} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                    <Input id="name" placeholder="John Doe" {...form.register("name")} disabled={isSendingOtp} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
                     {form.formState.errors.name && <p className="text-sm text-red-500 font-medium">{form.formState.errors.name.message}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="email" className="font-semibold text-zinc-900">Email Address</Label>
-                    <Input id="email" type="email" placeholder="m@example.com" {...form.register("email")} disabled={isLoading} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                    <Input id="email" type="email" placeholder="m@example.com" {...form.register("email")} disabled={isSendingOtp} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
                     {form.formState.errors.email && <p className="text-sm text-red-500 font-medium">{form.formState.errors.email.message}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="password" className="font-semibold text-zinc-900">Password</Label>
                     <div className="relative">
-                      <Input id="password" type={showPassword ? "text" : "password"} {...form.register("password")} disabled={isLoading} className="rounded-xl px-4 py-6 pr-12 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                      <Input id="password" type={showPassword ? "text" : "password"} {...form.register("password")} disabled={isSendingOtp} className="rounded-xl px-4 py-6 pr-12 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
                       <button type="button" tabIndex={-1} onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors">
                         {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </button>
@@ -127,8 +127,8 @@ export default function RegisterPage() {
                     {form.formState.errors.password && <p className="text-sm text-red-500 font-medium">{form.formState.errors.password.message}</p>}
                   </div>
 
-                  <Button type="submit" disabled={isLoading} className="w-full rounded-xl mt-4 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]">
-                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Continue <ArrowRight className="ml-2 h-5 w-5" /></>}
+                  <Button type="submit" disabled={isSendingOtp} className="w-full rounded-xl mt-4 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]">
+                    {isSendingOtp ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Continue <ArrowRight className="ml-2 h-5 w-5" /></>}
                   </Button>
                 </form>
 
@@ -162,13 +162,13 @@ export default function RegisterPage() {
                       placeholder="Enter 6-digit OTP"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value)}
-                      disabled={isLoading}
+                      disabled={isVerifying}
                       className="rounded-xl text-center tracking-[0.5em] text-2xl font-bold px-4 py-8 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all"
                     />
                   </div>
 
-                  <Button type="submit" disabled={isLoading} className="w-full rounded-xl py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]">
-                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Verify & Create Account"}
+                  <Button type="submit" disabled={isVerifying} className="w-full rounded-xl py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]">
+                    {isVerifying ? <Loader2 className="h-5 w-5 animate-spin" /> : "Verify & Create Account"}
                   </Button>
 
                   <button type="button" onClick={() => setStep(1)} className="w-full text-center text-sm font-semibold text-zinc-500 hover:text-zinc-900 transition-colors">
