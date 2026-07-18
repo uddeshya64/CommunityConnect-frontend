@@ -12,6 +12,7 @@ import Link from "next/link";
 import { ArrowRight, Sparkles, Loader2, KeyRound, MailCheck, RotateCcw, Eye, EyeOff } from "lucide-react";
 import PageTransition from "@/components/layout/PageTransition";
 import { authService } from "@/services/auth.service";
+import { useLogin } from "@/hooks/authHooks";
 
 // Define our view states
 type ViewState = "LOGIN" | "FORGOT_EMAIL" | "FORGOT_OTP" | "FORGOT_NEW_PASSWORD";
@@ -22,6 +23,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  const { login, isLoading: isLoggingIn } = useLogin();
 
   // States for the forgot password flow
   const [resetEmail, setResetEmail] = useState("");
@@ -43,9 +46,12 @@ export default function LoginPage() {
   // --- STANDARD LOGIN ---
   const onSubmitLogin = async (data: LoginFormValues) => {
     try {
-      setIsLoading(true);
       setServerError("");
-      await authService.login(data);
+      const result = await login(data.email, data.password);
+
+      // Persist auth tokens
+      localStorage.setItem("accessToken", result.accessToken);
+      localStorage.setItem("refreshToken", result.refreshToken);
 
       // Check if there's a return URL (e.g. from a team invite)
       const returnUrl = localStorage.getItem("returnUrl");
@@ -56,9 +62,7 @@ export default function LoginPage() {
         router.push("/home");
       }
     } catch (error: any) {
-      setServerError(error.response?.data?.error || "Failed to login. Please try again.");
-    } finally {
-      setIsLoading(false);
+      setServerError(error.message || "Failed to login. Please try again.");
     }
   };
 
@@ -168,7 +172,7 @@ export default function LoginPage() {
                 <form onSubmit={form.handleSubmit(onSubmitLogin)} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="email" className="font-semibold text-zinc-900">Email Address</Label>
-                    <Input id="email" type="email" placeholder="m@example.com" {...form.register("email")} disabled={isLoading} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                    <Input id="email" type="email" placeholder="m@example.com" {...form.register("email")} disabled={isLoggingIn} className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
                     {form.formState.errors.email && <p className="text-sm text-red-500 font-medium">{form.formState.errors.email.message}</p>}
                   </div>
 
@@ -180,7 +184,7 @@ export default function LoginPage() {
                       </button>
                     </div>
                     <div className="relative">
-                      <Input id="password" type={showLoginPassword ? "text" : "password"} {...form.register("password")} disabled={isLoading} className="rounded-xl px-4 py-6 pr-12 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
+                      <Input id="password" type={showLoginPassword ? "text" : "password"} {...form.register("password")} disabled={isLoggingIn} className="rounded-xl px-4 py-6 pr-12 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base" />
                       <button type="button" tabIndex={-1} onClick={() => setShowLoginPassword(!showLoginPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors">
                         {showLoginPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </button>
@@ -188,8 +192,8 @@ export default function LoginPage() {
                     {form.formState.errors.password && <p className="text-sm text-red-500 font-medium">{form.formState.errors.password.message}</p>}
                   </div>
 
-                  <Button type="submit" disabled={isLoading} className="w-full rounded-xl py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]">
-                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Sign In <ArrowRight className="ml-2 h-5 w-5" /></>}
+                  <Button type="submit" disabled={isLoggingIn} className="w-full rounded-xl py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]">
+                    {isLoggingIn ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Sign In <ArrowRight className="ml-2 h-5 w-5" /></>}
                   </Button>
                 </form>
 
