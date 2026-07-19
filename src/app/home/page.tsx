@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Search, MapPin, Calendar, CalendarX, Sparkles, Compass, Rocket, Plus } from "lucide-react";
@@ -17,6 +17,7 @@ interface AppEvent {
   date: string;
   location: string;
   attendees?: number;
+  createdBy?: number | string; // NEW: who created this event
 }
 
 interface UserProfile {
@@ -79,7 +80,7 @@ export default function HomePage() {
         setUserName(profile.name || "there");
         setUserId(profile.id);
         setAvatarUrl(profile.avatar_url);
-      } catch {
+      } catch (err) {
         setUserName("there");
       }
     };
@@ -108,15 +109,18 @@ export default function HomePage() {
           console.error("🚨 Could not find the array in the response! Look at the console log above.");
         }
 
-        const formattedEvents = rawEvents.map((evt: any) => ({
-          id: evt.id || evt._id,
-          title: evt.title,
-          category: evt.type || evt.category || "Meetup",
-          date: evt.start_date || evt.date || new Date().toISOString(),
-          location: evt.location || evt.mode || "TBA",
-          attendees: evt.capacity || 0,
-        }));
-
+        const formattedEvents = rawEvents.map((evt: any) => {
+          console.log("RAW EVENT:", evt.id, "created_by:", evt.created_by, typeof evt.created_by);
+          return {
+            id: evt.id || evt._id,
+            title: evt.title,
+            category: evt.type || evt.category || "Meetup",
+            date: evt.start_date || evt.date || new Date().toISOString(),
+            location: evt.location || evt.mode || "TBA",
+            attendees: evt.capacity || 0,
+            createdBy: evt.created_by,
+          };
+        });
         setEvents(formattedEvents);
       } catch (error) {
         console.error("Failed to fetch events:", error);
@@ -126,6 +130,13 @@ export default function HomePage() {
     };
     fetchEvents();
   }, []);
+
+  // Hide events the logged-in user created themselves — only show events hosted by others.
+  const visibleEvents = useMemo(() => {
+    console.log("FILTERING — userId:", userId, typeof userId);
+    if (userId === undefined) return events; // profile not loaded yet; don't hide everything prematurely
+    return events.filter((evt) => String(evt.createdBy) !== String(userId));
+  }, [events, userId]);
 
   return (
     <div className="min-h-screen bg-zinc-50 relative flex">
@@ -159,7 +170,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {!isLoading && events.length === 0 && (
+          {!isLoading && visibleEvents.length === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -223,9 +234,9 @@ export default function HomePage() {
             </motion.div>
           )}
 
-          {!isLoading && events.length > 0 && (
+          {!isLoading && visibleEvents.length > 0 && (
             <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
-              {events.map((event, index) => {
+              {visibleEvents.map((event, index) => {
                 const gradients = ["from-blue-500 to-cyan-400", "from-indigo-500 to-purple-600", "from-rose-500 to-orange-400", "from-emerald-400 to-teal-500"];
                 const randomGradient = gradients[index % gradients.length];
 
