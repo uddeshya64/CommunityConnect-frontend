@@ -189,7 +189,7 @@ export default function EventDetailsPage() {
 
         setStaffList(rawEvent.user_roles || []);
 
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("accessToken");
         if (token) {
           const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
           const currentUserId = payload.id || payload.userId || payload._id;

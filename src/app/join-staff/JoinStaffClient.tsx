@@ -38,7 +38,7 @@ export default function JoinStaffClient() {
 
       try {
         // Check auth state on mount
-        const authToken = localStorage.getItem("token");
+        const authToken = localStorage.getItem("accessToken");
         if (authToken) {
           setIsLoggedIn(true);
           try {

@@ -207,7 +207,7 @@ export default function TeamParticipantDashboard() {
   // Find current user's ticket code from roster
   const getCurrentUserTicketCode = () => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
       if (!token) return null;
       const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
       const currentUserId = payload.id || payload.userId || payload._id;
