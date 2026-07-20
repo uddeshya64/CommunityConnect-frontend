@@ -31,20 +31,20 @@ export default function PublicProfilePage() {
 
     const { getProfileById } = useProfileById();
 
-    useEffect(() => {
-        if (!profileId) return;
-        const fetchProfile = async () => {
-            try {
-                const data = await getProfileById(profileId);
-                setProfile(data);
-            } catch (err: any) {
-                setError(err.message || "Profile not found.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchProfile();
-    }, [profileId]);
+   useEffect(() => {
+    if (!profileId) return;
+    const fetchProfile = async () => {
+        try {
+            const data = await getProfileById(profileId);
+            setProfile(data);
+        } catch (err: any) {
+            setError(err.message || "Profile not found.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchProfile();
+}, [profileId]);
 
     if (isLoading) {
         return (

@@ -32,7 +32,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/home", icon: Home },
   { label: "Discover", href: "/discover", icon: Compass },
-  { label: "My Events", href: "/events/mine", icon: CalendarDays },
+  { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
   { label: "Saved", href: "/saved", icon: Bookmark },
   { label: "Notifications", href: "/notifications", icon: Bell },
 ];

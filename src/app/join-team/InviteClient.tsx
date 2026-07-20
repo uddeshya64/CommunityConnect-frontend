@@ -38,7 +38,7 @@ export default function InviteClient() {
 
       try {
         // Check auth state on every mount (important for post-login redirects)
-        const authToken = localStorage.getItem("token");
+        const authToken = localStorage.getItem("accessToken");
         if (authToken) {
           setIsLoggedIn(true);
           try {
