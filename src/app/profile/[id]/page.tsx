@@ -18,32 +18,33 @@ import {
     User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { profileService } from "@/services/profile.service";
-import { Profile } from "@/types/profile.types";
+import { useProfileById, MyProfile } from "@/hooks/profileHooks";
 import PageTransition from "@/components/layout/PageTransition";
 
 export default function PublicProfilePage() {
     const params = useParams();
     const profileId = params.id as string;
 
-    const [profile, setProfile] = useState<Profile | null>(null);
+    const [profile, setProfile] = useState<MyProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
 
-    useEffect(() => {
-        if (!profileId) return;
-        const fetchProfile = async () => {
-            try {
-                const data = await profileService.getProfileById(profileId);
-                setProfile(data);
-            } catch (err: any) {
-                setError(err.response?.data?.error || "Profile not found.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchProfile();
-    }, [profileId]);
+    const { getProfileById } = useProfileById();
+
+   useEffect(() => {
+    if (!profileId) return;
+    const fetchProfile = async () => {
+        try {
+            const data = await getProfileById(profileId);
+            setProfile(data);
+        } catch (err: any) {
+            setError(err.message || "Profile not found.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchProfile();
+}, [profileId]);
 
     if (isLoading) {
         return (
@@ -113,7 +114,7 @@ export default function PublicProfilePage() {
                             <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden">
                                 {hasAvatar ? (
                                     <img
-                                        src={profile.avatar_url}
+                                        src={profile.avatar_url as string}
                                         alt={profile.name || "Avatar"}
                                         className="w-full h-full object-cover"
                                     />
@@ -202,8 +203,8 @@ export default function PublicProfilePage() {
                             </h2>
                             <div className="flex flex-wrap gap-3">
                                 {profile.linkedin && (
-                                    <a
-                                        href={profile.linkedin}
+                                    
+                                        <a href={profile.linkedin}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0077B5]/10 border border-[#0077B5]/20 text-[#0077B5] hover:bg-[#0077B5]/20 transition-all text-sm font-semibold group"
@@ -214,8 +215,8 @@ export default function PublicProfilePage() {
                                     </a>
                                 )}
                                 {profile.github && (
-                                    <a
-                                        href={profile.github}
+                                    
+                                        <a href={profile.github}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition-all text-sm font-semibold group"
@@ -258,7 +259,7 @@ export default function PublicProfilePage() {
                         </motion.div>
 
                         {/* Member Since */}
-                        {(profile as any)?.created_at && (
+                        {profile?.created_at && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -267,7 +268,7 @@ export default function PublicProfilePage() {
                             >
                                 <Calendar className="w-3.5 h-3.5" />
                                 Member since{" "}
-                                {new Date((profile as any).created_at).toLocaleDateString("en-US", {
+                                {new Date(profile.created_at).toLocaleDateString("en-US", {
                                     month: "long",
                                     year: "numeric",
                                 })}

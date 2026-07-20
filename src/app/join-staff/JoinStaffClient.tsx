@@ -3,24 +3,24 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, CheckCircle2, XCircle, Loader2, ArrowRight, ShieldCheck, Mail, LogIn, UserPlus } from "lucide-react";
+import { ShieldCheck, XCircle, Loader2, ArrowRight, Shield, Mail, LogIn, UserPlus, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/axios";
 import Link from "next/link";
 
-interface InviteDetails {
+interface StaffInviteDetails {
   emailInvited: string;
-  teamName: string;
   eventName: string;
   eventBanner?: string;
+  roleName: string;
 }
 
-export default function InviteClient() {
+export default function JoinStaffClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token");
 
-  const [inviteDetails, setInviteDetails] = useState<InviteDetails | null>(null);
+  const [inviteDetails, setInviteDetails] = useState<StaffInviteDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAccepting, setIsAccepting] = useState(false);
@@ -37,18 +37,15 @@ export default function InviteClient() {
       }
 
       try {
-        // Check auth state on every mount (important for post-login redirects)
+        // Check auth state on mount
         const authToken = localStorage.getItem("accessToken");
         if (authToken) {
           setIsLoggedIn(true);
           try {
             const payload = JSON.parse(window.atob(authToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-            // Check multiple possible email field names in the JWT
             const email = payload.email || payload.Email || payload.sub || payload.user_email;
             if (email) {
               setCurrentUserEmail(email);
-            } else {
-              console.warn("JWT payload does not contain an email field. Fields:", Object.keys(payload));
             }
           } catch (e) {
             console.error("Failed to decode token email:", e);
@@ -58,7 +55,8 @@ export default function InviteClient() {
           setCurrentUserEmail(null);
         }
 
-        const response = await api.get(`/team-dashboard/verify-invite/${token}`);
+        // Fetch invite verification details publicly from backend
+        const response = await api.get(`/staff/verify-invite/${token}`);
         const data = response.data.data || response.data;
         setInviteDetails(data);
 
@@ -73,7 +71,7 @@ export default function InviteClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const returnUrl = `/join-team?token=${token}`;
+  const returnUrl = `/join-staff?token=${token}`;
 
   const handleRedirectToAuth = (page: "login" | "register") => {
     localStorage.setItem("returnUrl", returnUrl);
@@ -90,17 +88,17 @@ export default function InviteClient() {
       setIsAccepting(true);
       setError(null);
 
-      const response = await api.post('/team-dashboard/accept-invite', { token });
+      const response = await api.post('/staff/accept-invite', { token });
       const result = response.data.data || response.data;
 
       if (result.success || response.data.success) {
         setIsSuccess(true);
         setTimeout(() => {
-          router.push(`/dashboard/team/${result.teamId || response.data.teamId}`);
+          router.push(`/events/${result.eventId || response.data.eventId}`);
         }, 3000);
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || err.response?.data?.message || "Failed to join the team. Please try again.");
+      setError(err.response?.data?.error || err.response?.data?.message || "Failed to join event staff. Please try again.");
     } finally {
       setIsAccepting(false);
     }
@@ -147,14 +145,14 @@ export default function InviteClient() {
             >
               <CheckCircle2 className="w-12 h-12 text-emerald-500" />
             </motion.div>
-            <h1 className="text-3xl md:text-4xl font-black mb-4 tracking-tight">You're In!</h1>
+            <h1 className="text-3xl md:text-4xl font-black mb-4 tracking-tight">Access Granted!</h1>
             <p className="text-zinc-400 font-medium mb-10 text-lg">
-              You have successfully joined <span className="text-white font-bold">{inviteDetails?.teamName}</span>.
+              You have successfully joined as <span className="text-white font-bold">{inviteDetails?.roleName}</span> for the event.
             </p>
             <div className="flex justify-center mb-6">
               <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
             </div>
-            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Redirecting to workspace...</p>
+            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Redirecting to event dashboard...</p>
           </motion.div>
         ) : inviteDetails && (
           <motion.div
@@ -165,11 +163,11 @@ export default function InviteClient() {
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-bl-[100px] -z-10 group-hover:scale-110 transition-transform duration-700" />
             <div className="mb-10 text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-indigo-500/10 text-indigo-400 mb-6 border border-indigo-500/20 shadow-inner">
-                <Users className="w-8 h-8" />
+                <Shield className="w-8 h-8" />
               </div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-4">You've Been Invited!</h1>
+              <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-4">Staff Invitation</h1>
               <p className="text-zinc-400 font-medium text-lg leading-relaxed">
-                You have been invited to join <span className="text-white font-bold">{inviteDetails.teamName}</span> for the upcoming event <span className="text-indigo-300 font-bold">{inviteDetails.eventName}</span>.
+                You have been invited to join the staff of <span className="text-white font-bold">{inviteDetails.eventName}</span> as a <span className="text-indigo-300 font-bold">{inviteDetails.roleName}</span>.
               </p>
             </div>
             <div className="bg-black/40 border border-white/5 rounded-2xl p-5 mb-10 flex flex-col gap-3">
@@ -184,7 +182,7 @@ export default function InviteClient() {
                   <p className="text-xs font-bold leading-relaxed">
                     {currentUserEmail.toLowerCase() === inviteDetails.emailInvited.toLowerCase()
                       ? "Secure Match: You are logged in with the correct email address."
-                      : `Warning: You are logged in as ${currentUserEmail}. This invite requires you to log in with the invited email.`}
+                      : `Warning: You are logged in as ${currentUserEmail}. This invite requires you to log in with ${inviteDetails.emailInvited}.`}
                   </p>
                 </div>
               )}
@@ -192,7 +190,6 @@ export default function InviteClient() {
             <div className="space-y-4">
               {!isLoggedIn ? (
                 <>
-                  {/* Not logged in — show auth prompt */}
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 mb-2">
                     <div className="flex items-start gap-3">
                       <LogIn className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
@@ -201,7 +198,7 @@ export default function InviteClient() {
                           You need to sign in or create an account to accept this invitation.
                         </p>
                         <p className="text-amber-400/70 text-xs mt-1 font-medium">
-                          You'll be brought right back here after signing in.
+                          You'll be redirected right back here after registering.
                         </p>
                       </div>
                     </div>

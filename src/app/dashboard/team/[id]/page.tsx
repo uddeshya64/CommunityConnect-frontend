@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Crown, QrCode, Send, Edit3, Check, X,
@@ -15,10 +15,12 @@ import Navbar from "@/components/NavBar";
 
 export default function TeamParticipantDashboard() {
   const { id } = useParams();
+  const router = useRouter();
 
   // Data States
   const [teamData, setTeamData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // UI Action States
   const [isEditingName, setIsEditingName] = useState(false);
@@ -33,6 +35,21 @@ export default function TeamParticipantDashboard() {
   const [memberToRemove, setMemberToRemove] = useState<any>(null);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
 
+  // Leave team modal state
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+
+  // Entry Pass ticket modal state
+  const [showEntryPassModal, setShowEntryPassModal] = useState(false);
+
+  // Revoke invite modal state
+  const [inviteToRevoke, setInviteToRevoke] = useState<any>(null);
+  const [showRevokeModal, setShowRevokeModal] = useState(false);
+
+  // Submission project state
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [submitTitle, setSubmitTitle] = useState("");
+  const [submitRepoUrl, setSubmitRepoUrl] = useState("");
+
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
 
@@ -45,12 +62,19 @@ export default function TeamParticipantDashboard() {
 
   const fetchDashboardData = async () => {
     try {
+      setIsLoading(true);
+      setError(null);
       const response = await api.get(`/team-dashboard/${id}`);
       const data = response.data.data;
       setTeamData(data);
       setEditNameStr(data?.name || "");
-    } catch (err) {
+      if (data?.submissions?.length > 0) {
+        setSubmitTitle(data.submissions[0].title || "");
+        setSubmitRepoUrl(data.submissions[0].repo_url || "");
+      }
+    } catch (err: any) {
       console.error("Dashboard error:", err);
+      setError(err.response?.data?.error || err.response?.data?.message || "Failed to load dashboard data. Please make sure you are registered and belong to this team.");
     } finally {
       setIsLoading(false);
     }
@@ -124,10 +148,78 @@ export default function TeamParticipantDashboard() {
     }
   };
 
+  const handleRevokeInvite = async () => {
+    if (!inviteToRevoke) return;
+    try {
+      setActionLoading(`revoke-${inviteToRevoke.id}`);
+      await api.delete(`/team-dashboard/${id}/invites`, {
+        data: { inviteId: inviteToRevoke.id }
+      });
+      setShowRevokeModal(false);
+      setInviteToRevoke(null);
+      setToast({ message: "Invitation revoked successfully.", type: "success" });
+      await fetchDashboardData();
+    } catch (err: any) {
+      setToast({ message: err.response?.data?.message || err.response?.data?.error || "Failed to revoke invitation.", type: "error" });
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleLeaveTeam = async () => {
+    try {
+      setActionLoading("leave");
+      await api.post(`/team-dashboard/${id}/leave`);
+      setShowLeaveModal(false);
+      setToast({ message: "You have left the team.", type: "success" });
+      router.push("/home");
+    } catch (err: any) {
+      setToast({ message: err.response?.data?.message || err.response?.data?.error || "Failed to leave the team.", type: "error" });
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleProjectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!submitTitle.trim() || !submitRepoUrl.trim()) return;
+    try {
+      setActionLoading("submit-project");
+      await api.post(`/team-dashboard/${id}/submit`, {
+        title: submitTitle,
+        repoUrl: submitRepoUrl
+      });
+      setShowSubmissionModal(false);
+      setToast({ message: "Project submitted successfully!", type: "success" });
+      await fetchDashboardData();
+    } catch (err: any) {
+      setToast({ message: err.response?.data?.message || err.response?.data?.error || "Failed to submit project. Verify it is a valid Git URL.", type: "error" });
+    } finally {
+      setActionLoading("");
+    }
+  };
+
   // Safe variables for rendering logic
   const members = teamData?.members || [];
   const invites = teamData?.invites || [];
   const isLeader = teamData?.is_leader || false;
+
+  // Find current user's ticket code from roster
+  const getCurrentUserTicketCode = () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      if (!token) return null;
+      const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      const currentUserId = payload.id || payload.userId || payload._id;
+      const currentUserMember = members.find((m: any) => Number(m.user_id) === Number(currentUserId));
+      return currentUserMember?.ticket_code || null;
+    } catch (e) {
+      console.error("Error decoding token for check-in QR:", e);
+      return null;
+    }
+  };
+
+  const userTicketCode = getCurrentUserTicketCode();
 
   // Use the pre-calculated capacity from your new backend logic
   const maxTeamSize = teamData?.event?.max_team_size || 5;
@@ -140,6 +232,27 @@ export default function TeamParticipantDashboard() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600/20 blur-[100px] rounded-full" />
       <Loader2 className="w-12 h-12 animate-spin text-indigo-500 mb-6 relative z-10" />
       <p className="text-zinc-400 font-bold uppercase tracking-[0.2em] text-sm relative z-10">Initializing Workspace</p>
+    </div>
+  );
+
+  if (error) return (
+    <div className="min-h-screen bg-[#09090b] text-zinc-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      <Navbar theme="dark" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-600/10 blur-[100px] rounded-full pointer-events-none" />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md bg-zinc-900/60 border border-red-500/20 rounded-[2.5rem] p-10 md:p-12 text-center backdrop-blur-xl shadow-2xl relative z-10"
+      >
+        <div className="w-20 h-20 mx-auto bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20">
+          <AlertTriangle className="w-10 h-10 text-red-500" />
+        </div>
+        <h1 className="text-3xl font-black mb-4">Access Denied</h1>
+        <p className="text-zinc-400 font-medium mb-10 leading-relaxed">{error}</p>
+        <Button onClick={() => router.push("/home")} className="w-full h-14 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-lg transition-all">
+          Return to Home
+        </Button>
+      </motion.div>
     </div>
   );
 
@@ -197,7 +310,7 @@ export default function TeamParticipantDashboard() {
                 )}
               </div>
 
-              <Button className="h-16 px-8 rounded-2xl bg-white text-black hover:bg-zinc-200 font-bold shadow-2xl transition-transform hover:scale-105 shrink-0 text-lg">
+              <Button onClick={() => setShowEntryPassModal(true)} className="h-16 px-8 rounded-2xl bg-white text-black hover:bg-zinc-200 font-bold shadow-2xl transition-transform hover:scale-105 shrink-0 text-lg">
                 <QrCode className="w-6 h-6 mr-3" /> Entry Pass
               </Button>
             </div>
@@ -212,8 +325,15 @@ export default function TeamParticipantDashboard() {
                 </h3>
                 <p className="text-zinc-500 mt-1 font-medium">Manage your squad for the event.</p>
               </div>
-              <div className="text-right flex flex-col items-end">
-                <p className="text-3xl font-black leading-none mb-1.5">{members.length} <span className="text-zinc-600">/ {maxTeamSize}</span></p>
+              <div className="text-right flex flex-col items-end gap-2">
+                <div className="flex items-center gap-4">
+                  {!isLeader && (
+                    <Button onClick={() => setShowLeaveModal(true)} variant="outline" className="h-9 px-4 rounded-xl border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-bold transition-all shrink-0">
+                      Leave Team
+                    </Button>
+                  )}
+                  <p className="text-3xl font-black leading-none mb-1.5">{members.length} <span className="text-zinc-600">/ {maxTeamSize}</span></p>
+                </div>
                 {meetsMinimum ? (
                   <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-[10px] font-black uppercase tracking-widest text-emerald-500 border border-emerald-500/20">
                     Ready to Compete
@@ -269,14 +389,28 @@ export default function TeamParticipantDashboard() {
 
               {/* --- RENDER PENDING INVITES (Blocked Slots) --- */}
               {invites.map((invite: any, i: number) => (
-                <div key={`invite-${i}`} className="flex items-center gap-4 p-5 bg-zinc-900/30 rounded-[1.5rem] border border-dashed border-indigo-500/30 opacity-80">
-                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-indigo-500/5 text-indigo-400/50">
-                    <Clock className="w-6 h-6" />
+                <div key={`invite-${i}`} className="flex items-center justify-between p-5 bg-zinc-900/30 rounded-[1.5rem] border border-dashed border-indigo-500/30 opacity-80 group/invite">
+                  <div className="flex items-center gap-4 overflow-hidden">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-indigo-500/5 text-indigo-400/50 shrink-0">
+                      <Clock className="w-6 h-6" />
+                    </div>
+                    <div className="truncate">
+                      <p className="font-bold text-lg text-zinc-300 truncate">{invite.email}</p>
+                      <p className="text-xs uppercase font-bold text-indigo-400 tracking-wider mt-0.5">Invite Pending...</p>
+                    </div>
                   </div>
-                  <div className="truncate">
-                    <p className="font-bold text-lg text-zinc-300 truncate">{invite.email}</p>
-                    <p className="text-xs uppercase font-bold text-indigo-400 tracking-wider mt-0.5">Invite Pending...</p>
-                  </div>
+                  {isLeader && (
+                    <Button
+                      variant="ghost" size="icon"
+                      onClick={() => {
+                        setInviteToRevoke(invite);
+                        setShowRevokeModal(true);
+                      }}
+                      className="opacity-0 group-hover/invite:opacity-100 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all shrink-0 ml-2"
+                    >
+                      {actionLoading === `revoke-${invite.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </Button>
+                  )}
                 </div>
               ))}
 
@@ -351,21 +485,42 @@ export default function TeamParticipantDashboard() {
         <div className="xl:col-span-4 space-y-6">
 
           {/* SUBMISSION CARD (Hack2Skill Style) */}
-          <div className="bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
-            <UploadCloud className="w-24 h-24 text-white/10 absolute -right-4 -top-4 rotate-12 group-hover:scale-110 transition-transform duration-500" />
-            <div className="relative z-10">
-              <div className="inline-block px-3 py-1 mb-6 rounded-full bg-white/20 backdrop-blur-md border border-white/20 text-xs font-black uppercase tracking-widest text-white shadow-sm">
-                Phase 2 Active
+          {teamData?.submissions && teamData.submissions.length > 0 ? (
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
+              <UploadCloud className="w-24 h-24 text-white/10 absolute -right-4 -top-4 rotate-12 group-hover:scale-110 transition-transform duration-500" />
+              <div className="relative z-10">
+                <div className="inline-flex px-3 py-1 mb-6 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-xs font-black uppercase tracking-widest text-emerald-300 shadow-sm items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5" /> Project Submitted
+                </div>
+                <h3 className="text-3xl font-black mb-3 leading-tight text-white line-clamp-2">{teamData.submissions[0].title}</h3>
+                <p className="text-indigo-100 text-sm mb-4 font-semibold leading-relaxed truncate">
+                  Repository: <a href={teamData.submissions[0].repo_url} target="_blank" rel="noreferrer" className="underline hover:text-white transition-all">{teamData.submissions[0].repo_url}</a>
+                </p>
+                <p className="text-xs text-indigo-200/70 mb-8 font-medium">
+                  Submitted by {teamData.submissions[0].user?.name || "Member"} on {new Date(teamData.submissions[0].submitted_at).toLocaleDateString()}
+                </p>
+                <Button onClick={() => setShowSubmissionModal(true)} className="w-full bg-white text-indigo-700 hover:bg-zinc-100 font-black py-7 rounded-2xl text-lg shadow-xl hover:scale-[1.02] transition-all">
+                  Edit Submission
+                </Button>
               </div>
-              <h3 className="text-3xl font-black mb-3 leading-tight text-white">Project<br />Submission</h3>
-              <p className="text-indigo-100 text-sm mb-8 font-medium leading-relaxed">
-                Ready to showcase your work? The submission portal is currently unlocked for your team.
-              </p>
-              <Button className="w-full bg-white text-indigo-700 hover:bg-zinc-100 font-black py-7 rounded-2xl text-lg shadow-xl hover:scale-[1.02] transition-all">
-                Submit Now
-              </Button>
             </div>
-          </div>
+          ) : (
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
+              <UploadCloud className="w-24 h-24 text-white/10 absolute -right-4 -top-4 rotate-12 group-hover:scale-110 transition-transform duration-500" />
+              <div className="relative z-10">
+                <div className="inline-block px-3 py-1 mb-6 rounded-full bg-white/20 backdrop-blur-md border border-white/20 text-xs font-black uppercase tracking-widest text-white shadow-sm">
+                  Phase 2 Active
+                </div>
+                <h3 className="text-3xl font-black mb-3 leading-tight text-white">Project<br />Submission</h3>
+                <p className="text-indigo-100 text-sm mb-8 font-medium leading-relaxed">
+                  Ready to showcase your work? The submission portal is currently unlocked for your team.
+                </p>
+                <Button onClick={() => setShowSubmissionModal(true)} className="w-full bg-white text-indigo-700 hover:bg-zinc-100 font-black py-7 rounded-2xl text-lg shadow-xl hover:scale-[1.02] transition-all">
+                  Submit Now
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* TEAM CHAT CARD */}
           <div className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 flex items-center justify-between group cursor-pointer hover:bg-white/5 transition-colors">
@@ -381,30 +536,44 @@ export default function TeamParticipantDashboard() {
           {/* EVENT ACTIVITY/TIMELINE */}
           <div className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8">
             <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-              <Activity className="w-4 h-4" /> Live Activities
+              <Activity className="w-4 h-4" /> Event Schedule
             </h4>
 
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
+            {teamData?.event?.timelines && teamData.event.timelines.length > 0 ? (
+              <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
+                {teamData.event.timelines.map((timeline: any) => {
+                  const startTime = new Date(timeline.start_time);
+                  const isPast = startTime < new Date();
+                  const formattedTime = startTime.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' });
 
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-[#09090b] bg-indigo-500 text-white shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-[0_0_15px_rgba(99,102,241,0.4)] z-10">
-                  <Check className="w-4 h-4" />
-                </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl bg-white/5 border border-white/5">
-                  <p className="font-bold text-sm text-zinc-100">Registration Complete</p>
-                </div>
+                  return (
+                    <div key={timeline.id} className="relative flex items-start gap-4 group">
+                      <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-[#09090b] ${isPast ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]' : 'bg-zinc-800 text-zinc-500'} shrink-0 z-10`}>
+                        {isPast ? <Check className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
+                      </div>
+                      <div className={`flex-1 p-4 rounded-2xl border ${isPast ? 'bg-white/5 border-white/10' : 'bg-zinc-900/50 border-white/5'}`}>
+                        <div className="flex justify-between items-start gap-2 flex-wrap">
+                          <p className={`font-bold text-sm ${isPast ? 'text-zinc-100' : 'text-zinc-400'}`}>{timeline.title}</p>
+                          <span className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 shrink-0">
+                            <Clock className="w-3 h-3 text-indigo-400" /> {formattedTime}
+                          </span>
+                        </div>
+                        {timeline.speaker_name && (
+                          <p className="text-xs text-indigo-400 mt-1 font-semibold">Speaker: {timeline.speaker_name}</p>
+                        )}
+                        {timeline.description && (
+                          <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{timeline.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-[#09090b] bg-zinc-800 text-zinc-500 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl bg-zinc-900/50 border border-white/5">
-                  <p className="font-bold text-sm text-zinc-400">Opening Ceremony</p>
-                </div>
+            ) : (
+              <div className="text-center py-6 text-zinc-500 text-sm font-medium">
+                No schedule events listed yet.
               </div>
-
-            </div>
+            )}
           </div>
 
         </div>
@@ -479,8 +648,277 @@ export default function TeamParticipantDashboard() {
       </AnimatePresence>
 
       {/* =========================================================
-          TOAST NOTIFICATION
+          CUSTOM REVOKE INVITATION MODAL
           ========================================================= */}
+      <AnimatePresence>
+        {showRevokeModal && inviteToRevoke && (
+          <motion.div
+            key="revoke-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => {
+              setInviteToRevoke(null);
+              setShowRevokeModal(false);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-[2rem] p-8 shadow-2xl shadow-red-900/10"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">
+                  <AlertTriangle className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className="text-2xl font-black mb-2 text-zinc-100">Revoke Invite?</h3>
+                <p className="text-zinc-400 font-medium text-sm leading-relaxed mb-6">
+                  Are you sure you want to revoke the invitation sent to:
+                </p>
+                <div className="bg-black/50 border border-white/5 rounded-xl px-4 py-3 mb-8 w-full">
+                  <p className="font-bold text-zinc-100 truncate">{inviteToRevoke.email}</p>
+                </div>
+                <div className="flex w-full gap-3">
+                  <Button
+                    onClick={() => {
+                      setInviteToRevoke(null);
+                      setShowRevokeModal(false);
+                    }}
+                    variant="ghost"
+                    className="flex-1 h-14 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold text-base transition-all"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleRevokeInvite}
+                    disabled={actionLoading === `revoke-${inviteToRevoke.id}`}
+                    className="flex-1 h-14 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-base shadow-lg shadow-red-900/20 transition-all hover:scale-[1.02]"
+                  >
+                    {actionLoading === `revoke-${inviteToRevoke.id}`
+                      ? <Loader2 className="w-5 h-5 animate-spin" />
+                      : "Revoke"
+                    }
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================
+          CUSTOM LEAVE TEAM MODAL
+          ========================================================= */}
+      <AnimatePresence>
+        {showLeaveModal && (
+          <motion.div
+            key="leave-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowLeaveModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-[2rem] p-8 shadow-2xl shadow-red-900/10"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">
+                  <AlertTriangle className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className="text-2xl font-black mb-2 text-zinc-100">Leave Team?</h3>
+                <p className="text-zinc-400 font-medium text-sm leading-relaxed mb-6">
+                  Are you sure you want to leave <strong>{teamData?.name}</strong>? You will no longer be registered for this event with this team.
+                </p>
+                <div className="flex w-full gap-3">
+                  <Button
+                    onClick={() => setShowLeaveModal(false)}
+                    variant="ghost"
+                    className="flex-1 h-14 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold text-base transition-all"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleLeaveTeam}
+                    disabled={actionLoading === "leave"}
+                    className="flex-1 h-14 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-base shadow-lg shadow-red-900/20 transition-all hover:scale-[1.02]"
+                  >
+                    {actionLoading === "leave"
+                      ? <Loader2 className="w-5 h-5 animate-spin" />
+                      : "Leave Team"
+                    }
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================
+          CUSTOM PROJECT SUBMISSION MODAL
+          ========================================================= */}
+      <AnimatePresence>
+        {showSubmissionModal && (
+          <motion.div
+            key="submission-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowSubmissionModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[2rem] p-8 shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
+                <h3 className="text-2xl font-black text-zinc-100 flex items-center gap-2">
+                  <UploadCloud className="w-6 h-6 text-indigo-400" />
+                  {teamData?.submissions?.length > 0 ? "Edit Submission" : "Submit Project"}
+                </h3>
+                <button onClick={() => setShowSubmissionModal(false)} className="text-zinc-500 hover:text-zinc-300">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleProjectSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-zinc-300">Project Title</label>
+                  <Input
+                    value={submitTitle}
+                    onChange={(e) => setSubmitTitle(e.target.value)}
+                    placeholder="e.g. CommunityConnect Platform"
+                    className="h-14 px-4 bg-black/50 border-white/10 rounded-2xl focus-visible:ring-indigo-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-zinc-300">Repository Link</label>
+                  <Input
+                    type="url"
+                    value={submitRepoUrl}
+                    onChange={(e) => setSubmitRepoUrl(e.target.value)}
+                    placeholder="e.g. https://github.com/username/project"
+                    className="h-14 px-4 bg-black/50 border-white/10 rounded-2xl focus-visible:ring-indigo-500"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-white/5">
+                  <Button
+                    type="button"
+                    onClick={() => setShowSubmissionModal(false)}
+                    variant="ghost"
+                    className="flex-1 h-14 rounded-2xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={actionLoading === "submit-project"}
+                    className="flex-1 h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-50 text-white font-bold"
+                  >
+                    {actionLoading === "submit-project"
+                      ? <Loader2 className="w-5 h-5 animate-spin" />
+                      : "Submit Project"
+                    }
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================
+          CUSTOM ENTRY PASS TICKET MODAL
+          ========================================================= */}
+      <AnimatePresence>
+        {showEntryPassModal && (
+          <motion.div
+            key="pass-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            onClick={() => setShowEntryPassModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl relative"
+            >
+              {/* Ticket border effect */}
+              <div className="absolute top-1/2 -left-3 w-6 h-6 bg-black/90 rounded-full border-r border-white/10 -translate-y-1/2 animate-pulse" />
+              <div className="absolute top-1/2 -right-3 w-6 h-6 bg-black/90 rounded-full border-l border-white/10 -translate-y-1/2 animate-pulse" />
+
+              <div className="p-8 border-b border-dashed border-white/10 flex flex-col items-center text-center">
+                <span className="px-3 py-1.5 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-widest border border-indigo-500/20 mb-6">
+                  {teamData?.event?.title || "Community Connect Event"}
+                </span>
+
+                {/* Simulated QR Code from Server API */}
+                <div className="w-48 h-48 bg-white p-3 rounded-3xl flex items-center justify-center mb-6 shadow-inner">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${userTicketCode || `TEAM-${teamData?.id}`}`}
+                    alt="Entry Pass QR Code"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                <h3 className="text-2xl font-black text-white mb-1">{teamData?.name}</h3>
+                <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Team Pass</p>
+              </div>
+
+              <div className="p-8 bg-black/30 space-y-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-500 font-medium">Event:</span>
+                  <span className="text-white font-bold max-w-[180px] truncate text-right">{teamData?.event?.title}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-500 font-medium">Leader:</span>
+                  <span className="text-white font-bold text-right">{members.find((m: any) => m.user_id === teamData?.leader_id)?.user?.name || "Organizer"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-500 font-medium">Status:</span>
+                  {members.find((m: any) => m.ticket_code === userTicketCode)?.checked_in ? (
+                    <span className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400 font-bold uppercase text-[10px] tracking-wider animate-pulse">Checked In</span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold uppercase text-[10px] tracking-wider">Confirmed</span>
+                  )}
+                </div>
+
+                <Button
+                  onClick={() => setShowEntryPassModal(false)}
+                  className="w-full h-12 rounded-xl bg-white text-black hover:bg-zinc-200 font-bold text-sm transition-all mt-4"
+                >
+                  Close Pass
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {toast && (
           <motion.div
