@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams,useSearchParams} from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
@@ -27,9 +27,13 @@ import PageTransition from "@/components/layout/PageTransition";
 
 export default function PublicProfilePage() {
 
-    const params = useParams();
+   const params = useParams();
 
-    const profileId = params.id as string;
+const searchParams = useSearchParams();
+
+
+const profileId =
+    params.id as string;
 
 
     const [profile, setProfile] = useState<MyProfile | null>(null);
@@ -45,7 +49,62 @@ export default function PublicProfilePage() {
 
 
     const { getProfileById } = useProfileById();
+// Save OAuth tokens and remove from URL
 
+useEffect(()=>{
+
+
+    const accessToken =
+        searchParams.get(
+            "accessToken"
+        );
+
+
+    const refreshToken =
+        searchParams.get(
+            "refreshToken"
+        );
+
+
+
+    if(accessToken){
+
+        localStorage.setItem(
+            "accessToken",
+            accessToken
+        );
+
+    }
+
+
+
+    if(refreshToken){
+
+        localStorage.setItem(
+            "refreshToken",
+            refreshToken
+        );
+
+    }
+
+
+
+    // remove tokens from browser URL
+
+    if(accessToken || refreshToken){
+
+        window.history.replaceState(
+            null,
+            "",
+            window.location.pathname
+        );
+
+    }
+
+
+},[
+    searchParams
+]);
 
 
     useEffect(() => {

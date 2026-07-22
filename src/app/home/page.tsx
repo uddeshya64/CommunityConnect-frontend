@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Search, MapPin, Calendar, CalendarX, Sparkles, Compass, Rocket, Plus } from "lucide-react";
@@ -63,17 +64,45 @@ function ProfileAvatar({ profile }: { profile: UserProfile }) {
   );
 }
 
-export default function HomePage() {
+function HomePageClient() {
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState<number | undefined>(undefined);
   const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(undefined);
 
+  const searchParams = useSearchParams();
+  const accessToken = searchParams.get("accessToken");
+  const refreshToken = searchParams.get("refreshToken");
+  const routeUserId = searchParams.get("userId");
   const { getMyProfile } = useMyProfile();
 
   // Fetch user's own profile (id + name + avatar)
   useEffect(() => {
+    if (accessToken) {
+      localStorage.setItem("accessToken", accessToken);
+    }
+
+    if (refreshToken) {
+      localStorage.setItem("refreshToken", refreshToken);
+    }
+
+    if (accessToken || refreshToken || routeUserId) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("accessToken");
+      url.searchParams.delete("refreshToken");
+      url.searchParams.delete("userId");
+      window.history.replaceState(null, "", url.pathname + url.search);
+    }
+
+    if (routeUserId) {
+      const numericId = Number(routeUserId);
+      if (!Number.isNaN(numericId)) {
+        setUserId(numericId);
+      }
+      localStorage.setItem("userId", routeUserId);
+    }
+
     const fetchProfile = async () => {
       try {
         const profile = await getMyProfile();
@@ -84,8 +113,10 @@ export default function HomePage() {
         setUserName("there");
       }
     };
+
     fetchProfile();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken, refreshToken]);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -274,5 +305,13 @@ export default function HomePage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-zinc-50">Loading...</div>}>
+      <HomePageClient />
+    </Suspense>
   );
 }

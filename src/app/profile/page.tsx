@@ -92,7 +92,7 @@ export default function MyProfilePage() {
             formData.append("image", file);
 
             // Get token
-            const token = localStorage.getItem("token");
+            const token = localStorage.getItem("accessToken");
 
             if (!token) {
                 throw new Error(
