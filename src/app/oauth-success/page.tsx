@@ -1,62 +1,52 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+function OAuthSuccessClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-export default function OAuthSuccess(){
+  useEffect(() => {
+    const accessToken = searchParams.get("accessToken");
+    const refreshToken = searchParams.get("refreshToken");
+    const userId = searchParams.get("userId");
+    const returnUrl = searchParams.get("returnUrl");
 
-const router = useRouter();
+    if (accessToken) {
+      localStorage.setItem("accessToken", accessToken);
+    }
 
-const searchParams = useSearchParams();
+    if (refreshToken) {
+      localStorage.setItem("refreshToken", refreshToken);
+    }
 
+    if (userId) {
+      localStorage.setItem("userId", userId);
+    }
 
-useEffect(()=>{
+    const redirectTo = returnUrl
+      ? returnUrl
+      : userId
+      ? `/profile/${userId}`
+      : "/home";
 
+    if (accessToken && refreshToken) {
+      router.replace(redirectTo);
+    }
+  }, [router, searchParams]);
 
-const accessToken =
-searchParams.get("accessToken");
-
-
-const refreshToken =
-searchParams.get("refreshToken");
-
-
-
-if(accessToken && refreshToken){
-
-
-localStorage.setItem(
-"accessToken",
-accessToken
-);
-
-
-localStorage.setItem(
-"refreshToken",
-refreshToken
-);
-
-
-
-router.replace("/home");
-
-
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <h1>Logging you in...</h1>
+    </div>
+  );
 }
 
-
-},[]);
-
-
-
-return (
-<div className="flex h-screen items-center justify-center">
-
-<h1>
-Logging you in...
-</h1>
-
-</div>
-)
-
+export default function OAuthSuccess() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Logging you in...</div>}>
+      <OAuthSuccessClient />
+    </Suspense>
+  );
 }
