@@ -22,6 +22,8 @@ import { profileService } from "@/services/profile.service";
 import { Profile } from "@/types/profile.types";
 import PageTransition from "@/components/layout/PageTransition";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+
 export default function MyProfilePage() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -102,7 +104,7 @@ export default function MyProfilePage() {
 
             // Call upload API
             const response = await fetch(
-                "http://localhost:3000/api/image/upload",
+                process.env.NEXT_PUBLIC_API_URL || `${API_BASE_URL}/image/upload`,
                 {
                     method: "POST",
                     headers: {
