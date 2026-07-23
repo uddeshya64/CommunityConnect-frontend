@@ -233,9 +233,10 @@ useEffect(()=>{
 
 
 
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
             const response =
                 await fetch(
-                    "http://localhost:3000/api/image/upload",
+                    `${apiUrl}/image/upload`,
                     {
 
                         method:"POST",
