@@ -5,9 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar, MapPin, Users, ArrowLeft, Share2,
-  Ticket, Laptop, MonitorSmartphone, Building2, UserCircle2,
+  Ticket, Building2, UserCircle2,
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
-  Loader2, CheckCircle2, Shield, UserPlus, List, Send, QrCode, Camera, XCircle
+  Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
+  UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ interface EventDetails {
   fee: number;
   minTeam: number;
   maxTeam: number;
+  bannerUrl?: string;
   organizerId?: string;
   organizerName?: string;
 }
@@ -69,8 +71,10 @@ export default function EventDetailsPage() {
   const [isPerformingCheckIn, setIsPerformingCheckIn] = useState<number | null>(null);
   const [welcomeAttendee, setWelcomeAttendee] = useState<string | null>(null);
 
-  // --- ACTIONS STATES ---
+  // --- ACTIONS & FILE UPLOAD STATES ---
   const [editData, setEditData] = useState<any>({});
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -93,13 +97,11 @@ export default function EventDetailsPage() {
   const MODES = ["online", "offline", "hybrid"];
   const REG_TYPES = ["solo", "team"];
 
-  // Helper for PBAC
   const hasPermission = (perm: string) => 
     isOwner || 
     permissions.includes(perm) || 
     (perm === "MANAGE_ATTENDEES" && permissions.includes("MANAGE_CHECK_IN"));
 
-  // --- Date Formatters for Preview UI ---
   const formatFullDate = (isoString?: string) => {
     if (!isoString) return "TBA";
     return new Date(isoString).toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -110,12 +112,32 @@ export default function EventDetailsPage() {
     return new Date(isoString).toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' });
   };
 
-  // 1. INITIAL EVENT FETCH & EVENT TYPES FETCH
+  // File Upload Handlers
+  const handleBannerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File size exceeds 5MB limit.");
+        return;
+      }
+      setBannerFile(file);
+      setBannerPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveBanner = () => {
+    setBannerFile(null);
+    setBannerPreview("");
+  };
+
+  // 1. INITIAL EVENT FETCH
   useEffect(() => {
     const fetchEventAndTypes = async () => {
       try {
         const response = await eventService.getEventById(eventId);
         const rawEvent = response?.data?.event || response?.data || response?.event || response;
+
+        const currentBanner = rawEvent.banner_url || rawEvent.bannerUrl || rawEvent.banner || "";
 
         setEvent({
           id: rawEvent.id || rawEvent._id,
@@ -131,9 +153,14 @@ export default function EventDetailsPage() {
           fee: rawEvent.registration_fee || 0,
           minTeam: rawEvent.min_team_size || 1,
           maxTeam: rawEvent.max_team_size || 1,
+          bannerUrl: currentBanner,
           organizerId: rawEvent.organizerId || rawEvent.hostId || rawEvent.userId,
           organizerName: rawEvent.organizer?.name || rawEvent.creator?.name
         });
+
+        if (currentBanner) {
+          setBannerPreview(currentBanner);
+        }
 
         const formatForInput = (isoString: string) => {
           if (!isoString) return "";
@@ -145,7 +172,6 @@ export default function EventDetailsPage() {
 
         const currentType = rawEvent.type || rawEvent.category || "";
 
-        // Fetch dynamic event types
         let typesList: any[] = [];
         try {
           const typesResponse = await eventService.getEventTypes();
@@ -154,7 +180,6 @@ export default function EventDetailsPage() {
           console.error("Failed to fetch event types:", e);
         }
 
-        // Check if current type exists in the fetched list (case insensitive)
         const typeExists = typesList.some(
           (t) => t.name.toLowerCase() === currentType.toLowerCase()
         );
@@ -169,12 +194,18 @@ export default function EventDetailsPage() {
         setEventTypes(typesList);
 
         setEditData({
-          title: rawEvent.title || "", description: rawEvent.description || "",
-          type: currentType || "meetup", mode: rawEvent.mode || "offline",
-          location: rawEvent.location || "", start_date: formatForInput(rawEvent.start_date || rawEvent.date),
-          end_date: formatForInput(rawEvent.end_date || rawEvent.start_date), capacity: rawEvent.capacity?.toString() || "0",
-          registration_type: rawEvent.registration_type || "solo", registration_fee: rawEvent.registration_fee?.toString() || "0",
-          min_team_size: rawEvent.min_team_size?.toString() || "1", max_team_size: rawEvent.max_team_size?.toString() || "1",
+          title: rawEvent.title || "",
+          description: rawEvent.description || "",
+          type: currentType || "meetup",
+          mode: rawEvent.mode || "offline",
+          location: rawEvent.location || "",
+          start_date: formatForInput(rawEvent.start_date || rawEvent.date),
+          end_date: formatForInput(rawEvent.end_date || rawEvent.start_date),
+          capacity: rawEvent.capacity?.toString() || "0",
+          registration_type: rawEvent.registration_type || "solo",
+          registration_fee: rawEvent.registration_fee?.toString() || "0",
+          min_team_size: rawEvent.min_team_size?.toString() || "1",
+          max_team_size: rawEvent.max_team_size?.toString() || "1",
         });
 
         if (rawEvent.user_context) {
@@ -254,14 +285,13 @@ export default function EventDetailsPage() {
     }
   };
 
-  // --- ACTIONS ---
+  // --- UPDATE EVENT ACTION ---
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setIsUpdating(true);
       setUpdateMessage({ type: "", text: "" });
 
-      // Resolve custom/dynamic category
       const resolvedType = editData.type === "other" && customType.trim()
         ? customType.trim()
         : editData.type;
@@ -270,42 +300,63 @@ export default function EventDetailsPage() {
         throw new Error("Please enter a custom event type.");
       }
 
-      // Build payload matching backend Zod Schema
-      const payload: any = {
-        title: editData.title,
-        description: editData.description,
-        type: resolvedType,
-        mode: editData.mode,
-        location: editData.mode === "online" ? "Online" : editData.location,
-        start_date: new Date(editData.start_date).toISOString(),
-        end_date: new Date(editData.end_date).toISOString(),
-        capacity: parseInt(editData.capacity) || 0,
-        registration_type: editData.registration_type,
-        registration_fee: parseFloat(editData.registration_fee) || 0,
-        min_team_size: parseInt(editData.min_team_size) || 1,
-        max_team_size: parseInt(editData.max_team_size) || 1,
-      };
+      // 1. Upload the banner using the dedicated API if a new file is selected
+      let updatedBannerUrl = bannerPreview;
+      if (bannerFile) {
+        const bannerFormData = new FormData();
+        bannerFormData.append("banner", bannerFile);
 
-      await eventService.updateEvent(eventId, payload);
+        const bannerRes = await api.post(`/events/${eventId}/banner`, bannerFormData, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+        
+        // Update the banner URL based on the response from your new API
+        updatedBannerUrl = bannerRes.data?.data?.banner_url || bannerRes.data?.banner_url || bannerPreview;
+      }
+
+      // 2. Update the rest of the event details
+      const formData = new FormData();
+      formData.append("title", editData.title);
+      formData.append("description", editData.description);
+      formData.append("type", resolvedType);
+      formData.append("mode", editData.mode);
+      formData.append("location", editData.mode === "online" ? "Online" : editData.location);
+      formData.append("start_date", new Date(editData.start_date).toISOString());
+      formData.append("end_date", new Date(editData.end_date).toISOString());
+      formData.append("capacity", (parseInt(editData.capacity) || 0).toString());
+      formData.append("registration_type", editData.registration_type);
+      formData.append("registration_fee", (parseFloat(editData.registration_fee) || 0).toString());
+      formData.append("min_team_size", (parseInt(editData.min_team_size) || 1).toString());
+      formData.append("max_team_size", (parseInt(editData.max_team_size) || 1).toString());
+
+      // If the user removed the banner and didn't upload a new one, signal the backend to delete it
+      if (!bannerFile && !bannerPreview) {
+        formData.append("remove_banner", "true");
+      }
+
+      await api.patch(`/events/${eventId}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
       setUpdateMessage({ type: "success", text: "Event updated successfully!" });
 
-      // Update local preview state
       setEvent((prev: any) => {
         if (!prev) return prev;
         return {
           ...prev,
-          title: payload.title,
-          description: payload.description,
+          title: editData.title,
+          description: editData.description,
           type: resolvedType,
-          mode: payload.mode,
-          location: payload.location,
-          startDate: payload.start_date,
-          endDate: payload.end_date,
-          capacity: payload.capacity,
-          regType: payload.registration_type,
-          fee: payload.registration_fee,
-          minTeam: payload.min_team_size,
-          maxTeam: payload.max_team_size,
+          mode: editData.mode,
+          location: editData.mode === "online" ? "Online" : editData.location,
+          startDate: new Date(editData.start_date).toISOString(),
+          endDate: new Date(editData.end_date).toISOString(),
+          capacity: parseInt(editData.capacity) || 0,
+          regType: editData.registration_type,
+          fee: parseFloat(editData.registration_fee) || 0,
+          minTeam: parseInt(editData.min_team_size) || 1,
+          maxTeam: parseInt(editData.max_team_size) || 1,
+          bannerUrl: updatedBannerUrl
         };
       });
     } catch (err: any) {
@@ -316,7 +367,9 @@ export default function EventDetailsPage() {
       } else {
         setUpdateMessage({ type: "error", text: backendError || "Failed to update event." });
       }
-    } finally { setIsUpdating(false); }
+    } finally { 
+      setIsUpdating(false); 
+    }
   };
 
   const handleDelete = () => {
@@ -403,7 +456,6 @@ export default function EventDetailsPage() {
         setWelcomeAttendee(null);
       }, 4000);
       
-      // Update participants list locally
       setParticipants(prev =>
         prev.map(p =>
           p.registrationId === participant.registrationId
@@ -436,7 +488,6 @@ export default function EventDetailsPage() {
         setIsQrScanning(true);
       }, 4000);
 
-      // Update participants list locally
       setParticipants(prev =>
         prev.map(p =>
           p.ticketCode === scannedCode
@@ -471,9 +522,7 @@ export default function EventDetailsPage() {
             }
             handleQrCheckIn(qrCodeMessage);
           },
-          (errorMessage) => {
-            // Ignore normal scanning errors
-          }
+          () => {}
         ).catch(err => {
           console.error("Failed to start QR scanner:", err);
           alert("Could not open camera. Please check camera permissions.");
@@ -634,7 +683,6 @@ export default function EventDetailsPage() {
                       </Button>
                     </div>
 
-                    {/* Filter and Search Bar */}
                     <div className="flex flex-col md:flex-row gap-4 items-center">
                       <div className="relative w-full flex-1">
                         <Input
@@ -651,7 +699,7 @@ export default function EventDetailsPage() {
                             key={filter}
                             onClick={() => setCheckInFilter(filter)}
                             type="button"
-                            className={`flex-1 md:flex-none px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${checkInFilter === filter ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-50 hover:text-zinc-900"}`}
+                            className={`flex-1 md:flex-none px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${checkInFilter === filter ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"}`}
                           >
                             {filter}
                           </button>
@@ -659,14 +707,12 @@ export default function EventDetailsPage() {
                       </div>
                     </div>
 
-                    {/* Participants List */}
                     {participants.length === 0 ? (
                       <p className="text-zinc-500 font-medium py-10 text-center">No participants registered yet.</p>
                     ) : (
                       <div className="space-y-4">
                         {participants
                           .filter((p) => {
-                            // Apply Search Query
                             const query = searchQuery.toLowerCase().trim();
                             const pName = p.name || p.user?.name || "";
                             const pEmail = p.email || p.user?.email || "";
@@ -676,7 +722,6 @@ export default function EventDetailsPage() {
                               pEmail.toLowerCase().includes(query) ||
                               pTicket.toLowerCase().includes(query);
 
-                            // Apply Check-In Filter
                             if (checkInFilter === "PRESENT") {
                               return matchesSearch && !!p.checkedIn;
                             }
@@ -722,13 +767,17 @@ export default function EventDetailsPage() {
                                       </p>
                                     </div>
                                   ) : (
-                                    <Button
-                                      type="button"
+                                    <Button 
                                       onClick={() => handleManualCheckIn(p)}
                                       disabled={isChecking}
-                                      className="rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-3 px-5 text-xs shadow-md transition-all hover:scale-[1.02]"
+                                      className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 text-xs flex items-center gap-1.5 shadow-sm"
                                     >
-                                      {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : "Check In"}
+                                      {isChecking ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin"/>
+                                      ) : (
+                                        <CheckCircle2 className="w-3.5 h-3.5"/>
+                                      )}
+                                      Mark Present
                                     </Button>
                                   )}
                                 </div>
@@ -740,677 +789,558 @@ export default function EventDetailsPage() {
                   </div>
                 )}
 
-                {/* 3. STAFF MANAGEMENT TAB */}
-                {activeTab === "STAFF" && hasPermission("MANAGE_STAFF") && (
-                  <div className="animate-in fade-in duration-500 space-y-8">
-                    <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-200 shadow-sm">
-                      <h1 className="text-2xl font-extrabold text-zinc-900 mb-2">Invite Staff</h1>
-                      <p className="text-zinc-500 mb-6">Send magic links to add co-organizers, judges, or volunteers.</p>
+                {/* 3. EDIT TAB (FULLY STRUCTURED FILE UPLOAD, FILE DETAILS & PREVIEW) */}
+                {activeTab === "EDIT" && (
+                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-6">
+                    <div>
+                      <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Edit Event Details</h1>
+                      <p className="text-zinc-500 font-medium mt-1">Update your event banner, details, schedule, and pricing.</p>
+                    </div>
 
-                      <form onSubmit={handleInviteStaff} className="flex flex-col md:flex-row gap-4">
-                        <Input
-                          type="email" placeholder="staff@example.com" required
-                          value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                          className="py-6 rounded-xl bg-zinc-50 flex-1"
+                    {updateMessage.text && (
+                      <div className={`p-4 rounded-2xl flex items-center gap-3 font-semibold text-sm ${updateMessage.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                        {updateMessage.type === "success" ? <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0"/> : <AlertTriangle className="w-5 h-5 text-red-600 shrink-0"/>}
+                        <span>{updateMessage.text}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleUpdate} className="space-y-6">
+                      
+                      {/* BANNER / IMAGE UPLOAD FIELD (FILE UPLOAD, FILE DETAILS, AND PREVIEW IMAGE) */}
+                      <div className="space-y-4">
+                        <Label className="font-bold text-zinc-700">Event Cover Banner</Label>
+
+                        {/* STEP A: FILE UPLOAD DROPZONE */}
+                        <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-zinc-300 hover:border-indigo-500 rounded-2xl cursor-pointer bg-zinc-50 hover:bg-indigo-50/30 transition-all">
+                          <div className="flex flex-col items-center justify-center text-center px-4">
+                            <div className="p-2.5 bg-zinc-200/60 rounded-xl text-zinc-600 mb-2">
+                              <UploadCloud className="w-5 h-5"/>
+                            </div>
+                            <p className="text-sm font-bold text-zinc-800">
+                              {bannerFile ? "Choose a different banner" : "Click to select or drag event banner"}
+                            </p>
+                            <p className="text-xs text-zinc-400 font-medium mt-1">Supports PNG, JPG, or WEBP (Max 5MB)</p>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/png, image/jpeg, image/webp"
+                            className="hidden"
+                            onChange={handleBannerSelect}
+                          />
+                        </label>
+
+                        {/* STEP B: SHOW SELECTED FILE DETAILS & NAME */}
+                        {bannerFile && (
+                          <div className="flex items-center justify-between p-3.5 bg-indigo-50/60 rounded-xl border border-indigo-100">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg shrink-0">
+                                <ImageIcon className="w-4 h-4"/>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-zinc-900 truncate">{bannerFile.name}</p>
+                                <p className="text-[11px] font-medium text-zinc-500">
+                                  {(bannerFile.size / (1024 * 1024)).toFixed(2)} MB
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleRemoveBanner}
+                              className="text-xs font-bold text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors shrink-0"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        )}
+
+                        {/* STEP C: SHOW LIVE IMAGE PREVIEW */}
+                        {bannerPreview && (
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                              Banner Image Preview
+                            </span>
+                            <div className="relative w-full h-56 rounded-2xl overflow-hidden border border-zinc-200 bg-zinc-900 group">
+                              <img
+                                src={bannerPreview}
+                                alt="Event Banner Preview"
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                <label className="cursor-pointer bg-white text-zinc-900 hover:bg-zinc-100 font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+                                  <UploadCloud className="w-4 h-4"/> Swap Image
+                                  <input
+                                    type="file"
+                                    accept="image/png, image/jpeg, image/webp"
+                                    className="hidden"
+                                    onChange={handleBannerSelect}
+                                  />
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveBanner}
+                                  className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5"
+                                >
+                                  <X className="w-4 h-4"/> Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="font-bold text-zinc-700">Event Title</Label>
+                        <Input 
+                          value={editData.title || ""} 
+                          onChange={(e) => setEditData({ ...editData, title: e.target.value })}
+                          required
+                          className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label className="font-bold text-zinc-700">Event Type</Label>
+                          <select
+                            value={customTypeEditMode ? "other" : editData.type}
+                            onChange={(e) => handleTypeSelectChange(e.target.value)}
+                            className="w-full h-12 px-3 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          >
+                            {eventTypes.map((t) => (
+                              <option key={t.id} value={t.name.toLowerCase()}>
+                                {t.name}
+                              </option>
+                            ))}
+                            <option value="other">Other (Specify dynamic type)</option>
+                          </select>
+                          {customTypeEditMode && (
+                            <Input 
+                              placeholder="Enter custom type..." 
+                              value={customType}
+                              onChange={(e) => setCustomType(e.target.value)}
+                              className="mt-2 py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                              required
+                            />
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="font-bold text-zinc-700">Mode</Label>
+                          <select
+                            value={editData.mode || "offline"}
+                            onChange={(e) => setEditData({ ...editData, mode: e.target.value })}
+                            className="w-full h-12 px-3 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          >
+                            {MODES.map((m) => (
+                              <option key={m} value={m}>{m.toUpperCase()}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="font-bold text-zinc-700">Location</Label>
+                        <Input 
+                          value={editData.mode === "online" ? "Online" : editData.location || ""} 
+                          onChange={(e) => setEditData({ ...editData, location: e.target.value })}
+                          disabled={editData.mode === "online"}
+                          className="py-6 rounded-xl bg-zinc-50 border-zinc-200 disabled:opacity-50"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label className="font-bold text-zinc-700">Start Date & Time</Label>
+                          <Input 
+                            type="datetime-local" 
+                            value={editData.start_date || ""} 
+                            onChange={(e) => setEditData({ ...editData, start_date: e.target.value })}
+                            required
+                            className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-bold text-zinc-700">End Date & Time</Label>
+                          <Input 
+                            type="datetime-local" 
+                            value={editData.end_date || ""} 
+                            onChange={(e) => setEditData({ ...editData, end_date: e.target.value })}
+                            required
+                            className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <Label className="font-bold text-zinc-700">Capacity</Label>
+                          <Input 
+                            type="number" 
+                            value={editData.capacity || "0"} 
+                            onChange={(e) => setEditData({ ...editData, capacity: e.target.value })}
+                            className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-bold text-zinc-700">Registration Fee (₹)</Label>
+                          <Input 
+                            type="number" 
+                            value={editData.registration_fee || "0"} 
+                            onChange={(e) => setEditData({ ...editData, registration_fee: e.target.value })}
+                            className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-bold text-zinc-700">Registration Type</Label>
+                          <select
+                            value={editData.registration_type || "solo"}
+                            onChange={(e) => setEditData({ ...editData, registration_type: e.target.value })}
+                            className="w-full h-12 px-3 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          >
+                            {REG_TYPES.map((rt) => (
+                              <option key={rt} value={rt}>{rt.toUpperCase()}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {editData.registration_type === "team" && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50 p-6 rounded-2xl border border-zinc-200">
+                          <div className="space-y-2">
+                            <Label className="font-bold text-zinc-700">Min Team Size</Label>
+                            <Input 
+                              type="number" 
+                              value={editData.min_team_size || "1"} 
+                              onChange={(e) => setEditData({ ...editData, min_team_size: e.target.value })}
+                              className="py-6 rounded-xl bg-white border-zinc-200"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="font-bold text-zinc-700">Max Team Size</Label>
+                            <Input 
+                              type="number" 
+                              value={editData.max_team_size || "1"} 
+                              onChange={(e) => setEditData({ ...editData, max_team_size: e.target.value })}
+                              className="py-6 rounded-xl bg-white border-zinc-200"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label className="font-bold text-zinc-700">Description</Label>
+                        <textarea
+                          rows={5}
+                          value={editData.description || ""}
+                          onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                          className="w-full p-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+
+                      <Button className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-6 shadow-lg shadow-indigo-600/25" disabled={isUpdating} type="submit">
+                        {isUpdating ? <Loader2 className="w-5 h-5 animate-spin"/> : "Save Event Changes"}
+                      </Button>
+                    </form>
+                  </div>
+                )}
+
+                {/* 4. STAFF & ROLES TAB */}
+                {activeTab === "STAFF" && hasPermission("MANAGE_STAFF") && (
+                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-8">
+                    <div>
+                      <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Staff & Roles Management</h1>
+                      <p className="text-zinc-500 font-medium mt-1">Assign custom RBAC roles and staff permissions to manage the event.</p>
+                    </div>
+
+                    <form onSubmit={handleInviteStaff} className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 space-y-4">
+                      <h3 className="font-bold text-zinc-900 text-base">Invite Staff Member</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Input 
+                          placeholder="Staff email address..." 
+                          type="email" 
+                          value={inviteEmail}
+                          onChange={(e) => setInviteEmail(e.target.value)}
+                          className="py-6 bg-white border-zinc-200 rounded-xl md:col-span-2"
                         />
                         <select
-                          required value={inviteRoleId} onChange={e => setInviteRoleId(e.target.value)}
-                          className="py-3 px-4 rounded-xl bg-zinc-50 border border-zinc-200 outline-none w-full md:w-48"
+                          value={inviteRoleId}
+                          onChange={(e) => setInviteRoleId(e.target.value)}
+                          className="h-12 px-3 rounded-xl bg-white border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
-                          <option value="" disabled>Select Role...</option>
-                          {roles.map(r => (
+                          <option value="">Select Role...</option>
+                          {roles.map((r) => (
                             <option key={r.id} value={r.id}>{r.name}</option>
                           ))}
                         </select>
-                        <Button type="submit" disabled={isInviting} className="py-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
-                          {isInviting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4 mr-2" /> Invite</>}
-                        </Button>
-                      </form>
-                    </div>
+                      </div>
+                      <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-5 shadow-sm" disabled={isInviting} type="submit">
+                        {isInviting ? <Loader2 className="w-4 h-4 animate-spin"/> : "Send Role Invitation"}
+                      </Button>
+                    </form>
 
-                    {/* Active Staff List Section */}
-                    <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-200 shadow-sm">
-                      <h2 className="text-2xl font-extrabold text-zinc-900 mb-2">Active Event Staff</h2>
-                      <p className="text-zinc-500 mb-6">Currently assigned staff members and their active operational permissions.</p>
-
+                    <div className="space-y-4">
+                      <h3 className="font-bold text-zinc-900 text-base">Assigned Event Staff</h3>
                       {staffList.length === 0 ? (
-                        <p className="text-zinc-500 font-medium">No active staff members found.</p>
+                        <p className="text-zinc-500 text-sm font-medium">No assigned staff members found.</p>
                       ) : (
-                        <div className="grid grid-cols-1 gap-6">
-                          {staffList.map((staff, idx) => {
-                            const staffUser = staff.user;
-                            const staffRole = staff.role;
-                            const overrides = staff.permissions_override || [];
-                            const allPerms = Array.from(new Set([...(staffRole?.permissions || []), ...overrides]));
-
-                            return (
-                              <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-6 rounded-2xl bg-zinc-50 border border-zinc-200/50 gap-4">
-                                <div className="flex items-center gap-4">
-                                  <div className="w-12 h-12 rounded-full bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold text-lg border border-indigo-100 uppercase shrink-0">
-                                    {staffUser?.name ? staffUser.name.slice(0, 2) : "ST"}
-                                  </div>
-                                  <div>
-                                    <h4 className="font-bold text-zinc-900 text-lg leading-tight">{staffUser?.name || "Pending Account"}</h4>
-                                    <p className="text-sm text-zinc-500 font-medium mt-0.5">{staffUser?.email}</p>
-                                    <span className="inline-flex items-center mt-2 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">
-                                      {staffRole?.name || "Custom Staff"}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5 max-w-md md:justify-end">
-                                  {allPerms.map((perm: string) => (
-                                    <span key={perm} className="px-2 py-1 rounded-md text-[10px] font-extrabold uppercase bg-zinc-200/60 text-zinc-600 border border-zinc-300/30">
-                                      {perm.replace("MANAGE_", "").replace("VIEW_", "").replace("_", " ")}
-                                    </span>
-                                  ))}
-                                </div>
+                        <div className="space-y-3">
+                          {staffList.map((st, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl border border-zinc-200/60">
+                              <div>
+                                <p className="font-extrabold text-zinc-900 text-sm">{st.user?.name || "Staff Member"}</p>
+                                <p className="text-xs text-zinc-500 font-medium">{st.user?.email}</p>
                               </div>
-                            );
-                          })}
+                              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+                                {st.role?.name || "Role Assigned"}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* 4. EDIT DETAILS TAB */}
-                {activeTab === "EDIT" && (
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm">
-                    <h1 className="text-3xl font-extrabold text-zinc-900 mb-2">Edit Event Details</h1>
-                    <p className="text-zinc-500 font-medium mb-8">Update your event's core information here.</p>
-
-                    {updateMessage.text && (
-                      <div className={`mb-8 p-4 rounded-xl text-sm font-bold border ${updateMessage.type === "success" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-600 border-red-200"}`}>
-                        {updateMessage.text}
-                      </div>
-                    )}
-
-                    <form onSubmit={handleUpdate} className="space-y-10">
-                      {/* Basic Info */}
-                      <div className="space-y-6">
-                        <h3 className="text-lg font-black text-zinc-900 border-b border-zinc-100 pb-2">Basic Info</h3>
-                        <div className="space-y-3">
-                          <Label className="font-bold text-zinc-900">Event Title</Label>
-                          <Input value={editData.title} onChange={(e) => setEditData({ ...editData, title: e.target.value })} className="py-6 rounded-xl bg-zinc-50" />
-                        </div>
-                        <div className="space-y-3">
-                          <Label className="font-bold text-zinc-900">Description</Label>
-                          <textarea value={editData.description} onChange={(e) => setEditData({ ...editData, description: e.target.value })} className="w-full h-32 p-4 rounded-xl bg-zinc-50 border border-zinc-200 focus:ring-2 focus:ring-indigo-600 outline-none" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-6">
-                          <div className="space-y-3">
-                            <Label className="font-bold text-zinc-900">Type</Label>
-                            <select value={editData.type || ""} onChange={(e) => handleTypeSelectChange(e.target.value)} className="w-full py-3.5 px-4 rounded-xl bg-zinc-50 border border-zinc-200 outline-none capitalize">
-                              {eventTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                              <option value="other">Other / Add Custom Type...</option>
-                            </select>
-                            {editData.type === "other" && (
-                              <div className="space-y-2 mt-2">
-                                <Label className="text-sm font-semibold text-zinc-700">Custom Category</Label>
-                                {customTypeEditMode ? (
-                                  <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-2">
-                                    <Input
-                                      placeholder="e.g. seminar"
-                                      value={customType}
-                                      onChange={(e) => setCustomType(e.target.value)}
-                                      className="border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (customType.trim()) {
-                                          setCustomTypeEditMode(false);
-                                        }
-                                      }}
-                                      disabled={!customType.trim()}
-                                      className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      Done
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700">
-                                    <span>{customType.trim()}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setCustomType("");
-                                        setCustomTypeEditMode(true);
-                                        setEditData({ ...editData, type: "other" });
-                                      }}
-                                      className="rounded-full text-indigo-600 transition hover:bg-indigo-100"
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <div className="space-y-3">
-                            <Label className="font-bold text-zinc-900">Mode</Label>
-                            <select value={editData.mode} onChange={(e) => setEditData({ ...editData, mode: e.target.value })} className="w-full py-3.5 px-4 rounded-xl bg-zinc-50 border border-zinc-200 outline-none capitalize">
-                              {MODES.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Time & Place */}
-                      <div className="space-y-6">
-                        <h3 className="text-lg font-black text-zinc-900 border-b border-zinc-100 pb-2">Time & Place</h3>
-                        <div className="grid grid-cols-2 gap-6">
-                          <div className="space-y-3">
-                            <Label className="font-bold text-zinc-900">Start Date & Time</Label>
-                            <Input type="datetime-local" value={editData.start_date} onChange={(e) => setEditData({ ...editData, start_date: e.target.value })} className="py-6 rounded-xl bg-zinc-50" />
-                          </div>
-                          <div className="space-y-3">
-                            <Label className="font-bold text-zinc-900">End Date & Time</Label>
-                            <Input type="datetime-local" value={editData.end_date} onChange={(e) => setEditData({ ...editData, end_date: e.target.value })} className="py-6 rounded-xl bg-zinc-50" />
-                          </div>
-                        </div>
-                        <div className="space-y-3">
-                          <Label className="font-bold text-zinc-900">Location (or Link)</Label>
-                          <Input value={editData.location} onChange={(e) => setEditData({ ...editData, location: e.target.value })} className="py-6 rounded-xl bg-zinc-50" disabled={editData.mode === "online"} />
-                        </div>
-                      </div>
-
-                      {/* Registration */}
-                      <div className="space-y-6">
-                        <h3 className="text-lg font-black text-zinc-900 border-b border-zinc-100 pb-2">Registration Rules</h3>
-                        <div className="grid grid-cols-3 gap-6">
-                          <div className="space-y-3">
-                            <Label className="font-bold text-zinc-900">Reg Type</Label>
-                            <select value={editData.registration_type} onChange={(e) => setEditData({ ...editData, registration_type: e.target.value })} className="w-full py-3.5 px-4 rounded-xl bg-zinc-50 border border-zinc-200 outline-none capitalize">
-                              {REG_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
-                          </div>
-                          <div className="space-y-3">
-                            <Label className="font-bold text-zinc-900">Fee (₹)</Label>
-                            <Input type="number" value={editData.registration_fee} onChange={(e) => setEditData({ ...editData, registration_fee: e.target.value })} className="py-6 rounded-xl bg-zinc-50" />
-                          </div>
-                          <div className="space-y-3">
-                            <Label className="font-bold text-zinc-900">Capacity</Label>
-                            <Input type="number" value={editData.capacity} onChange={(e) => setEditData({ ...editData, capacity: e.target.value })} className="py-6 rounded-xl bg-zinc-50" />
-                          </div>
-                        </div>
-
-                        {editData.registration_type === "team" && (
-                          <div className="grid grid-cols-2 gap-6 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                            <div className="space-y-2">
-                              <Label className="font-bold text-indigo-900">Min Team Size</Label>
-                              <Input type="number" min="1" value={editData.min_team_size} onChange={(e) => setEditData({ ...editData, min_team_size: e.target.value })} className="rounded-xl border-indigo-200" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="font-bold text-indigo-900">Max Team Size</Label>
-                              <Input type="number" min="1" value={editData.max_team_size} onChange={(e) => setEditData({ ...editData, max_team_size: e.target.value })} className="rounded-xl border-indigo-200" />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="pt-4 border-t border-zinc-100">
-                        <Button type="submit" disabled={isUpdating} className="w-full md:w-auto rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-6 font-bold shadow-xl shadow-indigo-600/20 transition-all hover:scale-[1.02]">
-                          {isUpdating ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save All Changes"}
-                        </Button>
-                      </div>
-                    </form>
-                  </div>
-                )}
-
-                {/* 5. SETTINGS TAB */}
-                {activeTab === "SETTINGS" && isOwner && (
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <h1 className="text-3xl font-extrabold text-zinc-900 mb-8">Event Settings</h1>
-
-                    <div className="bg-red-50 border border-red-100 p-8 rounded-[2.5rem]">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center shrink-0">
-                          <AlertTriangle className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-red-900">Danger Zone</h3>
-                          <p className="text-red-700 font-medium mt-2 mb-6 max-w-lg">
-                            Deleting this event will permanently remove all data, including the participant list. This action cannot be undone.
-                          </p>
-                          <Button onClick={handleDelete} disabled={isDeleting} variant="destructive" className="rounded-xl px-6 py-6 font-bold bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/20">
-                            {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <> <Trash2 className="w-4 h-4 mr-2" /> Delete Event Permanently</>}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 6. ORGANIZER GLOBAL CONFIGURATION TAB */}
+                {/* 5. ORGANIZER SETTINGS TAB */}
                 {activeTab === "ORGANIZER_SETTINGS" && isOwner && (
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm">
-                    <h1 className="text-3xl font-extrabold text-zinc-900 mb-2">Organizer Settings</h1>
-                    <p className="text-zinc-500 font-medium mb-8">Manage your global organization branding, policies, subscription and billing details.</p>
+                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-8">
+                    <div>
+                      <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Organization & Tenant Settings</h1>
+                      <p className="text-zinc-500 font-medium mt-1">Configure tenant policies, multi-tenant branding, and subscription tier.</p>
+                    </div>
 
                     {configMessage.text && (
-                      <div className={`mb-8 p-4 rounded-xl text-sm font-bold border ${configMessage.type === "success" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-600 border-red-200"}`}>
-                        {configMessage.text}
+                      <div className={`p-4 rounded-2xl flex items-center gap-3 font-semibold text-sm ${configMessage.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                        {configMessage.type === "success" ? <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0"/> : <AlertTriangle className="w-5 h-5 text-red-600 shrink-0"/>}
+                        <span>{configMessage.text}</span>
                       </div>
                     )}
 
-                    {!organizerConfig ? (
-                      <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>
-                    ) : (
-                      <form onSubmit={handleSaveConfig} className="space-y-10">
-                        {/* A. Subscription */}
-                        <div className="space-y-6">
-                          <h3 className="text-lg font-black text-zinc-900 border-b border-zinc-100 pb-2">Subscription & Tier</h3>
-                          <div className="p-6 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-2xl border border-indigo-100/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    {organizerConfig && (
+                      <form onSubmit={handleSaveConfig} className="space-y-6">
+                        <div className="p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100 space-y-4">
+                          <div className="flex justify-between items-center">
                             <div>
-                              <p className="text-sm font-bold text-indigo-900 uppercase tracking-wider">Current Plan</p>
-                              <h4 className="text-2xl font-black text-indigo-950 mt-1 capitalize">{organizerConfig.subscription_status || "Free"} Plan</h4>
-                              <p className="text-sm text-indigo-700 mt-1">Upgrade to unlock white-labeling, custom security, and larger events.</p>
+                              <h3 className="font-extrabold text-zinc-900 text-base">Subscription Plan</h3>
+                              <p className="text-xs text-zinc-500 mt-0.5">Your active multi-tenant feature tier.</p>
                             </div>
-                            {organizerConfig.subscription_status !== "enterprise" && (
-                              <Button
-                                type="button"
-                                onClick={() => handleUpgradeSubscription("enterprise")}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold py-5 px-6 shrink-0"
-                              >
-                                Upgrade to Enterprise
-                              </Button>
-                            )}
+                            <span className="text-xs font-black uppercase tracking-wider bg-indigo-600 text-white px-3 py-1.5 rounded-xl shadow-sm">
+                              {organizerConfig.subscription_status || "FREE"}
+                            </span>
+                          </div>
+
+                          <div className="flex gap-3 pt-2">
+                            <Button 
+                              onClick={() => handleUpgradeSubscription("PRO")} 
+                              type="button"
+                              className="rounded-xl bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 text-xs font-bold px-4 py-2"
+                            >
+                              Upgrade to PRO
+                            </Button>
+                            <Button 
+                              onClick={() => handleUpgradeSubscription("ENTERPRISE")} 
+                              type="button"
+                              className="rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold px-4 py-2"
+                            >
+                              Upgrade to Enterprise
+                            </Button>
                           </div>
                         </div>
 
-                        {/* B. Branding */}
-                        <div className="space-y-6">
-                          <h3 className="text-lg font-black text-zinc-900 border-b border-zinc-100 pb-2">Branding (White-label)</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-3">
-                              <Label className="font-bold text-zinc-900">Organizer Logo URL</Label>
-                              <Input
-                                value={organizerConfig.branding_config?.logo || ""}
+                        <div className="space-y-4">
+                          <h3 className="font-bold text-zinc-900 text-base border-b border-zinc-100 pb-2">Branding Configurations</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-zinc-600">Primary Brand Color</Label>
+                              <Input 
+                                value={organizerConfig.branding_config?.primary_color || "#4F46E5"} 
                                 onChange={(e) => setOrganizerConfig({
                                   ...organizerConfig,
-                                  branding_config: { ...organizerConfig.branding_config, logo: e.target.value }
+                                  branding_config: { ...organizerConfig.branding_config, primary_color: e.target.value }
                                 })}
-                                placeholder="https://example.com/logo.png"
-                                className="py-6 rounded-xl bg-zinc-50"
+                                className="py-5 bg-zinc-50 border-zinc-200 rounded-xl font-mono text-xs"
                               />
                             </div>
-                            <div className="space-y-3">
-                              <Label className="font-bold text-zinc-900">Primary Branding Color</Label>
-                              <div className="flex gap-3">
-                                <Input
-                                  type="color"
-                                  value={organizerConfig.branding_config?.primaryColor || "#4F46E5"}
-                                  onChange={(e) => setOrganizerConfig({
-                                    ...organizerConfig,
-                                    branding_config: { ...organizerConfig.branding_config, primaryColor: e.target.value }
-                                  })}
-                                  className="w-12 h-12 p-1 rounded-xl bg-zinc-50 border border-zinc-200 cursor-pointer"
-                                />
-                                <Input
-                                  value={organizerConfig.branding_config?.primaryColor || ""}
-                                  onChange={(e) => setOrganizerConfig({
-                                    ...organizerConfig,
-                                    branding_config: { ...organizerConfig.branding_config, primaryColor: e.target.value }
-                                  })}
-                                  placeholder="#4F46E5"
-                                  className="py-6 rounded-xl bg-zinc-50 flex-1"
-                                />
-                              </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-zinc-600">Organization Logo URL</Label>
+                              <Input 
+                                value={organizerConfig.branding_config?.logo_url || ""} 
+                                onChange={(e) => setOrganizerConfig({
+                                  ...organizerConfig,
+                                  branding_config: { ...organizerConfig.branding_config, logo_url: e.target.value }
+                                })}
+                                placeholder="https://..."
+                                className="py-5 bg-zinc-50 border-zinc-200 rounded-xl text-xs"
+                              />
                             </div>
                           </div>
-                          <div className="space-y-3">
-                            <Label className="font-bold text-zinc-900">Branding Tagline</Label>
-                            <Input
-                              value={organizerConfig.branding_config?.tagline || ""}
+                        </div>
+
+                        <div className="space-y-4">
+                          <h3 className="font-bold text-zinc-900 text-base border-b border-zinc-100 pb-2">Tenant Access Policies</h3>
+                          <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl border border-zinc-200/60">
+                            <div>
+                              <p className="font-bold text-zinc-900 text-sm">Require Email Verification</p>
+                              <p className="text-xs text-zinc-500">Attendees must confirm email before ticket issuance.</p>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={!!organizerConfig.tenant_policy?.require_email_verification}
                               onChange={(e) => setOrganizerConfig({
                                 ...organizerConfig,
-                                branding_config: { ...organizerConfig.branding_config, tagline: e.target.value }
+                                tenant_policy: { ...organizerConfig.tenant_policy, require_email_verification: e.target.checked }
                               })}
-                              placeholder="Empowering local communities with tech."
-                              className="py-6 rounded-xl bg-zinc-50"
+                              className="w-5 h-5 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
                             />
                           </div>
                         </div>
 
-                        {/* C. Policies & Security */}
-                        <div className="space-y-6">
-                          <h3 className="text-lg font-black text-zinc-900 border-b border-zinc-100 pb-2">Global Policies & Security</h3>
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="checkbox"
-                                id="enableSSO"
-                                checked={!!organizerConfig.security_config?.enableSSO}
-                                onChange={(e) => setOrganizerConfig({
-                                  ...organizerConfig,
-                                  security_config: { ...organizerConfig.security_config, enableSSO: e.target.checked }
-                                })}
-                                className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
-                              />
-                              <Label htmlFor="enableSSO" className="font-bold text-zinc-900 cursor-pointer">Require SSO authentication for co-hosts/volunteers</Label>
-                            </div>
-                            <div className="space-y-3">
-                              <Label className="font-bold text-zinc-900">Restricted Join Email Domain</Label>
-                              <Input
-                                value={organizerConfig.tenant_policy?.emailDomain || ""}
-                                onChange={(e) => setOrganizerConfig({
-                                  ...organizerConfig,
-                                  tenant_policy: { ...organizerConfig.tenant_policy, emailDomain: e.target.value }
-                                })}
-                                placeholder="e.g. mycompany.com"
-                                className="py-6 rounded-xl bg-zinc-50"
-                              />
-                              <p className="text-xs text-zinc-500">Only users with emails on this domain can be invited as staff members.</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* D. Billing Info */}
-                        <div className="space-y-6">
-                          <h3 className="text-lg font-black text-zinc-900 border-b border-zinc-100 pb-2">Billing Information</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-3">
-                              <Label className="font-bold text-zinc-900">Billing Email</Label>
-                              <Input
-                                value={organizerConfig.billing_info?.billingEmail || ""}
-                                onChange={(e) => setOrganizerConfig({
-                                  ...organizerConfig,
-                                  billing_info: { ...organizerConfig.billing_info, billingEmail: e.target.value }
-                                })}
-                                placeholder="finance@mycompany.com"
-                                className="py-6 rounded-xl bg-zinc-50"
-                              />
-                            </div>
-                            <div className="space-y-3">
-                              <Label className="font-bold text-zinc-900">Tax ID / VAT Registration</Label>
-                              <Input
-                                value={organizerConfig.billing_info?.taxId || ""}
-                                onChange={(e) => setOrganizerConfig({
-                                  ...organizerConfig,
-                                  billing_info: { ...organizerConfig.billing_info, taxId: e.target.value }
-                                })}
-                                placeholder="GSTIN / Tax Registration Number"
-                                className="py-6 rounded-xl bg-zinc-50"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* E. Action Bar */}
-                        <div className="pt-4 border-t border-zinc-100">
-                          <Button
-                            type="submit"
-                            disabled={isSavingConfig}
-                            className="w-full md:w-auto rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-6 font-bold shadow-xl shadow-indigo-600/20 transition-all hover:scale-[1.02]"
-                          >
-                            {isSavingConfig ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save Settings"}
-                          </Button>
-                        </div>
+                        <Button className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-6 shadow-lg shadow-indigo-600/25" disabled={isSavingConfig} type="submit">
+                          {isSavingConfig ? <Loader2 className="w-5 h-5 animate-spin"/> : "Save Organization Configurations"}
+                        </Button>
                       </form>
                     )}
                   </div>
                 )}
 
-                {/* CLOSING THE FRAGMENT */}
+                {/* 6. SETTINGS (DANGER ZONE) TAB */}
+                {activeTab === "SETTINGS" && isOwner && (
+                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-6">
+                    <div>
+                      <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Event Settings</h1>
+                      <p className="text-zinc-500 font-medium mt-1">Manage destructive actions and administrative settings.</p>
+                    </div>
+
+                    <div className="p-6 bg-red-50/50 rounded-3xl border border-red-200/60 space-y-4">
+                      <div className="flex items-center gap-3 text-red-700 font-extrabold text-lg">
+                        <AlertTriangle className="w-6 h-6"/> Danger Zone
+                      </div>
+                      <p className="text-sm font-medium text-zinc-600">
+                        Deleting this event will permanently purge all registrations, ticket data, check-in history, and staff permissions associated with it. This action cannot be undone.
+                      </p>
+                      <Button className="rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-6 shadow-lg shadow-red-600/20" onClick={handleDelete}>
+                        <Trash2 className="w-5 h-5 mr-2"/> Delete Event
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
+
           </div>
         </div>
 
-        {/* DELETE CONFIRMATION MODAL */}
-        <AnimatePresence>
-          {showDeleteModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              {/* Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setShowDeleteModal(false)}
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              />
-              {/* Modal Body */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                transition={{ type: "spring", duration: 0.4 }}
-                className="relative w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-zinc-100 overflow-hidden z-10"
-              >
-                {/* Top Red Bar */}
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-500 to-rose-600" />
-                
-                <div className="flex items-center gap-3 text-red-600 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0 border border-red-100">
-                    <AlertTriangle className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-xl font-bold text-zinc-900">Delete Event?</h3>
-                </div>
-
-                <p className="text-sm text-zinc-600 mb-6 leading-relaxed">
-                  This action is <strong className="text-red-600 font-semibold">irreversible</strong> and will permanently delete the event <strong className="text-zinc-800 font-semibold">{event?.title}</strong>, including all registration lists, team dashboards, and submissions.
-                </p>
-
-                <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl mb-6">
-                  <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                    To confirm, type <span className="font-bold underline text-amber-900 select-all">{(event?.title || "the event title")}</span> below:
-                  </p>
-                </div>
-
-                <input
-                  type="text"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="Enter event title exactly"
-                  className="w-full px-4 py-3 rounded-2xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 text-sm font-semibold transition-all mb-6 placeholder:text-zinc-400 bg-zinc-50"
-                />
-
-                <div className="flex items-center gap-3">
-                  <Button
-                    onClick={() => setShowDeleteModal(false)}
-                    variant="outline"
-                    className="flex-1 rounded-2xl py-6 border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-bold"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleConfirmDelete}
-                    disabled={isDeleting || deleteConfirmText !== event?.title}
-                    variant="destructive"
-                    className="flex-1 rounded-2xl py-6 bg-red-600 hover:bg-red-700 font-bold shadow-lg shadow-red-600/10 disabled:opacity-40"
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      "Confirm Delete"
-                    )}
-                  </Button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
-        {/* QR Code Scanner Overlay Modal */}
+        {/* QR SCANNER MODAL */}
         <AnimatePresence>
           {isQrScanning && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50"
+              className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
             >
-              <motion.div
-                initial={{ scale: 0.95, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.95, y: 20 }}
-                className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] w-full max-w-md p-6 overflow-hidden relative text-white"
-              >
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-2">
-                    <Camera className="w-5 h-5 text-indigo-400" />
-                    <h3 className="font-extrabold text-lg text-white">Ticket Scanner</h3>
+              <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative">
+                <button
+                  onClick={() => setIsQrScanning(false)}
+                  type="button"
+                  className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-700 p-2"
+                >
+                  <XCircle className="w-6 h-6"/>
+                </button>
+
+                <div className="text-center mb-4">
+                  <h3 className="text-xl font-extrabold text-zinc-900">Scan Ticket QR</h3>
+                  <p className="text-xs font-semibold text-zinc-500 mt-1">Position attendee&apos;s ticket QR code inside the camera frame.</p>
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border-2 border-zinc-200 bg-black aspect-square flex items-center justify-center relative">
+                  <div id="qr-scanner-element" className="w-full h-full"></div>
+                </div>
+
+                {scanResult && (
+                  <div className={`mt-4 p-3 rounded-xl text-xs font-bold text-center ${scanResult.success ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                    {scanResult.message}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsQrScanning(false)}
-                    className="text-zinc-400 hover:text-white font-bold text-sm p-2 rounded-xl bg-zinc-905 hover:bg-zinc-800 transition-colors"
-                  >
-                    Close
-                  </button>
-                </div>
+                )}
 
-                {/* Scan Viewport Container */}
-                <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-black border border-zinc-800 flex items-center justify-center">
-                  {!scanResult && (
-                    <div id="qr-scanner-element" className="w-full h-full object-cover" />
-                  )}
-                  
-                  {scanResult && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-zinc-950/95 animate-in fade-in zoom-in-95 duration-200">
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 border ${scanResult.success ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-500"}`}>
-                        {scanResult.success ? <CheckCircle2 className="w-8 h-8" /> : <XCircle className="w-8 h-8" />}
-                      </div>
-                      <h4 className="font-bold text-lg">{scanResult.success ? "Scan Successful!" : "Scan Failed"}</h4>
-                      <p className="text-sm text-zinc-400 mt-2 leading-relaxed">{scanResult.message}</p>
-                      <Button
-                        type="button"
-                        onClick={() => setScanResult(null)}
-                        className="mt-6 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-xs"
-                      >
-                        Scan Next Ticket
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                <p className="text-xs text-zinc-500 text-center mt-6">
-                  Point the camera at the attendee's ticket QR code.
-                </p>
-              </motion.div>
+                <Button 
+                  onClick={() => setIsQrScanning(false)}
+                  type="button"
+                  className="w-full mt-4 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-bold py-3"
+                >
+                  Close Scanner
+                </Button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* FULL SCREEN KIOSK WELCOME SPLASH */}
+        {/* WELCOME BANNER MODAL */}
         <AnimatePresence>
           {welcomeAttendee && (
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 50, scale: 0.9 }}
+              className="fixed bottom-8 right-8 z-50 bg-zinc-950 text-white p-6 rounded-3xl shadow-2xl border border-zinc-800 flex items-center gap-4 max-w-md"
+            >
+              <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-6 h-6"/>
+              </div>
+              <div>
+                <p className="text-xs font-black text-emerald-400 uppercase tracking-widest">Check-In Successful</p>
+                <h4 className="text-lg font-black text-white mt-0.5">Welcome, {welcomeAttendee}! 👋</h4>
+                <p className="text-xs font-medium text-zinc-400 mt-0.5">Attendance status updated seamlessly.</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* DELETE CONFIRMATION MODAL */}
+        <AnimatePresence>
+          {showDeleteModal && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950 overflow-hidden"
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
             >
-              {/* Animated Background Orbs */}
-              <div className="absolute top-[-10%] left-[-10%] w-[60%] aspect-square bg-indigo-600/20 rounded-full blur-[150px] animate-pulse pointer-events-none" style={{ animationDuration: '6s' }} />
-              <div className="absolute bottom-[-10%] right-[-10%] w-[60%] aspect-square bg-violet-600/20 rounded-full blur-[150px] animate-pulse pointer-events-none" style={{ animationDuration: '8s', animationDelay: '2s' }} />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40%] aspect-square bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
-
-              {/* Grid Overlay for Tech Vibe */}
-              <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f29370a_1px,transparent_1px),linear-gradient(to_bottom,#1f29370a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none opacity-20" />
-
-              {/* Welcome Card Container */}
-              <motion.div
-                initial={{ scale: 0.9, y: 40, opacity: 0 }}
-                animate={{ scale: 1, y: 0, opacity: 1 }}
-                exit={{ scale: 0.9, y: -40, opacity: 0 }}
-                transition={{ type: "spring", damping: 15, stiffness: 100 }}
-                className="relative w-[90%] max-w-3xl bg-zinc-900/60 border border-zinc-800/80 p-12 md:p-20 rounded-[3rem] text-center backdrop-blur-3xl shadow-2xl flex flex-col items-center justify-center gap-8 text-white"
-              >
-                {/* Checkmark animation */}
-                <motion.div
-                  initial={{ scale: 0, rotate: -45 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", delay: 0.2, stiffness: 200 }}
-                  className="w-28 h-28 bg-emerald-500/10 border-2 border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(16,185,129,0.15)] mx-auto"
-                >
-                  <CheckCircle2 className="w-16 h-16" />
-                </motion.div>
-
-                <div className="space-y-4">
-                  <motion.p
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="text-indigo-400 text-lg md:text-xl font-bold uppercase tracking-[0.25em]"
+              <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4">
+                <h3 className="text-xl font-extrabold text-zinc-900">Confirm Deletion</h3>
+                <p className="text-sm font-medium text-zinc-600">
+                  Type <span className="font-mono font-bold text-zinc-900">&quot;{event.title}&quot;</span> to confirm permanent deletion.
+                </p>
+                <Input 
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Enter event title..."
+                  className="py-5 bg-zinc-50 border-zinc-200 rounded-xl font-semibold"
+                />
+                <div className="flex gap-3 pt-2">
+                  <Button 
+                    onClick={() => setShowDeleteModal(false)}
+                    className="flex-1 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold py-5"
                   >
-                    Welcome to
-                  </motion.p>
-                  
-                  <motion.h1
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="text-white text-3xl md:text-5xl font-black tracking-tight leading-tight uppercase max-w-2xl mx-auto"
-                  >
-                    {event?.title}
-                  </motion.h1>
-
-                  <motion.div
-                    initial={{ scaleX: 0 }}
-                    animate={{ scaleX: 1 }}
-                    transition={{ delay: 0.6, duration: 0.5 }}
-                    className="h-[1px] w-24 bg-gradient-to-r from-transparent via-zinc-700 to-transparent mx-auto my-6"
-                  />
-
-                  <motion.h2
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.7, type: "spring" }}
-                    className="text-4xl md:text-6xl font-black tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent px-4 py-2"
-                  >
-                    {welcomeAttendee}
-                  </motion.h2>
+                    Cancel
+                  </Button>
+                  <Button className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold py-5 shadow-md shadow-red-600/20" disabled={isDeleting} onClick={handleConfirmDelete}>
+                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin"/> : "Delete"}
+                  </Button>
                 </div>
-
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.9 }}
-                  className="text-zinc-500 font-semibold text-base mt-2"
-                >
-                  Check-in confirmed. Please enter and enjoy!
-                </motion.p>
-
-                {/* Autoclose Progress Bar */}
-                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-zinc-850 rounded-b-[3rem] overflow-hidden">
-                  <motion.div
-                    initial={{ width: "100%" }}
-                    animate={{ width: "0%" }}
-                    transition={{ duration: 4, ease: "linear" }}
-                    className="h-full bg-emerald-500"
-                  />
-                </div>
-              </motion.div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
+
       </div>
     );
   }
 
   // ==========================================
-  // VIEW 2: PUBLIC / PREVIEW MODE
+  // VIEW 2: PUBLIC / ATTENDEE PREVIEW VIEW
   // ==========================================
   return (
-    <div className="min-h-screen bg-zinc-50 pb-32 font-sans selection:bg-indigo-100 selection:text-indigo-900 relative">
-
-      {/* STAFF PREVIEW FLOATING BUTTON */}
-      {isStaff && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10">
-          <div className="bg-zinc-900/90 backdrop-blur-md p-2 pl-6 rounded-full shadow-2xl flex items-center gap-4 border border-zinc-700">
-            <span className="text-sm font-bold text-white flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              Preview Mode
-            </span>
-            <Button onClick={() => setViewMode("DASHBOARD")} className="rounded-full bg-white text-zinc-900 hover:bg-zinc-200 font-bold px-6">
-              Exit to Dashboard
-            </Button>
-          </div>
-        </div>
-      )}
-
+    <>
       {/* HERO BANNER */}
       <div className="w-full h-[45vh] bg-gradient-to-br from-indigo-950 via-violet-900 to-zinc-900 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-500/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3" />
@@ -1547,7 +1477,7 @@ export default function EventDetailsPage() {
                     <CheckCircle2 className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="font-bold text-emerald-900 text-sm">You're already registered!</p>
+                    <p className="font-bold text-emerald-900 text-sm">You&apos;re already registered!</p>
                     <p className="text-emerald-700 text-xs font-medium">Your spot is secured.</p>
                   </div>
                 </div>
@@ -1568,80 +1498,6 @@ export default function EventDetailsPage() {
           </motion.div>
         </div>
       </div>
-
-      {/* DELETE CONFIRMATION MODAL */}
-      <AnimatePresence>
-        {showDeleteModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowDeleteModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            {/* Modal Body */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", duration: 0.4 }}
-              className="relative w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-zinc-100 overflow-hidden z-10"
-            >
-              {/* Top Red Bar */}
-              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-500 to-rose-600" />
-              
-              <div className="flex items-center gap-3 text-red-600 mb-4">
-                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0 border border-red-100">
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
-                <h3 className="text-xl font-bold text-zinc-900">Delete Event?</h3>
-              </div>
-
-              <p className="text-sm text-zinc-600 mb-6 leading-relaxed">
-                This action is <strong className="text-red-600 font-semibold">irreversible</strong> and will permanently delete the event <strong className="text-zinc-800 font-semibold">{event?.title}</strong>, including all registration lists, team dashboards, and submissions.
-              </p>
-
-              <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl mb-6">
-                <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                  To confirm, type <span className="font-bold underline text-amber-900 select-all">{(event?.title || "the event title")}</span> below:
-                </p>
-              </div>
-
-              <input
-                type="text"
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder="Enter event title exactly"
-                className="w-full px-4 py-3 rounded-2xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 text-sm font-semibold transition-all mb-6 placeholder:text-zinc-400 bg-zinc-50"
-              />
-
-              <div className="flex items-center gap-3">
-                <Button
-                  onClick={() => setShowDeleteModal(false)}
-                  variant="outline"
-                  className="flex-1 rounded-2xl py-6 border-zinc-200 hover:bg-zinc-50 text-zinc-700 font-bold"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleConfirmDelete}
-                  disabled={isDeleting || deleteConfirmText !== event?.title}
-                  variant="destructive"
-                  className="flex-1 rounded-2xl py-6 bg-red-600 hover:bg-red-700 font-bold shadow-lg shadow-red-600/10 disabled:opacity-40"
-                >
-                  {isDeleting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    "Confirm Delete"
-                  )}
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
+    </>
   );
 }
