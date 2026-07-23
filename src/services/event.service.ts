@@ -26,6 +26,12 @@ export const eventService = {
     return response.data;
   },
 
+  // Fetch available event types (system & custom)
+  getEventTypes: async () => {
+    const response = await api.get('/events/types');
+    return response.data;
+  },
+
   // Delete an event (Requires Organizer Token)
   deleteEvent: async (eventId: string) => {
     const response = await api.delete(`/events/${eventId}`);
