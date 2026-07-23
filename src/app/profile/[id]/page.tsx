@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useProfileById, MyProfile } from "@/hooks/profileHooks";
 import PageTransition from "@/components/layout/PageTransition";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
 export default function PublicProfilePage() {
 
@@ -235,7 +236,7 @@ useEffect(()=>{
 
             const response =
                 await fetch(
-                    "http://localhost:3000/api/image/upload",
+                    process.env.NEXT_PUBLIC_API_URL || `${API_BASE_URL}/image/upload`,
                     {
 
                         method:"POST",
