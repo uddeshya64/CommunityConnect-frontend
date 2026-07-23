@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -18,7 +18,8 @@ interface AppEvent {
   date: string;
   location: string;
   attendees?: number;
-  createdBy?: number | string; // NEW: who created this event
+  createdBy?: number | string;
+  bannerUrl?: string; // ADDED: Banner URL property
 }
 
 interface UserProfile {
@@ -64,45 +65,17 @@ function ProfileAvatar({ profile }: { profile: UserProfile }) {
   );
 }
 
-function HomePageClient() {
+export default function HomePage() {
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState<number | undefined>(undefined);
   const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(undefined);
 
-  const searchParams = useSearchParams();
-  const accessToken = searchParams.get("accessToken");
-  const refreshToken = searchParams.get("refreshToken");
-  const routeUserId = searchParams.get("userId");
   const { getMyProfile } = useMyProfile();
 
   // Fetch user's own profile (id + name + avatar)
   useEffect(() => {
-    if (accessToken) {
-      localStorage.setItem("accessToken", accessToken);
-    }
-
-    if (refreshToken) {
-      localStorage.setItem("refreshToken", refreshToken);
-    }
-
-    if (accessToken || refreshToken || routeUserId) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("accessToken");
-      url.searchParams.delete("refreshToken");
-      url.searchParams.delete("userId");
-      window.history.replaceState(null, "", url.pathname + url.search);
-    }
-
-    if (routeUserId) {
-      const numericId = Number(routeUserId);
-      if (!Number.isNaN(numericId)) {
-        setUserId(numericId);
-      }
-      localStorage.setItem("userId", routeUserId);
-    }
-
     const fetchProfile = async () => {
       try {
         const profile = await getMyProfile();
@@ -113,10 +86,8 @@ function HomePageClient() {
         setUserName("there");
       }
     };
-
     fetchProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken, refreshToken]);
+  }, []);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -150,6 +121,8 @@ function HomePageClient() {
             location: evt.location || evt.mode || "TBA",
             attendees: evt.capacity || 0,
             createdBy: evt.created_by,
+            // EXTRACT BANNER URL FROM BACKEND
+            bannerUrl: evt.banner_url || evt.bannerUrl || evt.banner || null,
           };
         });
         setEvents(formattedEvents);
@@ -275,11 +248,24 @@ function HomePageClient() {
                   <motion.div key={event.id} variants={itemVariants}>
                     <Link href={`/events/${event.id}`}>
                       <div className="group bg-white rounded-3xl p-3 border border-zinc-200 hover:border-indigo-200 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 cursor-pointer relative overflow-hidden h-full flex flex-col">
-                        <div className={`w-full h-48 rounded-2xl bg-gradient-to-br ${randomGradient} relative overflow-hidden group-hover:scale-[1.02] transition-transform duration-500 ease-out`}>
-                          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-zinc-900 shadow-sm">
+                        
+                        {/* UPDATE: Conditional Image Rendering */}
+                        <div className={`w-full h-48 rounded-2xl ${event.bannerUrl ? 'bg-zinc-100' : `bg-gradient-to-br ${randomGradient}`} relative overflow-hidden group-hover:scale-[1.02] transition-transform duration-500 ease-out`}>
+                          
+                          {/* Banner Image */}
+                          {event.bannerUrl && (
+                            <img 
+                              src={event.bannerUrl} 
+                              alt={event.title} 
+                              className="w-full h-full object-cover absolute inset-0"
+                            />
+                          )}
+
+                          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-zinc-900 shadow-sm z-10">
                             {event.category || "Tech Event"}
                           </div>
                         </div>
+
                         <div className="p-5 flex-1 flex flex-col">
                           <h3 className="text-xl font-bold text-zinc-900 mb-4 group-hover:text-indigo-600 transition-colors line-clamp-2">
                             {event.title}
@@ -305,13 +291,5 @@ function HomePageClient() {
         </main>
       </div>
     </div>
-  );
-}
-
-export default function HomePage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-zinc-50">Loading...</div>}>
-      <HomePageClient />
-    </Suspense>
   );
 }
