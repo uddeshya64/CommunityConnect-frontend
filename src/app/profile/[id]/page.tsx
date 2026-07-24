@@ -29,7 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useProfileById, MyProfile } from "@/hooks/profileHooks";
 import PageTransition from "@/components/layout/PageTransition";
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
 // ==============================
 // CREATED EVENT TYPE
@@ -243,7 +243,7 @@ export default function PublicProfilePage() {
 
       const response =
         await fetch(
-          "http://localhost:3000/api/image/upload",
+          `${API_BASE_URL}/image/upload`,
           {
             method: "POST",
 

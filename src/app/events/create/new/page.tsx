@@ -16,7 +16,7 @@ import {
   getTemplateById,
   type FieldType,
 } from "@/lib/eventTemplates";
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 // Updated to match your Backend Zod Schema
 interface EventFormData {
   title: string;
@@ -119,7 +119,7 @@ function CreateEventPageInner() {
       locationControllerRef.current = controller;
       setIsLoadingSuggestions(true);
 
-      fetch(`http://localhost:3000/api/locations/search?q=${encodeURIComponent(searchTerm)}`, {
+      fetch(`${API_BASE_URL}/locations/search?q=${encodeURIComponent(searchTerm)}`, {
         signal: controller.signal,
       })
         .then(async (response) => {
