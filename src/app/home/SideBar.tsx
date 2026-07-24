@@ -27,13 +27,14 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
+  disabled?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/home", icon: Home },
-  { label: "Discover", href: "/discover", icon: Compass },
+  { label: "Discover", href: "/discover", icon: Compass, disabled: true },
   { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
-  { label: "Saved", href: "/saved", icon: Bookmark },
+  { label: "Saved", href: "/saved", icon: Bookmark, disabled: true },
   { label: "Notifications", href: "/notifications", icon: Bell },
 ];
 
@@ -103,7 +104,23 @@ export default function Sidebar() {
           {NAV_ITEMS.map((item) => {
             const isActive =
               pathname === item.href || pathname?.startsWith(`${item.href}/`);
+            const isDisabled = item.disabled;
             const Icon = item.icon;
+
+            if (isDisabled) {
+              return (
+                <div key={item.href} title={isCollapsed ? item.label : undefined}>
+                  <div
+                    className={`relative flex items-center rounded-full text-sm font-semibold text-zinc-400 cursor-not-allowed opacity-60 ${
+                      isCollapsed ? "justify-center px-0 py-2.5 w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
+                    }`}
+                  >
+                    <Icon className="w-4.5 h-4.5 relative z-10 shrink-0" strokeWidth={2.2} />
+                    {!isCollapsed && <span className="relative z-10">{item.label}</span>}
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} title={isCollapsed ? item.label : undefined}>
@@ -145,16 +162,16 @@ export default function Sidebar() {
 
       {/* Footer: settings/logout */}
       <div className="border-t border-zinc-200/70 pt-4 flex flex-col gap-1">
-        <Link href="/settings" onClick={() => setMobileOpen(false)} title={isCollapsed ? "Settings" : undefined}>
+        <div title={isCollapsed ? "Settings" : undefined}>
           <div
-            className={`flex items-center rounded-full text-sm font-semibold text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors ${
+            className={`flex items-center rounded-full text-sm font-semibold text-zinc-400 cursor-not-allowed opacity-60 ${
               isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
             }`}
           >
             <Settings className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
             {!isCollapsed && "Settings"}
           </div>
-        </Link>
+        </div>
         <button
           title={isCollapsed ? "Log out" : undefined}
           className={`flex items-center rounded-full text-sm font-semibold text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors ${
@@ -183,20 +200,40 @@ export default function Sidebar() {
         {renderSidebarContent(collapsed)}
       </motion.aside>
 
-      {/* Mobile top bar trigger */}
-      <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-16 bg-white/70 backdrop-blur-xl border-b border-zinc-200/50">
+      {/* Mobile Book Tag / Pull Handle on Left Edge */}
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: 80 }}
+        dragElastic={0.15}
+        onDragEnd={(event, info) => {
+          if (info.offset.x > 30) {
+            setMobileOpen(true);
+          }
+        }}
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed left-0 top-[25%] z-45 cursor-grab active:cursor-grabbing bg-gradient-to-br from-indigo-600 via-violet-600 to-indigo-700 text-white pl-1.5 pr-2.5 py-4 rounded-r-2xl shadow-lg shadow-indigo-600/30 border-y border-r border-indigo-400/20 flex flex-col items-center gap-2 transition-all hover:scale-105 active:scale-95"
+      >
+        <motion.div
+          animate={{ x: [0, 4, 0] }}
+          transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+        >
+          <ChevronsRight className="w-4 h-4" />
+        </motion.div>
+        <span className="text-[9px] font-black tracking-widest uppercase [writing-mode:vertical-lr] rotate-180 select-none">
+          PULL MENU
+        </span>
+      </motion.div>
+
+      {/* Mobile top bar */}
+      <div className="md:hidden sticky top-0 z-30 flex items-center justify-between px-4 h-16 bg-white/70 backdrop-blur-xl border-b border-zinc-200/50">
         <Link href="/home" className="flex items-center gap-2 font-extrabold text-lg text-zinc-900">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
             <span className="text-white text-[10px] font-black">CC</span>
           </div>
           Circle
         </Link>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-500 hover:bg-zinc-100"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+        {/* Placeholder to keep the right side clear for the fixed floating profile avatar */}
+        <div className="w-12 h-12 shrink-0" />
       </div>
 
       {/* Mobile drawer — always renders expanded, regardless of desktop collapsed state */}

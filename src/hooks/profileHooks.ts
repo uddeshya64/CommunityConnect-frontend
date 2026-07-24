@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import axios from "axios";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
@@ -34,8 +34,7 @@ export function useMyProfile() {
 
 
 
-  const getMyProfile =
-  async():Promise<MyProfile> => {
+  const getMyProfile = useCallback(async (): Promise<MyProfile> => {
 
     setIsLoading(true);
     setError(null);
@@ -92,7 +91,7 @@ export function useMyProfile() {
 
     }
 
-  };
+  }, []);
 
 
   return {

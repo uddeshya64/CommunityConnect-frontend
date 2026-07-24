@@ -54,5 +54,21 @@ export const eventService = {
   }) => {
     const response = await api.post('/registration/verify', paymentData);
     return response.data;
+  },
+
+  // Timeline (Agenda) CRUD methods
+  createTimeline: async (eventId: string, data: any) => {
+    const response = await api.post(`/events/${eventId}/timelines`, data);
+    return response.data;
+  },
+
+  updateTimeline: async (eventId: string, timelineId: number | string, data: any) => {
+    const response = await api.put(`/events/${eventId}/timelines/${timelineId}`, data);
+    return response.data;
+  },
+
+  deleteTimeline: async (eventId: string, timelineId: number | string) => {
+    const response = await api.delete(`/events/${eventId}/timelines/${timelineId}`);
+    return response.data;
   }
 };
