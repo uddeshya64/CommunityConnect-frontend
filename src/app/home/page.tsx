@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -109,7 +109,7 @@ function ProfileAvatar({ profile }: { profile: UserProfile }) {
 // HOME PAGE
 // ============================================
 
-export default function HomePage() {
+function HomePageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -290,7 +290,8 @@ export default function HomePage() {
   // ============================================
 
   return (
-    <div className="min-h-screen bg-zinc-50 relative flex">
+    <div className="min-h-screen bg-zinc-50 relative flex flex-col md:flex-row">
+
       {/* SIDEBAR */}
       <Sidebar />
 
@@ -511,5 +512,13 @@ export default function HomePage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-zinc-50">Loading...</div>}>
+      <HomePageContent />
+    </Suspense>
   );
 }

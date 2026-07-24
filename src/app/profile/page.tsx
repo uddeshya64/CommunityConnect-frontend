@@ -21,7 +21,9 @@ import { Button } from "@/components/ui/button";
 import { profileService } from "@/services/profile.service";
 import { Profile } from "@/types/profile.types";
 import PageTransition from "@/components/layout/PageTransition";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+
 export default function MyProfilePage() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -42,7 +44,7 @@ export default function MyProfilePage() {
             } catch (err: any) {
                 setError(
                     err.response?.data?.error ||
-                        "Failed to load profile."
+                    "Failed to load profile."
                 );
             } finally {
                 setIsLoading(false);
@@ -101,8 +103,9 @@ export default function MyProfilePage() {
             }
 
             // Call upload API
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
             const response = await fetch(
-                `${API_BASE_URL}/image/upload`,
+                process.env.NEXT_PUBLIC_API_URL || `${API_BASE_URL}/image/upload`,
                 {
                     method: "POST",
                     headers: {
@@ -140,7 +143,7 @@ export default function MyProfilePage() {
 
             setError(
                 err.message ||
-                    "Failed to upload profile image."
+                "Failed to upload profile image."
             );
         } finally {
             setIsUploading(false);
@@ -501,7 +504,7 @@ export default function MyProfilePage() {
                             </h2>
 
                             {profile?.skills &&
-                            profile.skills.length > 0 ? (
+                                profile.skills.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
                                     {profile.skills.map(
                                         (skill, i) => (
