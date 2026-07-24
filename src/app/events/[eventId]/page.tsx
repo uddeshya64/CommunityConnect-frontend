@@ -8,7 +8,7 @@ import {
   Ticket, Building2, UserCircle2,
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
-  UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone
+  UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus, ClipboardList
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
 import { api } from "@/lib/axios";
 import { Html5Qrcode } from "html5-qrcode";
+import { RichTextEditor } from "@/components/ui/RichTextEditor";
+import RegistrationFormBuilder from "@/components/organizer/RegistrationFormBuilder";
 
 interface EventDetails {
   id: string;
@@ -35,6 +37,7 @@ interface EventDetails {
   bannerUrl?: string;
   organizerId?: string;
   organizerName?: string;
+  timelines?: any[];
 }
 
 export default function EventDetailsPage() {
@@ -51,7 +54,31 @@ export default function EventDetailsPage() {
   const [permissions, setPermissions] = useState<string[]>([]);
 
   const [viewMode, setViewMode] = useState<"DASHBOARD" | "PREVIEW">("PREVIEW");
-  const [activeTab, setActiveTab] = useState<"OVERVIEW" | "PARTICIPANTS" | "EDIT" | "STAFF" | "SETTINGS" | "ORGANIZER_SETTINGS">("OVERVIEW");
+  const [activeTab, setActiveTab] = useState<"OVERVIEW" | "PARTICIPANTS" | "EDIT" | "AGENDA" | "REGISTRATION_FORM" | "STAFF" | "SETTINGS" | "ORGANIZER_SETTINGS">("OVERVIEW");
+
+  // --- AGENDA / TIMELINE STATES ---
+  const [expandedTimelineId, setExpandedTimelineId] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const [timelinesList, setTimelinesList] = useState<any[]>([]);
+  const [isAgendaModalOpen, setIsAgendaModalOpen] = useState(false);
+  const [editingTimelineItem, setEditingTimelineItem] = useState<any | null>(null);
+  const [agendaFormData, setAgendaFormData] = useState({
+    title: "",
+    speaker_name: "",
+    description: "",
+    start_time: "",
+    end_time: "",
+    location: "",
+    should_notify: true
+  });
+  const [isSavingAgenda, setIsSavingAgenda] = useState(false);
+  const [agendaError, setAgendaError] = useState("");
 
   // --- MANAGEMENT DATA STATES ---
   const [overviewStats, setOverviewStats] = useState<any>(null);
@@ -155,8 +182,11 @@ export default function EventDetailsPage() {
           maxTeam: rawEvent.max_team_size || 1,
           bannerUrl: currentBanner,
           organizerId: rawEvent.organizerId || rawEvent.hostId || rawEvent.userId,
-          organizerName: rawEvent.organizer?.name || rawEvent.creator?.name
+          organizerName: rawEvent.organizer?.name || rawEvent.creator?.name,
+          timelines: rawEvent.timelines || []
         });
+
+        setTimelinesList(rawEvent.timelines || []);
 
         if (currentBanner) {
           setBannerPreview(currentBanner);
@@ -263,7 +293,12 @@ export default function EventDetailsPage() {
         } else if (activeTab === "ORGANIZER_SETTINGS" && isOwner && event?.organizerId) {
           const res = await api.get(`/organizers/${event.organizerId}/config`);
           setOrganizerConfig(res.data.data || res.data);
+        } else if (activeTab === "AGENDA") {
+          const res = await api.get(`/events/${eventId}/timelines`);
+          setTimelinesList(res.data.data || res.data || []);
         }
+        // Note: REGISTRATION_FORM tab is intentionally not handled here —
+        // RegistrationFormBuilder fetches and manages its own schema state.
       } catch (err) {
         console.error(`Failed to fetch ${activeTab} data`, err);
       } finally {
@@ -291,6 +326,14 @@ export default function EventDetailsPage() {
     try {
       setIsUpdating(true);
       setUpdateMessage({ type: "", text: "" });
+
+      const fee = parseFloat(editData.registration_fee);
+      if (isNaN(fee) || fee < 0) {
+        throw new Error("Registration fee must be at least ₹0.");
+      }
+      if (fee > 100000) {
+        throw new Error("Registration fee cannot exceed ₹100,000.");
+      }
 
       const resolvedType = editData.type === "other" && customType.trim()
         ? customType.trim()
@@ -558,6 +601,115 @@ export default function EventDetailsPage() {
     }
   };
 
+  // --- AGENDA MANAGEMENT HANDLERS ---
+  const formatForDateTimeLocal = (isoString?: string) => {
+    if (!isoString) return "";
+    try {
+      const date = new Date(isoString);
+      return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+    } catch (e) { return ""; }
+  };
+
+  const handleOpenAddAgenda = () => {
+    setEditingTimelineItem(null);
+    setAgendaFormData({
+      title: "",
+      speaker_name: "",
+      description: "",
+      start_time: "",
+      end_time: "",
+      location: "",
+      should_notify: true
+    });
+    setAgendaError("");
+    setIsAgendaModalOpen(true);
+  };
+
+  const handleOpenEditAgenda = (item: any) => {
+    setEditingTimelineItem(item);
+    setAgendaFormData({
+      title: item.title || "",
+      speaker_name: item.speaker_name || "",
+      description: item.description || "",
+      start_time: formatForDateTimeLocal(item.start_time),
+      end_time: formatForDateTimeLocal(item.end_time),
+      location: item.location || "",
+      should_notify: item.should_notify ?? true
+    });
+    setAgendaError("");
+    setIsAgendaModalOpen(true);
+  };
+
+  const handleSaveAgenda = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!agendaFormData.title.trim()) {
+      setAgendaError("Title is required.");
+      return;
+    }
+    if (!agendaFormData.start_time) {
+      setAgendaError("Start time is required.");
+      return;
+    }
+    if (agendaFormData.end_time && agendaFormData.start_time >= agendaFormData.end_time) {
+      setAgendaError("End time must be after start time.");
+      return;
+    }
+
+    try {
+      setIsSavingAgenda(true);
+      setAgendaError("");
+
+      const payload = {
+        ...agendaFormData,
+        speaker_name: agendaFormData.speaker_name || null,
+        description: agendaFormData.description || null,
+        location: agendaFormData.location || null,
+        end_time: agendaFormData.end_time || null,
+      };
+
+      if (editingTimelineItem) {
+        const res = await eventService.updateTimeline(eventId, editingTimelineItem.id, payload);
+        const updatedItem = res.data?.data || res.data || res;
+        setTimelinesList(prev => prev.map(item => item.id === editingTimelineItem.id ? updatedItem : item));
+        setEvent(prev => {
+          if (!prev) return null;
+          const updatedTimelines = (prev.timelines || []).map(item => item.id === editingTimelineItem.id ? updatedItem : item);
+          return { ...prev, timelines: updatedTimelines };
+        });
+      } else {
+        const res = await eventService.createTimeline(eventId, payload);
+        const newItem = res.data?.data || res.data || res;
+        const sortList = (list: any[]) => [...list].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+        setTimelinesList(prev => sortList([...prev, newItem]));
+        setEvent(prev => {
+          if (!prev) return null;
+          return { ...prev, timelines: sortList([...(prev.timelines || []), newItem]) };
+        });
+      }
+
+      setIsAgendaModalOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      setAgendaError(err.response?.data?.error || err.message || "Failed to save agenda item.");
+    } finally {
+      setIsSavingAgenda(false);
+    }
+  };
+
+  const handleDeleteAgenda = async (timelineId: number) => {
+    if (!confirm("Are you sure you want to delete this agenda session?")) return;
+    try {
+      await eventService.deleteTimeline(eventId, timelineId);
+      setTimelinesList(prev => prev.filter(item => item.id !== timelineId));
+      setEvent(prev => {
+        if (!prev) return null;
+        return { ...prev, timelines: (prev.timelines || []).filter(item => item.id !== timelineId) };
+      });
+    } catch (err: any) {
+      alert(err.response?.data?.error || err.message || "Failed to delete agenda item.");
+    }
+  };
+
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-indigo-500" /></div>;
   if (!event) return <div className="min-h-screen flex items-center justify-center font-bold">Event not found.</div>;
 
@@ -605,6 +757,18 @@ export default function EventDetailsPage() {
             <button onClick={() => setActiveTab("EDIT")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "EDIT" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
               <Pencil className="w-5 h-5" /> Edit Details
             </button>
+
+            {hasPermission("MANAGE_EVENT") && (
+              <button onClick={() => setActiveTab("AGENDA")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "AGENDA" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
+                <Calendar className="w-5 h-5" /> Event Agenda
+              </button>
+            )}
+
+            {hasPermission("MANAGE_EVENT") && (
+              <button onClick={() => setActiveTab("REGISTRATION_FORM")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "REGISTRATION_FORM" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
+                <ClipboardList className="w-5 h-5" /> Registration Form
+              </button>
+            )}
 
             {hasPermission("MANAGE_STAFF") && (
               <button onClick={() => setActiveTab("STAFF")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "STAFF" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
@@ -1044,6 +1208,120 @@ export default function EventDetailsPage() {
                   </div>
                 )}
 
+                {/* 3.5. AGENDA TAB */}
+                {activeTab === "AGENDA" && hasPermission("MANAGE_EVENT") && (
+                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-100 pb-6">
+                      <div>
+                        <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Event Agenda</h1>
+                        <p className="text-zinc-500 font-medium mt-1">Design a creative schedule and session timeline for your event.</p>
+                      </div>
+                      <Button
+                        onClick={handleOpenAddAgenda}
+                        className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-6 shadow-lg shadow-indigo-600/25 flex items-center gap-2 self-start md:self-auto transition-transform hover:scale-[1.02]"
+                      >
+                        <Plus className="w-5 h-5" /> Add Session
+                      </Button>
+                    </div>
+
+                    {timelinesList.length === 0 ? (
+                      <div className="text-center py-16 border-2 border-dashed border-zinc-200 rounded-3xl bg-zinc-50">
+                        <Clock className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
+                        <h3 className="font-extrabold text-zinc-800 text-lg">No sessions added yet</h3>
+                        <p className="text-zinc-500 text-sm font-medium mt-1">Add sessions to build a stunning timeline for your attendees.</p>
+                        <Button
+                          onClick={handleOpenAddAgenda}
+                          className="mt-6 rounded-xl bg-white border border-zinc-200 text-zinc-800 font-bold px-5 py-2.5 hover:bg-zinc-50 shadow-sm"
+                        >
+                          Create First Session
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="relative border-l border-zinc-200 ml-4 pl-8 space-y-8 py-4">
+                        {timelinesList.map((timeline) => {
+                          const start = new Date(timeline.start_time);
+                          const end = timeline.end_time ? new Date(timeline.end_time) : null;
+                          return (
+                            <div key={timeline.id} className="relative group">
+                              {/* Timeline Point */}
+                              <div className="absolute -left-[41px] top-1.5 w-6 h-6 rounded-full bg-white border-4 border-indigo-600 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform" />
+                              
+                              <div className="bg-zinc-50 border border-zinc-200/60 p-6 rounded-3xl hover:border-zinc-300 hover:bg-white hover:shadow-md transition-all duration-300 space-y-4">
+                                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center gap-3 text-xs font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-xl w-fit">
+                                      <Clock className="w-3.5 h-3.5" />
+                                      <span>
+                                        {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {end && ` - ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                                      </span>
+                                      <span className="text-zinc-300">|</span>
+                                      <span>
+                                        {start.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                      </span>
+                                    </div>
+                                    <h3 className="text-xl font-extrabold text-zinc-950 leading-snug">{timeline.title}</h3>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 self-end md:self-start">
+                                    <Button
+                                      onClick={() => handleOpenEditAgenda(timeline)}
+                                      variant="ghost"
+                                      size="icon"
+                                      className="rounded-xl hover:bg-zinc-200/70 text-zinc-600 w-9 h-9"
+                                      title="Edit"
+                                      type="button"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      onClick={() => handleDeleteAgenda(timeline.id)}
+                                      variant="ghost"
+                                      size="icon"
+                                      className="rounded-xl hover:bg-red-50 text-red-600 w-9 h-9"
+                                      title="Delete"
+                                      type="button"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap gap-4 text-xs font-bold text-zinc-500">
+                                  {timeline.speaker_name && (
+                                    <span className="flex items-center gap-1.5 bg-zinc-200/50 px-2.5 py-1 rounded-lg">
+                                      <UserCircle2 className="w-3.5 h-3.5 text-zinc-600" />
+                                      Speaker: <strong className="text-zinc-700">{timeline.speaker_name}</strong>
+                                    </span>
+                                  )}
+                                  {timeline.location && (
+                                    <span className="flex items-center gap-1.5 bg-zinc-200/50 px-2.5 py-1 rounded-lg">
+                                      <MapPin className="w-3.5 h-3.5 text-zinc-600" />
+                                      Room/Location: <strong className="text-zinc-700">{timeline.location}</strong>
+                                    </span>
+                                  )}
+                                </div>
+
+                                {timeline.description && (
+                                  <div 
+                                    className="text-zinc-600 text-sm font-medium leading-relaxed border-t border-zinc-150 pt-3 prose prose-zinc prose-sm max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: timeline.description }}
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3.6. REGISTRATION FORM TAB */}
+                {activeTab === "REGISTRATION_FORM" && hasPermission("MANAGE_EVENT") && (
+                  <RegistrationFormBuilder eventId={eventId} />
+                )}
+
                 {/* 4. STAFF & ROLES TAB */}
                 {activeTab === "STAFF" && hasPermission("MANAGE_STAFF") && (
                   <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-8">
@@ -1275,6 +1553,129 @@ export default function EventDetailsPage() {
           )}
         </AnimatePresence>
 
+        {/* AGENDA SESSION MODAL */}
+        <AnimatePresence>
+          {isAgendaModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                className="bg-white w-full max-w-2xl rounded-3xl p-6 md:p-8 shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto"
+              >
+                <button
+                  onClick={() => setIsAgendaModalOpen(false)}
+                  type="button"
+                  className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-700 p-2 rounded-full hover:bg-zinc-100 transition-colors"
+                >
+                  <X className="w-5 h-5"/>
+                </button>
+
+                <div className="mb-6">
+                  <h3 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
+                    {editingTimelineItem ? "Edit Agenda Session" : "Add Agenda Session"}
+                  </h3>
+                  <p className="text-xs font-semibold text-zinc-500 mt-1">Configure session timing, details, and description styling.</p>
+                </div>
+
+                {agendaError && (
+                  <div className="mb-4 p-4 bg-red-50 text-red-800 border border-red-200 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>{agendaError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveAgenda} className="space-y-5">
+                  <div className="space-y-1.5">
+                    <Label className="font-bold text-zinc-700 text-sm">Session Title *</Label>
+                    <Input 
+                      value={agendaFormData.title} 
+                      onChange={(e) => setAgendaFormData({ ...agendaFormData, title: e.target.value })}
+                      required
+                      placeholder="e.g. Opening Keynote, Technical Session 1"
+                      className="py-5 rounded-xl bg-zinc-50 border-zinc-200 font-semibold"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="font-bold text-zinc-700 text-sm">Start Time *</Label>
+                      <Input 
+                        type="datetime-local" 
+                        value={agendaFormData.start_time} 
+                        onChange={(e) => setAgendaFormData({ ...agendaFormData, start_time: e.target.value })}
+                        required
+                        className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="font-bold text-zinc-700 text-sm">End Time (Optional)</Label>
+                      <Input 
+                        type="datetime-local" 
+                        value={agendaFormData.end_time} 
+                        onChange={(e) => setAgendaFormData({ ...agendaFormData, end_time: e.target.value })}
+                        className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="font-bold text-zinc-700 text-sm">Speaker Name</Label>
+                      <Input 
+                        value={agendaFormData.speaker_name} 
+                        onChange={(e) => setAgendaFormData({ ...agendaFormData, speaker_name: e.target.value })}
+                        placeholder="e.g. Dr. Jane Doe"
+                        className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="font-bold text-zinc-700 text-sm">Location / Room</Label>
+                      <Input 
+                        value={agendaFormData.location} 
+                        onChange={(e) => setAgendaFormData({ ...agendaFormData, location: e.target.value })}
+                        placeholder="e.g. Auditorium A, Room 402"
+                        className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="font-bold text-zinc-700 text-sm">Creative Description (Rich Text)</Label>
+                    <RichTextEditor 
+                      value={agendaFormData.description}
+                      onChange={(val) => setAgendaFormData({ ...agendaFormData, description: val })}
+                      placeholder="Add interactive instructions, links, key speakers, or notes with custom colors & formatting..."
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-4 border-t border-zinc-150">
+                    <Button 
+                      onClick={() => setIsAgendaModalOpen(false)}
+                      type="button"
+                      className="flex-1 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold py-5"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 shadow-md shadow-indigo-600/20" 
+                      disabled={isSavingAgenda} 
+                      type="submit"
+                    >
+                      {isSavingAgenda ? <Loader2 className="w-4 h-4 animate-spin"/> : "Save Session"}
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* WELCOME BANNER MODAL */}
         <AnimatePresence>
           {welcomeAttendee && (
@@ -1418,6 +1819,219 @@ export default function EventDetailsPage() {
             </div>
           </motion.section>
 
+          {/* Timeline / Agenda */}
+          {event?.timelines && event.timelines.length > 0 && (
+            <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="space-y-6">
+              <style>{`
+                @keyframes sway {
+                  0%, 100% { transform: translateY(0) rotate(0deg); }
+                  50% { transform: translateY(-4px) rotate(4deg); }
+                }
+                @keyframes float {
+                  0%, 100% { transform: translateY(0); }
+                  50% { transform: translateY(-6px); }
+                }
+                .animate-sway {
+                  animation: sway 5s ease-in-out infinite;
+                }
+                .animate-float {
+                  animation: float 6s ease-in-out infinite;
+                }
+              `}</style>
+
+              <h2 className="text-2xl font-bold text-zinc-900 mb-6 flex items-center gap-3">
+                <Calendar className="w-6 h-6 text-indigo-500" /> Event Agenda & Schedule
+              </h2>
+
+              <motion.div 
+                initial="hidden"
+                animate="show"
+                variants={{
+                  hidden: { opacity: 0 },
+                  show: {
+                    opacity: 1,
+                    transition: { staggerChildren: 0.1 }
+                  }
+                }}
+                className="space-y-8 pl-2"
+              >
+                {(() => {
+                  // Group timelines by date
+                  const groups: { [key: string]: any[] } = {};
+                  event.timelines.forEach((item: any) => {
+                    const dateStr = new Date(item.start_time).toDateString();
+                    if (!groups[dateStr]) {
+                      groups[dateStr] = [];
+                    }
+                    groups[dateStr].push(item);
+                  });
+                  const sortedGroups = Object.entries(groups).sort(
+                    (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
+                  );
+
+                  return sortedGroups.map(([dateStr, items]) => {
+                    const d = new Date(dateStr);
+                    const month = d.toLocaleDateString("en-US", { month: "short" });
+                    const day = d.getDate();
+
+                    return (
+                      <motion.div 
+                        key={dateStr} 
+                        variants={{
+                          hidden: { opacity: 0, y: 15 },
+                          show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } }
+                        }}
+                        className="flex gap-4 items-start"
+                      >
+                        {/* Date Header (Light Theme) */}
+                        <div className="w-12 flex flex-col items-center shrink-0 py-2">
+                          <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">{month}</span>
+                          <span className="text-2xl font-black text-zinc-900 mt-0.5">{day}</span>
+                        </div>
+
+                        {/* Session Cards Stack */}
+                        <div className="flex-1 space-y-4">
+                          {items.map((timeline: any) => {
+                            // Get theme styling
+                            const tTitle = timeline.title.toLowerCase();
+                            let theme = {
+                              bgClass: "bg-[#4285F4] border-[#4285F4]/30 text-white hover:shadow-[0_15px_30px_rgba(66,133,244,0.35)]",
+                              timeClass: "text-blue-105",
+                              locationClass: "text-blue-150",
+                              type: "default"
+                            };
+
+                            if (tTitle.includes("tea") || tTitle.includes("coffee") || tTitle.includes("networking") || tTitle.includes("break") || tTitle.includes("snack")) {
+                              theme = {
+                                bgClass: "bg-gradient-to-br from-amber-100 to-orange-100 border-amber-250/20 text-amber-950 hover:shadow-[0_15px_30px_rgba(245,158,11,0.25)]",
+                                timeClass: "text-amber-800",
+                                locationClass: "text-amber-700",
+                                type: "coffee"
+                              };
+                            } else if (tTitle.includes("lunch") || tTitle.includes("dinner") || tTitle.includes("food") || tTitle.includes("meal") || tTitle.includes("brunch")) {
+                              theme = {
+                                bgClass: "bg-gradient-to-br from-rose-50 to-orange-50 border-orange-250/20 text-orange-950 hover:shadow-[0_15px_30px_rgba(239,68,68,0.2)]",
+                                timeClass: "text-orange-855",
+                                locationClass: "text-orange-755",
+                                type: "lunch"
+                              };
+                            } else if (tTitle.includes("party") || tTitle.includes("celebration") || tTitle.includes("social") || tTitle.includes("afterparty") || tTitle.includes("dj")) {
+                              theme = {
+                                bgClass: "bg-gradient-to-br from-indigo-950 via-purple-950 to-zinc-950 border-indigo-800/40 text-indigo-50 hover:shadow-[0_15px_30px_rgba(168,85,247,0.4)]",
+                                timeClass: "text-indigo-355",
+                                locationClass: "text-indigo-400",
+                                type: "party"
+                              };
+                            } else if (tTitle.includes("register") || tTitle.includes("registration") || tTitle.includes("welcome") || tTitle.includes("check-in") || tTitle.includes("checkin")) {
+                              theme = {
+                                bgClass: "bg-gradient-to-br from-emerald-950 to-zinc-900 border-emerald-800/40 text-emerald-50 hover:shadow-[0_15px_30px_rgba(16,185,129,0.4)]",
+                                timeClass: "text-emerald-300",
+                                locationClass: "text-emerald-400",
+                                type: "welcome"
+                              };
+                            }
+
+                            const start = new Date(timeline.start_time);
+                            const end = timeline.end_time ? new Date(timeline.end_time) : null;
+                            const formattedTime = `${start.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}${end ? ` - ${end.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}` : ''}`;
+                            const isLive = start <= currentTime && (end === null || currentTime <= end);
+                            const isExpanded = expandedTimelineId === timeline.id;
+
+                            return (
+                              <div
+                                key={timeline.id}
+                                onClick={() => setExpandedTimelineId(isExpanded ? null : timeline.id)}
+                                className={`relative overflow-hidden p-5 rounded-[1.25rem] border shadow-sm cursor-pointer transition-all duration-500 hover:-translate-y-1.5 hover:scale-[1.01] ${theme.bgClass}`}
+                              >
+                                {/* Live pulsing indicator */}
+                                {isLive && (
+                                  <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500 text-red-500 text-[8px] font-black tracking-widest uppercase animate-pulse">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                                    <span>Live</span>
+                                  </div>
+                                )}
+
+                                {/* Background Illustrations with dynamic float/sway animations */}
+                                {theme.type === "coffee" && (
+                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-[0.12] pointer-events-none text-amber-900 animate-sway" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M30 40h40v30C70 78.3 63.3 85 55 85h-10C36.7 85 30 78.3 30 70V40z" fill="currentColor" />
+                                    <path d="M70 45h8c4.4 0 8 3.6 8 8v4c0 4.4-3.6 8-8 8h-8V45z" stroke="currentColor" strokeWidth="4" />
+                                    <path d="M40 25c0-5 5-5 5-10M50 25c0-5 5-5 5-10M60 25c0-5 5-5 5-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                                  </svg>
+                                )}
+                                {theme.type === "lunch" && (
+                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-[0.12] pointer-events-none text-orange-900 animate-float" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="50" cy="50" r="30" stroke="currentColor" strokeWidth="4" />
+                                    <path d="M50 20v60M20 50h60" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" />
+                                    <path d="M35 45c2 0 5 2 5 5s-3 5-5 5" stroke="currentColor" strokeWidth="3" />
+                                    <path d="M65 45c-2 0-5 2-5 5s3 5 5 5" stroke="currentColor" strokeWidth="3" />
+                                  </svg>
+                                )}
+                                {theme.type === "party" && (
+                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-20 pointer-events-none text-indigo-400 animate-float" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="35" cy="40" r="12" fill="currentColor" />
+                                    <path d="M35 52v20M35 72l-5 5M35 72l5 5" stroke="currentColor" strokeWidth="2" />
+                                    <circle cx="65" cy="30" r="10" fill="currentColor" />
+                                    <path d="M65 40v25" stroke="currentColor" strokeWidth="2" />
+                                    <path d="M15 15l10 5M85 15l-10 5M50 15l2 10" stroke="currentColor" strokeWidth="2" />
+                                  </svg>
+                                )}
+                                {theme.type === "welcome" && (
+                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-[0.12] pointer-events-none text-emerald-400 animate-float" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20 80V40l30-20 30 20v80" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                                    <circle cx="50" cy="50" r="8" stroke="currentColor" strokeWidth="3" />
+                                  </svg>
+                                )}
+
+                                <div className="relative z-10 space-y-1">
+                                  <h4 className="font-extrabold text-sm leading-tight pr-12">{timeline.title}</h4>
+                                  <p className={`text-[11px] font-black opacity-80`}>
+                                    {formattedTime}
+                                  </p>
+                                  {(timeline.speaker_name || timeline.location) && (
+                                    <p className={`text-[10px] font-bold mt-1 flex flex-wrap gap-2 opacity-85`}>
+                                      {timeline.speaker_name && <span>Speaker: {timeline.speaker_name}</span>}
+                                      {timeline.location && <span>At: {timeline.location}</span>}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Click expansion indicator */}
+                                  {!isExpanded && timeline.description && (
+                                    <p className="text-[10px] font-bold opacity-60 mt-1.5 flex items-center gap-1">
+                                      Click to view details <span className="text-[8px]">▼</span>
+                                    </p>
+                                  )}
+
+                                  {/* Expandable creative details accordion */}
+                                  <AnimatePresence initial={false}>
+                                    {isExpanded && timeline.description && (
+                                      <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                                        className="overflow-hidden"
+                                      >
+                                        <div
+                                          className="text-[11px] font-medium opacity-95 pt-2 mt-2 border-t border-current/10 prose prose-sm max-w-none prose-current leading-relaxed"
+                                          dangerouslySetInnerHTML={{ __html: timeline.description }}
+                                        />
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    );
+                  });
+                })()}
+              </motion.div>
+            </motion.section>
+          )}
+
           {/* Organizer UI */}
           <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="flex items-center gap-5 p-6 bg-white rounded-3xl border border-zinc-200 shadow-sm">
             <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-100 to-rose-100 border-2 border-white shadow-md flex items-center justify-center overflow-hidden shrink-0">
@@ -1498,6 +2112,23 @@ export default function EventDetailsPage() {
           </motion.div>
         </div>
       </div>
+
+      {isStaff && viewMode === "PREVIEW" && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-zinc-950/95 text-white px-6 py-4 rounded-3xl border border-zinc-800 shadow-2xl backdrop-blur-md flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
+            <p className="text-xs font-extrabold text-zinc-300">Preview Mode: Organizer view</p>
+          </div>
+          <div className="w-px h-4 bg-zinc-800" />
+          <button
+            onClick={() => setViewMode("DASHBOARD")}
+            className="text-xs font-black text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest cursor-pointer"
+            type="button"
+          >
+            Exit Preview
+          </button>
+        </div>
+      )}
     </>
   );
 }

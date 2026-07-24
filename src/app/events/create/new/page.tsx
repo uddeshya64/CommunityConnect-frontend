@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Sparkles, MapPin, Calendar, AlignLeft, CheckCircle2, Loader2, Ticket, Plus, X, ListPlus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, MapPin, Calendar, AlignLeft, CheckCircle2, Loader2, Ticket, Plus, X, ListPlus, FileText, Lock, User, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,10 @@ import {
   getTemplateById,
   type FieldType,
 } from "@/lib/eventTemplates";
+
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+
 // Updated to match your Backend Zod Schema
 interface EventFormData {
   title: string;
@@ -40,6 +43,7 @@ interface FormErrors {
   end_date?: string;
   location?: string;
   description?: string;
+  registration_fee?: string;
 }
 
 // A field the organizer builds themselves when "Custom" is selected
@@ -51,9 +55,18 @@ interface CustomFieldEntry {
   options?: string[]; // for select type
 }
 
+export interface RegistrationFormField {
+  id: string;
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "number" | "select" | "checkbox";
+  required: boolean;
+  options?: string[];
+}
+
 const MODES = ["online", "offline", "hybrid"];
 const REG_TYPES = ["solo", "team"];
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 const isValidTemplateId = (id: string | null) =>
   !!id && (id === CUSTOM_TEMPLATE_ID || EVENT_TEMPLATES.some((tpl) => tpl.id === id));
 
@@ -71,6 +84,15 @@ function CreateEventPageInner() {
   // Template-driven fields: values keyed by field id (works for both a picked template and custom fields)
   const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
   const [customFields, setCustomFields] = useState<CustomFieldEntry[]>([]);
+
+  // Attendee Registration Form Builder Fields state (Step 5)
+  const [regFormFields, setRegFormFields] = useState<RegistrationFormField[]>([
+    { id: "reg_college", key: "college", label: "College / University", type: "text", required: true },
+    { id: "reg_branch", key: "branch", label: "Branch / Stream", type: "text", required: false },
+    { id: "reg_year", key: "year", label: "Graduation Year / Academic Year", type: "text", required: false },
+    { id: "reg_tshirt", key: "tshirt_size", label: "T-Shirt Size", type: "select", required: false, options: ["XS", "S", "M", "L", "XL", "XXL"] },
+    { id: "reg_food", key: "food_preference", label: "Food Preference", type: "select", required: false, options: ["Veg", "Non-Veg", "Jain", "Vegan"] },
+  ]);
 
   const templateFromUrl = searchParams.get("template");
   const initialCategory = isValidTemplateId(templateFromUrl) ? (templateFromUrl as string) : EVENT_TEMPLATES[0].id;
@@ -127,16 +149,16 @@ function CreateEventPageInner() {
           const result = await response.json();
           const suggestions = Array.isArray(result?.data)
             ? result.data.map((item: unknown) => {
-                if (typeof item === "object" && item !== null) {
-                  const place = item as { name?: string; address?: string; mapboxId?: string };
-                  const label = [place.name, place.address].filter(Boolean).join(" - ");
-                  return {
-                    label: label || "Unknown location",
-                    value: label || "Unknown location",
-                  };
-                }
-                return null;
-              })
+              if (typeof item === "object" && item !== null) {
+                const place = item as { name?: string; address?: string; mapboxId?: string };
+                const label = [place.name, place.address].filter(Boolean).join(" - ");
+                return {
+                  label: label || "Unknown location",
+                  value: label || "Unknown location",
+                };
+              }
+              return null;
+            })
             : [];
           setLocationSuggestions(suggestions.filter(Boolean) as Array<{ label: string; value: string }>);
         })
@@ -203,6 +225,28 @@ function CreateEventPageInner() {
     setCustomFields((prev) => prev.filter((f) => f.id !== id));
   };
 
+  // --- Attendee Registration Form Builder Helpers (Step 5) ---
+  const addRegFormField = (
+    key: string,
+    label: string,
+    type: "text" | "textarea" | "number" | "select" | "checkbox",
+    options?: string[]
+  ) => {
+    const id = `reg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    setRegFormFields((prev) => [
+      ...prev,
+      { id, key, label, type, required: false, options },
+    ]);
+  };
+
+  const updateRegFormField = (id: string, patch: Partial<RegistrationFormField>) => {
+    setRegFormFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  };
+
+  const removeRegFormField = (id: string) => {
+    setRegFormFields((prev) => prev.filter((f) => f.id !== id));
+  };
+
   const validateForm = (targetStep = step) => {
     const nextErrors: FormErrors = {};
     const trimmedTitle = formData.title.trim();
@@ -210,7 +254,7 @@ function CreateEventPageInner() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    if (targetStep === 1 || targetStep === 5) {
+    if (targetStep === 1 || targetStep === 6) {
       if (!trimmedTitle) {
         nextErrors.title = "Title is required.";
       } else if (trimmedTitle.length < 5) {
@@ -218,7 +262,7 @@ function CreateEventPageInner() {
       }
     }
 
-    if (targetStep === 3 || targetStep === 5) {
+    if (targetStep === 3 || targetStep === 6) {
       if (!formData.start_date) {
         nextErrors.start_date = "Start date is required.";
       } else {
@@ -250,11 +294,18 @@ function CreateEventPageInner() {
       }
     }
 
-    if (targetStep === 4 || targetStep === 5) {
+    if (targetStep === 4 || targetStep === 6) {
       if (!trimmedDescription) {
         nextErrors.description = "Description is required.";
       } else if (trimmedDescription.length < 30) {
         nextErrors.description = "Please add a more detailed description (at least 30 characters).";
+      }
+
+      const fee = parseFloat(formData.registration_fee);
+      if (isNaN(fee) || fee < 0) {
+        nextErrors.registration_fee = "Registration fee must be at least ₹0.";
+      } else if (fee > 100000) {
+        nextErrors.registration_fee = "Registration fee cannot exceed ₹100,000.";
       }
     }
 
@@ -264,7 +315,7 @@ function CreateEventPageInner() {
 
   const nextStep = () => {
     if (!validateForm(step)) return;
-    
+
     setStep((prev) => prev + 1);
   };
 
@@ -272,20 +323,39 @@ function CreateEventPageInner() {
     setStep((prev) => prev - 1);
   };
 
-  // Build the payload pieces for custom_fields / custom_form_schema
+  // Build the payload pieces for custom_fields / custom_form_schema / registration_form_schema
   const buildCustomPayload = () => {
+    const registration_form_schema = [
+      { key: "name", label: "Full Name", type: "text", required: true, is_fixed: true },
+      { key: "email", label: "Email Address", type: "text", required: true, is_fixed: true },
+      { key: "phone", label: "Phone Number", type: "text", required: true, is_fixed: true },
+      ...regFormFields
+        .filter((f) => f.label.trim())
+        .map((f) => ({
+          id: f.id,
+          key: f.key || f.label.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+          label: f.label.trim(),
+          type: f.type,
+          required: f.required,
+          options: f.options,
+          is_fixed: false,
+        })),
+    ];
+
     if (isCustom) {
-      const custom_fields: Record<string, unknown> = {};
+      const custom_fields: Record<string, unknown> = {
+        registration_form_schema,
+      };
       const custom_form_schema = customFields
         .filter((f) => f.label.trim())
         .map((f) => {
-          const type = f.type === "boolean" ? "checkbox" : f.type; // backend enum doesn't need a separate boolean type
+          const type = f.type === "boolean" ? "checkbox" : f.type;
           custom_fields[f.id] =
             f.type === "boolean" || f.type === "checkbox"
               ? f.value === "true"
               : f.type === "number"
-              ? Number(f.value) || 0
-              : f.value;
+                ? Number(f.value) || 0
+                : f.value;
           return {
             id: f.id,
             label: f.label.trim(),
@@ -294,11 +364,13 @@ function CreateEventPageInner() {
             options: f.type === "select" ? f.options : undefined,
           };
         });
-      return { custom_fields, custom_form_schema };
+      return { custom_fields, custom_form_schema, registration_form_schema };
     }
 
     // Template mode: values only, schema is implied by the template id
-    const custom_fields: Record<string, unknown> = {};
+    const custom_fields: Record<string, unknown> = {
+      registration_form_schema,
+    };
     if (activeTemplate) {
       activeTemplate.fields.forEach((f) => {
         const raw = templateValues[f.id];
@@ -306,16 +378,16 @@ function CreateEventPageInner() {
         custom_fields[f.id] = f.type === "checkbox" ? raw === "true" : f.type === "number" ? Number(raw) || 0 : raw;
       });
     }
-    return { custom_fields, custom_form_schema: undefined };
+    return { custom_fields, custom_form_schema: undefined, registration_form_schema };
   };
 
   const onSubmit = async () => {
-    if (!validateForm(5)) return;
+    if (!validateForm(6)) return;
 
     try {
       setIsLoading(true);
 
-      const { custom_fields, custom_form_schema } = buildCustomPayload();
+      const { custom_fields, custom_form_schema, registration_form_schema } = buildCustomPayload();
 
       // Transform our frontend state into the EXACT payload the backend Zod schema wants
       const payload = {
@@ -332,6 +404,7 @@ function CreateEventPageInner() {
         min_team_size: parseInt(formData.min_team_size) || 1,
         max_team_size: parseInt(formData.max_team_size) || 1,
         custom_fields,
+        registration_form_schema,
         ...(custom_form_schema ? { custom_form_schema } : {}),
       };
 
@@ -370,9 +443,8 @@ function CreateEventPageInner() {
                 key={opt}
                 type="button"
                 onClick={() => updateTemplateValue(field.id, opt)}
-                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
-                  value === opt ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"
-                }`}
+                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${value === opt ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"
+                  }`}
               >
                 {opt}
               </button>
@@ -384,9 +456,8 @@ function CreateEventPageInner() {
           <button
             type="button"
             onClick={() => updateTemplateValue(field.id, value === "true" ? "false" : "true")}
-            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
-              value === "true" ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"
-            }`}
+            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${value === "true" ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"
+              }`}
           >
             {value === "true" ? "Yes" : "No"}
           </button>
@@ -431,18 +502,16 @@ function CreateEventPageInner() {
             <button
               type="button"
               onClick={() => updateCustomField(field.id, { value: "true" })}
-              className={`px-4 py-2 rounded-xl font-semibold text-sm flex-1 transition-all ${
-                field.value === "true" ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
-              }`}
+              className={`px-4 py-2 rounded-xl font-semibold text-sm flex-1 transition-all ${field.value === "true" ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
+                }`}
             >
               Yes
             </button>
             <button
               type="button"
               onClick={() => updateCustomField(field.id, { value: "false" })}
-              className={`px-4 py-2 rounded-xl font-semibold text-sm flex-1 transition-all ${
-                field.value === "false" ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
-              }`}
+              className={`px-4 py-2 rounded-xl font-semibold text-sm flex-1 transition-all ${field.value === "false" ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
+                }`}
             >
               No
             </button>
@@ -479,9 +548,8 @@ function CreateEventPageInner() {
                   key={opt}
                   type="button"
                   onClick={() => updateCustomField(field.id, { value: opt })}
-                  className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
-                    field.value === opt ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${field.value === opt ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
+                    }`}
                 >
                   {opt}
                 </button>
@@ -771,35 +839,210 @@ function CreateEventPageInner() {
                       <Label className="text-base font-bold text-zinc-900">Reg. Type</Label>
                       <div className="flex gap-2">
                         {REG_TYPES.map((type) => (
-                           <button key={type} onClick={() => updateForm("registration_type", type)} className={`px-4 py-2 rounded-xl font-semibold text-sm capitalize flex-1 transition-all ${formData.registration_type === type ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>{type}</button>
+                          <button key={type} onClick={() => updateForm("registration_type", type)} className={`px-4 py-2 rounded-xl font-semibold text-sm capitalize flex-1 transition-all ${formData.registration_type === type ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>{type}</button>
                         ))}
                       </div>
                     </div>
                     <div className="space-y-3">
                       <Label className="text-base font-bold text-zinc-900">Fee (₹)</Label>
-                      <Input type="number" placeholder="0 for Free" value={formData.registration_fee} onChange={(e) => updateForm("registration_fee", e.target.value)} className="py-5 px-4 rounded-2xl bg-zinc-50 border-zinc-200" />
+                      <Input 
+                        type="number" 
+                        placeholder="0 for Free" 
+                        value={formData.registration_fee} 
+                        onChange={(e) => updateForm("registration_fee", e.target.value)} 
+                        className={`py-5 px-4 rounded-2xl bg-zinc-50 border-zinc-200 ${fieldErrors.registration_fee ? "border-red-400 focus-visible:ring-red-400" : ""}`} 
+                      />
+                      {fieldErrors.registration_fee && <p className="text-sm text-red-500">{fieldErrors.registration_fee}</p>}
                     </div>
                   </div>
 
                   {formData.registration_type === "team" && (
                     <div className="grid grid-cols-2 gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-200">
-                       <div className="space-y-2">
-                          <Label className="text-sm font-bold text-zinc-900">Min Team Size</Label>
-                          <Input type="number" min="1" value={formData.min_team_size} onChange={(e) => updateForm("min_team_size", e.target.value)} className="rounded-xl" />
-                       </div>
-                       <div className="space-y-2">
-                          <Label className="text-sm font-bold text-zinc-900">Max Team Size</Label>
-                          <Input type="number" min="1" value={formData.max_team_size} onChange={(e) => updateForm("max_team_size", e.target.value)} className="rounded-xl" />
-                       </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-bold text-zinc-900">Min Team Size</Label>
+                        <Input type="number" min="1" value={formData.min_team_size} onChange={(e) => updateForm("min_team_size", e.target.value)} className="rounded-xl" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-bold text-zinc-900">Max Team Size</Label>
+                        <Input type="number" min="1" value={formData.max_team_size} onChange={(e) => updateForm("max_team_size", e.target.value)} className="rounded-xl" />
+                      </div>
                     </div>
                   )}
                 </div>
               </motion.div>
             )}
 
-            {/* --- STEP 5: REVIEW --- */}
+            {/* --- STEP 5: ATTENDEE REGISTRATION FORM BUILDER --- */}
             {step === 5 && (
               <motion.div key="step5" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.4 }} className="flex-1 flex flex-col overflow-y-auto pr-2">
+                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 shrink-0"><FileText className="w-8 h-8" /></div>
+                <h1 className="text-3xl font-extrabold text-zinc-900 mb-2 shrink-0">Attendee Registration Form</h1>
+                <p className="text-zinc-500 font-medium mb-6 shrink-0">Configure the details attendees will fill out when registering.</p>
+
+                <div className="space-y-6 flex-1">
+                  {/* Fixed Fields Banner */}
+                  <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-100 space-y-2">
+                    <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
+                      <Lock className="w-4 h-4 text-indigo-600 shrink-0" /> Fixed Profile Fields (Auto-Collected)
+                    </div>
+                    <p className="text-xs text-indigo-700 font-medium">
+                      These fields are always required for every attendee and will update their profile:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {["Full Name", "Phone Number", "Email Address"].map((f) => (
+                        <span key={f} className="px-2.5 py-1 rounded-lg bg-white/90 border border-indigo-200/60 text-xs font-semibold text-indigo-800 shadow-2xs">
+                          ✓ {f}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Host Dynamic Custom Questions */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-bold text-zinc-900">Custom Registration Questions</Label>
+                      <span className="text-xs font-semibold text-zinc-400">
+                        {regFormFields.length} Custom Field{regFormFields.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+
+                    {/* Quick Add Pill Options */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Quick Add Presets</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => addRegFormField("college", "College / University", "text")}
+                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
+                        >
+                          + College / University
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addRegFormField("year", "Graduation Year", "text")}
+                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
+                        >
+                          + Year
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addRegFormField("branch", "Branch / Stream", "text")}
+                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
+                        >
+                          + Branch
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addRegFormField("portfolio", "Portfolio URL", "text")}
+                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
+                        >
+                          + Portfolio URL
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addRegFormField("resume", "Resume Link", "text")}
+                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
+                        >
+                          + Resume Link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addRegFormField("why_join", "Why do you want to join?", "textarea")}
+                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
+                        >
+                          + Why Join?
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addRegFormField(`custom_${Date.now()}`, "", "text")}
+                          className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all shadow-sm"
+                        >
+                          + Blank Field
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Field Editor List */}
+                    <div className="space-y-3 pt-2">
+                      {regFormFields.length === 0 && (
+                        <div className="text-center py-8 text-zinc-400 text-sm font-medium bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                          No custom questions added yet. Attendees will only answer standard profile questions.
+                        </div>
+                      )}
+
+                      {regFormFields.map((field) => (
+                        <div key={field.id} className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-3">
+                          <div className="flex items-center gap-3">
+                            <Input
+                              value={field.label}
+                              onChange={(e) => updateRegFormField(field.id, { label: e.target.value })}
+                              placeholder="Question / Field Title (e.g., T-Shirt Size)"
+                              className="py-4 px-4 rounded-xl bg-white border-zinc-200 flex-1 font-semibold text-sm"
+                            />
+                            <select
+                              value={field.type}
+                              onChange={(e) =>
+                                updateRegFormField(field.id, {
+                                  type: e.target.value as any,
+                                  options: e.target.value === "select" ? field.options || ["Option 1", "Option 2"] : undefined,
+                                })
+                              }
+                              className="py-2.5 px-3 rounded-xl bg-white border border-zinc-200 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                            >
+                              <option value="text">Short Text</option>
+                              <option value="textarea">Long Text</option>
+                              <option value="number">Number</option>
+                              <option value="select">Dropdown Select</option>
+                              <option value="checkbox">Checkbox</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => removeRegFormField(field.id)}
+                              className="p-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                              aria-label="Remove field"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {field.type === "select" && (
+                            <div className="space-y-1.5 pl-1">
+                              <Label className="text-xs font-bold text-zinc-500">Dropdown Options (Comma separated)</Label>
+                              <Input
+                                value={(field.options || []).join(", ")}
+                                onChange={(e) =>
+                                  updateRegFormField(field.id, {
+                                    options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean),
+                                  })
+                                }
+                                placeholder="e.g. S, M, L, XL"
+                                className="py-3 px-3 rounded-xl bg-white border-zinc-200 text-xs"
+                              />
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-1 border-t border-zinc-200/60">
+                            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-600 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={field.required}
+                                onChange={(e) => updateRegFormField(field.id, { required: e.target.checked })}
+                                className="w-4 h-4 rounded accent-indigo-600"
+                              />
+                              Required Question
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* --- STEP 6: REVIEW & PUBLISH --- */}
+            {step === 6 && (
+              <motion.div key="step6" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.4 }} className="flex-1 flex flex-col overflow-y-auto pr-2">
                 <div className="w-16 h-16 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center mb-8 shrink-0"><CheckCircle2 className="w-8 h-8" /></div>
                 <h1 className="text-3xl font-extrabold text-zinc-900 mb-2 shrink-0">Ready to publish?</h1>
                 <p className="text-zinc-500 font-medium mb-10 shrink-0">Here is a sneak peek of your event card.</p>
@@ -830,10 +1073,28 @@ function CreateEventPageInner() {
                     </div>
                   </div>
 
+                  {/* Attendee registration form fields preview */}
+                  <div className="w-full max-w-sm space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Attendee Registration Questions</p>
+                    <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100 space-y-2 text-xs">
+                      <div className="text-zinc-500 font-medium border-b border-zinc-200 pb-2">
+                        ✓ Fixed Profile: <span className="font-bold text-zinc-800">Name, Phone Number, Email Address</span>
+                      </div>
+                      {regFormFields.filter((f) => f.label.trim()).map((f) => (
+                        <div key={f.id} className="flex justify-between items-center py-1">
+                          <span className="text-zinc-700 font-semibold">{f.label}</span>
+                          <span className="text-zinc-400 font-mono text-[10px]">
+                            {f.type} {f.required ? "(Required)" : "(Optional)"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Custom / template field summary */}
                   {isCustom && customFields.filter((f) => f.label.trim()).length > 0 && (
                     <div className="w-full max-w-sm space-y-2">
-                      <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Custom fields</p>
+                      <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Custom Event Details</p>
                       {customFields.filter((f) => f.label.trim()).map((f) => (
                         <div key={f.id} className="flex justify-between text-sm bg-zinc-50 rounded-xl px-4 py-2 border border-zinc-100">
                           <span className="text-zinc-500 font-medium">{f.label}</span>

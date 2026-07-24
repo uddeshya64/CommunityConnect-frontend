@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
+import { useMyProfile } from "@/hooks/profileHooks";
 
 // Add Razorpay to the Window object for TypeScript
 declare global {
@@ -29,31 +30,63 @@ export default function EventRegistrationPage() {
 
   // Team Form State
   const [teamName, setTeamName] = useState("");
-  const [members, setMembers] = useState([{ email: "", role: "Leader" }]); // Leader is always first
+  const [members, setMembers] = useState([{ email: "", role: "Leader" }]);
+
+  // Registration Form Responses state (Fixed Profile + Event Host Questions)
+  const [formResponses, setFormResponses] = useState<Record<string, string>>({
+    name: "",
+    phone: "",
+    email: "",
+  });
+
+  const { getMyProfile } = useMyProfile();
+
+  const updateResponse = (field: string, value: string) => {
+    setFormResponses((prev) => ({ ...prev, [field]: value }));
+  };
 
   useEffect(() => {
-    // 1. Fetch Event Details
-    const fetchEvent = async () => {
+    // 1. Fetch Event Details & User Profile
+    const fetchEventAndUser = async () => {
       try {
+        let userEmail = "";
+        try {
+          const profile = await getMyProfile();
+          if (profile) {
+            if (profile.email) userEmail = profile.email;
+            setFormResponses((prev) => ({
+              ...prev,
+              name: profile.name || prev.name,
+              phone: profile.phone || prev.phone,
+              email: profile.email || prev.email || userEmail,
+            }));
+          }
+        } catch (e) {
+          console.error("Failed to fetch user profile for registration pre-fill", e);
+        }
+
         const response = await eventService.getEventById(eventId);
         const rawEvent = response?.data?.event || response?.data || response?.event || response;
         setEvent(rawEvent);
 
-        // Pre-fill min team size empty slots
-        if (rawEvent.registration_type === "team" && rawEvent.min_team_size > 1) {
-          const initialMembers = [{ email: "", role: "Leader" }];
-          for (let i = 1; i < rawEvent.min_team_size; i++) {
+        // Pre-fill slots
+        if (rawEvent.registration_type === "team") {
+          const initialMembers = [{ email: userEmail, role: "Leader" }];
+          const minTeam = rawEvent.min_team_size || 1;
+          for (let i = 1; i < minTeam; i++) {
             initialMembers.push({ email: "", role: "Member" });
           }
           setMembers(initialMembers);
+        } else {
+          setMembers([{ email: userEmail, role: "Leader" }]);
         }
       } catch (err) {
-        setError("Failed to load event details.");
+        setError("Failed to load registration details.");
       } finally {
         setIsLoading(false);
       }
     };
-    fetchEvent();
+    fetchEventAndUser();
 
     // 2. Dynamically Load Razorpay Script
     const script = document.createElement("script");
@@ -91,7 +124,45 @@ export default function EventRegistrationPage() {
       setError("");
       setIsProcessing(true);
 
-      // Validation
+      // Fixed field validations
+      if (!formResponses.name?.trim()) {
+        setError("Full name is required.");
+        setIsProcessing(false);
+        return;
+      }
+      if (!formResponses.phone?.trim()) {
+        setError("Phone number is required.");
+        setIsProcessing(false);
+        return;
+      }
+      if (!formResponses.email?.trim()) {
+        setError("Email address is required.");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Dynamic Required Custom Questions validation (configured by event host)
+      const eventSchema =
+        event?.registration_form_schema ||
+        event?.custom_fields?.registration_form_schema ||
+        event?.custom_form_schema ||
+        [];
+
+      if (Array.isArray(eventSchema) && eventSchema.length > 0) {
+        const customQuestions = eventSchema.filter((f: any) => !f.is_fixed);
+        for (const field of customQuestions) {
+          if (field.required) {
+            const val = formResponses[field.key || field.id];
+            if (!val || !val.toString().trim()) {
+              setError(`"${field.label}" is required.`);
+              setIsProcessing(false);
+              return;
+            }
+          }
+        }
+      }
+
+      // Team Validation
       if (event.registration_type === "team") {
         if (!teamName) {
           setError("Team name is required.");
@@ -113,28 +184,38 @@ export default function EventRegistrationPage() {
       // 1. Prepare Payload for StartRegistrationSchema
       const payload = {
         eventId: Number(eventId),
-        ...(event.registration_type === "team" ? { teamName, members } : {}) // Note: If backend expects 'members', keep it. If just 'teamName', remove 'members'.
+        ...(event.registration_type === "team" ? { teamName, members } : {})
       };
 
-      // 2. Call Backend to Register & Create Order
+      // 2. Call Backend to Start Registration
       const response = await eventService.registerForEvent(payload);
-      const result = response.data; // Backend wraps result in 'data'
+      const result = response.data;
 
-      // 3. Handle Free Registration (isFree: true)
+      // 3. Submit Attendee Registration Form Responses (POST /api/registrations/:registrationId/form)
+      const regId = result.registration_id || result.id;
+      if (regId) {
+        try {
+          await eventService.submitRegistrationForm(regId, formResponses);
+        } catch (formErr: any) {
+          console.error("Warning submitting form responses:", formErr);
+        }
+      }
+
+      // 4. Handle Free Registration (isFree: true)
       if (response.isFree) {
         const finalId = result.team_id || result.registration_id;
         router.push(`/dashboard/team/${finalId}`);
         return;
       }
 
-      // 4. Handle Paid Registration (Razorpay)
+      // 5. Handle Paid Registration (Razorpay)
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_YOUR_KEY", 
-        amount: result.amount, // Now coming correctly from result
-        currency: result.currency, // Now coming correctly from result
+        amount: result.amount,
+        currency: result.currency,
         name: "Community Connect",
         description: `Registration for ${event.title}`,
-        order_id: result.razorpay_order_id, // Match backend exact key
+        order_id: result.razorpay_order_id,
         handler: async function (paymentResponse: any) {
           try {
             setIsProcessing(true);
@@ -156,7 +237,6 @@ export default function EventRegistrationPage() {
         },
         modal: {
           ondismiss: function () {
-            // This runs when the user clicks the 'X' or closes the popup
             setIsProcessing(false);
             setError("Payment cancelled. Please try again.");
           },
@@ -270,6 +350,167 @@ export default function EventRegistrationPage() {
                <p className="text-zinc-500 font-medium max-w-sm">You are registering as an individual. We will use your account details to reserve your spot.</p>
              </div>
           )}
+
+          {/* ATTENDEE REGISTRATION DETAILS FORM */}
+          <div className="bg-white p-8 rounded-[2rem] border border-zinc-200 shadow-sm space-y-6">
+            <div className="border-b border-zinc-100 pb-4">
+              <h2 className="text-xl font-extrabold text-zinc-900 flex items-center gap-2">
+                <User className="w-5 h-5 text-indigo-600" /> Attendee Registration Details
+              </h2>
+              <p className="text-xs text-zinc-500 font-medium mt-1">
+                Your profile information and answers will be saved for this event registration.
+              </p>
+            </div>
+
+            {/* Fixed Profile Required Fields */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600">Fixed Profile Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-zinc-700">Full Name *</Label>
+                  <Input
+                    placeholder="Anjali Sharma"
+                    value={formResponses.name || ""}
+                    onChange={(e) => updateResponse("name", e.target.value)}
+                    className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-zinc-700">Phone Number *</Label>
+                  <Input
+                    placeholder="9876543210"
+                    value={formResponses.phone || ""}
+                    onChange={(e) => updateResponse("phone", e.target.value)}
+                    className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-xs font-bold text-zinc-700">Email Address *</Label>
+                  <Input
+                    type="email"
+                    placeholder="anjali@example.com"
+                    value={formResponses.email || ""}
+                    onChange={(e) => updateResponse("email", e.target.value)}
+                    className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Event Specific Dynamic Questions Created By Host */}
+            {(() => {
+              const schemaCandidates = [
+                event?.registration_form_schema,
+                event?.custom_fields?.registration_form_schema,
+                event?.custom_form_schema,
+                event?.form_schema,
+                event?.form_fields,
+                event?.registration_fields,
+              ];
+
+              let schema: any[] = [];
+              for (const candidate of schemaCandidates) {
+                if (Array.isArray(candidate) && candidate.length > 0) {
+                  schema = candidate;
+                  break;
+                }
+              }
+
+              const customQuestions = schema.filter(
+                (f: any) => !f.is_fixed && f.key !== "name" && f.key !== "email" && f.key !== "phone"
+              );
+
+              if (customQuestions.length === 0) {
+                return null;
+              }
+
+              return (
+                <div className="space-y-4 pt-4 border-t border-zinc-100">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                    Event Registration Questions
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {customQuestions.map((field: any) => {
+                      const key = field.key || field.id;
+                      const value = formResponses[key] || "";
+
+                      if (field.type === "textarea") {
+                        return (
+                          <div key={key} className="space-y-2 md:col-span-2">
+                            <Label className="text-xs font-bold text-zinc-700">
+                              {field.label} {field.required && "*"}
+                            </Label>
+                            <textarea
+                              placeholder={`Enter ${field.label.toLowerCase()}`}
+                              value={value}
+                              onChange={(e) => updateResponse(key, e.target.value)}
+                              className="w-full h-24 py-3 px-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-none"
+                            />
+                          </div>
+                        );
+                      }
+
+                      if (field.type === "select") {
+                        return (
+                          <div key={key} className="space-y-2">
+                            <Label className="text-xs font-bold text-zinc-700">
+                              {field.label} {field.required && "*"}
+                            </Label>
+                            <select
+                              value={value || field.options?.[0] || ""}
+                              onChange={(e) => updateResponse(key, e.target.value)}
+                              className="w-full py-3.5 px-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-semibold text-zinc-800"
+                            >
+                              <option value="">-- Select {field.label} --</option>
+                              {(field.options || []).map((opt: string) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      }
+
+                      if (field.type === "checkbox") {
+                        return (
+                          <div key={key} className="space-y-2 flex items-center gap-3 pt-4">
+                            <input
+                              type="checkbox"
+                              id={key}
+                              checked={value === "true"}
+                              onChange={(e) => updateResponse(key, e.target.checked ? "true" : "false")}
+                              className="w-4 h-4 rounded accent-indigo-600"
+                            />
+                            <Label htmlFor={key} className="text-xs font-bold text-zinc-700 cursor-pointer">
+                              {field.label} {field.required && "*"}
+                            </Label>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={key} className="space-y-2">
+                          <Label className="text-xs font-bold text-zinc-700">
+                            {field.label} {field.required && "*"}
+                          </Label>
+                          <Input
+                            type={field.type === "number" ? "number" : "text"}
+                            placeholder={`Enter ${field.label.toLowerCase()}`}
+                            value={value}
+                            onChange={(e) => updateResponse(key, e.target.value)}
+                            className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
 
         {/* RIGHT COLUMN: Order Summary (Sticky) */}
