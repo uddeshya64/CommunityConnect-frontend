@@ -35,7 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Discover", href: "/discover", icon: Compass, disabled: true },
   { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
   { label: "Saved", href: "/saved", icon: Bookmark, disabled: true },
-  { label: "Notifications", href: "/notifications", icon: Bell, disabled: true },
+  { label: "Notifications", href: "/notifications", icon: Bell },
 ];
 
 export default function Sidebar() {
@@ -200,20 +200,40 @@ export default function Sidebar() {
         {renderSidebarContent(collapsed)}
       </motion.aside>
 
-      {/* Mobile top bar trigger */}
-      <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-16 bg-white/70 backdrop-blur-xl border-b border-zinc-200/50">
+      {/* Mobile Book Tag / Pull Handle on Left Edge */}
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: 80 }}
+        dragElastic={0.15}
+        onDragEnd={(event, info) => {
+          if (info.offset.x > 30) {
+            setMobileOpen(true);
+          }
+        }}
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed left-0 top-[25%] z-45 cursor-grab active:cursor-grabbing bg-gradient-to-br from-indigo-600 via-violet-600 to-indigo-700 text-white pl-1.5 pr-2.5 py-4 rounded-r-2xl shadow-lg shadow-indigo-600/30 border-y border-r border-indigo-400/20 flex flex-col items-center gap-2 transition-all hover:scale-105 active:scale-95"
+      >
+        <motion.div
+          animate={{ x: [0, 4, 0] }}
+          transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+        >
+          <ChevronsRight className="w-4 h-4" />
+        </motion.div>
+        <span className="text-[9px] font-black tracking-widest uppercase [writing-mode:vertical-lr] rotate-180 select-none">
+          PULL MENU
+        </span>
+      </motion.div>
+
+      {/* Mobile top bar */}
+      <div className="md:hidden sticky top-0 z-30 flex items-center justify-between px-4 h-16 bg-white/70 backdrop-blur-xl border-b border-zinc-200/50">
         <Link href="/home" className="flex items-center gap-2 font-extrabold text-lg text-zinc-900">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
             <span className="text-white text-[10px] font-black">CC</span>
           </div>
           Circle
         </Link>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-500 hover:bg-zinc-100"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+        {/* Placeholder to keep the right side clear for the fixed floating profile avatar */}
+        <div className="w-12 h-12 shrink-0" />
       </div>
 
       {/* Mobile drawer — always renders expanded, regardless of desktop collapsed state */}
