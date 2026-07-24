@@ -247,7 +247,7 @@ export default function PublicProfilePage() {
 
       const response =
         await fetch(
-          `${API_BASE_URL}/image/upload`,
+          "http://localhost:3000/api/image/upload",
           {
             method: "POST",
 
