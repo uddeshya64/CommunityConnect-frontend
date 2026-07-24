@@ -42,6 +42,7 @@ interface FormErrors {
   end_date?: string;
   location?: string;
   description?: string;
+  registration_fee?: string;
 }
 
 // A field the organizer builds themselves when "Custom" is selected
@@ -129,16 +130,16 @@ function CreateEventPageInner() {
           const result = await response.json();
           const suggestions = Array.isArray(result?.data)
             ? result.data.map((item: unknown) => {
-                if (typeof item === "object" && item !== null) {
-                  const place = item as { name?: string; address?: string; mapboxId?: string };
-                  const label = [place.name, place.address].filter(Boolean).join(" - ");
-                  return {
-                    label: label || "Unknown location",
-                    value: label || "Unknown location",
-                  };
-                }
-                return null;
-              })
+              if (typeof item === "object" && item !== null) {
+                const place = item as { name?: string; address?: string; mapboxId?: string };
+                const label = [place.name, place.address].filter(Boolean).join(" - ");
+                return {
+                  label: label || "Unknown location",
+                  value: label || "Unknown location",
+                };
+              }
+              return null;
+            })
             : [];
           setLocationSuggestions(suggestions.filter(Boolean) as Array<{ label: string; value: string }>);
         })
@@ -258,6 +259,13 @@ function CreateEventPageInner() {
       } else if (trimmedDescription.length < 30) {
         nextErrors.description = "Please add a more detailed description (at least 30 characters).";
       }
+
+      const fee = parseFloat(formData.registration_fee);
+      if (isNaN(fee) || fee < 0) {
+        nextErrors.registration_fee = "Registration fee must be at least ₹0.";
+      } else if (fee > 100000) {
+        nextErrors.registration_fee = "Registration fee cannot exceed ₹100,000.";
+      }
     }
 
     setFieldErrors(nextErrors);
@@ -266,7 +274,7 @@ function CreateEventPageInner() {
 
   const nextStep = () => {
     if (!validateForm(step)) return;
-    
+
     setStep((prev) => prev + 1);
   };
 
@@ -286,8 +294,8 @@ function CreateEventPageInner() {
             f.type === "boolean" || f.type === "checkbox"
               ? f.value === "true"
               : f.type === "number"
-              ? Number(f.value) || 0
-              : f.value;
+                ? Number(f.value) || 0
+                : f.value;
           return {
             id: f.id,
             label: f.label.trim(),
@@ -372,9 +380,8 @@ function CreateEventPageInner() {
                 key={opt}
                 type="button"
                 onClick={() => updateTemplateValue(field.id, opt)}
-                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
-                  value === opt ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"
-                }`}
+                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${value === opt ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"
+                  }`}
               >
                 {opt}
               </button>
@@ -386,9 +393,8 @@ function CreateEventPageInner() {
           <button
             type="button"
             onClick={() => updateTemplateValue(field.id, value === "true" ? "false" : "true")}
-            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
-              value === "true" ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"
-            }`}
+            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${value === "true" ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"
+              }`}
           >
             {value === "true" ? "Yes" : "No"}
           </button>
@@ -433,18 +439,16 @@ function CreateEventPageInner() {
             <button
               type="button"
               onClick={() => updateCustomField(field.id, { value: "true" })}
-              className={`px-4 py-2 rounded-xl font-semibold text-sm flex-1 transition-all ${
-                field.value === "true" ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
-              }`}
+              className={`px-4 py-2 rounded-xl font-semibold text-sm flex-1 transition-all ${field.value === "true" ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
+                }`}
             >
               Yes
             </button>
             <button
               type="button"
               onClick={() => updateCustomField(field.id, { value: "false" })}
-              className={`px-4 py-2 rounded-xl font-semibold text-sm flex-1 transition-all ${
-                field.value === "false" ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
-              }`}
+              className={`px-4 py-2 rounded-xl font-semibold text-sm flex-1 transition-all ${field.value === "false" ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
+                }`}
             >
               No
             </button>
@@ -481,9 +485,8 @@ function CreateEventPageInner() {
                   key={opt}
                   type="button"
                   onClick={() => updateCustomField(field.id, { value: opt })}
-                  className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
-                    field.value === opt ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${field.value === opt ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
+                    }`}
                 >
                   {opt}
                 </button>
@@ -773,26 +776,33 @@ function CreateEventPageInner() {
                       <Label className="text-base font-bold text-zinc-900">Reg. Type</Label>
                       <div className="flex gap-2">
                         {REG_TYPES.map((type) => (
-                           <button key={type} onClick={() => updateForm("registration_type", type)} className={`px-4 py-2 rounded-xl font-semibold text-sm capitalize flex-1 transition-all ${formData.registration_type === type ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>{type}</button>
+                          <button key={type} onClick={() => updateForm("registration_type", type)} className={`px-4 py-2 rounded-xl font-semibold text-sm capitalize flex-1 transition-all ${formData.registration_type === type ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>{type}</button>
                         ))}
                       </div>
                     </div>
                     <div className="space-y-3">
                       <Label className="text-base font-bold text-zinc-900">Fee (₹)</Label>
-                      <Input type="number" placeholder="0 for Free" value={formData.registration_fee} onChange={(e) => updateForm("registration_fee", e.target.value)} className="py-5 px-4 rounded-2xl bg-zinc-50 border-zinc-200" />
+                      <Input 
+                        type="number" 
+                        placeholder="0 for Free" 
+                        value={formData.registration_fee} 
+                        onChange={(e) => updateForm("registration_fee", e.target.value)} 
+                        className={`py-5 px-4 rounded-2xl bg-zinc-50 border-zinc-200 ${fieldErrors.registration_fee ? "border-red-400 focus-visible:ring-red-400" : ""}`} 
+                      />
+                      {fieldErrors.registration_fee && <p className="text-sm text-red-500">{fieldErrors.registration_fee}</p>}
                     </div>
                   </div>
 
                   {formData.registration_type === "team" && (
                     <div className="grid grid-cols-2 gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-200">
-                       <div className="space-y-2">
-                          <Label className="text-sm font-bold text-zinc-900">Min Team Size</Label>
-                          <Input type="number" min="1" value={formData.min_team_size} onChange={(e) => updateForm("min_team_size", e.target.value)} className="rounded-xl" />
-                       </div>
-                       <div className="space-y-2">
-                          <Label className="text-sm font-bold text-zinc-900">Max Team Size</Label>
-                          <Input type="number" min="1" value={formData.max_team_size} onChange={(e) => updateForm("max_team_size", e.target.value)} className="rounded-xl" />
-                       </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-bold text-zinc-900">Min Team Size</Label>
+                        <Input type="number" min="1" value={formData.min_team_size} onChange={(e) => updateForm("min_team_size", e.target.value)} className="rounded-xl" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-bold text-zinc-900">Max Team Size</Label>
+                        <Input type="number" min="1" value={formData.max_team_size} onChange={(e) => updateForm("max_team_size", e.target.value)} className="rounded-xl" />
+                      </div>
                     </div>
                   )}
                 </div>

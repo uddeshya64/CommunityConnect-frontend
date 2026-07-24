@@ -44,7 +44,7 @@ export default function MyProfilePage() {
             } catch (err: any) {
                 setError(
                     err.response?.data?.error ||
-                        "Failed to load profile."
+                    "Failed to load profile."
                 );
             } finally {
                 setIsLoading(false);
@@ -103,6 +103,7 @@ export default function MyProfilePage() {
             }
 
             // Call upload API
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
             const response = await fetch(
                 process.env.NEXT_PUBLIC_API_URL || `${API_BASE_URL}/image/upload`,
                 {
@@ -142,7 +143,7 @@ export default function MyProfilePage() {
 
             setError(
                 err.message ||
-                    "Failed to upload profile image."
+                "Failed to upload profile image."
             );
         } finally {
             setIsUploading(false);
@@ -503,7 +504,7 @@ export default function MyProfilePage() {
                             </h2>
 
                             {profile?.skills &&
-                            profile.skills.length > 0 ? (
+                                profile.skills.length > 0 ? (
                                 <div className="flex flex-wrap gap-2">
                                     {profile.skills.map(
                                         (skill, i) => (
