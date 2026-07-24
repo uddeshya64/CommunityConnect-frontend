@@ -8,7 +8,7 @@ import {
   Ticket, Building2, UserCircle2,
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
-  UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus, ClipboardList
+  UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,6 @@ import { eventService } from "@/services/event.service";
 import { api } from "@/lib/axios";
 import { Html5Qrcode } from "html5-qrcode";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
-import RegistrationFormBuilder from "@/components/organizer/RegistrationFormBuilder";
 
 interface EventDetails {
   id: string;
@@ -54,7 +53,7 @@ export default function EventDetailsPage() {
   const [permissions, setPermissions] = useState<string[]>([]);
 
   const [viewMode, setViewMode] = useState<"DASHBOARD" | "PREVIEW">("PREVIEW");
-  const [activeTab, setActiveTab] = useState<"OVERVIEW" | "PARTICIPANTS" | "EDIT" | "AGENDA" | "REGISTRATION_FORM" | "STAFF" | "SETTINGS" | "ORGANIZER_SETTINGS">("OVERVIEW");
+  const [activeTab, setActiveTab] = useState<"OVERVIEW" | "PARTICIPANTS" | "EDIT" | "AGENDA" | "STAFF" | "SETTINGS" | "ORGANIZER_SETTINGS">("OVERVIEW");
 
   // --- AGENDA / TIMELINE STATES ---
   const [expandedTimelineId, setExpandedTimelineId] = useState<number | null>(null);
@@ -297,8 +296,6 @@ export default function EventDetailsPage() {
           const res = await api.get(`/events/${eventId}/timelines`);
           setTimelinesList(res.data.data || res.data || []);
         }
-        // Note: REGISTRATION_FORM tab is intentionally not handled here —
-        // RegistrationFormBuilder fetches and manages its own schema state.
       } catch (err) {
         console.error(`Failed to fetch ${activeTab} data`, err);
       } finally {
@@ -761,12 +758,6 @@ export default function EventDetailsPage() {
             {hasPermission("MANAGE_EVENT") && (
               <button onClick={() => setActiveTab("AGENDA")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "AGENDA" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
                 <Calendar className="w-5 h-5" /> Event Agenda
-              </button>
-            )}
-
-            {hasPermission("MANAGE_EVENT") && (
-              <button onClick={() => setActiveTab("REGISTRATION_FORM")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "REGISTRATION_FORM" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
-                <ClipboardList className="w-5 h-5" /> Registration Form
               </button>
             )}
 
@@ -1315,11 +1306,6 @@ export default function EventDetailsPage() {
                       </div>
                     )}
                   </div>
-                )}
-
-                {/* 3.6. REGISTRATION FORM TAB */}
-                {activeTab === "REGISTRATION_FORM" && hasPermission("MANAGE_EVENT") && (
-                  <RegistrationFormBuilder eventId={eventId} />
                 )}
 
                 {/* 4. STAFF & ROLES TAB */}

@@ -1,10 +1,11 @@
 import { api } from '@/lib/axios';
 
 export const eventService = {
-  // Fetch all events for the home feed
-  getFeed: async () => {
-    // Assuming your backend route is GET /api/events
-    const response = await api.get('/events');
+  // Fetch all events for the home feed (passes limit=100 to override backend default limit of 8)
+  getFeed: async (params?: { page?: number; limit?: number }) => {
+    const limit = params?.limit || 100;
+    const page = params?.page || 1;
+    const response = await api.get(`/events?page=${page}&limit=${limit}`);
     return response.data;
   },
 
