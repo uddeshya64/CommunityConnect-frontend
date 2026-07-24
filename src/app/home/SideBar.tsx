@@ -27,14 +27,15 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
+  disabled?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/home", icon: Home },
-  { label: "Discover", href: "/discover", icon: Compass },
+  { label: "Discover", href: "/discover", icon: Compass, disabled: true },
   { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
-  { label: "Saved", href: "/saved", icon: Bookmark },
-  { label: "Notifications", href: "/notifications", icon: Bell },
+  { label: "Saved", href: "/saved", icon: Bookmark, disabled: true },
+  { label: "Notifications", href: "/notifications", icon: Bell, disabled: true },
 ];
 
 export default function Sidebar() {
@@ -103,7 +104,23 @@ export default function Sidebar() {
           {NAV_ITEMS.map((item) => {
             const isActive =
               pathname === item.href || pathname?.startsWith(`${item.href}/`);
+            const isDisabled = item.disabled;
             const Icon = item.icon;
+
+            if (isDisabled) {
+              return (
+                <div key={item.href} title={isCollapsed ? item.label : undefined}>
+                  <div
+                    className={`relative flex items-center rounded-full text-sm font-semibold text-zinc-400 cursor-not-allowed opacity-60 ${
+                      isCollapsed ? "justify-center px-0 py-2.5 w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
+                    }`}
+                  >
+                    <Icon className="w-4.5 h-4.5 relative z-10 shrink-0" strokeWidth={2.2} />
+                    {!isCollapsed && <span className="relative z-10">{item.label}</span>}
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} title={isCollapsed ? item.label : undefined}>
@@ -145,16 +162,16 @@ export default function Sidebar() {
 
       {/* Footer: settings/logout */}
       <div className="border-t border-zinc-200/70 pt-4 flex flex-col gap-1">
-        <Link href="/settings" onClick={() => setMobileOpen(false)} title={isCollapsed ? "Settings" : undefined}>
+        <div title={isCollapsed ? "Settings" : undefined}>
           <div
-            className={`flex items-center rounded-full text-sm font-semibold text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors ${
+            className={`flex items-center rounded-full text-sm font-semibold text-zinc-400 cursor-not-allowed opacity-60 ${
               isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
             }`}
           >
             <Settings className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
             {!isCollapsed && "Settings"}
           </div>
-        </Link>
+        </div>
         <button
           title={isCollapsed ? "Log out" : undefined}
           className={`flex items-center rounded-full text-sm font-semibold text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors ${
