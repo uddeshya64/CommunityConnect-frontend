@@ -1,52 +1,24 @@
-"use client";
+import { Suspense } from "react";
+import OAuthSuccessContent from "./OAuthSuccessContent";
 
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+function OAuthSuccessLoading() {
+  return (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-10 h-10 border-4 border-zinc-700 border-t-indigo-500 rounded-full animate-spin mx-auto" />
 
+        <p className="mt-4 text-zinc-400">
+          Completing authentication...
+        </p>
+      </div>
+    </div>
+  );
+}
 
-export default function OAuthSuccess() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const accessToken = searchParams.get("accessToken");
-    const refreshToken = searchParams.get("refreshToken");
-    const userId = searchParams.get("userId");
-    const returnUrl = searchParams.get("returnUrl");
-
-    if (accessToken) {
-      localStorage.setItem("accessToken", accessToken);
-    }
-
-    if (refreshToken) {
-      localStorage.setItem("refreshToken", refreshToken);
-    }
-
-    if (userId) {
-      localStorage.setItem("userId", userId);
-    }
-
-    const redirectTo = returnUrl
-      ? returnUrl
-      : userId
-      ? `/profile/${userId}`
-      : "/home";
-
-    if (accessToken && refreshToken) {
-      router.replace(redirectTo);
-    }
-  }, [router, searchParams]);
-
-
-
-return (
-<div className="flex h-screen items-center justify-center">
-
-<h1>
-Logging you in...
-</h1>
-
-</div>
-)
-
+export default function OAuthSuccessPage() {
+  return (
+    <Suspense fallback={<OAuthSuccessLoading />}>
+      <OAuthSuccessContent />
+    </Suspense>
+  );
 }
