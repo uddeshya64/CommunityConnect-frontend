@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
+import { useMyProfile } from "@/hooks/profileHooks";
 
 // Add Razorpay to the Window object for TypeScript
 declare global {
@@ -31,29 +32,44 @@ export default function EventRegistrationPage() {
   const [teamName, setTeamName] = useState("");
   const [members, setMembers] = useState([{ email: "", role: "Leader" }]); // Leader is always first
 
+  const { getMyProfile } = useMyProfile();
+
   useEffect(() => {
-    // 1. Fetch Event Details
-    const fetchEvent = async () => {
+    // 1. Fetch Event Details & User Profile
+    const fetchEventAndUser = async () => {
       try {
+        let userEmail = "";
+        try {
+          const profile = await getMyProfile();
+          if (profile && profile.email) {
+            userEmail = profile.email;
+          }
+        } catch (e) {
+          console.error("Failed to fetch user profile for registration pre-fill", e);
+        }
+
         const response = await eventService.getEventById(eventId);
         const rawEvent = response?.data?.event || response?.data || response?.event || response;
         setEvent(rawEvent);
 
-        // Pre-fill min team size empty slots
-        if (rawEvent.registration_type === "team" && rawEvent.min_team_size > 1) {
-          const initialMembers = [{ email: "", role: "Leader" }];
-          for (let i = 1; i < rawEvent.min_team_size; i++) {
+        // Pre-fill slots
+        if (rawEvent.registration_type === "team") {
+          const initialMembers = [{ email: userEmail, role: "Leader" }];
+          const minTeam = rawEvent.min_team_size || 1;
+          for (let i = 1; i < minTeam; i++) {
             initialMembers.push({ email: "", role: "Member" });
           }
           setMembers(initialMembers);
+        } else {
+          setMembers([{ email: userEmail, role: "Leader" }]);
         }
       } catch (err) {
-        setError("Failed to load event details.");
+        setError("Failed to load registration details.");
       } finally {
         setIsLoading(false);
       }
     };
-    fetchEvent();
+    fetchEventAndUser();
 
     // 2. Dynamically Load Razorpay Script
     const script = document.createElement("script");

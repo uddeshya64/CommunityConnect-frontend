@@ -53,6 +53,15 @@ export default function TeamParticipantDashboard() {
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
 
+  // Agenda / Calendar interactive states
+  const [expandedTimelineId, setExpandedTimelineId] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Auto-dismiss toast after 5 seconds
   useEffect(() => {
     if (!toast) return;
@@ -480,102 +489,224 @@ export default function TeamParticipantDashboard() {
         </div>
 
         {/* =========================================================
-            RIGHT COLUMN: FEATURES & WORKSPACE (BENTO CARDS)
+            RIGHT COLUMN: EVENT TIMELINE & AGENDA (GOOGLE ICS STYLE WITH ANIMATIONS)
             ========================================================= */}
         <div className="xl:col-span-4 space-y-6">
+          <style>{`
+            @keyframes sway {
+              0%, 100% { transform: translateY(0) rotate(0deg); }
+              50% { transform: translateY(-4px) rotate(4deg); }
+            }
+            @keyframes float {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-6px); }
+            }
+            .animate-sway {
+              animation: sway 5s ease-in-out infinite;
+            }
+            .animate-float {
+              animation: float 6s ease-in-out infinite;
+            }
+          `}</style>
 
-          {/* SUBMISSION CARD (Hack2Skill Style) */}
-          {teamData?.submissions && teamData.submissions.length > 0 ? (
-            <div className="bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
-              <UploadCloud className="w-24 h-24 text-white/10 absolute -right-4 -top-4 rotate-12 group-hover:scale-110 transition-transform duration-500" />
-              <div className="relative z-10">
-                <div className="inline-flex px-3 py-1 mb-6 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-xs font-black uppercase tracking-widest text-emerald-300 shadow-sm items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5" /> Project Submitted
-                </div>
-                <h3 className="text-3xl font-black mb-3 leading-tight text-white line-clamp-2">{teamData.submissions[0].title}</h3>
-                <p className="text-indigo-100 text-sm mb-4 font-semibold leading-relaxed truncate">
-                  Repository: <a href={teamData.submissions[0].repo_url} target="_blank" rel="noreferrer" className="underline hover:text-white transition-all">{teamData.submissions[0].repo_url}</a>
-                </p>
-                <p className="text-xs text-indigo-200/70 mb-8 font-medium">
-                  Submitted by {teamData.submissions[0].user?.name || "Member"} on {new Date(teamData.submissions[0].submitted_at).toLocaleDateString()}
-                </p>
-                <Button onClick={() => setShowSubmissionModal(true)} className="w-full bg-white text-indigo-700 hover:bg-zinc-100 font-black py-7 rounded-2xl text-lg shadow-xl hover:scale-[1.02] transition-all">
-                  Edit Submission
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
-              <UploadCloud className="w-24 h-24 text-white/10 absolute -right-4 -top-4 rotate-12 group-hover:scale-110 transition-transform duration-500" />
-              <div className="relative z-10">
-                <div className="inline-block px-3 py-1 mb-6 rounded-full bg-white/20 backdrop-blur-md border border-white/20 text-xs font-black uppercase tracking-widest text-white shadow-sm">
-                  Phase 2 Active
-                </div>
-                <h3 className="text-3xl font-black mb-3 leading-tight text-white">Project<br />Submission</h3>
-                <p className="text-indigo-100 text-sm mb-8 font-medium leading-relaxed">
-                  Ready to showcase your work? The submission portal is currently unlocked for your team.
-                </p>
-                <Button onClick={() => setShowSubmissionModal(true)} className="w-full bg-white text-indigo-700 hover:bg-zinc-100 font-black py-7 rounded-2xl text-lg shadow-xl hover:scale-[1.02] transition-all">
-                  Submit Now
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* TEAM CHAT CARD */}
-          <div className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 flex items-center justify-between group cursor-pointer hover:bg-white/5 transition-colors">
-            <div>
-              <h4 className="text-xl font-bold mb-1 text-zinc-100">Team Chat</h4>
-              <p className="text-sm font-medium text-zinc-500">Discuss ideas internally.</p>
-            </div>
-            <div className="w-14 h-14 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
-              <MessageCircle className="w-6 h-6" />
-            </div>
-          </div>
-
-          {/* EVENT ACTIVITY/TIMELINE */}
-          <div className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8">
-            <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-              <Activity className="w-4 h-4" /> Event Schedule
+          <div className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 shadow-2xl">
+            <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-indigo-400" /> Event Agenda & Schedule
             </h4>
 
             {teamData?.event?.timelines && teamData.event.timelines.length > 0 ? (
-              <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
-                {teamData.event.timelines.map((timeline: any) => {
-                  const startTime = new Date(timeline.start_time);
-                  const isPast = startTime < new Date();
-                  const formattedTime = startTime.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' });
-
-                  return (
-                    <div key={timeline.id} className="relative flex items-start gap-4 group">
-                      <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-[#09090b] ${isPast ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]' : 'bg-zinc-800 text-zinc-500'} shrink-0 z-10`}>
-                        {isPast ? <Check className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
-                      </div>
-                      <div className={`flex-1 p-4 rounded-2xl border ${isPast ? 'bg-white/5 border-white/10' : 'bg-zinc-900/50 border-white/5'}`}>
-                        <div className="flex justify-between items-start gap-2 flex-wrap">
-                          <p className={`font-bold text-sm ${isPast ? 'text-zinc-100' : 'text-zinc-400'}`}>{timeline.title}</p>
-                          <span className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 shrink-0">
-                            <Clock className="w-3 h-3 text-indigo-400" /> {formattedTime}
-                          </span>
-                        </div>
-                        {timeline.speaker_name && (
-                          <p className="text-xs text-indigo-400 mt-1 font-semibold">Speaker: {timeline.speaker_name}</p>
-                        )}
-                        {timeline.description && (
-                          <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{timeline.description}</p>
-                        )}
-                      </div>
-                    </div>
+              <motion.div 
+                initial="hidden"
+                animate="show"
+                variants={{
+                  hidden: { opacity: 0 },
+                  show: {
+                    opacity: 1,
+                    transition: { staggerChildren: 0.1 }
+                  }
+                }}
+                className="space-y-8"
+              >
+                {(() => {
+                  // Group timelines by date
+                  const groups: { [key: string]: any[] } = {};
+                  teamData.event.timelines.forEach((item: any) => {
+                    const dateStr = new Date(item.start_time).toDateString();
+                    if (!groups[dateStr]) {
+                      groups[dateStr] = [];
+                    }
+                    groups[dateStr].push(item);
+                  });
+                  const sortedGroups = Object.entries(groups).sort(
+                    (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
                   );
-                })}
-              </div>
+
+                  return sortedGroups.map(([dateStr, items]) => {
+                    const d = new Date(dateStr);
+                    const month = d.toLocaleDateString("en-US", { month: "short" });
+                    const day = d.getDate();
+
+                    return (
+                      <motion.div 
+                        key={dateStr} 
+                        variants={{
+                          hidden: { opacity: 0, y: 15 },
+                          show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } }
+                        }}
+                        className="flex gap-4 items-start"
+                      >
+                        {/* Date Header (Dark Theme) */}
+                        <div className="w-12 flex flex-col items-center shrink-0 py-2">
+                          <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">{month}</span>
+                          <span className="text-2xl font-black text-white mt-0.5">{day}</span>
+                        </div>
+
+                        {/* Session Cards Stack */}
+                        <div className="flex-1 space-y-4">
+                          {items.map((timeline: any) => {
+                            // Get theme styling
+                            const tTitle = timeline.title.toLowerCase();
+                            let theme = {
+                              bgClass: "bg-[#4285F4] border-[#4285F4]/30 text-white hover:shadow-[0_15px_30px_rgba(66,133,244,0.35)]",
+                              timeClass: "text-blue-105",
+                              locationClass: "text-blue-150",
+                              type: "default"
+                            };
+
+                            if (tTitle.includes("tea") || tTitle.includes("coffee") || tTitle.includes("networking") || tTitle.includes("break") || tTitle.includes("snack")) {
+                              theme = {
+                                bgClass: "bg-gradient-to-br from-amber-100 to-orange-100 border-amber-250/20 text-amber-950 hover:shadow-[0_15px_30px_rgba(245,158,11,0.25)]",
+                                timeClass: "text-amber-800",
+                                locationClass: "text-amber-700",
+                                type: "coffee"
+                              };
+                            } else if (tTitle.includes("lunch") || tTitle.includes("dinner") || tTitle.includes("food") || tTitle.includes("meal") || tTitle.includes("brunch")) {
+                              theme = {
+                                bgClass: "bg-gradient-to-br from-rose-50 to-orange-50 border-orange-250/20 text-orange-950 hover:shadow-[0_15px_30px_rgba(239,68,68,0.2)]",
+                                timeClass: "text-orange-855",
+                                locationClass: "text-orange-755",
+                                type: "lunch"
+                              };
+                            } else if (tTitle.includes("party") || tTitle.includes("celebration") || tTitle.includes("social") || tTitle.includes("afterparty") || tTitle.includes("dj")) {
+                              theme = {
+                                bgClass: "bg-gradient-to-br from-indigo-950 via-purple-950 to-zinc-950 border-indigo-800/40 text-indigo-50 hover:shadow-[0_15px_30px_rgba(168,85,247,0.4)]",
+                                timeClass: "text-indigo-355",
+                                locationClass: "text-indigo-400",
+                                type: "party"
+                              };
+                            } else if (tTitle.includes("register") || tTitle.includes("registration") || tTitle.includes("welcome") || tTitle.includes("check-in") || tTitle.includes("checkin")) {
+                              theme = {
+                                bgClass: "bg-gradient-to-br from-emerald-950 to-zinc-900 border-emerald-800/40 text-emerald-50 hover:shadow-[0_15px_30px_rgba(16,185,129,0.4)]",
+                                timeClass: "text-emerald-300",
+                                locationClass: "text-emerald-400",
+                                type: "welcome"
+                              };
+                            }
+
+                            const start = new Date(timeline.start_time);
+                            const end = timeline.end_time ? new Date(timeline.end_time) : null;
+                            const formattedTime = `${start.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}${end ? ` - ${end.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}` : ''}`;
+                            const isLive = start <= currentTime && (end === null || currentTime <= end);
+                            const isExpanded = expandedTimelineId === timeline.id;
+
+                            return (
+                              <div
+                                key={timeline.id}
+                                onClick={() => setExpandedTimelineId(isExpanded ? null : timeline.id)}
+                                className={`relative overflow-hidden p-5 rounded-[1.25rem] border shadow-sm cursor-pointer transition-all duration-500 hover:-translate-y-1.5 hover:scale-[1.01] ${theme.bgClass}`}
+                              >
+                                {/* Live pulsing indicator */}
+                                {isLive && (
+                                  <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500 text-red-500 text-[8px] font-black tracking-widest uppercase animate-pulse">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                                    <span>Live</span>
+                                  </div>
+                                )}
+
+                                {/* Background Illustrations with dynamic float/sway animations */}
+                                {theme.type === "coffee" && (
+                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-[0.12] pointer-events-none text-amber-900 animate-sway" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M30 40h40v30C70 78.3 63.3 85 55 85h-10C36.7 85 30 78.3 30 70V40z" fill="currentColor" />
+                                    <path d="M70 45h8c4.4 0 8 3.6 8 8v4c0 4.4-3.6 8-8 8h-8V45z" stroke="currentColor" strokeWidth="4" />
+                                    <path d="M40 25c0-5 5-5 5-10M50 25c0-5 5-5 5-10M60 25c0-5 5-5 5-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                                  </svg>
+                                )}
+                                {theme.type === "lunch" && (
+                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-[0.12] pointer-events-none text-orange-900 animate-float" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="50" cy="50" r="30" stroke="currentColor" strokeWidth="4" />
+                                    <path d="M50 20v60M20 50h60" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" />
+                                    <path d="M35 45c2 0 5 2 5 5s-3 5-5 5" stroke="currentColor" strokeWidth="3" />
+                                    <path d="M65 45c-2 0-5 2-5 5s3 5 5 5" stroke="currentColor" strokeWidth="3" />
+                                  </svg>
+                                )}
+                                {theme.type === "party" && (
+                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-20 pointer-events-none text-indigo-400 animate-float" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="35" cy="40" r="12" fill="currentColor" />
+                                    <path d="M35 52v20M35 72l-5 5M35 72l5 5" stroke="currentColor" strokeWidth="2" />
+                                    <circle cx="65" cy="30" r="10" fill="currentColor" />
+                                    <path d="M65 40v25" stroke="currentColor" strokeWidth="2" />
+                                    <path d="M15 15l10 5M85 15l-10 5M50 15l2 10" stroke="currentColor" strokeWidth="2" />
+                                  </svg>
+                                )}
+                                {theme.type === "welcome" && (
+                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-[0.12] pointer-events-none text-emerald-400 animate-float" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20 80V40l30-20 30 20v80" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                                    <circle cx="50" cy="50" r="8" stroke="currentColor" strokeWidth="3" />
+                                  </svg>
+                                )}
+
+                                <div className="relative z-10 space-y-1">
+                                  <h4 className="font-extrabold text-sm leading-tight pr-12">{timeline.title}</h4>
+                                  <p className={`text-[11px] font-black opacity-80`}>
+                                    {formattedTime}
+                                  </p>
+                                  {(timeline.speaker_name || timeline.location) && (
+                                    <p className={`text-[10px] font-bold mt-1 flex flex-wrap gap-2 opacity-85`}>
+                                      {timeline.speaker_name && <span>Speaker: {timeline.speaker_name}</span>}
+                                      {timeline.location && <span>At: {timeline.location}</span>}
+                                    </p>
+                                  )}
+                                  
+                                  {/* Click expansion indicator */}
+                                  {!isExpanded && timeline.description && (
+                                    <p className="text-[10px] font-bold opacity-60 mt-1.5 flex items-center gap-1">
+                                      Click to view details <span className="text-[8px]">▼</span>
+                                    </p>
+                                  )}
+
+                                  {/* Expandable creative details accordion */}
+                                  <AnimatePresence initial={false}>
+                                    {isExpanded && timeline.description && (
+                                      <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                                        className="overflow-hidden"
+                                      >
+                                        <div
+                                          className="text-[11px] font-medium opacity-95 pt-2 mt-2 border-t border-current/10 prose prose-sm max-w-none prose-current leading-relaxed"
+                                          dangerouslySetInnerHTML={{ __html: timeline.description }}
+                                        />
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    );
+                  });
+                })()}
+              </motion.div>
             ) : (
-              <div className="text-center py-6 text-zinc-500 text-sm font-medium">
+              <div className="text-center py-10 text-zinc-500 text-sm font-medium">
                 No schedule events listed yet.
               </div>
             )}
           </div>
-
         </div>
       </main>
 
