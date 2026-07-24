@@ -31,7 +31,7 @@ export default function SelectTemplatePage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex">
+    <div className="min-h-screen bg-zinc-50 flex flex-col md:flex-row">
       <Sidebar />
 
       <main className="flex-1 px-8 py-10 max-w-5xl mx-auto w-full">

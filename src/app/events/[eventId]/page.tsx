@@ -1747,7 +1747,7 @@ export default function EventDetailsPage() {
         {/* Floating Title Card */}
         <motion.div
           initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: "easeOut" }}
-          className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-[90%] max-w-5xl bg-white/95 backdrop-blur-2xl p-8 md:p-10 rounded-[2.5rem] shadow-2xl border border-white/60 z-40 flex flex-col justify-end items-center text-center"
+          className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-[90%] max-w-5xl bg-white/95 backdrop-blur-2xl p-5 sm:p-8 md:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl border border-white/60 z-40 flex flex-col justify-end items-center text-center"
         >
           <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
             <span className="px-4 py-1.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-black uppercase tracking-widest shadow-sm">
@@ -1758,7 +1758,7 @@ export default function EventDetailsPage() {
               {event.mode}
             </span>
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-zinc-900 tracking-tight leading-[1.1] md:leading-[1.2] text-center">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-zinc-900 tracking-tight leading-[1.1] md:leading-[1.2] text-center">
             {event.title}
           </h1>
         </motion.div>
@@ -2034,7 +2034,7 @@ export default function EventDetailsPage() {
         <div className="lg:col-span-5 relative">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-            className="sticky top-28 bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-zinc-200/60 border border-zinc-100"
+            className="lg:sticky lg:top-28 bg-white p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl shadow-zinc-200/60 border border-zinc-100"
           >
             {/* Price Header */}
             <div className="mb-8 pb-8 border-b border-zinc-100 text-center">
