@@ -1,10 +1,11 @@
 import { api } from '@/lib/axios';
 
 export const eventService = {
-  // Fetch all events for the home feed
-  getFeed: async () => {
-    // Assuming your backend route is GET /api/events
-    const response = await api.get('/events');
+  // Fetch all events for the home feed (passes limit=100 to override backend default limit of 8)
+  getFeed: async (params?: { page?: number; limit?: number }) => {
+    const limit = params?.limit || 100;
+    const page = params?.page || 1;
+    const response = await api.get(`/events?page=${page}&limit=${limit}`);
     return response.data;
   },
 
@@ -53,6 +54,28 @@ export const eventService = {
     registration_id?: number;
   }) => {
     const response = await api.post('/registration/verify', paymentData);
+    return response.data;
+  },
+
+  // Timeline (Agenda) CRUD methods
+  createTimeline: async (eventId: string, data: any) => {
+    const response = await api.post(`/events/${eventId}/timelines`, data);
+    return response.data;
+  },
+
+  updateTimeline: async (eventId: string, timelineId: number | string, data: any) => {
+    const response = await api.put(`/events/${eventId}/timelines/${timelineId}`, data);
+    return response.data;
+  },
+
+  deleteTimeline: async (eventId: string, timelineId: number | string) => {
+    const response = await api.delete(`/events/${eventId}/timelines/${timelineId}`);
+    return response.data;
+  },
+
+  // Submit registration form responses (Points to: POST /api/registrations/:registrationId/form)
+  submitRegistrationForm: async (registrationId: number | string, formResponses: Record<string, any>) => {
+    const response = await api.post(`/registrations/${registrationId}/form`, { formResponses });
     return response.data;
   }
 };

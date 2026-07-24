@@ -31,7 +31,7 @@ export default function SelectTemplatePage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex">
+    <div className="min-h-screen bg-zinc-50 flex flex-col md:flex-row">
       <Sidebar />
 
       <main className="flex-1 px-8 py-10 max-w-5xl mx-auto w-full">
@@ -64,7 +64,11 @@ export default function SelectTemplatePage() {
                 whileHover={{ y: -2 }}
                 className="text-left rounded-3xl bg-white border border-zinc-200 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all overflow-hidden"
               >
-                <div className={`h-20 bg-gradient-to-br ${style.gradient}`} />
+                <div className={`h-20 bg-gradient-to-br ${style.gradient}`} ><img
+  src={tpl.imageUrl}
+  alt={tpl.label}
+  className="w-full h-full object-cover"
+/></div>
                 <div className="p-5">
                   <h3 className="text-base font-bold text-zinc-900 mb-1">{tpl.label}</h3>
                   

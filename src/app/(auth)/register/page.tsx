@@ -163,13 +163,13 @@ export default function RegisterPage() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen w-full flex bg-white">
+      <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white">
 
         {/* =====================================================
             LEFT SIDE - FORM
         ====================================================== */}
 
-        <div className="w-full lg:w-1/2 flex flex-col justify-center p-8 sm:p-16 xl:p-24">
+        <div className="w-full lg:w-1/2 flex flex-col justify-center p-4 sm:p-16 xl:p-24 py-8">
 
           <div className="w-full max-w-md mx-auto space-y-8">
 
@@ -202,7 +202,7 @@ export default function RegisterPage() {
                 {/* HEADING */}
 
                 <div className="space-y-2">
-                  <h1 className="text-4xl font-extrabold tracking-tight text-zinc-900">
+                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
                     Create an account
                   </h1>
 
@@ -451,7 +451,7 @@ export default function RegisterPage() {
 
                 <div className="space-y-2">
 
-                  <h1 className="text-4xl font-extrabold tracking-tight text-zinc-900">
+                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
                     Check your email
                   </h1>
 

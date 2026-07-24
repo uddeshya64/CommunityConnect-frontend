@@ -146,9 +146,9 @@ export default function LoginPage() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen w-full flex bg-white">
+      <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white">
         {/* LEFT SIDE */}
-        <div className="w-full lg:w-1/2 flex flex-col justify-center p-8 sm:p-16 xl:p-24">
+        <div className="w-full lg:w-1/2 flex flex-col justify-center p-4 sm:p-16 xl:p-24 py-8">
           <div className="w-full max-w-md mx-auto space-y-8">
             <Link
               href="/"
@@ -173,7 +173,7 @@ export default function LoginPage() {
             {view === "LOGIN" && (
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <h1 className="text-4xl font-extrabold tracking-tight text-zinc-900">
+                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
                     Welcome back
                   </h1>
                   <p className="text-lg text-zinc-500 font-medium">
@@ -305,7 +305,7 @@ export default function LoginPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <h1 className="text-4xl font-extrabold text-zinc-900">
+                  <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-900">
                     Reset password
                   </h1>
                   <p className="text-lg text-zinc-500">
@@ -349,7 +349,7 @@ export default function LoginPage() {
                   <MailCheck className="w-8 h-8" />
                 </div>
 
-                <h1 className="text-4xl font-extrabold text-zinc-900">
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-900">
                   Verify OTP
                 </h1>
 
@@ -381,7 +381,7 @@ export default function LoginPage() {
                   <RotateCcw className="w-8 h-8" />
                 </div>
 
-                <h1 className="text-4xl font-extrabold text-zinc-900">
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-900">
                   Create new password
                 </h1>
 

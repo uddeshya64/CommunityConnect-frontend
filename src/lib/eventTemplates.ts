@@ -14,6 +14,7 @@ export interface TemplateField {
 export interface EventTemplate {
   id: string;       // sent to backend as `type`
   label: string;    // shown on the card
+  imageUrl: string; // The default cover/banner image for this template
   fields: TemplateField[];
 }
 
@@ -21,6 +22,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     id: "Technical Conferences",
     label: "Technical Conferences",
+    imageUrl: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1000&auto=format&fit=crop",
     fields: [
       { id: "track_theme", label: "Track / Theme", type: "text", placeholder: "e.g. AI, Web, Cloud" },
       { id: "speakers", label: "Speakers (one per line: Name - Topic)", type: "textarea" },
@@ -31,6 +33,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     id: "Hackathons and Competitions",
     label: "Hackathons and Competitions",
+    imageUrl: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1000&auto=format&fit=crop",
     fields: [
       { id: "prize_breakdown", label: "Prizes (one per line: Rank - Reward)", type: "textarea", placeholder: "1st - ₹50,000" },
       { id: "submission_deadline", label: "Submission Deadline", type: "date" },
@@ -42,6 +45,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     id: "Corporate Events",
     label: "Corporate Events",
+    imageUrl: "https://images.unsplash.com/photo-1515187029135-18ee286d815b?q=80&w=1000&auto=format&fit=crop",
     fields: [
       { id: "department", label: "Organizing Department", type: "text" },
       { id: "visibility", label: "Visibility", type: "select", options: ["Internal", "External"] },
@@ -53,6 +57,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     id: "Exhibitions and Trade Shows",
     label: "Exhibitions and Trade Shows",
+    imageUrl: "https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1000&auto=format&fit=crop",
     fields: [
       { id: "num_booths", label: "Number of Booths", type: "number" },
       { id: "exhibitor_deadline", label: "Exhibitor Registration Deadline", type: "date" },
@@ -63,6 +68,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     id: "Academic and Training Events",
     label: "Academic and Training Events",
+    imageUrl: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=1000&auto=format&fit=crop",
     fields: [
       { id: "instructor_name", label: "Instructor / Trainer Name", type: "text" },
       { id: "syllabus", label: "Course Outline", type: "textarea" },
@@ -74,6 +80,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     id: "Weddings and Personal Events",
     label: "Weddings and Personal Events",
+    imageUrl: "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1000&auto=format&fit=crop",
     fields: [
       { id: "host_names", label: "Host / Couple's Names", type: "text" },
       { id: "rsvp_deadline", label: "RSVP Deadline", type: "date" },
@@ -85,6 +92,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     id: "Community and Nonprofit Events",
     label: "Community and Nonprofit Events",
+    imageUrl: "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?q=80&w=1000&auto=format&fit=crop",
     fields: [
       { id: "cause_purpose", label: "Cause / Purpose", type: "textarea" },
       { id: "volunteer_signup", label: "Volunteer Signup Available", type: "checkbox" },
@@ -96,6 +104,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     id: "Sports and Recreational Events",
     label: "Sports and Recreational Events",
+    imageUrl: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=1000&auto=format&fit=crop",
     fields: [
       { id: "sport_type", label: "Sport / Activity Type", type: "text" },
       { id: "team_or_individual", label: "Team or Individual", type: "select", options: ["Team", "Individual"] },
@@ -106,6 +115,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     id: "Government and Civic Events",
     label: "Government and Civic Events",
+    imageUrl: "https://images.unsplash.com/photo-1523292562811-8fa7962a78c8?q=80&w=1000&auto=format&fit=crop",
     fields: [
       { id: "department_authority", label: "Department / Authority", type: "text" },
       { id: "public_or_invite", label: "Public or Invite-only", type: "select", options: ["Public", "Invite-only"] },
@@ -116,6 +126,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     id: "Hybrid and Virtual Events",
     label: "Hybrid and Virtual Events",
+    imageUrl: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=1000&auto=format&fit=crop",
     fields: [
       { id: "streaming_platform", label: "Streaming Platform / Link", type: "text" },
       { id: "recording_available", label: "Recording Available", type: "checkbox" },
