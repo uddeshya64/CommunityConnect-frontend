@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-
-export default function OAuthSuccess() {
+function OAuthSuccessHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -37,16 +36,18 @@ export default function OAuthSuccess() {
     }
   }, [router, searchParams]);
 
+  return null;
+}
 
-
-return (
-<div className="flex h-screen items-center justify-center">
-
-<h1>
-Logging you in...
-</h1>
-
-</div>
-)
-
+export default function OAuthSuccess() {
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <Suspense fallback={<div>Loading...</div>}>
+        <OAuthSuccessHandler />
+      </Suspense>
+      <h1 className="text-xl font-bold text-zinc-800">
+        Logging you in...
+      </h1>
+    </div>
+  );
 }
