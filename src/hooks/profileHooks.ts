@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import axios from "axios";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
@@ -25,39 +25,81 @@ export interface MyProfileResponse {
 }
 
 export function useMyProfile() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const getMyProfile = async (): Promise<MyProfile> => {
+  const [isLoading,setIsLoading] =
+  useState(false);
+
+  const [error,setError] =
+  useState<string | null>(null);
+
+
+
+  const getMyProfile = useCallback(async (): Promise<MyProfile> => {
+
     setIsLoading(true);
     setError(null);
 
-    try {
-      const accessToken = localStorage.getItem("accessToken");
 
-      const { data } = await axios.get<MyProfileResponse>(
+    try {
+
+
+      const accessToken =
+      localStorage.getItem(
+        "accessToken"
+      );
+
+
+      const {data} =
+      await axios.get<MyProfileResponse>(
         `${API_BASE_URL}/profile/me`,
         {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+          headers:{
+            Authorization:
+            `Bearer ${accessToken}`
+          }
         }
       );
 
+
+      console.log(
+        "PROFILE RESPONSE:",
+        data
+      );
+
+
       return data.data;
-    } catch (err: any) {
-      const message =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        "Failed to load profile.";
-      setError(message);
-      throw new Error(message);
-    } finally {
-      setIsLoading(false);
+
+
     }
+    catch(err:any){
+
+
+      const message =
+      err.response?.data?.error ||
+      err.response?.data?.message ||
+      "Failed to load profile.";
+
+
+      setError(message);
+
+      throw new Error(message);
+
+    }
+    finally{
+
+      setIsLoading(false);
+
+    }
+
+  }, []);
+
+
+  return {
+    getMyProfile,
+    isLoading,
+    error
   };
 
-  return { getMyProfile, isLoading, error };
 }
 
 export function useProfileById() {
