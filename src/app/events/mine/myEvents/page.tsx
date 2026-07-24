@@ -93,7 +93,7 @@ export default function MyEventsPage() {
   }, [events, userId]);
 
   return (
-    <div className="min-h-screen bg-zinc-50 relative flex">
+    <div className="min-h-screen bg-zinc-50 relative flex flex-col md:flex-row">
       <Sidebar />
 
       <div className="flex-1 relative overflow-hidden pb-20 min-w-0">

@@ -290,7 +290,7 @@ export default function EventRegistrationPage() {
 
         {/* RIGHT COLUMN: Order Summary (Sticky) */}
         <div className="lg:col-span-5 relative">
-          <div className="sticky top-28 bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-zinc-200/50 border border-zinc-100">
+          <div className="lg:sticky lg:top-28 bg-white p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl shadow-zinc-200/50 border border-zinc-100">
              <h3 className="text-xl font-black text-zinc-900 mb-6 border-b border-zinc-100 pb-4">Order Summary</h3>
              
              <div className="space-y-4 mb-8">
