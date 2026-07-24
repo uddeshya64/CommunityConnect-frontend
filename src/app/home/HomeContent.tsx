@@ -110,7 +110,7 @@ function ProfileAvatar({
   return (
     <Link
       href={href}
-      className="fixed top-6 right-6 z-50 w-11 h-11 rounded-full overflow-hidden border-2 border-white shadow-lg shadow-zinc-900/10 hover:scale-105 transition-transform bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center"
+      className="fixed top-3 right-4 md:top-6 md:right-6 z-50 w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden border-2 border-white shadow-lg shadow-zinc-900/10 hover:scale-105 transition-transform bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center"
     >
       {profile.avatarUrl ? (
         <img
@@ -563,7 +563,7 @@ export default function HomeContent() {
   // ============================================
 
   return (
-    <div className="min-h-screen bg-zinc-50 relative flex">
+    <div className="min-h-screen bg-zinc-50 relative flex flex-col md:flex-row">
 
       {/* ============================================
           SIDEBAR
@@ -609,7 +609,7 @@ export default function HomeContent() {
             MAIN
         ============================================ */}
 
-        <main className="max-w-7xl mx-auto px-6 pt-12 relative z-10">
+        <main className="max-w-7xl mx-auto px-4 md:px-6 pt-6 md:pt-12 relative z-10">
 
           {/* ============================================
               WELCOME
@@ -627,9 +627,9 @@ export default function HomeContent() {
             transition={{
               duration: 0.5,
             }}
-            className="mb-12"
+            className="mb-6 md:mb-12"
           >
-            <h1 className="text-4xl md:text-5xl font-extrabold text-zinc-900 tracking-tight mb-4">
+            <h1 className="text-3xl md:text-5xl font-extrabold text-zinc-900 tracking-tight mb-4">
 
               Welcome back,{" "}
 
@@ -639,7 +639,7 @@ export default function HomeContent() {
 
             </h1>
 
-            <p className="text-lg text-zinc-500 font-medium max-w-2xl">
+            <p className="text-base md:text-lg text-zinc-500 font-medium max-w-2xl">
               Ready to explore? Discover,
               register, and manage your
               next tech meetup all in one
@@ -693,7 +693,7 @@ export default function HomeContent() {
                 transition={{
                   duration: 0.6,
                 }}
-                className="w-full max-w-3xl mx-auto mt-8 p-10 md:p-16 rounded-[2.5rem] bg-white border border-zinc-100 shadow-2xl shadow-indigo-900/5 relative overflow-hidden text-center"
+                className="w-full max-w-3xl mx-auto mt-8 p-6 md:p-16 rounded-3xl md:rounded-[2.5rem] bg-white border border-zinc-100 shadow-2xl shadow-indigo-900/5 relative overflow-hidden text-center"
               >
 
                 <div className="relative w-full h-64 mb-8 flex items-center justify-center">

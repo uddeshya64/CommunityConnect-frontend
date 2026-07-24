@@ -52,12 +52,12 @@ export default function Home() {
         </p>
         
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-6 sm:pt-8 w-full sm:w-auto px-4 sm:px-0">
-          <Link href="/events" className="w-full sm:w-auto">
+          <Link href="/login" className="w-full sm:w-auto">
             <Button size="lg" className="w-full rounded-full bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-500/20 px-8 py-5 sm:py-6 text-base sm:text-lg font-semibold transition-all hover:scale-105">
               Explore Events
             </Button>
           </Link>
-          <Link href="/register" className="w-full sm:w-auto">
+          <Link href="/login" className="w-full sm:w-auto">
             <Button variant="outline" size="lg" className="w-full rounded-full px-8 py-5 sm:py-6 text-base sm:text-lg font-semibold border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 shadow-sm transition-all hover:scale-105">
               Host an Event
             </Button>
