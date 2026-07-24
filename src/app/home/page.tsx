@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import HomeContent from "./HomeContent";
 "use client";
 
 import { useEffect, useState, useMemo, Suspense } from "react";
@@ -107,47 +109,24 @@ function ProfileAvatar({
     ? `/profile/${profile.id}`
     : "#";
 
+function HomeLoading() {
   return (
-    <Link
-      href={href}
-      className="
-        fixed
-        top-6
-        right-6
-        z-50
-        w-11
-        h-11
-        rounded-full
-        overflow-hidden
-        border-2
-        border-white
-        shadow-lg
-        shadow-zinc-900/10
-        hover:scale-105
-        transition-transform
-        bg-gradient-to-br
-        from-indigo-500
-        to-violet-600
-        flex
-        items-center
-        justify-center
-      "
-    >
-      {profile.avatarUrl ? (
-        <img
-          src={profile.avatarUrl}
-          alt={profile.name}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <span className="text-white font-bold text-sm">
-          {getInitials(profile.name)}
-        </span>
-      )}
-    </Link>
+    <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
+        <p className="mt-4 text-zinc-500 font-medium">
+          Loading CommunityConnect...
+        </p>
+      </div>
+    </div>
   );
 }
 
+export default function HomePage() {
+  return (
+    <Suspense fallback={<HomeLoading />}>
+      <HomeContent />
+    </Suspense>
 // ============================================
 // HOME PAGE
 // ============================================

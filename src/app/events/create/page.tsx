@@ -64,7 +64,11 @@ export default function SelectTemplatePage() {
                 whileHover={{ y: -2 }}
                 className="text-left rounded-3xl bg-white border border-zinc-200 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all overflow-hidden"
               >
-                <div className={`h-20 bg-gradient-to-br ${style.gradient}`} />
+                <div className={`h-20 bg-gradient-to-br ${style.gradient}`} ><img
+  src={tpl.imageUrl}
+  alt={tpl.label}
+  className="w-full h-full object-cover"
+/></div>
                 <div className="p-5">
                   <h3 className="text-base font-bold text-zinc-900 mb-1">{tpl.label}</h3>
                   

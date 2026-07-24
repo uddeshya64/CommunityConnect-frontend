@@ -105,7 +105,9 @@ export default function MyProfilePage() {
             // Call upload API
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
             const response = await fetch(
-                process.env.NEXT_PUBLIC_API_URL || `${API_BASE_URL}/image/upload`,
+
+                `${API_BASE_URL}/image/upload`,
+
                 {
                     method: "POST",
                     headers: {
