@@ -70,5 +70,11 @@ export const eventService = {
   deleteTimeline: async (eventId: string, timelineId: number | string) => {
     const response = await api.delete(`/events/${eventId}/timelines/${timelineId}`);
     return response.data;
+  },
+
+  // Submit registration form responses (Points to: POST /api/registrations/:registrationId/form)
+  submitRegistrationForm: async (registrationId: number | string, formResponses: Record<string, any>) => {
+    const response = await api.post(`/registrations/${registrationId}/form`, { formResponses });
+    return response.data;
   }
 };
