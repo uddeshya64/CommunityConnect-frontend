@@ -3,6 +3,10 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { QRCodeSVG } from "qrcode.react";
+import { verify2FACode, generateUniqueSecretKey, generateUniqueBackupCodes } from "@/lib/totp";
+import { EVENT_TEMPLATES } from "@/lib/eventTemplates";
 import {
   Settings as SettingsIcon,
   User,
@@ -26,6 +30,7 @@ import {
   AlertTriangle,
   Mail,
   CheckCircle2,
+  Circle,
   Key,
   Download,
   Trash2,
@@ -38,6 +43,10 @@ import {
   CheckSquare,
   Square,
   MapPin,
+  Copy,
+  LogOut,
+  QrCode,
+  ExternalLink,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -75,6 +84,8 @@ interface UserSettings {
 
   // Security
   twoFactorEnabled: boolean;
+  twoFactorSecret?: string | null;
+  twoFactorBackupCodes?: string[] | null;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -93,21 +104,14 @@ const DEFAULT_SETTINGS: UserSettings = {
   showLocationOnProfile: true,
   allowDirectMessages: "attendees",
   defaultCity: "San Francisco, CA",
-  favoriteCategories: ["Tech & AI", "Meetups", "Workshops"],
+  favoriteCategories: ["Technical Conferences", "Hackathons and Competitions"],
   calendarFormat: "google",
   twoFactorEnabled: false,
 };
 
 const CATEGORIES_LIST = [
-  "Tech & AI",
-  "Meetups",
-  "Workshops",
-  "Hackathons",
-  "Socials",
-  "Design",
-  "Music & Arts",
-  "Sports",
-  "Gaming",
+  ...EVENT_TEMPLATES.map((t) => t.label),
+  "Other",
 ];
 
 
@@ -129,6 +133,43 @@ const TABS: TabItem[] = [
   { key: "preferences", label: "Event Preferences", icon: Sliders, description: "Set location defaults and favorite categories" },
   { key: "security", label: "Sessions & Security", icon: Lock, description: "Manage 2FA, passwords, and active devices" },
 ];
+
+// Standalone Toggle Switch Component outside of render cycle to prevent re-creation glitches
+const ToggleSwitch = ({
+  checked,
+  onChange,
+  id,
+  disabled = false,
+  activeBg = "bg-indigo-600",
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  id: string;
+  disabled?: boolean;
+  activeBg?: string;
+}) => (
+  <button
+    id={id}
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    disabled={disabled}
+    onClick={(e) => {
+      e.stopPropagation();
+      onChange(!checked);
+    }}
+    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 ${
+      checked ? activeBg : "bg-zinc-800"
+    } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+  >
+    <motion.span
+      initial={false}
+      animate={{ x: checked ? 20 : 0 }}
+      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+      className="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0"
+    />
+  </button>
+);
 
 export default function SettingsContent() {
   const { isDark, activeAccent } = useAppearance();
@@ -155,6 +196,57 @@ export default function SettingsContent() {
   // Delete Account State
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
 
+  const router = useRouter();
+
+  // 2FA Flow State
+  const [twoFactorStep, setTwoFactorStep] = useState<"scan" | "backup" | "disable">("scan");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [twoFactorError, setTwoFactorError] = useState("");
+  const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
+  const [copiedBackup, setCopiedBackup] = useState(false);
+  const [user2FASecret, setUser2FASecret] = useState<string>("JBSWY3DPEHPK3PXP");
+  const [userBackupCodes, setUserBackupCodes] = useState<string[]>([
+    "CC-9823-4412",
+    "CC-7712-9901",
+    "CC-3321-8842",
+    "CC-5501-2290",
+  ]);
+
+  // Active Browser Sessions State
+  const [activeSessions, setActiveSessions] = useState([
+    {
+      id: "sess-1",
+      device: "Windows",
+      browser: "Chrome",
+      location: "Current Device",
+      ip: "192.168.1.100",
+      lastActive: "Active now",
+      isCurrent: true,
+      icon: Laptop,
+    },
+    {
+      id: "sess-2",
+      device: "iOS",
+      browser: "Safari",
+      location: "San Francisco, CA",
+      ip: "172.16.0.45",
+      lastActive: "Last active 2 days ago",
+      isCurrent: false,
+      icon: Smartphone,
+    },
+    {
+      id: "sess-3",
+      device: "macOS",
+      browser: "Firefox",
+      location: "New York, NY",
+      ip: "10.0.0.12",
+      lastActive: "Last active 5 days ago",
+      isCurrent: false,
+      icon: Laptop,
+    },
+  ]);
+
   // Load Settings from localStorage & Fetch Profile/Settings from backend API
   useEffect(() => {
     // 1. Load localStorage settings instantly for zero flicker
@@ -180,6 +272,15 @@ export default function SettingsContent() {
           const merged = { ...DEFAULT_SETTINGS, ...backendSettings };
           setSettings(merged);
           localStorage.setItem("cc_user_settings", JSON.stringify(merged));
+          localStorage.setItem("cc_2fa_enabled", merged.twoFactorEnabled ? "true" : "false");
+          if (merged.twoFactorSecret) {
+            setUser2FASecret(merged.twoFactorSecret);
+            localStorage.setItem("cc_2fa_secret", merged.twoFactorSecret);
+          }
+          if (merged.twoFactorBackupCodes && Array.isArray(merged.twoFactorBackupCodes)) {
+            setUserBackupCodes(merged.twoFactorBackupCodes);
+            localStorage.setItem("cc_2fa_backup_codes", JSON.stringify(merged.twoFactorBackupCodes));
+          }
         }
       } finally {
         setIsProfileLoading(false);
@@ -223,6 +324,9 @@ export default function SettingsContent() {
     setSettings((prev) => {
       const updated = { ...prev, [key]: value };
       localStorage.setItem("cc_user_settings", JSON.stringify(updated));
+      if (key === "twoFactorEnabled") {
+        localStorage.setItem("cc_2fa_enabled", value ? "true" : "false");
+      }
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent("cc_settings_updated", { detail: updated })
@@ -349,37 +453,6 @@ export default function SettingsContent() {
   }, [searchQuery]);
 
 
-
-  // Custom Toggle Switch Component
-  const ToggleSwitch = ({
-    checked,
-    onChange,
-    id,
-    disabled = false,
-  }: {
-    checked: boolean;
-    onChange: (checked: boolean) => void;
-    id: string;
-    disabled?: boolean;
-  }) => (
-    <button
-      id={id}
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 ${
-        checked ? activeAccent.bg : "bg-zinc-800"
-      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-    >
-      <motion.span
-        animate={{ x: checked ? 20 : 0 }}
-        transition={{ type: "spring", stiffness: 500, damping: 35 }}
-        className="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0"
-      />
-    </button>
-  );
 
   return (
     <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 pb-24 relative overflow-hidden transition-colors duration-300`}>
@@ -824,6 +897,7 @@ export default function SettingsContent() {
                           id="toggle-emailReminders"
                           checked={settings.emailReminders}
                           onChange={(val) => updateSetting("emailReminders", val)}
+                          activeBg={activeAccent.bg}
                         />
                       </div>
 
@@ -841,6 +915,7 @@ export default function SettingsContent() {
                           id="toggle-communityUpdates"
                           checked={settings.communityUpdates}
                           onChange={(val) => updateSetting("communityUpdates", val)}
+                          activeBg={activeAccent.bg}
                         />
                       </div>
 
@@ -858,6 +933,7 @@ export default function SettingsContent() {
                           id="toggle-teamInvites"
                           checked={settings.teamInvites}
                           onChange={(val) => updateSetting("teamInvites", val)}
+                          activeBg={activeAccent.bg}
                         />
                       </div>
 
@@ -875,6 +951,7 @@ export default function SettingsContent() {
                           id="toggle-weeklyDigest"
                           checked={settings.weeklyDigest}
                           onChange={(val) => updateSetting("weeklyDigest", val)}
+                          activeBg={activeAccent.bg}
                         />
                       </div>
                     </div>
@@ -911,6 +988,7 @@ export default function SettingsContent() {
                         id="toggle-soundEffects"
                         checked={settings.soundEffects}
                         onChange={(val) => updateSetting("soundEffects", val)}
+                        activeBg={activeAccent.bg}
                       />
                     </div>
 
@@ -1086,6 +1164,7 @@ export default function SettingsContent() {
                           id="toggle-compactMode"
                           checked={settings.compactMode}
                           onChange={(val) => updateSetting("compactMode", val)}
+                          activeBg={activeAccent.bg}
                         />
                       </div>
 
@@ -1102,6 +1181,7 @@ export default function SettingsContent() {
                           id="toggle-smoothAnimations"
                           checked={settings.smoothAnimations}
                           onChange={(val) => updateSetting("smoothAnimations", val)}
+                          activeBg={activeAccent.bg}
                         />
                       </div>
                     </div>
@@ -1132,13 +1212,20 @@ export default function SettingsContent() {
                       <button
                         type="button"
                         onClick={() => updateSetting("profileVisibility", "public")}
-                        className={`p-5 rounded-3xl border-2 text-left transition-all ${
+                        className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
                           settings.profileVisibility === "public"
-                            ? `${activeAccent.border} bg-zinc-900/80`
+                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg ${activeAccent.shadow}`
                             : "border-white/5 bg-zinc-950/40 hover:border-white/20"
                         }`}
                       >
-                        <Globe className={`w-6 h-6 ${activeAccent.text} mb-3`} />
+                        <div className="flex items-center justify-between mb-3">
+                          <Globe className={`w-6 h-6 ${activeAccent.text}`} />
+                          {settings.profileVisibility === "public" ? (
+                            <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
+                          ) : (
+                            <Circle className="w-5 h-5 text-zinc-600" />
+                          )}
+                        </div>
                         <div className="text-sm font-bold text-white">Public</div>
                         <p className="text-xs text-zinc-400 mt-1">
                           Anyone on the web can discover your profile card.
@@ -1149,13 +1236,20 @@ export default function SettingsContent() {
                       <button
                         type="button"
                         onClick={() => updateSetting("profileVisibility", "community")}
-                        className={`p-5 rounded-3xl border-2 text-left transition-all ${
+                        className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
                           settings.profileVisibility === "community"
-                            ? `${activeAccent.border} bg-zinc-900/80`
+                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg ${activeAccent.shadow}`
                             : "border-white/5 bg-zinc-950/40 hover:border-white/20"
                         }`}
                       >
-                        <User className="w-6 h-6 text-violet-400 mb-3" />
+                        <div className="flex items-center justify-between mb-3">
+                          <User className="w-6 h-6 text-violet-400" />
+                          {settings.profileVisibility === "community" ? (
+                            <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
+                          ) : (
+                            <Circle className="w-5 h-5 text-zinc-600" />
+                          )}
+                        </div>
                         <div className="text-sm font-bold text-white">Community Only</div>
                         <p className="text-xs text-zinc-400 mt-1">
                           Visible only to logged-in CommunityConnect members.
@@ -1166,13 +1260,20 @@ export default function SettingsContent() {
                       <button
                         type="button"
                         onClick={() => updateSetting("profileVisibility", "private")}
-                        className={`p-5 rounded-3xl border-2 text-left transition-all ${
+                        className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
                           settings.profileVisibility === "private"
-                            ? `${activeAccent.border} bg-zinc-900/80`
+                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg ${activeAccent.shadow}`
                             : "border-white/5 bg-zinc-950/40 hover:border-white/20"
                         }`}
                       >
-                        <Lock className="w-6 h-6 text-emerald-400 mb-3" />
+                        <div className="flex items-center justify-between mb-3">
+                          <Lock className="w-6 h-6 text-emerald-400" />
+                          {settings.profileVisibility === "private" ? (
+                            <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
+                          ) : (
+                            <Circle className="w-5 h-5 text-zinc-600" />
+                          )}
+                        </div>
                         <div className="text-sm font-bold text-white">Private</div>
                         <p className="text-xs text-zinc-400 mt-1">
                           Only event organizers of your events can view details.
@@ -1204,6 +1305,7 @@ export default function SettingsContent() {
                           id="toggle-showEmailOnProfile"
                           checked={settings.showEmailOnProfile}
                           onChange={(val) => updateSetting("showEmailOnProfile", val)}
+                          activeBg={activeAccent.bg}
                         />
                       </div>
 
@@ -1220,6 +1322,7 @@ export default function SettingsContent() {
                           id="toggle-showLocationOnProfile"
                           checked={settings.showLocationOnProfile}
                           onChange={(val) => updateSetting("showLocationOnProfile", val)}
+                          activeBg={activeAccent.bg}
                         />
                       </div>
                     </div>
@@ -1383,10 +1486,19 @@ export default function SettingsContent() {
 
                       <Button
                         onClick={() => {
-                          const nextState = !settings.twoFactorEnabled;
-                          updateSetting("twoFactorEnabled", nextState);
-                          if (nextState) setShow2FAModal(true);
-                          else showToast("2FA has been disabled.");
+                          if (settings.twoFactorEnabled) {
+                            setTwoFactorStep("disable");
+                            setShow2FAModal(true);
+                          } else {
+                            const newSecret = generateUniqueSecretKey();
+                            const newBackupCodes = generateUniqueBackupCodes(4);
+                            setUser2FASecret(newSecret);
+                            setUserBackupCodes(newBackupCodes);
+                            setTwoFactorStep("scan");
+                            setTwoFactorCode("");
+                            setTwoFactorError("");
+                            setShow2FAModal(true);
+                          }
                         }}
                         className={`rounded-2xl font-semibold ${
                           settings.twoFactorEnabled
@@ -1420,66 +1532,91 @@ export default function SettingsContent() {
 
                       <Button
                         variant="outline"
+                        disabled={activeSessions.length <= 1}
                         onClick={async () => {
                           try {
+                            setActiveSessions((prev) => prev.filter((s) => s.isCurrent));
                             await profileService.logoutAllDevices();
-                            showToast("All browser sessions have been revoked from servers.");
+                            showToast("All other browser sessions have been revoked and logged out.");
                           } catch {
                             showToast("Failed to revoke sessions.");
                           }
                         }}
-                        className="rounded-2xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white text-xs font-semibold"
+                        className="rounded-2xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white text-xs font-semibold disabled:opacity-50"
                       >
                         Revoke All Other Sessions
                       </Button>
                     </div>
 
                     <div className="space-y-3">
-                      {/* Current Session */}
-                      <div className="p-4 rounded-2xl bg-zinc-950/60 border border-white/10 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center shrink-0`}>
-                            <Laptop className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-white flex items-center gap-2">
-                              <span>Windows • Chrome</span>
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold">
-                                Current Session
-                              </span>
+                      {activeSessions.map((sess) => {
+                        const IconComponent = sess.icon;
+                        return (
+                          <div
+                            key={sess.id}
+                            className={`p-4 rounded-2xl ${
+                              sess.isCurrent ? "bg-zinc-950/60 border border-white/10" : "bg-zinc-950/40 border border-white/5"
+                            } flex items-center justify-between gap-4 transition-all`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-10 h-10 rounded-xl ${
+                                  sess.isCurrent
+                                    ? `${activeAccent.badgeBg} ${activeAccent.badgeText}`
+                                    : "bg-zinc-800 text-zinc-400"
+                                } flex items-center justify-center shrink-0`}
+                              >
+                                <IconComponent className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-bold text-white flex items-center gap-2">
+                                  <span>{sess.device} • {sess.browser}</span>
+                                  {sess.isCurrent && (
+                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold">
+                                      Current Session
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-zinc-500 mt-0.5">
+                                  {sess.location} • IP {sess.ip} • {sess.lastActive}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs text-zinc-500 mt-0.5">
-                              IP 192.168.1.100 • Active now
-                            </div>
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* Demo older session */}
-                      <div className="p-4 rounded-2xl bg-zinc-950/40 border border-white/5 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-zinc-800 text-zinc-400 flex items-center justify-center shrink-0">
-                            <Smartphone className="w-5 h-5" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (sess.isCurrent) {
+                                  showToast("Logging out of current device...");
+                                  setTimeout(() => {
+                                    localStorage.removeItem("token");
+                                    localStorage.removeItem("user");
+                                    router.push("/login");
+                                  }, 800);
+                                } else {
+                                  setActiveSessions((prev) => prev.filter((s) => s.id !== sess.id));
+                                  showToast(`Session (${sess.device} • ${sess.browser}) revoked and logged out successfully.`);
+                                }
+                              }}
+                              className={`text-xs ${
+                                sess.isCurrent
+                                  ? "text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                  : "text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10"
+                              } rounded-xl gap-1.5`}
+                            >
+                              {sess.isCurrent ? (
+                                <>
+                                  <LogOut className="w-3.5 h-3.5" />
+                                  Log Out Device
+                                </>
+                              ) : (
+                                "Revoke"
+                              )}
+                            </Button>
                           </div>
-                          <div>
-                            <div className="text-sm font-semibold text-white">
-                              iOS • Safari
-                            </div>
-                            <div className="text-xs text-zinc-500 mt-0.5">
-                              San Francisco, CA • Last active 2 days ago
-                            </div>
-                          </div>
-                        </div>
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => showToast("Session revoked successfully.")}
-                          className="text-xs text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl"
-                        >
-                          Revoke
-                        </Button>
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1726,7 +1863,7 @@ export default function SettingsContent() {
         )}
       </AnimatePresence>
 
-      {/* MODAL 3: 2FA SETUP SIMULATION */}
+      {/* MODAL 3: INTERACTIVE 2FA SETUP & MANAGEMENT */}
       <AnimatePresence>
         {show2FAModal && (
           <motion.div
@@ -1734,7 +1871,7 @@ export default function SettingsContent() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShow2FAModal(false)}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 10 }}
@@ -1743,28 +1880,219 @@ export default function SettingsContent() {
               onClick={(e) => e.stopPropagation()}
               className="bg-zinc-900 border border-white/10 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center"
             >
-              <div className={`w-12 h-12 rounded-2xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center mx-auto mb-4`}>
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-
-              <h3 className="text-xl font-bold text-white">2FA Enabled Successfully!</h3>
-              <p className="text-sm text-zinc-400 mt-2">
-                Scan this QR code with Google Authenticator or 1Password to complete your backup registration.
-              </p>
-
-              <div className="my-6 w-40 h-40 bg-white p-3 rounded-2xl mx-auto flex items-center justify-center shadow-lg">
-                {/* Clean SVG QR code simulation */}
-                <div className="w-full h-full border-4 border-black border-dashed flex items-center justify-center text-black font-mono text-[10px]">
-                  CC-AUTH-2FA
-                </div>
-              </div>
-
-              <Button
+              <button
                 onClick={() => setShow2FAModal(false)}
-                className={`w-full rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold`}
+                className="absolute top-5 right-5 p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all"
               >
-                Done
-              </Button>
+                <X className="w-4 h-4" />
+              </button>
+
+              {twoFactorStep === "scan" && (
+                <div>
+                  <div className={`w-12 h-12 rounded-2xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center mx-auto mb-4`}>
+                    <QrCode className="w-6 h-6" />
+                  </div>
+
+                  <h3 className="text-xl font-bold text-white">Setup Authenticator App</h3>
+                  <p className="text-sm text-zinc-400 mt-1">
+                    Scan this QR code with any Authenticator app (Google Authenticator, Authy, 1Password) to link <span className="text-white font-semibold">{profile?.email || "user@communityconnect.io"}</span>.
+                  </p>
+
+                  {/* Realistic Scannable SVG QR Code */}
+                  <div
+                    style={{
+                      backgroundColor: "#FFFFFF",
+                      padding: "16px",
+                      borderRadius: "16px",
+                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3)",
+                      border: "2px solid #e4e4e7",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "20px auto",
+                      width: "fit-content",
+                    }}
+                  >
+                    <QRCodeSVG
+                      value={`otpauth://totp/CommunityConnect:${encodeURIComponent(
+                        profile?.email || "user@communityconnect.io"
+                      )}?secret=${user2FASecret}&issuer=CommunityConnect`}
+                      size={170}
+                      level="M"
+                      bgColor="#FFFFFF"
+                      fgColor="#000000"
+                      includeMargin={false}
+                    />
+                  </div>
+
+                  <div className="bg-zinc-950/80 border border-white/5 rounded-2xl p-3 mb-4 flex items-center justify-between gap-2">
+                    <div className="text-left">
+                      <div className="text-[10px] uppercase font-bold text-zinc-500">Secret Key</div>
+                      <div className="font-mono text-xs text-zinc-200 font-bold tracking-wider">
+                        {user2FASecret.replace(/(.{4})/g, "$1 ").trim()}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(user2FASecret);
+                        setCopiedSecret(true);
+                        showToast("Secret key copied to clipboard!");
+                        setTimeout(() => setCopiedSecret(false), 2000);
+                      }}
+                      className="text-xs text-zinc-300 hover:text-white hover:bg-white/10 rounded-xl"
+                    >
+                      {copiedSecret ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
+
+                  <div className="text-left mb-4">
+                    <Label className="text-xs font-semibold text-zinc-400 block mb-1.5">
+                      Enter 6-Digit Verification Code
+                    </Label>
+                    <Input
+                      maxLength={6}
+                      value={twoFactorCode}
+                      onChange={(e) => {
+                        setTwoFactorCode(e.target.value.replace(/[^0-9]/g, ""));
+                        setTwoFactorError("");
+                      }}
+                      placeholder="e.g. 123456"
+                      className="bg-zinc-950 border-white/10 text-white rounded-2xl text-center font-mono text-xl tracking-[0.3em] font-bold h-12"
+                    />
+                    {twoFactorError && (
+                      <p className="text-xs text-rose-400 mt-1 font-medium">{twoFactorError}</p>
+                    )}
+                  </div>
+
+                  <Button
+                    disabled={twoFactorCode.length < 6 || isVerifying2FA}
+                    onClick={async () => {
+                      setIsVerifying2FA(true);
+                      setTwoFactorError("");
+                      try {
+                        const isValid = await verify2FACode(twoFactorCode, user2FASecret, userBackupCodes);
+                        if (!isValid) {
+                          setIsVerifying2FA(false);
+                          setTwoFactorError("Invalid verification code. Please check your Authenticator app and try again.");
+                          return;
+                        }
+                        setIsVerifying2FA(false);
+                        setTwoFactorStep("backup");
+                        updateSetting("twoFactorEnabled", true);
+                        updateSetting("twoFactorSecret", user2FASecret);
+                        updateSetting("twoFactorBackupCodes", userBackupCodes);
+                        localStorage.setItem("cc_2fa_secret", user2FASecret);
+                        localStorage.setItem("cc_2fa_backup_codes", JSON.stringify(userBackupCodes));
+                        localStorage.setItem("cc_2fa_enabled", "true");
+                        showToast("Two-Factor Authentication verified and enabled!");
+                      } catch {
+                        setIsVerifying2FA(false);
+                        setTwoFactorError("Failed to verify code. Please try again.");
+                      }
+                    }}
+                    className={`w-full rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold h-11 shadow-lg`}
+                  >
+                    {isVerifying2FA ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Verifying Code...
+                      </>
+                    ) : (
+                      "Verify & Activate 2FA"
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {twoFactorStep === "backup" && (
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+
+                  <h3 className="text-xl font-bold text-white">2FA Activated Successfully!</h3>
+                  <p className="text-sm text-zinc-400 mt-2">
+                    Save these emergency recovery codes in a secure place (like 1Password). Each code can be used once if you lose your authenticator app.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 my-5">
+                    {userBackupCodes.map((code) => (
+                      <div
+                        key={code}
+                        className="p-3 rounded-xl bg-zinc-950/80 border border-white/5 font-mono text-xs font-bold text-zinc-300"
+                      >
+                        {code}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(userBackupCodes.join("\n"));
+                        setCopiedBackup(true);
+                        showToast("All backup codes copied to clipboard!");
+                        setTimeout(() => setCopiedBackup(false), 2000);
+                      }}
+                      className="flex-1 rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 text-white font-semibold"
+                    >
+                      {copiedBackup ? (
+                        <>
+                          <Check className="w-4 h-4 mr-1.5 text-emerald-400" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-1.5" />
+                          Copy Codes
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => setShow2FAModal(false)}
+                      className={`flex-1 rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold`}
+                    >
+                      Done
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {twoFactorStep === "disable" && (
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+
+                  <h3 className="text-xl font-bold text-white">2FA is Enabled</h3>
+                  <p className="text-sm text-zinc-400 mt-2">
+                    Your account is currently protected by an Authenticator app. You can view your emergency backup codes or turn off 2FA protection.
+                  </p>
+
+                  <div className="flex flex-col gap-3 mt-6">
+                    <Button
+                      variant="outline"
+                      onClick={() => setTwoFactorStep("backup")}
+                      className="w-full rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 text-white font-semibold h-11"
+                    >
+                      View Emergency Backup Codes
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        updateSetting("twoFactorEnabled", false);
+                        setShow2FAModal(false);
+                        showToast("Two-Factor Authentication has been disabled.");
+                      }}
+                      className="w-full rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-semibold h-11"
+                    >
+                      Disable 2FA Protection
+                    </Button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

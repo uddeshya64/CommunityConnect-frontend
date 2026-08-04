@@ -106,7 +106,7 @@ export default function MyEventsPage() {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-12 flex items-center justify-between flex-wrap gap-4">
             <div>
               <h1 className={`text-4xl md:text-5xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} tracking-tight mb-4`}>My Events</h1>
-              <p className={`text-lg ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium max-w-2xl`}>
+              <p className={`text-lg ${isDark ? "text-zinc-300" : "text-zinc-700"} font-medium max-w-2xl`}>
                 Everything you&apos;ve hosted, in one place.
               </p>
             </div>
@@ -122,7 +122,7 @@ export default function MyEventsPage() {
               <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
                 <Compass className={`w-12 h-12 ${activeAccent.text}`} />
               </motion.div>
-              <p className={`${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium mt-4 animate-pulse`}>Loading your events...</p>
+              <p className={`${isDark ? "text-zinc-300" : "text-zinc-700"} font-medium mt-4 animate-pulse`}>Loading your events...</p>
             </div>
           )}
 
@@ -137,7 +137,7 @@ export default function MyEventsPage() {
                 <CalendarPlus className="w-10 h-10" />
               </div>
               <h3 className={`text-3xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} mb-4 tracking-tight`}>No events yet</h3>
-              <p className={`text-lg ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium mb-10 max-w-md mx-auto`}>
+              <p className={`text-lg ${isDark ? "text-zinc-300" : "text-zinc-700"} font-medium mb-10 max-w-md mx-auto`}>
                 Events you host will show up here. Ready to create your first one?
               </p>
               <Link href="/events/create">
@@ -168,11 +168,11 @@ export default function MyEventsPage() {
                             {event.title}
                           </h3>
                           <div className="space-y-3 mt-auto">
-                            <div className={`flex items-center text-sm font-medium ${isDark ? "text-zinc-400" : "text-zinc-500"} gap-3`}>
+                            <div className={`flex items-center text-sm font-medium ${isDark ? "text-zinc-300" : "text-zinc-700"} gap-3`}>
                               <Calendar className={`w-4 h-4 ${activeAccent.text}`} />
                               {new Date(event.date || Date.now()).toLocaleDateString()}
                             </div>
-                            <div className={`flex items-center text-sm font-medium ${isDark ? "text-zinc-400" : "text-zinc-500"} gap-3`}>
+                            <div className={`flex items-center text-sm font-medium ${isDark ? "text-zinc-300" : "text-zinc-700"} gap-3`}>
                               <MapPin className={`w-4 h-4 ${activeAccent.text}`} />
                               {event.location || "TBA"}
                             </div>

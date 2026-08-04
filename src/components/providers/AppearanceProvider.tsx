@@ -251,11 +251,44 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   }, [settings.theme, systemPreferDark]);
 
   const activeAccent = useMemo(() => {
-    return (
+    const base =
       ACCENT_COLORS_CONFIG.find((c) => c.id === settings.accentColor) ||
-      ACCENT_COLORS_CONFIG[0]
-    );
-  }, [settings.accentColor]);
+      ACCENT_COLORS_CONFIG[0];
+
+    const lightTextMap: Record<string, string> = {
+      indigo: "text-indigo-600",
+      violet: "text-violet-600",
+      emerald: "text-emerald-700",
+      rose: "text-rose-600",
+      cyan: "text-cyan-700",
+      amber: "text-amber-700",
+    };
+
+    const darkTextMap: Record<string, string> = {
+      indigo: "text-indigo-400",
+      violet: "text-violet-400",
+      emerald: "text-emerald-400",
+      rose: "text-rose-400",
+      cyan: "text-cyan-400",
+      amber: "text-amber-400",
+    };
+
+    const lightBadgeBgMap: Record<string, string> = {
+      indigo: "bg-indigo-100",
+      violet: "bg-violet-100",
+      emerald: "bg-emerald-100",
+      rose: "bg-rose-100",
+      cyan: "bg-cyan-100",
+      amber: "bg-amber-100",
+    };
+
+    return {
+      ...base,
+      text: isDark ? darkTextMap[base.id] : lightTextMap[base.id],
+      badgeText: isDark ? darkTextMap[base.id] : lightTextMap[base.id],
+      badgeBg: isDark ? base.badgeBg : lightBadgeBgMap[base.id],
+    };
+  }, [settings.accentColor, isDark]);
 
   // Apply classes and CSS variables to document.documentElement (<html>)
   useEffect(() => {

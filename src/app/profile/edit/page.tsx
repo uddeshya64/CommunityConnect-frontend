@@ -36,12 +36,14 @@ import {
 } from "@/validations/profile.schema";
 
 import PageTransition from "@/components/layout/PageTransition";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
 type EditProfileFormValues = UpdateProfileFormValues;
 
 export default function EditProfilePage() {
+  const { isDark, activeAccent } = useAppearance();
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -303,22 +305,22 @@ export default function EditProfilePage() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans selection:bg-indigo-500/30 pb-24 relative overflow-hidden">
+      <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-200" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 pb-24 relative overflow-hidden transition-colors duration-300`}>
         {/* Ambient Background Glows */}
-        <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/15 via-zinc-950 to-zinc-950 pointer-events-none" />
+        <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
 
         {/* Navigation */}
-        <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-zinc-950/70 border-b border-white/5 shadow-sm">
+        <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/70 border-white/5" : "bg-white/80 border-zinc-200"} border-b shadow-sm`}>
           <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
             <Link
-              href="/profile"
-              className="group flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+              href="/profile/me"
+              className={`group flex items-center gap-2 text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-950"} transition-colors`}
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               Cancel
             </Link>
 
-            <h1 className="text-sm font-bold text-zinc-200 uppercase tracking-wider">
+            <h1 className={`text-sm font-bold ${isDark ? "text-zinc-200" : "text-zinc-900"} uppercase tracking-wider`}>
               Edit Profile
             </h1>
 
@@ -366,7 +368,7 @@ export default function EditProfilePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              className="bg-zinc-900/40 border border-white/10 rounded-[2rem] p-6 md:p-8 backdrop-blur-md shadow-2xl"
+              className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border`}
             >
               <div className="flex flex-col md:flex-row gap-8 items-start">
                 
@@ -423,8 +425,8 @@ export default function EditProfilePage() {
 
                 {/* Basic Info Inputs */}
                 <div className="flex-1 w-full space-y-6">
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-white/5 pb-3">
-                    <User className="w-5 h-5 text-indigo-400" />
+                  <h2 className={`text-lg font-bold ${isDark ? "text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
+                    <User className={`w-5 h-5 ${isDark ? "text-indigo-400" : "text-zinc-900"}`} />
                     Basic Information
                   </h2>
 
@@ -439,7 +441,7 @@ export default function EditProfilePage() {
                         placeholder="e.g. John Doe"
                         {...form.register("name")}
                         disabled={isSaving}
-                        className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-indigo-500 focus-visible:border-indigo-500"
+                        className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
                       />
                       {form.formState.errors.name && (
                         <p className="text-xs text-red-400">
@@ -459,7 +461,7 @@ export default function EditProfilePage() {
                         placeholder="https://example.com/avatar.jpg"
                         {...form.register("avatar_url")}
                         disabled={isSaving || isUploading}
-                        className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-indigo-500 focus-visible:border-indigo-500"
+                        className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
                       />
                       {form.formState.errors.avatar_url && (
                         <p className="text-xs text-red-400">
@@ -477,10 +479,10 @@ export default function EditProfilePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.1 }}
-              className="bg-zinc-900/40 border border-white/10 rounded-[2rem] p-6 md:p-8 backdrop-blur-md shadow-2xl space-y-6"
+              className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border space-y-6`}
             >
-              <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-white/5 pb-3">
-                <Briefcase className="w-5 h-5 text-indigo-400" />
+              <h2 className={`text-lg font-bold ${isDark ? "text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
+                <Briefcase className={`w-5 h-5 ${isDark ? "text-indigo-400" : "text-zinc-900"}`} />
                 Professional Details
               </h2>
 
@@ -495,7 +497,7 @@ export default function EditProfilePage() {
                     placeholder="e.g. Senior Frontend Developer"
                     {...form.register("profession")}
                     disabled={isSaving}
-                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-indigo-500 focus-visible:border-indigo-500"
+                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
                   />
                 </div>
 
@@ -510,7 +512,7 @@ export default function EditProfilePage() {
                     placeholder="e.g. San Francisco, CA"
                     {...form.register("location")}
                     disabled={isSaving}
-                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-indigo-500 focus-visible:border-indigo-500"
+                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
                   />
                 </div>
 
@@ -525,7 +527,7 @@ export default function EditProfilePage() {
                     placeholder="e.g. +1 (555) 000-0000"
                     {...form.register("phone")}
                     disabled={isSaving}
-                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-indigo-500 focus-visible:border-indigo-500"
+                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
                   />
                 </div>
               </div>
@@ -543,7 +545,7 @@ export default function EditProfilePage() {
                   placeholder="Summarize your expertise and goals..."
                   {...form.register("bio")}
                   disabled={isSaving}
-                  className="w-full rounded-xl px-4 py-3 bg-zinc-950/50 border border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 transition-all resize-none text-sm outline-none"
+                  className="w-full rounded-xl px-4 py-3 bg-zinc-950/50 border border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:border-zinc-400 transition-all resize-none text-sm outline-none"
                 />
                 <div className="flex justify-end">
                   <span
@@ -562,9 +564,9 @@ export default function EditProfilePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.2 }}
-              className="bg-zinc-900/40 border border-white/10 rounded-[2rem] p-6 md:p-8 backdrop-blur-md shadow-2xl space-y-6"
+              className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border space-y-6`}
             >
-              <h2 className="text-lg font-bold text-white border-b border-white/5 pb-3">
+              <h2 className={`text-lg font-bold ${isDark ? "text-white border-white/5" : "text-zinc-900 border-zinc-200"} border-b pb-3`}>
                 Skills & Expertise
               </h2>
 
@@ -575,13 +577,13 @@ export default function EditProfilePage() {
                   onKeyDown={handleSkillKeyDown}
                   placeholder="e.g. React, Python, Project Management"
                   disabled={isSaving}
-                  className="flex-1 rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-indigo-500 focus-visible:border-indigo-500"
+                  className="flex-1 rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
                 />
                 <Button
                   type="button"
                   onClick={handleAddSkill}
                   disabled={!skillInput.trim() || isSaving}
-                  className="w-full sm:w-auto rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 transition-all"
+                  className={`w-full sm:w-auto rounded-xl ${isDark ? "bg-white text-zinc-950 hover:bg-zinc-200" : "bg-zinc-900 text-white hover:bg-black"} transition-all font-semibold`}
                 >
                   <Plus className="w-4 h-4 mr-1" />
                   Add Skill
@@ -599,13 +601,13 @@ export default function EditProfilePage() {
                       key={skill}
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-300 text-sm font-medium border border-indigo-500/20 group"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl ${isDark ? "bg-white/10 text-zinc-100 border-white/20" : "bg-zinc-100 text-black border-zinc-300"} text-sm font-medium border group shadow-sm`}
                     >
                       {skill}
                       <button
                         type="button"
                         onClick={() => handleRemoveSkill(skill)}
-                        className="text-indigo-400 group-hover:text-red-400 transition-colors bg-black/20 rounded-full p-0.5 ml-1"
+                        className={`group-hover:text-red-400 transition-colors rounded-full p-0.5 ml-1 ${isDark ? "text-zinc-400 hover:bg-white/10" : "text-black hover:bg-zinc-200"}`}
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -620,10 +622,10 @@ export default function EditProfilePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
-              className="bg-zinc-900/40 border border-white/10 rounded-[2rem] p-6 md:p-8 backdrop-blur-md shadow-2xl space-y-6"
+              className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border space-y-6`}
             >
-              <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-white/5 pb-3">
-                <LinkIcon className="w-5 h-5 text-indigo-400" />
+              <h2 className={`text-lg font-bold ${isDark ? "text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
+                <LinkIcon className={`w-5 h-5 ${isDark ? "text-indigo-400" : "text-zinc-900"}`} />
                 Links & Socials
               </h2>
 
@@ -680,7 +682,7 @@ export default function EditProfilePage() {
               <Button
                 type="submit"
                 disabled={isSaving || isUploading}
-                className="w-full md:w-auto md:min-w-[220px] rounded-full py-6 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-base shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-1"
+                className={`w-full md:w-auto md:min-w-[220px] rounded-full py-6 ${activeAccent.bg} hover:opacity-90 text-white font-semibold text-base shadow-lg ${activeAccent.shadow} transition-all hover:-translate-y-1`}
               >
                 {isSaving ? (
                   <>

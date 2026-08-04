@@ -219,14 +219,14 @@ export default function MyProfilePage() {
         <PageTransition>
             <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative overflow-hidden transition-colors duration-300`}>
                 {/* Background */}
-                <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-indigo-900/20 via-zinc-950 to-zinc-950" : "from-indigo-200/40 via-zinc-50 to-zinc-50"} pointer-events-none`} />
+                <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
 
                 {/* Top Nav */}
                 <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/60 border-white/5" : "bg-white/70 border-zinc-200"}`}>
                     <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
                         <Link
                             href="/home"
-                            className="flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+                            className={`flex items-center gap-2 text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-950"} transition-colors`}
                         >
                             <ArrowLeft className="w-4 h-4" />
                             Back
@@ -237,7 +237,7 @@ export default function MyProfilePage() {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="rounded-full border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white font-semibold px-4 gap-2 transition-all hover:scale-105"
+                                    className={`rounded-full ${isDark ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"} font-semibold px-4 gap-2 transition-all hover:scale-105`}
                                 >
                                     <Settings className="w-3.5 h-3.5" />
                                     Settings
@@ -247,7 +247,7 @@ export default function MyProfilePage() {
                             <Link href="/profile/edit">
                                 <Button
                                     size="sm"
-                                    className="rounded-full bg-white text-zinc-900 hover:bg-zinc-100 font-semibold px-5 gap-2 transition-all hover:scale-105 shadow-lg shadow-black/20"
+                                    className={`rounded-full ${isDark ? "bg-white text-zinc-900 hover:bg-zinc-100" : "bg-zinc-900 text-white hover:bg-zinc-800"} font-semibold px-5 gap-2 transition-all hover:scale-105 shadow-lg`}
                                 >
                                     <Pencil className="w-3.5 h-3.5" />
                                     Edit Profile
@@ -343,7 +343,7 @@ export default function MyProfilePage() {
                         {/* Profession & Location */}
                         <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
                             {profile?.profession && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm font-medium text-zinc-300">
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${isDark ? "bg-white/5 border-white/10 text-zinc-300" : "bg-white border-zinc-300 text-zinc-800 shadow-sm"} border text-sm font-medium`}>
                                     <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
 
                                     {profile.profession}
@@ -351,7 +351,7 @@ export default function MyProfilePage() {
                             )}
 
                             {profile?.location && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm font-medium text-zinc-300">
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${isDark ? "bg-white/5 border-white/10 text-zinc-300" : "bg-white border-zinc-300 text-zinc-800 shadow-sm"} border text-sm font-medium`}>
                                     <MapPin className="w-3.5 h-3.5 text-rose-400" />
 
                                     {profile.location}
@@ -361,7 +361,7 @@ export default function MyProfilePage() {
 
                         {/* Bio */}
                         {profile?.bio && (
-                            <p className="mt-6 text-zinc-400 font-medium text-base leading-relaxed max-w-lg">
+                            <p className={`mt-6 ${isDark ? "text-zinc-400" : "text-zinc-700"} font-medium text-base leading-relaxed max-w-lg`}>
                                 {profile.bio}
                             </p>
                         )}
@@ -383,7 +383,7 @@ export default function MyProfilePage() {
                                 duration: 0.4,
                                 delay: 0.1,
                             }}
-                            className="bg-white/[0.03] backdrop-blur-sm rounded-2xl border border-white/[0.06] p-5"
+                            className={`rounded-2xl p-5 ${isDark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-zinc-200 shadow-sm"}`}
                         >
                             <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-4">
                                 Contact
@@ -401,7 +401,7 @@ export default function MyProfilePage() {
                                                 Email
                                             </p>
 
-                                            <p className="text-sm text-zinc-200 font-semibold truncate">
+                                            <p className={`text-sm ${isDark ? "text-zinc-200" : "text-zinc-900"} font-semibold truncate`}>
                                                 {profile.email}
                                             </p>
                                         </div>
@@ -419,7 +419,7 @@ export default function MyProfilePage() {
                                                 Phone
                                             </p>
 
-                                            <p className="text-sm text-zinc-200 font-semibold">
+                                            <p className={`text-sm ${isDark ? "text-zinc-200" : "text-zinc-900"} font-semibold`}>
                                                 {profile.phone}
                                             </p>
                                         </div>
@@ -450,7 +450,7 @@ export default function MyProfilePage() {
                                 duration: 0.4,
                                 delay: 0.15,
                             }}
-                            className="bg-white/[0.03] backdrop-blur-sm rounded-2xl border border-white/[0.06] p-5"
+                            className={`rounded-2xl p-5 ${isDark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-zinc-200 shadow-sm"}`}
                         >
                             <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-4">
                                 Social
@@ -481,7 +481,7 @@ export default function MyProfilePage() {
                                         }
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition-all text-sm font-semibold group"
+                                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl ${isDark ? "bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10" : "bg-zinc-100 border border-zinc-300 text-zinc-900 hover:bg-zinc-200"} transition-all text-sm font-semibold group`}
                                     >
                                         <Github className="w-4 h-4" />
 
@@ -515,7 +515,7 @@ export default function MyProfilePage() {
                                 duration: 0.4,
                                 delay: 0.2,
                             }}
-                            className="bg-white/[0.03] backdrop-blur-sm rounded-2xl border border-white/[0.06] p-5"
+                            className={`rounded-2xl p-5 ${isDark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-zinc-200 shadow-sm"}`}
                         >
                             <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-4">
                                 Skills
@@ -528,7 +528,7 @@ export default function MyProfilePage() {
                                         (skill, i) => (
                                             <span
                                                 key={i}
-                                                className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-semibold"
+                                                className={`px-3.5 py-1.5 rounded-full ${isDark ? "bg-white/10 border-white/20 text-zinc-100" : "bg-zinc-100 border-zinc-300 text-black shadow-sm"} border text-sm font-semibold`}
                                             >
                                                 {skill}
                                             </span>

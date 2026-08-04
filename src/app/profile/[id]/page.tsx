@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useProfileById, MyProfile } from "@/hooks/profileHooks";
 import PageTransition from "@/components/layout/PageTransition";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
 // ==============================
@@ -67,6 +68,7 @@ interface ExtendedProfile extends MyProfile {
 // ==============================
 
 export default function PublicProfilePage() {
+  const { isDark, activeAccent } = useAppearance();
   const params = useParams();
   const searchParams = useSearchParams();
 
@@ -276,23 +278,23 @@ export default function PublicProfilePage() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-zinc-950 text-zinc-200 font-sans selection:bg-indigo-500/30 pb-24">
+      <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-200" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 pb-24 transition-colors duration-300`}>
         {/* ==============================
             AMBIENT BACKGROUND
         ============================== */}
-        <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/15 via-zinc-950 to-zinc-950 pointer-events-none" />
+        <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
 
         {/* ==============================
             NAVBAR
         ============================== */}
-        <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-zinc-950/70 border-b border-white/5">
+        <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/70 border-white/5" : "bg-white/80 border-zinc-200"} border-b shadow-sm`}>
           <div className="max-w-5xl mx-auto px-6 h-16 flex items-center">
             <Link
               href="/home"
-              className="group flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+              className={`group flex items-center gap-2 text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-950"} transition-colors`}
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              Back to Directory
+              Back
             </Link>
           </div>
         </nav>
@@ -308,9 +310,9 @@ export default function PublicProfilePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="relative bg-zinc-900/40 border border-white/10 rounded-[2rem] p-8 sm:p-10 backdrop-blur-md overflow-hidden"
+            className={`relative rounded-[2rem] p-8 sm:p-10 backdrop-blur-md overflow-hidden ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border`}
           >
-            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none" />
+            <div className={`absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 ${isDark ? "bg-indigo-500/10" : "bg-zinc-400/10"} blur-[80px] rounded-full pointer-events-none`} />
 
             {/* EDIT BUTTON */}
             <div className="absolute top-6 right-6 z-20">
@@ -318,7 +320,7 @@ export default function PublicProfilePage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-full border-white/10 bg-white/5 text-zinc-300 hover:bg-indigo-500/10 hover:text-white hover:border-indigo-500/30 backdrop-blur-md"
+                  className={`rounded-full ${isDark ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"} backdrop-blur-md font-semibold`}
                 >
                   <Pencil className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline">Edit Profile</span>
@@ -624,7 +626,7 @@ export default function PublicProfilePage() {
                     {profile.skills.map((skill, index) => (
                       <span
                         key={index}
-                        className="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-sm font-medium hover:bg-indigo-500/20 transition-colors shadow-sm"
+                        className={`px-4 py-2 rounded-xl ${isDark ? "bg-white/10 border-white/20 text-zinc-100 hover:bg-white/15" : "bg-zinc-100 border-zinc-300 text-black hover:bg-zinc-200"} border text-sm font-medium transition-colors shadow-sm`}
                       >
                         {skill}
                       </span>
