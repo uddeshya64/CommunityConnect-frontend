@@ -14,7 +14,7 @@ export const profileService = {
     },
 
     updateMyProfile: async (data: UpdateProfileFormValues): Promise<Profile> => {
-        const response = await api.patch('/profile', data);
+        const response = await api.patch('/profile/me', data);
         return response.data.data || response.data;
     },
 };

@@ -16,6 +16,7 @@ import {
     ExternalLink,
     Calendar,
     Camera,
+    Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { profileService } from "@/services/profile.service";
@@ -230,15 +231,28 @@ export default function MyProfilePage() {
                             Back
                         </Link>
 
-                        <Link href="/profile/edit">
-                            <Button
-                                size="sm"
-                                className="rounded-full bg-white text-zinc-900 hover:bg-zinc-100 font-semibold px-5 gap-2 transition-all hover:scale-105 shadow-lg shadow-black/20"
-                            >
-                                <Pencil className="w-3.5 h-3.5" />
-                                Edit Profile
-                            </Button>
-                        </Link>
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <Link href="/settings">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-full border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white font-semibold px-4 gap-2 transition-all hover:scale-105"
+                                >
+                                    <Settings className="w-3.5 h-3.5" />
+                                    Settings
+                                </Button>
+                            </Link>
+
+                            <Link href="/profile/edit">
+                                <Button
+                                    size="sm"
+                                    className="rounded-full bg-white text-zinc-900 hover:bg-zinc-100 font-semibold px-5 gap-2 transition-all hover:scale-105 shadow-lg shadow-black/20"
+                                >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                    Edit Profile
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 </nav>
 

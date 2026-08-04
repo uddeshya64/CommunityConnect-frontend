@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldCheck, LogOut, User as UserIcon, LayoutDashboard } from "lucide-react";
+import { User as UserIcon, LayoutDashboard, Settings } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -47,7 +47,18 @@ export default function Navbar({ theme = "light" }: { theme?: "light" | "dark" }
                 </Button>
               </Link>
               <div className={`h-8 w-px ${isDark ? "bg-white/10" : "bg-zinc-200"}`} />
-              <Link href="/profile">
+              <Link href="/settings" title="Settings">
+                <div
+                  className={`flex items-center justify-center w-8 h-8 rounded-full cursor-pointer transition-all hover:scale-105 ${
+                    isDark
+                      ? "bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
+                      : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900"
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                </div>
+              </Link>
+              <Link href="/profile/me">
                 <div className={`flex items-center gap-2 px-3 py-1 rounded-full cursor-pointer transition-all hover:scale-105 ${isDark ? "bg-white/5 text-zinc-300 hover:bg-white/10" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"}`}>
                   <UserIcon className="w-4 h-4" />
                   <span className="text-sm font-bold">Profile</span>

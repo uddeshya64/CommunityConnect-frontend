@@ -162,16 +162,24 @@ export default function Sidebar() {
 
       {/* Footer: settings/logout */}
       <div className="border-t border-zinc-200/70 pt-4 flex flex-col gap-1">
-        <div title={isCollapsed ? "Settings" : undefined}>
+        <Link
+          href="/settings"
+          onClick={() => setMobileOpen(false)}
+          title={isCollapsed ? "Settings" : undefined}
+        >
           <div
-            className={`flex items-center rounded-full text-sm font-semibold text-zinc-400 cursor-not-allowed opacity-60 ${
+            className={`relative flex items-center rounded-full text-sm font-semibold transition-colors ${
               isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
+            } ${
+              pathname === "/settings"
+                ? "text-indigo-700 bg-indigo-50 border border-indigo-100"
+                : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
             }`}
           >
             <Settings className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
             {!isCollapsed && "Settings"}
           </div>
-        </div>
+        </Link>
         <button
           title={isCollapsed ? "Log out" : undefined}
           className={`flex items-center rounded-full text-sm font-semibold text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors ${
