@@ -22,11 +22,12 @@ import { Button } from "@/components/ui/button";
 import { profileService } from "@/services/profile.service";
 import { Profile } from "@/types/profile.types";
 import PageTransition from "@/components/layout/PageTransition";
-
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
 export default function MyProfilePage() {
+    const { isDark, activeAccent } = useAppearance();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
@@ -216,12 +217,12 @@ export default function MyProfilePage() {
 
     return (
         <PageTransition>
-            <div className="min-h-screen bg-zinc-950 relative overflow-hidden">
+            <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative overflow-hidden transition-colors duration-300`}>
                 {/* Background */}
-                <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-zinc-950 to-zinc-950 pointer-events-none" />
+                <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-indigo-900/20 via-zinc-950 to-zinc-950" : "from-indigo-200/40 via-zinc-50 to-zinc-50"} pointer-events-none`} />
 
                 {/* Top Nav */}
-                <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-zinc-950/60 border-b border-white/5">
+                <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/60 border-white/5" : "bg-white/70 border-zinc-200"}`}>
                     <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
                         <Link
                             href="/home"

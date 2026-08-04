@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { eventService } from "@/services/event.service";
 import Sidebar from "@/app/home/SideBar";
 import { useMyProfile } from "@/hooks/profileHooks";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 interface AppEvent {
   id: string;
@@ -30,6 +31,7 @@ const itemVariants = {
 };
 
 export default function MyEventsPage() {
+  const { isDark, activeAccent } = useAppearance();
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<number | undefined>(undefined);
@@ -93,7 +95,7 @@ export default function MyEventsPage() {
   }, [events, userId]);
 
   return (
-    <div className="min-h-screen bg-zinc-50 relative flex">
+    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative flex transition-colors duration-300`}>
       <Sidebar />
 
       <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
@@ -103,13 +105,13 @@ export default function MyEventsPage() {
         <main className="max-w-7xl mx-auto px-6 pt-12 relative z-10">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-12 flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-4xl md:text-5xl font-extrabold text-zinc-900 tracking-tight mb-4">My Events</h1>
-              <p className="text-lg text-zinc-500 font-medium max-w-2xl">
+              <h1 className={`text-4xl md:text-5xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} tracking-tight mb-4`}>My Events</h1>
+              <p className={`text-lg ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium max-w-2xl`}>
                 Everything you&apos;ve hosted, in one place.
               </p>
             </div>
             <Link href="/events/create">
-              <Button className="rounded-full bg-indigo-600 text-white hover:bg-indigo-700 px-6 py-6 text-base transition-all hover:scale-105 shadow-lg shadow-indigo-600/20">
+              <Button className={`rounded-full ${activeAccent.bg} text-white hover:opacity-90 px-6 py-6 text-base transition-all hover:scale-105 shadow-lg ${activeAccent.shadow}`}>
                 <Plus className="w-4 h-4 mr-2" /> Host an Event
               </Button>
             </Link>
@@ -118,9 +120,9 @@ export default function MyEventsPage() {
           {(isLoading || userId === undefined) && (
             <div className="w-full flex flex-col items-center justify-center py-32">
               <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                <Compass className="w-12 h-12 text-indigo-300" />
+                <Compass className={`w-12 h-12 ${activeAccent.text}`} />
               </motion.div>
-              <p className="text-zinc-500 font-medium mt-4 animate-pulse">Loading your events...</p>
+              <p className={`${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium mt-4 animate-pulse`}>Loading your events...</p>
             </div>
           )}
 
@@ -129,17 +131,17 @@ export default function MyEventsPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="w-full max-w-2xl mx-auto mt-8 p-10 md:p-16 rounded-[2.5rem] bg-white border border-zinc-100 shadow-2xl shadow-indigo-900/5 text-center"
+              className={`w-full max-w-2xl mx-auto mt-8 p-10 md:p-16 rounded-[2.5rem] ${isDark ? "bg-zinc-900/60 border-white/10 text-white" : "bg-white border-zinc-100 text-zinc-900"} shadow-2xl shadow-indigo-900/5 text-center`}
             >
-              <div className="w-20 h-20 mx-auto mb-6 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center">
+              <div className={`w-20 h-20 mx-auto mb-6 ${activeAccent.badgeBg} ${activeAccent.text} rounded-3xl flex items-center justify-center`}>
                 <CalendarPlus className="w-10 h-10" />
               </div>
-              <h3 className="text-3xl font-extrabold text-zinc-900 mb-4 tracking-tight">No events yet</h3>
-              <p className="text-lg text-zinc-500 font-medium mb-10 max-w-md mx-auto">
+              <h3 className={`text-3xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} mb-4 tracking-tight`}>No events yet</h3>
+              <p className={`text-lg ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium mb-10 max-w-md mx-auto`}>
                 Events you host will show up here. Ready to create your first one?
               </p>
               <Link href="/events/create">
-                <Button className="rounded-full bg-indigo-600 text-white hover:bg-indigo-700 px-8 py-6 text-lg transition-all hover:scale-105 shadow-xl shadow-indigo-600/20">
+                <Button className={`rounded-full ${activeAccent.bg} text-white hover:opacity-90 px-8 py-6 text-lg transition-all hover:scale-105 shadow-xl ${activeAccent.shadow}`}>
                   <Plus className="w-5 h-5 mr-2" /> Host an Event
                 </Button>
               </Link>
@@ -155,23 +157,23 @@ export default function MyEventsPage() {
                 return (
                   <motion.div key={event.id} variants={itemVariants}>
                     <Link href={`/events/${event.id}`}>
-                      <div className="group bg-white rounded-3xl p-3 border border-zinc-200 hover:border-indigo-200 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 cursor-pointer relative overflow-hidden h-full flex flex-col">
+                      <div className={`group ${isDark ? "bg-zinc-900/60 border-white/10 hover:border-white/20" : "bg-white border-zinc-200 hover:border-zinc-300"} rounded-3xl p-3 border transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 cursor-pointer relative overflow-hidden h-full flex flex-col`}>
                         <div className={`w-full h-48 rounded-2xl bg-gradient-to-br ${randomGradient} relative overflow-hidden group-hover:scale-[1.02] transition-transform duration-500 ease-out`}>
-                          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-zinc-900 shadow-sm">
+                          <div className={`absolute top-4 left-4 ${isDark ? "bg-zinc-950/90 text-zinc-100" : "bg-white/90 text-zinc-900"} backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold shadow-sm`}>
                             {event.category || "Tech Event"}
                           </div>
                         </div>
                         <div className="p-5 flex-1 flex flex-col">
-                          <h3 className="text-xl font-bold text-zinc-900 mb-4 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                          <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-zinc-900"} mb-4 group-hover:${activeAccent.text} transition-colors line-clamp-2`}>
                             {event.title}
                           </h3>
                           <div className="space-y-3 mt-auto">
-                            <div className="flex items-center text-sm font-medium text-zinc-500 gap-3">
-                              <Calendar className="w-4 h-4 text-zinc-400" />
+                            <div className={`flex items-center text-sm font-medium ${isDark ? "text-zinc-400" : "text-zinc-500"} gap-3`}>
+                              <Calendar className={`w-4 h-4 ${activeAccent.text}`} />
                               {new Date(event.date || Date.now()).toLocaleDateString()}
                             </div>
-                            <div className="flex items-center text-sm font-medium text-zinc-500 gap-3">
-                              <MapPin className="w-4 h-4 text-zinc-400" />
+                            <div className={`flex items-center text-sm font-medium ${isDark ? "text-zinc-400" : "text-zinc-500"} gap-3`}>
+                              <MapPin className={`w-4 h-4 ${activeAccent.text}`} />
                               {event.location || "TBA"}
                             </div>
                           </div>

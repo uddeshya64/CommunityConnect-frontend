@@ -45,6 +45,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { profileService } from "@/services/profile.service";
 import { Profile } from "@/types/profile.types";
+import { useAppearance, ACCENT_COLORS_CONFIG as ACCENT_COLORS } from "@/components/providers/AppearanceProvider";
 
 interface UserSettings {
   // Notifications
@@ -109,14 +110,7 @@ const CATEGORIES_LIST = [
   "Gaming",
 ];
 
-const ACCENT_COLORS = [
-  { id: "indigo", name: "Indigo", bg: "bg-indigo-500", border: "border-indigo-500", text: "text-indigo-400", ring: "focus:ring-indigo-500" },
-  { id: "violet", name: "Violet", bg: "bg-violet-500", border: "border-violet-500", text: "text-violet-400", ring: "focus:ring-violet-500" },
-  { id: "emerald", name: "Emerald", bg: "bg-emerald-500", border: "border-emerald-500", text: "text-emerald-400", ring: "focus:ring-emerald-500" },
-  { id: "rose", name: "Rose", bg: "bg-rose-500", border: "border-rose-500", text: "text-rose-400", ring: "focus:ring-rose-500" },
-  { id: "cyan", name: "Cyan", bg: "bg-cyan-500", border: "border-cyan-500", text: "text-cyan-400", ring: "focus:ring-cyan-500" },
-  { id: "amber", name: "Amber", bg: "bg-amber-500", border: "border-amber-500", text: "text-amber-400", ring: "focus:ring-amber-500" },
-] as const;
+
 
 type TabKey = "account" | "notifications" | "appearance" | "privacy" | "preferences" | "security";
 
@@ -137,6 +131,7 @@ const TABS: TabItem[] = [
 ];
 
 export default function SettingsContent() {
+  const { isDark, activeAccent } = useAppearance();
   const [activeTab, setActiveTab] = useState<TabKey>("account");
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,9 +155,9 @@ export default function SettingsContent() {
   // Delete Account State
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
 
-  // Load Settings from localStorage & Fetch Profile
+  // Load Settings from localStorage & Fetch Profile/Settings from backend API
   useEffect(() => {
-    // 1. Load localStorage settings
+    // 1. Load localStorage settings instantly for zero flicker
     const stored = localStorage.getItem("cc_user_settings");
     if (stored) {
       try {
@@ -173,19 +168,24 @@ export default function SettingsContent() {
       }
     }
 
-    // 2. Fetch User Profile
-    const fetchProfile = async () => {
+    // 2. Fetch User Profile and Settings from Backend API
+    const fetchUserData = async () => {
       try {
-        const data = await profileService.getMyProfile();
-        setProfile(data);
-      } catch {
-        // Guest / Not logged in or offline -> fallback demo
-        setProfile(null);
+        const [profileData, backendSettings] = await Promise.all([
+          profileService.getMyProfile().catch(() => null),
+          profileService.getMySettings().catch(() => null),
+        ]);
+        if (profileData) setProfile(profileData);
+        if (backendSettings && typeof backendSettings === "object" && Object.keys(backendSettings).length > 0) {
+          const merged = { ...DEFAULT_SETTINGS, ...backendSettings };
+          setSettings(merged);
+          localStorage.setItem("cc_user_settings", JSON.stringify(merged));
+        }
       } finally {
         setIsProfileLoading(false);
       }
     };
-    fetchProfile();
+    fetchUserData();
   }, []);
 
   // Web Audio UI feedback beep
@@ -223,6 +223,14 @@ export default function SettingsContent() {
     setSettings((prev) => {
       const updated = { ...prev, [key]: value };
       localStorage.setItem("cc_user_settings", JSON.stringify(updated));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("cc_settings_updated", { detail: updated })
+        );
+      }
+      profileService.updateMySettings({ [key]: value }).catch(() => {
+        // Silently ignore if guest or offline
+      });
       return updated;
     });
 
@@ -242,6 +250,12 @@ export default function SettingsContent() {
   const resetToDefaults = () => {
     setSettings(DEFAULT_SETTINGS);
     localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("cc_settings_updated", { detail: DEFAULT_SETTINGS })
+      );
+    }
+    profileService.updateMySettings(DEFAULT_SETTINGS).catch(() => {});
     showToast("Settings reset to default values.");
   };
 
@@ -264,7 +278,7 @@ export default function SettingsContent() {
     showToast("Account data exported successfully!");
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError("");
 
@@ -282,14 +296,22 @@ export default function SettingsContent() {
     }
 
     setIsUpdatingPassword(true);
-    setTimeout(() => {
-      setIsUpdatingPassword(false);
+    try {
+      await profileService.changePassword(currentPassword, newPassword);
       setShowPasswordModal(false);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       showToast("Password updated successfully!");
-    }, 1000);
+    } catch (err: unknown) {
+      const errMsg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        (err as Error).message ||
+        "Failed to update password.";
+      setPasswordError(errMsg);
+    } finally {
+      setIsUpdatingPassword(false);
+    }
   };
 
   // Password strength meter helper
@@ -326,9 +348,7 @@ export default function SettingsContent() {
     );
   }, [searchQuery]);
 
-  const activeAccent = useMemo(() => {
-    return ACCENT_COLORS.find((c) => c.id === settings.accentColor) || ACCENT_COLORS[0];
-  }, [settings.accentColor]);
+
 
   // Custom Toggle Switch Component
   const ToggleSwitch = ({
@@ -362,14 +382,14 @@ export default function SettingsContent() {
   );
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500/30 pb-24 relative overflow-hidden">
+    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 pb-24 relative overflow-hidden transition-colors duration-300`}>
       {/* Dynamic Ambient Background Glow */}
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-zinc-950 to-zinc-950 pointer-events-none" />
+      <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-indigo-900/20 via-zinc-950 to-zinc-950" : "from-indigo-200/40 via-zinc-50 to-zinc-50"} pointer-events-none`} />
       <div className="fixed -top-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed top-1/2 -right-40 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Sticky Nav Bar */}
-      <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-zinc-950/70 border-b border-white/5 shadow-md">
+      <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/70 border-white/5" : "bg-white/80 border-zinc-200"} border-b shadow-md transition-colors duration-300`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
@@ -386,11 +406,11 @@ export default function SettingsContent() {
 
             <div className="flex items-center gap-2">
               <div
-                className={`w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20`}
+                className={`w-8 h-8 rounded-xl bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center text-white shadow-lg ${activeAccent.shadow}`}
               >
                 <SettingsIcon className="w-4 h-4" />
               </div>
-              <h1 className="text-base font-extrabold text-white tracking-tight">
+              <h1 className={`text-base font-extrabold ${isDark ? "text-white" : "text-zinc-900"} tracking-tight`}>
                 Settings
               </h1>
             </div>
@@ -398,10 +418,10 @@ export default function SettingsContent() {
 
           <div className="flex items-center gap-3">
             {/* Save Status Badge */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300">
+            <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full ${isDark ? "bg-white/5 border border-white/10 text-zinc-300" : "bg-zinc-100 border border-zinc-200 text-zinc-600"} text-xs font-semibold`}>
               {saveStatus === "saving" ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                  <Loader2 className={`w-3.5 h-3.5 animate-spin ${activeAccent.text}`} />
                   <span>Saving...</span>
                 </>
               ) : saveStatus === "saved" ? (
@@ -421,7 +441,7 @@ export default function SettingsContent() {
               variant="outline"
               size="sm"
               onClick={resetToDefaults}
-              className="rounded-full border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white font-medium text-xs px-3.5"
+              className={`rounded-full ${isDark ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white" : "border-zinc-200 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900"} font-medium text-xs px-3.5`}
             >
               <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
               Reset Defaults
@@ -430,7 +450,7 @@ export default function SettingsContent() {
             <Link href="/profile/edit">
               <Button
                 size="sm"
-                className="rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs px-4 shadow-lg shadow-indigo-500/20 transition-all hover:scale-105"
+                className={`rounded-full bg-gradient-to-r ${activeAccent.gradient} hover:opacity-95 text-white font-semibold text-xs px-4 shadow-lg ${activeAccent.shadow} transition-all hover:scale-105`}
               >
                 <Pencil className="w-3.5 h-3.5 mr-1.5" />
                 Edit Profile
@@ -483,7 +503,7 @@ export default function SettingsContent() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search settings..."
-              className="pl-10 pr-9 bg-zinc-900/80 border-white/10 text-white placeholder:text-zinc-500 rounded-full h-11 text-sm focus:ring-2 focus:ring-indigo-500/50"
+              className="pl-10 pr-9 bg-zinc-900/80 border-white/10 text-white placeholder:text-zinc-500 rounded-full h-11 text-sm focus:ring-2 focus:ring-white/20"
             />
             {searchQuery && (
               <button
@@ -512,7 +532,7 @@ export default function SettingsContent() {
                       onClick={() => setActiveTab(tab.key)}
                       className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-sm font-semibold shrink-0 transition-all ${
                         isActive
-                          ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/20"
+                          ? `bg-gradient-to-r ${activeAccent.gradient || "from-indigo-600 to-violet-600"} text-white shadow-lg ${activeAccent.shadow || "shadow-indigo-500/20"}`
                           : "bg-zinc-900/60 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-white/5"
                       }`}
                     >
@@ -541,29 +561,29 @@ export default function SettingsContent() {
                       {isActive && (
                         <motion.div
                           layoutId="active-setting-tab"
-                          className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-600/20 to-violet-600/10 border border-indigo-500/30"
+                          className={`absolute inset-0 rounded-2xl bg-white/10 ${activeAccent.border}`}
                           transition={{ type: "spring", stiffness: 350, damping: 30 }}
                         />
                       )}
                       <div
                         className={`relative z-10 w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
                           isActive
-                            ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                            : "bg-zinc-800/80 text-zinc-400 group-hover:bg-zinc-800 group-hover:text-white"
+                            ? `${activeAccent.bg} text-white shadow-md ${activeAccent.shadow || "shadow-indigo-500/20"}`
+                            : `${isDark ? "bg-zinc-800/80 text-zinc-400 group-hover:bg-zinc-800 group-hover:text-white" : "bg-zinc-100 text-zinc-500 group-hover:bg-zinc-200 group-hover:text-zinc-900"}`
                         }`}
                       >
                         <Icon className="w-4.5 h-4.5" />
                       </div>
                       <div className="relative z-10 flex-1">
-                        <div className="text-sm leading-none">{tab.label}</div>
-                        <div className="text-[11px] text-zinc-500 mt-1 line-clamp-1">
+                        <div className={`text-sm leading-none ${isActive ? `${activeAccent.text} font-bold` : isDark ? "text-white" : "text-zinc-900"}`}>{tab.label}</div>
+                        <div className={`text-[11px] ${isDark ? "text-zinc-500" : "text-zinc-400"} mt-1 line-clamp-1`}>
                           {tab.description}
                         </div>
                       </div>
                       <ChevronRight
                         className={`relative z-10 w-4 h-4 transition-transform ${
                           isActive
-                            ? "text-indigo-400 translate-x-0.5"
+                            ? `${activeAccent.text} translate-x-0.5`
                             : "text-zinc-600 group-hover:text-zinc-400"
                         }`}
                       />
@@ -584,7 +604,7 @@ export default function SettingsContent() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-extrabold text-sm shrink-0">
+                    <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center text-white font-extrabold text-sm shrink-0`}>
                       {profile?.name
                         ? profile.name
                             .split(" ")
@@ -631,10 +651,10 @@ export default function SettingsContent() {
                             <img
                               src={profile.avatar_url}
                               alt={profile.name}
-                              className="w-16 h-16 rounded-2xl object-cover ring-2 ring-indigo-500/50"
+                              className={`w-16 h-16 rounded-2xl object-cover ring-2 ${activeAccent.border}`}
                             />
                           ) : (
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/20">
+                            <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center text-white font-black text-xl shadow-lg ${activeAccent.shadow}`}>
                               {profile?.name
                                 ? profile.name
                                     .split(" ")
@@ -658,7 +678,7 @@ export default function SettingsContent() {
                             <h3 className="text-lg font-bold text-white">
                               {profile?.name || "Community Connect Member"}
                             </h3>
-                            <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold">
+                            <span className={`px-2.5 py-0.5 rounded-full ${activeAccent.badgeBg} border border-white/10 ${activeAccent.badgeText} text-xs font-semibold`}>
                               Pro Member
                             </span>
                           </div>
@@ -871,7 +891,7 @@ export default function SettingsContent() {
 
                     <div className="flex items-center justify-between gap-4">
                       <div className="space-y-0.5 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                        <div className={`w-10 h-10 rounded-2xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center shrink-0`}>
                           {settings.soundEffects ? (
                             <Volume2 className="w-5 h-5" />
                           ) : (
@@ -907,7 +927,7 @@ export default function SettingsContent() {
                             e.target.value as UserSettings["notificationFrequency"]
                           )
                         }
-                        className="w-full max-w-xs bg-zinc-950 border border-white/10 text-white rounded-2xl h-11 px-4 text-sm focus:ring-2 focus:ring-indigo-500/50"
+                        className="w-full max-w-xs bg-zinc-950 border border-white/10 text-white rounded-2xl h-11 px-4 text-sm focus:ring-2 focus:ring-white/20"
                       >
                         <option value="realtime">Real-time (Immediate notifications)</option>
                         <option value="daily">Daily summary</option>
@@ -930,10 +950,10 @@ export default function SettingsContent() {
                   className="space-y-6"
                 >
                   {/* Theme Mode Selector */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                  <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
                     <div>
-                      <h3 className="text-lg font-bold text-white">Color Mode</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Color Mode</h3>
+                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
                         Select your preferred interface theme for CommunityConnect.
                       </p>
                     </div>
@@ -945,17 +965,17 @@ export default function SettingsContent() {
                         onClick={() => updateSetting("theme", "dark")}
                         className={`group relative flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all ${
                           settings.theme === "dark"
-                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg shadow-indigo-500/10`
-                            : "border-white/5 bg-zinc-950/40 hover:border-white/20"
+                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-zinc-50"} shadow-lg ${activeAccent.shadow}`
+                            : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
                         }`}
                       >
                         <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                           <Moon className="w-6 h-6" />
                         </div>
-                        <span className="text-sm font-bold text-white">Dark Mode</span>
+                        <span className={`text-sm font-bold ${settings.theme === "dark" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Dark Mode</span>
                         <span className="text-xs text-zinc-500 mt-0.5">Sleek Obsidian</span>
                         {settings.theme === "dark" && (
-                          <div className="absolute top-3 right-3 text-indigo-400">
+                          <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
                             <CheckCircle2 className="w-5 h-5" />
                           </div>
                         )}
@@ -967,17 +987,17 @@ export default function SettingsContent() {
                         onClick={() => updateSetting("theme", "light")}
                         className={`group relative flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all ${
                           settings.theme === "light"
-                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg shadow-indigo-500/10`
-                            : "border-white/5 bg-zinc-950/40 hover:border-white/20"
+                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-zinc-50"} shadow-lg ${activeAccent.shadow}`
+                            : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
                         }`}
                       >
                         <div className="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-900 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                           <Sun className="w-6 h-6" />
                         </div>
-                        <span className="text-sm font-bold text-white">Light Mode</span>
+                        <span className={`text-sm font-bold ${settings.theme === "light" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Light Mode</span>
                         <span className="text-xs text-zinc-500 mt-0.5">Clean Crisp</span>
                         {settings.theme === "light" && (
-                          <div className="absolute top-3 right-3 text-indigo-400">
+                          <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
                             <CheckCircle2 className="w-5 h-5" />
                           </div>
                         )}
@@ -989,17 +1009,17 @@ export default function SettingsContent() {
                         onClick={() => updateSetting("theme", "system")}
                         className={`group relative flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all ${
                           settings.theme === "system"
-                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg shadow-indigo-500/10`
-                            : "border-white/5 bg-zinc-950/40 hover:border-white/20"
+                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-zinc-50"} shadow-lg ${activeAccent.shadow}`
+                            : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
                         }`}
                       >
                         <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-zinc-300 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                           <Monitor className="w-6 h-6" />
                         </div>
-                        <span className="text-sm font-bold text-white">System</span>
+                        <span className={`text-sm font-bold ${settings.theme === "system" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>System</span>
                         <span className="text-xs text-zinc-500 mt-0.5">Auto-sync OS</span>
                         {settings.theme === "system" && (
-                          <div className="absolute top-3 right-3 text-indigo-400">
+                          <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
                             <CheckCircle2 className="w-5 h-5" />
                           </div>
                         )}
@@ -1008,10 +1028,10 @@ export default function SettingsContent() {
                   </div>
 
                   {/* Accent Color Picker */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                  <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
                     <div>
-                      <h3 className="text-lg font-bold text-white">Accent Color Palette</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Accent Color Palette</h3>
+                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
                         Choose an accent color to personalize highlights and buttons across your experience.
                       </p>
                     </div>
@@ -1031,12 +1051,12 @@ export default function SettingsContent() {
                             }
                             className={`flex flex-col items-center p-4 rounded-2xl border-2 transition-all ${
                               isSelected
-                                ? `${color.border} bg-white/5 shadow-lg`
-                                : "border-white/5 bg-zinc-950/40 hover:border-white/20"
+                                ? `${color.border} ${isDark ? "bg-white/5" : "bg-zinc-100"} shadow-lg`
+                                : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
                             }`}
                           >
                             <div className={`w-8 h-8 rounded-full ${color.bg} mb-2 shadow-md`} />
-                            <span className="text-xs font-bold text-white">{color.name}</span>
+                            <span className={`text-xs font-bold ${isSelected ? color.text : isDark ? "text-white" : "text-zinc-900"}`}>{color.name}</span>
                           </button>
                         );
                       })}
@@ -1044,21 +1064,21 @@ export default function SettingsContent() {
                   </div>
 
                   {/* Interface Density & Animations */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                  <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
                     <div>
-                      <h3 className="text-lg font-bold text-white">Interface Dynamics</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Interface Dynamics</h3>
+                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
                         Adjust layout density and subtle animations for optimal performance.
                       </p>
                     </div>
 
-                    <div className="space-y-5 divide-y divide-white/5">
+                    <div className={`space-y-5 divide-y ${isDark ? "divide-white/5" : "divide-zinc-200"}`}>
                       <div className="pt-5 first:pt-0 flex items-center justify-between gap-4">
                         <div className="space-y-0.5">
-                          <Label htmlFor="toggle-compactMode" className="text-sm font-bold text-white cursor-pointer">
+                          <Label htmlFor="toggle-compactMode" className={`text-sm font-bold cursor-pointer ${settings.compactMode ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
                             Compact Grid Mode
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
                             Reduce card padding and spacing to show more events per view.
                           </p>
                         </div>
@@ -1071,10 +1091,10 @@ export default function SettingsContent() {
 
                       <div className="pt-5 flex items-center justify-between gap-4">
                         <div className="space-y-0.5">
-                          <Label htmlFor="toggle-smoothAnimations" className="text-sm font-bold text-white cursor-pointer">
+                          <Label htmlFor="toggle-smoothAnimations" className={`text-sm font-bold cursor-pointer ${settings.smoothAnimations ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
                             Smooth Micro-Animations
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
                             Enable fluid hover transitions and framer-motion layout animations.
                           </p>
                         </div>
@@ -1118,7 +1138,7 @@ export default function SettingsContent() {
                             : "border-white/5 bg-zinc-950/40 hover:border-white/20"
                         }`}
                       >
-                        <Globe className="w-6 h-6 text-indigo-400 mb-3" />
+                        <Globe className={`w-6 h-6 ${activeAccent.text} mb-3`} />
                         <div className="text-sm font-bold text-white">Public</div>
                         <p className="text-xs text-zinc-400 mt-1">
                           Anyone on the web can discover your profile card.
@@ -1237,7 +1257,7 @@ export default function SettingsContent() {
                           value={settings.defaultCity}
                           onChange={(e) => updateSetting("defaultCity", e.target.value)}
                           placeholder="e.g. San Francisco, CA or London, UK"
-                          className="pl-10 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-indigo-500/50"
+                          className="pl-10 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
                         />
                       </div>
                     </div>
@@ -1252,7 +1272,7 @@ export default function SettingsContent() {
                             onClick={() => updateSetting("defaultCity", city)}
                             className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                               settings.defaultCity === city
-                                ? "bg-indigo-600/20 border-indigo-500/50 text-indigo-300"
+                                ? `${activeAccent.badgeBg} ${activeAccent.border} ${activeAccent.text}`
                                 : "bg-zinc-800/60 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800"
                             }`}
                           >
@@ -1287,7 +1307,7 @@ export default function SettingsContent() {
                             }}
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold border transition-all ${
                               isFav
-                                ? "bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-500 text-white shadow-md shadow-indigo-500/20"
+                                ? `bg-gradient-to-r ${activeAccent.gradient} ${activeAccent.border} text-white shadow-md ${activeAccent.shadow}`
                                 : "bg-zinc-950/60 border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-900"
                             }`}
                           >
@@ -1353,7 +1373,7 @@ export default function SettingsContent() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                          <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                          <ShieldCheck className={`w-5 h-5 ${activeAccent.text}`} />
                           Two-Factor Authentication (2FA)
                         </h3>
                         <p className="text-sm text-zinc-400 mt-1">
@@ -1371,7 +1391,7 @@ export default function SettingsContent() {
                         className={`rounded-2xl font-semibold ${
                           settings.twoFactorEnabled
                             ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                            : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                            : `${activeAccent.bg} hover:opacity-90 text-white`
                         }`}
                       >
                         {settings.twoFactorEnabled ? "Enabled (Manage)" : "Enable 2FA"}
@@ -1400,7 +1420,14 @@ export default function SettingsContent() {
 
                       <Button
                         variant="outline"
-                        onClick={() => showToast("All other browser sessions have been logged out.")}
+                        onClick={async () => {
+                          try {
+                            await profileService.logoutAllDevices();
+                            showToast("All browser sessions have been revoked from servers.");
+                          } catch {
+                            showToast("Failed to revoke sessions.");
+                          }
+                        }}
                         className="rounded-2xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white text-xs font-semibold"
                       >
                         Revoke All Other Sessions
@@ -1411,7 +1438,7 @@ export default function SettingsContent() {
                       {/* Current Session */}
                       <div className="p-4 rounded-2xl bg-zinc-950/60 border border-white/10 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                          <div className={`w-10 h-10 rounded-xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center shrink-0`}>
                             <Laptop className="w-5 h-5" />
                           </div>
                           <div>
@@ -1459,7 +1486,7 @@ export default function SettingsContent() {
                   {/* Recent Login Activity */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-4">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-indigo-400" />
+                      <Activity className={`w-5 h-5 ${activeAccent.text}`} />
                       Security Audit Log
                     </h3>
 
@@ -1510,7 +1537,7 @@ export default function SettingsContent() {
               </button>
 
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                <div className={`w-10 h-10 rounded-xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center`}>
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
@@ -1603,7 +1630,7 @@ export default function SettingsContent() {
                   <Button
                     type="submit"
                     disabled={isUpdatingPassword}
-                    className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                    className={`rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold`}
                   >
                     {isUpdatingPassword ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -1671,9 +1698,23 @@ export default function SettingsContent() {
                 <Button
                   type="button"
                   disabled={deleteConfirmationText !== "DELETE"}
-                  onClick={() => {
+                  onClick={async () => {
                     setShowDeleteModal(false);
-                    showToast("Account deletion request submitted.");
+                    try {
+                      await profileService.deleteMyAccount();
+                      localStorage.removeItem("accessToken");
+                      localStorage.removeItem("refreshToken");
+                      localStorage.removeItem("cc_user_settings");
+                      showToast("Account deleted successfully.");
+                      setTimeout(() => {
+                        window.location.href = "/";
+                      }, 1000);
+                    } catch (err: unknown) {
+                      const errMsg =
+                        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+                        "Failed to delete account.";
+                      showToast(errMsg);
+                    }
                   }}
                   className="flex-1 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-semibold disabled:opacity-50"
                 >
@@ -1702,7 +1743,7 @@ export default function SettingsContent() {
               onClick={(e) => e.stopPropagation()}
               className="bg-zinc-900 border border-white/10 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center"
             >
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-4">
+              <div className={`w-12 h-12 rounded-2xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center mx-auto mb-4`}>
                 <ShieldCheck className="w-6 h-6" />
               </div>
 
@@ -1720,7 +1761,7 @@ export default function SettingsContent() {
 
               <Button
                 onClick={() => setShow2FAModal(false)}
-                className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                className={`w-full rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold`}
               >
                 Done
               </Button>

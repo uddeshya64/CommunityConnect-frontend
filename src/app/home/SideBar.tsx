@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useMyProfile } from "@/hooks/profileHooks";
 import { useLogout } from "@/hooks/authHooks";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 interface NavItem {
   label: string;
@@ -39,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export default function Sidebar() {
+  const { isDark, activeAccent } = useAppearance();
   const pathname = usePathname();
   const router = useRouter();
   const [userName, setUserName] = useState("");
@@ -82,9 +84,9 @@ export default function Sidebar() {
         <div className={`flex items-center mb-10 ${isCollapsed ? "flex-col gap-3" : "justify-between px-2"}`}>
           <Link
             href="/home"
-            className="flex items-center gap-2 font-extrabold text-xl text-zinc-900 hover:opacity-80 transition-opacity"
+            className={`flex items-center gap-2 font-extrabold text-xl ${isDark ? "text-white" : "text-zinc-900"} hover:opacity-80 transition-opacity`}
           >
-            <div className="w-8 h-8 shrink-0 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 shadow-sm flex items-center justify-center">
+            <div className={`w-8 h-8 shrink-0 rounded-xl bg-gradient-to-br ${activeAccent.gradient} shadow-sm flex items-center justify-center`}>
               <span className="text-white text-xs font-black">CC</span>
             </div>
             {!isCollapsed && <span>360</span>}
@@ -129,14 +131,14 @@ export default function Sidebar() {
                     isCollapsed ? "justify-center px-0 py-2.5 w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
                   } ${
                     isActive
-                      ? "text-indigo-700"
-                      : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                      ? `${activeAccent.text} font-bold`
+                      : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"}`
                   }`}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="sidebar-active-pill"
-                      className="absolute inset-0 rounded-full bg-indigo-50 border border-indigo-100"
+                      className={`absolute inset-0 rounded-full ${isDark ? "bg-white/10" : "bg-indigo-50"} ${activeAccent.border} shadow-sm`}
                       transition={{ type: "spring", stiffness: 350, damping: 30 }}
                     />
                   )}
@@ -150,7 +152,7 @@ export default function Sidebar() {
 
         <Link href="/events/create" onClick={() => setMobileOpen(false)} title={isCollapsed ? "Create Event" : undefined}>
           <button
-            className={`mt-6 flex items-center justify-center gap-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-500/20 text-sm font-semibold transition-all hover:scale-[1.02] ${
+            className={`mt-6 flex items-center justify-center gap-2 rounded-full ${activeAccent.bg} text-white hover:opacity-90 shadow-md ${activeAccent.shadow} text-sm font-semibold transition-all hover:scale-[1.02] ${
               isCollapsed ? "w-11 h-11 mx-auto p-0" : "w-full px-4 py-3"
             }`}
           >
@@ -172,8 +174,8 @@ export default function Sidebar() {
               isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
             } ${
               pathname === "/settings"
-                ? "text-indigo-700 bg-indigo-50 border border-indigo-100"
-                : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                ? `${activeAccent.text} font-bold ${isDark ? "bg-white/10" : "bg-indigo-50"} ${activeAccent.border}`
+                : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"}`
             }`}
           >
             <Settings className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
@@ -203,15 +205,15 @@ export default function Sidebar() {
       <motion.aside
         animate={{ width: collapsed ? 88 : 256 }}
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
-        className="hidden md:flex md:flex-col shrink-0 h-screen sticky top-0 px-4 py-6 border-r border-zinc-200/70 bg-white/70 backdrop-blur-xl overflow-hidden"
+        className={`hidden md:flex md:flex-col shrink-0 h-screen sticky top-0 px-4 py-6 border-r ${isDark ? "border-white/5 bg-zinc-950/80 text-white" : "border-zinc-200/70 bg-white/70 text-zinc-900"} backdrop-blur-xl overflow-hidden transition-colors duration-300`}
       >
         {renderSidebarContent(collapsed)}
       </motion.aside>
 
       {/* Mobile top bar trigger */}
-      <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-16 bg-white/70 backdrop-blur-xl border-b border-zinc-200/50">
-        <Link href="/home" className="flex items-center gap-2 font-extrabold text-lg text-zinc-900">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center">
+      <div className={`md:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-16 ${isDark ? "bg-zinc-950/80 border-white/5 text-white" : "bg-white/70 border-zinc-200/50 text-zinc-900"} backdrop-blur-xl border-b transition-colors duration-300`}>
+        <Link href="/home" className={`flex items-center gap-2 font-extrabold text-lg ${isDark ? "text-white" : "text-zinc-900"}`}>
+          <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center`}>
             <span className="text-white text-[10px] font-black">CC</span>
           </div>
           Circle
@@ -240,7 +242,7 @@ export default function Sidebar() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", stiffness: 320, damping: 32 }}
-              className="md:hidden fixed inset-y-0 left-0 z-50 w-72 bg-white px-4 py-6 shadow-2xl"
+              className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 ${isDark ? "bg-zinc-950 text-white border-r border-white/10" : "bg-white text-zinc-900"} px-4 py-6 shadow-2xl transition-colors duration-300`}
             >
               <button
                 onClick={() => setMobileOpen(false)}
@@ -271,14 +273,14 @@ export default function Sidebar() {
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ duration: 0.15 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6"
+                className={`w-full max-w-sm ${isDark ? "bg-zinc-900 border border-white/10 text-white" : "bg-white text-zinc-900"} rounded-3xl shadow-2xl p-6`}
               >
                 <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
                   <AlertTriangle className="w-6 h-6" />
                 </div>
 
-                <h2 className="text-xl font-extrabold text-zinc-900 mb-2">Log out?</h2>
-                <p className="text-sm text-zinc-500 font-medium mb-6">
+                <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} mb-2`}>Log out?</h2>
+                <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium mb-6`}>
                   Are you sure you want to log out of your account? You'll need to sign in again to continue.
                 </p>
 
