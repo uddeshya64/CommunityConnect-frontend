@@ -331,18 +331,17 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     key: K,
     value: UserSettings[K]
   ) => {
-    setSettings((prev) => {
-      const updated = { ...prev, [key]: value };
-      if (typeof window !== "undefined") {
-        localStorage.setItem("cc_user_settings", JSON.stringify(updated));
-        window.dispatchEvent(
-          new CustomEvent("cc_settings_updated", { detail: updated })
-        );
-      }
-      profileService.updateMySettings({ [key]: value }).catch(() => {
-        // Silently ignore if offline
-      });
-      return updated;
+    const updated = { ...settings, [key]: value };
+    setSettings(updated);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cc_user_settings", JSON.stringify(updated));
+      window.dispatchEvent(
+        new CustomEvent("cc_settings_updated", { detail: updated })
+      );
+    }
+    profileService.updateMySettings({ [key]: value }).catch(() => {
+      // Silently ignore if offline
     });
   };
 

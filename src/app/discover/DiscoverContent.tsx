@@ -124,6 +124,11 @@ export default function DiscoverContent() {
   const { isDark, activeAccent } = useAppearance();
   const router = useRouter();
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -310,6 +315,16 @@ export default function DiscoverContent() {
     }
   };
 
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white flex flex-col md:flex-row relative overflow-x-hidden">
+        <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 flex items-center justify-center">
+          <div className="w-10 h-10 border-4 border-zinc-800 border-t-indigo-600 rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`min-h-screen ${
@@ -333,7 +348,7 @@ export default function DiscoverContent() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold mb-3">
+            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${activeAccent.badgeBg} border ${activeAccent.border}/20 ${activeAccent.text} text-xs font-semibold mb-3`}>
               <Sparkles className="w-3.5 h-3.5" />
               <span>Personalized Event Discovery</span>
             </div>
@@ -368,7 +383,7 @@ export default function DiscoverContent() {
         {/* Quick Keyword & Topic Search Tags */}
         <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 no-scrollbar">
           <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap mr-1 flex items-center gap-1">
-            <Tag className="w-3.5 h-3.5 text-indigo-400" />
+            <Tag className={`w-3.5 h-3.5 ${activeAccent.text}`} />
             Trending Topics:
           </span>
           {POPULAR_KEYWORDS.map((kw) => {
@@ -406,7 +421,7 @@ export default function DiscoverContent() {
         >
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
-              <SlidersHorizontal className="w-4 h-4 text-indigo-400" />
+              <SlidersHorizontal className={`w-4 h-4 ${activeAccent.text}`} />
               <span>Matching Based On Your Preferences</span>
             </div>
 
@@ -418,7 +433,7 @@ export default function DiscoverContent() {
                     : "bg-zinc-100 border border-zinc-300 text-zinc-800"
                 }`}
               >
-                <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                <MapPin className={`w-3.5 h-3.5 ${activeAccent.text}`} />
                 {preferences.defaultCity}
               </span>
 
@@ -505,14 +520,14 @@ export default function DiscoverContent() {
             {[...Array(6)].map((_, i) => (
               <div
                 key={i}
-                className="bg-zinc-900/40 border border-white/5 rounded-[2rem] p-6 h-[340px] flex flex-col animate-pulse"
+                className="bg-zinc-100/60 border border-zinc-200 rounded-[2rem] p-6 h-[340px] flex flex-col animate-pulse"
               >
-                <div className="w-full h-40 bg-zinc-800 rounded-2xl mb-4" />
-                <div className="h-6 bg-zinc-800 rounded-md w-3/4 mb-3" />
-                <div className="h-4 bg-zinc-800/50 rounded-md w-1/2 mb-auto" />
+                <div className="w-full h-40 bg-zinc-200 rounded-2xl mb-4" />
+                <div className="h-6 bg-zinc-200 rounded-md w-3/4 mb-3" />
+                <div className="h-4 bg-zinc-200/50 rounded-md w-1/2 mb-auto" />
                 <div className="flex justify-between items-center mt-4">
-                  <div className="h-8 w-24 bg-zinc-800 rounded-xl" />
-                  <div className="h-9 w-28 bg-zinc-800 rounded-xl" />
+                  <div className="h-8 w-24 bg-zinc-200 rounded-xl" />
+                  <div className="h-9 w-28 bg-zinc-200 rounded-xl" />
                 </div>
               </div>
             ))}

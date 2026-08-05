@@ -141,6 +141,12 @@ export default function HomeContent() {
   // STATE
   // ============================================
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [events, setEvents] =
     useState<AppEvent[]>([]);
 
@@ -564,6 +570,14 @@ export default function HomeContent() {
   // RENDER
   // ============================================
 
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-zinc-800 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative flex transition-colors duration-300`}>
 
@@ -655,25 +669,22 @@ export default function HomeContent() {
           ============================================ */}
 
           {isLoading && (
-            <div className="w-full flex flex-col items-center justify-center py-32">
-
-              <motion.div
-                animate={{
-                  rotate: 360,
-                }}
-                transition={{
-                  repeat: Infinity,
-                  duration: 1,
-                  ease: "linear",
-                }}
-              >
-                <Compass className="w-12 h-12 text-indigo-300" />
-              </motion.div>
-
-              <p className="text-zinc-500 font-medium mt-4 animate-pulse">
-                Finding events near you...
-              </p>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
+              {[...Array(6)].map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-zinc-100/50 border border-zinc-200 rounded-3xl p-3 flex flex-col animate-pulse h-[340px]"
+                >
+                  <div className="w-full h-48 bg-zinc-200 rounded-2xl mb-4" />
+                  <div className="p-5 flex-1 flex flex-col space-y-4">
+                    <div className="h-6 bg-zinc-200 rounded-md w-3/4" />
+                    <div className="space-y-3 mt-auto">
+                      <div className="h-4 bg-zinc-200/50 rounded-md w-1/2" />
+                      <div className="h-4 bg-zinc-200/50 rounded-md w-2/3" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

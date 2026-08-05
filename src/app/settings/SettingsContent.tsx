@@ -173,6 +173,12 @@ const ToggleSwitch = ({
 
 export default function SettingsContent() {
   const { isDark, activeAccent } = useAppearance();
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<TabKey>("account");
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [searchQuery, setSearchQuery] = useState("");
@@ -321,21 +327,20 @@ export default function SettingsContent() {
       playToggleSound();
     }
 
-    setSettings((prev) => {
-      const updated = { ...prev, [key]: value };
-      localStorage.setItem("cc_user_settings", JSON.stringify(updated));
-      if (key === "twoFactorEnabled") {
-        localStorage.setItem("cc_2fa_enabled", value ? "true" : "false");
-      }
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("cc_settings_updated", { detail: updated })
-        );
-      }
-      profileService.updateMySettings({ [key]: value }).catch(() => {
-        // Silently ignore if guest or offline
-      });
-      return updated;
+    const updated = { ...settings, [key]: value };
+    setSettings(updated);
+
+    localStorage.setItem("cc_user_settings", JSON.stringify(updated));
+    if (key === "twoFactorEnabled") {
+      localStorage.setItem("cc_2fa_enabled", value ? "true" : "false");
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("cc_settings_updated", { detail: updated })
+      );
+    }
+    profileService.updateMySettings({ [key]: value }).catch(() => {
+      // Silently ignore if guest or offline
     });
 
     setTimeout(() => {
@@ -453,6 +458,16 @@ export default function SettingsContent() {
   }, [searchQuery]);
 
 
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans pb-24 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-10 relative z-10 flex items-center justify-center min-h-[50vh]">
+          <div className="w-10 h-10 border-4 border-zinc-800 border-t-indigo-600 rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 pb-24 relative overflow-hidden transition-colors duration-300`}>
@@ -666,13 +681,13 @@ export default function SettingsContent() {
               </div>
 
               {/* Quick Profile Summary Badge in Sidebar */}
-              <div className="hidden lg:block mt-4 p-4 rounded-3xl bg-zinc-900/40 border border-white/5 backdrop-blur-xl">
+              <div className="hidden lg:block mt-4 p-4 rounded-3xl bg-zinc-100/60 border border-zinc-200 backdrop-blur-xl">
                 {isProfileLoading ? (
                   <div className="flex items-center gap-3 animate-pulse">
-                    <div className="w-10 h-10 rounded-full bg-zinc-800 shrink-0" />
+                    <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0" />
                     <div className="space-y-2 flex-1">
-                      <div className="h-4 bg-zinc-800 rounded w-2/3" />
-                      <div className="h-3 bg-zinc-800 rounded w-full" />
+                      <div className="h-4 bg-zinc-200 rounded w-2/3" />
+                      <div className="h-3 bg-zinc-200 rounded w-full" />
                     </div>
                   </div>
                 ) : (
@@ -703,7 +718,45 @@ export default function SettingsContent() {
 
           {/* Settings Content Area */}
           <div className="lg:col-span-9 space-y-6">
-            <AnimatePresence mode="wait">
+            {isProfileLoading ? (
+              <div className="space-y-6">
+                {/* Skeleton Card 1 */}
+                <div className={`rounded-3xl p-6 sm:p-8 space-y-6 animate-pulse ${isDark ? "bg-zinc-900/40 border border-white/5" : "bg-white border border-zinc-200 shadow-sm"}`}>
+                  <div className="space-y-2">
+                    <div className="h-6 bg-zinc-200 rounded-md w-1/4 animate-pulse" />
+                    <div className="h-4 bg-zinc-200/50 rounded-md w-1/2 animate-pulse" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="h-4 bg-zinc-200 rounded w-1/3 animate-pulse" />
+                        <div className="h-11 bg-zinc-200 rounded-2xl w-full animate-pulse" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Skeleton Card 2 */}
+                <div className={`rounded-3xl p-6 sm:p-8 space-y-6 animate-pulse ${isDark ? "bg-zinc-900/40 border border-white/5" : "bg-white border border-zinc-200 shadow-sm"}`}>
+                  <div className="space-y-2">
+                    <div className="h-6 bg-zinc-200 rounded-md w-1/4 animate-pulse" />
+                    <div className="h-4 bg-zinc-200/50 rounded-md w-1/2 animate-pulse" />
+                  </div>
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex justify-between items-center py-3 border-b border-zinc-200/10">
+                        <div className="space-y-2 flex-1">
+                          <div className="h-4 bg-zinc-200 rounded w-1/4 animate-pulse" />
+                          <div className="h-3 bg-zinc-200/50 rounded w-1/2 animate-pulse" />
+                        </div>
+                        <div className="w-10 h-6 bg-zinc-200 rounded-full animate-pulse" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <AnimatePresence mode="wait">
               {/* TAB 1: ACCOUNT & PROFILE */}
               {activeTab === "account" && (
                 <motion.div
@@ -1645,6 +1698,7 @@ export default function SettingsContent() {
                 </motion.div>
               )}
             </AnimatePresence>
+          )}
           </div>
         </div>
       </main>

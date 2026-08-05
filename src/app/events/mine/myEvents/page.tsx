@@ -118,11 +118,22 @@ export default function MyEventsPage() {
           </motion.div>
 
           {(isLoading || userId === undefined) && (
-            <div className="w-full flex flex-col items-center justify-center py-32">
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                <Compass className={`w-12 h-12 ${activeAccent.text}`} />
-              </motion.div>
-              <p className={`${isDark ? "text-zinc-300" : "text-zinc-700"} font-medium mt-4 animate-pulse`}>Loading your events...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-zinc-100/50 border border-zinc-200 rounded-3xl p-3 flex flex-col animate-pulse h-[340px]"
+                >
+                  <div className="w-full h-48 bg-zinc-200 rounded-2xl mb-4" />
+                  <div className="p-5 flex-1 flex flex-col space-y-4">
+                    <div className="h-6 bg-zinc-200 rounded-md w-3/4" />
+                    <div className="space-y-3 mt-auto">
+                      <div className="h-4 bg-zinc-200/50 rounded-md w-1/2" />
+                      <div className="h-4 bg-zinc-200/50 rounded-md w-2/3" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
