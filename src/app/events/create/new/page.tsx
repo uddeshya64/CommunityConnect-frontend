@@ -5,7 +5,27 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useToast } from "@/components/providers/ToastProvider";
-import { ArrowLeft, ArrowRight, Sparkles, MapPin, Calendar, AlignLeft, CheckCircle2, Loader2, Ticket, Plus, X, ListPlus, FileText, Lock, User, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Sparkles,
+  MapPin,
+  Calendar,
+  AlignLeft,
+  CheckCircle2,
+  Loader2,
+  Ticket,
+  Plus,
+  X,
+  ListPlus,
+  FileText,
+  Lock,
+  User,
+  Trash2,
+  Clock,
+  Users,
+  Globe
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +43,6 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
-// Updated to match your Backend Zod Schema
 interface EventFormData {
   title: string;
   category: string; // Backend calls this 'type'
@@ -48,15 +67,19 @@ interface FormErrors {
   location?: string;
   description?: string;
   registration_fee?: string;
+  capacity?: string;
+  min_team_size?: string;
+  max_team_size?: string;
+  custom_fields?: string;
+  reg_form_fields?: string;
 }
 
-// A field the organizer builds themselves when "Custom" is selected
 interface CustomFieldEntry {
   id: string;
   label: string;
   type: FieldType | "boolean";
-  value: string; // stored as string/ "true"/"false"; parsed appropriately on submit
-  options?: string[]; // for select type
+  value: string;
+  options?: string[];
 }
 
 export interface RegistrationFormField {
@@ -71,8 +94,21 @@ export interface RegistrationFormField {
 const MODES = ["online", "offline", "hybrid"];
 const REG_TYPES = ["solo", "team"];
 const TOTAL_STEPS = 6;
+
 const isValidTemplateId = (id: string | null) =>
   !!id && (id === CUSTOM_TEMPLATE_ID || EVENT_TEMPLATES.some((tpl) => tpl.id === id));
+
+// FormRow defined outside the component to prevent typing focus loss!
+const FormRow = ({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) => (
+  <div className="flex items-start gap-4 py-2.5 first:pt-0 last:pb-0">
+    <div className="w-9 h-9 flex items-center justify-center text-zinc-400 mt-0.5 shrink-0 bg-zinc-50 rounded-lg border border-zinc-200">
+      {icon}
+    </div>
+    <div className="flex-1 min-w-0 space-y-1.5">
+      {children}
+    </div>
+  </div>
+);
 
 function CreateEventPageInner() {
   const router = useRouter();
@@ -86,11 +122,9 @@ function CreateEventPageInner() {
   const [isLocationSelected, setIsLocationSelected] = useState(false);
   const locationControllerRef = useRef<AbortController | null>(null);
 
-  // Template-driven fields: values keyed by field id (works for both a picked template and custom fields)
   const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
   const [customFields, setCustomFields] = useState<CustomFieldEntry[]>([]);
 
-  // Attendee Registration Form Builder Fields state (Step 5)
   const [regFormFields, setRegFormFields] = useState<RegistrationFormField[]>([
     { id: "reg_college", key: "college", label: "College / University", type: "text", required: true },
     { id: "reg_branch", key: "branch", label: "Branch / Stream", type: "text", required: false },
@@ -155,16 +189,16 @@ function CreateEventPageInner() {
           const result = await response.json();
           const suggestions = Array.isArray(result?.data)
             ? result.data.map((item: unknown) => {
-              if (typeof item === "object" && item !== null) {
-                const place = item as { name?: string; address?: string; mapboxId?: string };
-                const label = [place.name, place.address].filter(Boolean).join(" - ");
-                return {
-                  label: label || "Unknown location",
-                  value: label || "Unknown location",
-                };
-              }
-              return null;
-            })
+                if (typeof item === "object" && item !== null) {
+                  const place = item as { name?: string; address?: string; mapboxId?: string };
+                  const label = [place.name, place.address].filter(Boolean).join(" - ");
+                  return {
+                    label: label || "Unknown location",
+                    value: label || "Unknown location",
+                  };
+                }
+                return null;
+              })
             : [];
           setLocationSuggestions(suggestions.filter(Boolean) as Array<{ label: string; value: string }>);
         })
@@ -196,19 +230,10 @@ function CreateEventPageInner() {
     setIsLocationSelected(false);
   };
 
-  const handleTemplateSelect = (id: string) => {
-    updateForm("category", id);
-    clearFieldError("category");
-    // Reset step-2 data when switching templates so stale fields don't leak across templates
-    setTemplateValues({});
-    setCustomFields([]);
-  };
-
   const updateTemplateValue = (fieldId: string, value: string) => {
     setTemplateValues((prev) => ({ ...prev, [fieldId]: value }));
   };
 
-  // --- Custom field builder helpers ---
   const addCustomField = (type: FieldType | "boolean") => {
     const id = `custom_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     setCustomFields((prev) => [
@@ -225,13 +250,14 @@ function CreateEventPageInner() {
 
   const updateCustomField = (id: string, patch: Partial<CustomFieldEntry>) => {
     setCustomFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+    clearFieldError("custom_fields");
   };
 
   const removeCustomField = (id: string) => {
     setCustomFields((prev) => prev.filter((f) => f.id !== id));
+    clearFieldError("custom_fields");
   };
 
-  // --- Attendee Registration Form Builder Helpers (Step 5) ---
   const addRegFormField = (
     key: string,
     label: string,
@@ -243,28 +269,46 @@ function CreateEventPageInner() {
       ...prev,
       { id, key, label, type, required: false, options },
     ]);
+    clearFieldError("reg_form_fields");
   };
 
   const updateRegFormField = (id: string, patch: Partial<RegistrationFormField>) => {
     setRegFormFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+    clearFieldError("reg_form_fields");
   };
 
   const removeRegFormField = (id: string) => {
     setRegFormFields((prev) => prev.filter((f) => f.id !== id));
+    clearFieldError("reg_form_fields");
   };
 
-  const validateForm = (targetStep = step) => {
+  const validateForm = (targetStep = step): boolean => {
     const nextErrors: FormErrors = {};
     const trimmedTitle = formData.title.trim();
     const trimmedDescription = formData.description.trim();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const minStart = new Date(now.getTime() - 10 * 60 * 1000);
 
     if (targetStep === 1 || targetStep === 6) {
       if (!trimmedTitle) {
         nextErrors.title = "Title is required.";
       } else if (trimmedTitle.length < 5) {
         nextErrors.title = "Title must be at least 5 characters long.";
+      } else if (trimmedTitle.length > 150) {
+        nextErrors.title = "Title cannot exceed 150 characters.";
+      }
+    }
+
+    if (targetStep === 2 || targetStep === 6) {
+      if (isCustom) {
+        if (customFields.length === 0) {
+          nextErrors.custom_fields = "Please add at least one custom property for this event type.";
+        }
+        customFields.forEach((field) => {
+          if (!field.label.trim()) {
+            nextErrors.custom_fields = "All custom properties must have a title label.";
+          }
+        });
       }
     }
 
@@ -273,46 +317,68 @@ function CreateEventPageInner() {
         nextErrors.start_date = "Start date is required.";
       } else {
         const startDate = new Date(formData.start_date);
-        if (startDate < today) {
-          nextErrors.start_date = "Start date cannot be before today.";
+        if (startDate < minStart) {
+          nextErrors.start_date = "Start date and time cannot be in the past.";
         }
       }
 
       if (!formData.end_date) {
         nextErrors.end_date = "End date is required.";
-      } else {
-        const endDate = new Date(formData.end_date);
-        if (endDate < today) {
-          nextErrors.end_date = "End date cannot be before today.";
-        }
       }
 
       if (formData.start_date && formData.end_date) {
         const startDate = new Date(formData.start_date);
         const endDate = new Date(formData.end_date);
-        if (endDate < startDate) {
-          nextErrors.end_date = "End date cannot be before start date.";
+        if (endDate <= startDate) {
+          nextErrors.end_date = "End date must be scheduled after start date.";
         }
       }
 
       if (formData.mode !== "online" && !formData.location.trim()) {
-        nextErrors.location = "Location is required for offline or hybrid events.";
+        nextErrors.location = "Location address is required for offline or hybrid events.";
       }
     }
 
     if (targetStep === 4 || targetStep === 6) {
       if (!trimmedDescription) {
         nextErrors.description = "Description is required.";
-      } else if (trimmedDescription.length < 30) {
-        nextErrors.description = "Please add a more detailed description (at least 30 characters).";
+      } else if (trimmedDescription.length < 20) {
+        nextErrors.description = "Please add a more detailed description (at least 20 characters).";
       }
 
       const fee = parseFloat(formData.registration_fee);
       if (isNaN(fee) || fee < 0) {
-        nextErrors.registration_fee = "Registration fee must be at least ₹0.";
+        nextErrors.registration_fee = "Registration fee must be ₹0 or higher.";
       } else if (fee > 100000) {
         nextErrors.registration_fee = "Registration fee cannot exceed ₹100,000.";
       }
+
+      const cap = parseInt(formData.capacity);
+      if (isNaN(cap) || cap < 0) {
+        nextErrors.capacity = "Maximum capacity must be a positive integer.";
+      }
+
+      if (formData.registration_type === "team") {
+        const minSize = parseInt(formData.min_team_size);
+        const maxSize = parseInt(formData.max_team_size);
+        if (isNaN(minSize) || minSize < 1) {
+          nextErrors.min_team_size = "Minimum team size must be at least 1.";
+        }
+        if (isNaN(maxSize) || maxSize < 1) {
+          nextErrors.max_team_size = "Maximum team size must be at least 1.";
+        }
+        if (!isNaN(minSize) && !isNaN(maxSize) && maxSize < minSize) {
+          nextErrors.max_team_size = "Maximum team size cannot be less than minimum team size.";
+        }
+      }
+    }
+
+    if (targetStep === 5 || targetStep === 6) {
+      regFormFields.forEach((field) => {
+        if (!field.label.trim()) {
+          nextErrors.reg_form_fields = "Please specify a question title for all form custom inputs.";
+        }
+      });
     }
 
     setFieldErrors(nextErrors);
@@ -321,7 +387,6 @@ function CreateEventPageInner() {
 
   const nextStep = () => {
     if (!validateForm(step)) return;
-
     setStep((prev) => prev + 1);
   };
 
@@ -329,7 +394,6 @@ function CreateEventPageInner() {
     setStep((prev) => prev - 1);
   };
 
-  // Build the payload pieces for custom_fields / custom_form_schema / registration_form_schema
   const buildCustomPayload = () => {
     const registration_form_schema = [
       { key: "name", label: "Full Name", type: "text", required: true, is_fixed: true },
@@ -360,8 +424,8 @@ function CreateEventPageInner() {
             f.type === "boolean" || f.type === "checkbox"
               ? f.value === "true"
               : f.type === "number"
-                ? Number(f.value) || 0
-                : f.value;
+              ? Number(f.value) || 0
+              : f.value;
           return {
             id: f.id,
             label: f.label.trim(),
@@ -373,7 +437,6 @@ function CreateEventPageInner() {
       return { custom_fields, custom_form_schema, registration_form_schema };
     }
 
-    // Template mode: values only, schema is implied by the template id
     const custom_fields: Record<string, unknown> = {
       registration_form_schema,
     };
@@ -392,14 +455,12 @@ function CreateEventPageInner() {
 
     try {
       setIsLoading(true);
-
       const { custom_fields, custom_form_schema, registration_form_schema } = buildCustomPayload();
 
-      // Transform our frontend state into the EXACT payload the backend Zod schema wants
       const payload = {
         title: formData.title,
         description: formData.description,
-        type: formData.category, // Map 'category' to 'type'
+        type: formData.category,
         mode: formData.mode,
         location: formData.location || "Online",
         start_date: new Date(formData.start_date).toISOString(),
@@ -426,13 +487,6 @@ function CreateEventPageInner() {
     }
   };
 
-  const slideVariants = {
-    enter: (direction: number) => ({ x: direction > 0 ? 50 : -50, opacity: 0 }),
-    center: { zIndex: 1, x: 0, opacity: 1 },
-    exit: (direction: number) => ({ zIndex: 0, x: direction < 0 ? 50 : -50, opacity: 0 }),
-  };
-
-  // Renders one dynamic input for a template field (Step 2, template mode)
   const renderTemplateFieldInput = (field: { id: string; label: string; type: FieldType; options?: string[]; placeholder?: string }) => {
     const value = templateValues[field.id] ?? "";
 
@@ -443,19 +497,20 @@ function CreateEventPageInner() {
             value={value}
             onChange={(e) => updateTemplateValue(field.id, e.target.value)}
             placeholder={field.placeholder}
-            className="w-full h-24 text-base py-3 px-4 rounded-2xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-none"
+            className="w-full h-16 text-sm py-2 px-3 rounded-lg bg-zinc-55 border border-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-650 resize-none text-zinc-900 placeholder:text-zinc-400 font-medium"
           />
         );
       case "select":
         return (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {(field.options || []).map((opt) => (
               <button
                 key={opt}
                 type="button"
                 onClick={() => updateTemplateValue(field.id, opt)}
-                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${value === opt ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"
-                  }`}
+                className={`px-3 py-1.5 rounded-lg border font-bold text-xs transition-all ${
+                  value === opt ? "bg-indigo-600 text-white border-indigo-600 shadow-xs" : "bg-zinc-55 text-zinc-650 border-zinc-200"
+                }`}
               >
                 {opt}
               </button>
@@ -467,8 +522,9 @@ function CreateEventPageInner() {
           <button
             type="button"
             onClick={() => updateTemplateValue(field.id, value === "true" ? "false" : "true")}
-            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${value === "true" ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"
-              }`}
+            className={`px-4 py-1.5 rounded-lg border font-bold text-xs transition-all ${
+              value === "true" ? "bg-indigo-600 text-white border-indigo-600 shadow-xs" : "bg-zinc-55 text-zinc-650 border-zinc-200"
+            }`}
           >
             {value === "true" ? "Yes" : "No"}
           </button>
@@ -480,7 +536,7 @@ function CreateEventPageInner() {
             value={value}
             onChange={(e) => updateTemplateValue(field.id, e.target.value)}
             placeholder={field.placeholder}
-            className="py-5 px-4 rounded-2xl bg-zinc-50 border-zinc-200"
+            className="py-2 px-3 h-9 rounded-lg bg-zinc-55 border-zinc-200 text-sm font-semibold"
           />
         );
       case "date":
@@ -489,7 +545,7 @@ function CreateEventPageInner() {
             type="date"
             value={value}
             onChange={(e) => updateTemplateValue(field.id, e.target.value)}
-            className="py-5 px-4 rounded-2xl bg-zinc-50 border-zinc-200"
+            className="py-2 px-3 h-9 rounded-lg bg-zinc-55 border-zinc-200 text-sm font-semibold"
           />
         );
       default:
@@ -498,31 +554,32 @@ function CreateEventPageInner() {
             value={value}
             onChange={(e) => updateTemplateValue(field.id, e.target.value)}
             placeholder={field.placeholder}
-            className="py-5 px-4 rounded-2xl bg-zinc-50 border-zinc-200"
+            className="py-2 px-3 h-9 rounded-lg bg-zinc-55 border-zinc-200 text-sm font-semibold"
           />
         );
     }
   };
 
-  // Renders the value input for one custom field row, matching its chosen type
   const renderCustomFieldValueInput = (field: CustomFieldEntry) => {
     switch (field.type) {
       case "boolean":
         return (
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 max-w-[140px]">
             <button
               type="button"
               onClick={() => updateCustomField(field.id, { value: "true" })}
-              className={`px-4 py-2 rounded-xl font-semibold text-sm flex-1 transition-all ${field.value === "true" ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
-                }`}
+              className={`px-3 py-1.5 rounded-lg border font-bold text-xs flex-1 transition-all ${
+                field.value === "true" ? "bg-indigo-600 text-white border-indigo-600 shadow-xs" : "bg-white text-zinc-550 border-zinc-200"
+              }`}
             >
               Yes
             </button>
             <button
               type="button"
               onClick={() => updateCustomField(field.id, { value: "false" })}
-              className={`px-4 py-2 rounded-xl font-semibold text-sm flex-1 transition-all ${field.value === "false" ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
-                }`}
+              className={`px-3 py-1.5 rounded-lg border font-bold text-xs flex-1 transition-all ${
+                field.value === "false" ? "bg-indigo-600 text-white border-indigo-600 shadow-xs" : "bg-white text-zinc-550 border-zinc-200"
+              }`}
             >
               No
             </button>
@@ -530,19 +587,19 @@ function CreateEventPageInner() {
         );
       case "checkbox":
         return (
-          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-650 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={field.value === "true"}
               onChange={(e) => updateCustomField(field.id, { value: e.target.checked ? "true" : "false" })}
-              className="w-4 h-4 rounded"
+              className="w-3.5 h-3.5 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
             />
-            Checked
+            Checked by default
           </label>
         );
       case "select":
         return (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Input
               value={(field.options || []).join(", ")}
               onChange={(e) =>
@@ -550,17 +607,18 @@ function CreateEventPageInner() {
                   options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean),
                 })
               }
-              placeholder="Options, comma separated"
-              className="py-4 px-4 rounded-xl bg-white border-zinc-200 text-sm"
+              placeholder="Options, separated by comma"
+              className="py-2 px-3 h-9 rounded-lg bg-white border-zinc-200 text-sm font-semibold"
             />
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1">
               {(field.options || []).map((opt) => (
                 <button
                   key={opt}
                   type="button"
                   onClick={() => updateCustomField(field.id, { value: opt })}
-                  className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${field.value === opt ? "bg-indigo-600 text-white" : "bg-white text-zinc-600 border border-zinc-200"
-                    }`}
+                  className={`px-2.5 py-1 rounded border font-bold text-xs transition-all ${
+                    field.value === opt ? "bg-indigo-600 text-white border-indigo-600 shadow-xs" : "bg-white text-zinc-500 border-zinc-200"
+                  }`}
                 >
                   {opt}
                 </button>
@@ -573,8 +631,9 @@ function CreateEventPageInner() {
           <Input
             type="number"
             value={field.value}
+            placeholder="Value"
             onChange={(e) => updateCustomField(field.id, { value: e.target.value })}
-            className="py-4 px-4 rounded-xl bg-white border-zinc-200"
+            className="py-2 px-3 h-8.5 rounded-lg bg-white border-zinc-200 text-sm font-semibold max-w-[120px]"
           />
         );
       case "date":
@@ -583,7 +642,7 @@ function CreateEventPageInner() {
             type="date"
             value={field.value}
             onChange={(e) => updateCustomField(field.id, { value: e.target.value })}
-            className="py-4 px-4 rounded-xl bg-white border-zinc-200"
+            className="py-2 px-3 h-8.5 rounded-lg bg-white border-zinc-200 text-sm font-semibold max-w-[120px]"
           />
         );
       default:
@@ -592,579 +651,737 @@ function CreateEventPageInner() {
             value={field.value}
             onChange={(e) => updateCustomField(field.id, { value: e.target.value })}
             placeholder="Value"
-            className="py-4 px-4 rounded-xl bg-white border-zinc-200"
+            className="py-2 px-3 h-8.5 rounded-lg bg-white border-zinc-200 text-sm font-semibold"
           />
         );
     }
   };
 
-  return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col relative overflow-hidden">
-      <div className="fixed top-0 left-1/4 w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[150px] pointer-events-none" />
+  const slideVariants = {
+    enter: (direction: number) => ({ x: direction > 0 ? 50 : -50, opacity: 0 }),
+    center: { zIndex: 1, x: 0, opacity: 1 },
+    exit: (direction: number) => ({ zIndex: 0, x: direction < 0 ? 50 : -50, opacity: 0 }),
+  };
 
-      <nav className="relative z-10 w-full p-6 flex items-center justify-between">
+  return (
+    <div className="h-screen w-screen bg-zinc-50 flex flex-col relative overflow-hidden font-sans select-none">
+      
+      {/* Minimal moving ambient background animations */}
+      <motion.div
+        animate={{
+          x: [0, 30, -20, 0],
+          y: [0, -35, 25, 0],
+        }}
+        transition={{
+          duration: 25,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+        className="fixed top-[-10%] left-[-10%] w-[42%] h-[42%] rounded-full bg-indigo-500/5 blur-[120px] pointer-events-none"
+      />
+      <motion.div
+        animate={{
+          x: [0, -25, 30, 0],
+          y: [0, 25, -20, 0],
+        }}
+        transition={{
+          duration: 30,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+        className="fixed bottom-[-10%] right-[-10%] w-[52%] h-[52%] rounded-full bg-purple-500/5 blur-[140px] pointer-events-none"
+      />
+
+      {/* Header Navigation - Static */}
+      <nav className="relative z-10 w-full p-4 border-b border-zinc-200 bg-white flex items-center justify-between shadow-xs shrink-0">
         <Link href="/events/create">
-          <Button variant="ghost" className="rounded-full hover:bg-zinc-200/50">
-            <ArrowLeft className="w-5 h-5 mr-2" /> Cancel
+          <Button variant="ghost" className="rounded-md hover:bg-zinc-100 font-bold text-zinc-500 hover:text-zinc-950 transition-all text-xs h-8 px-2.5">
+            <ArrowLeft className="w-4 h-4 mr-1.5" /> Cancel
           </Button>
         </Link>
-        <div className="text-sm font-bold text-zinc-500 uppercase tracking-widest">Step {step} of {TOTAL_STEPS}</div>
-        <div className="w-24"></div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100 uppercase tracking-widest">
+            Event Creator
+          </span>
+        </div>
+        <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+          Step {step} of {TOTAL_STEPS}
+        </div>
       </nav>
 
-      <main className="flex-1 flex flex-col items-center pt-10 px-6 relative z-10 pb-20">
-        <div className="w-full max-w-2xl mb-12 flex gap-2">
+      {/* Main Workspace Frame */}
+      <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-6 relative z-10 overflow-hidden">
+        
+        {/* Detail Progress Bar - Static */}
+        <div className="w-full max-w-4xl mb-6 shrink-0 flex gap-2">
           {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((i) => (
             <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${step >= i ? "bg-indigo-600" : "bg-zinc-200"}`} />
           ))}
         </div>
 
-        <div className="w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl shadow-zinc-200/50 border border-zinc-100 p-8 md:p-12 relative overflow-hidden min-h-[550px] flex flex-col">
+        {/* Wider, Boxy Central Card - Locked internal scroll */}
+        <div className="w-full max-w-4xl bg-white rounded-xl shadow-2xl border border-zinc-250 flex flex-col overflow-hidden h-[calc(100vh-170px)] max-h-[620px]">
+          
+          {/* Scrollable inner content body */}
+          <div className="flex-1 overflow-y-auto p-6 md:p-10">
+            <AnimatePresence mode="wait" custom={1}>
 
-          <AnimatePresence mode="wait" custom={1}>
-
-            {/* --- STEP 1: BASICS (template already chosen on the picker page) --- */}
-            {step === 1 && (
-              <motion.div key="step1" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.4 }} className="flex-1 flex flex-col overflow-y-auto pr-2">
-                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-8 shrink-0"><Sparkles className="w-8 h-8" /></div>
-                <h1 className="text-3xl font-extrabold text-zinc-900 mb-2 shrink-0">Let&apos;s start with the basics</h1>
-                <p className="text-zinc-500 font-medium mb-10 shrink-0">
-                  {activeTemplate ? `Creating a ${activeTemplate.label} event.` : "Creating a custom event."}
-                </p>
-
-                <div className="space-y-8 flex-1">
-                  <div className="space-y-3">
-                    <Label className="text-base font-bold text-zinc-900">Event Title</Label>
-                    <Input
-                      placeholder="e.g., CodeHack 2026..."
-                      value={formData.title}
-                      onChange={(e) => updateForm("title", e.target.value)}
-                      className={`text-lg py-7 px-5 rounded-2xl bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 ${fieldErrors.title ? "border-red-400" : ""}`}
-                    />
-                    {fieldErrors.title && <p className="text-sm text-red-500">{fieldErrors.title}</p>}
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-base font-bold text-zinc-900">Template</Label>
-                      <Link href="/events/create" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">
-                        Change template
-                      </Link>
-                    </div>
-                    <div className="px-4 py-3 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-100 font-semibold text-sm flex items-center gap-2">
-                      {isCustom && <ListPlus className="w-4 h-4" />}
-                      {isCustom ? "Custom" : activeTemplate?.label || "Event"}
+              {/* --- STEP 1: BASICS --- */}
+              {step === 1 && (
+                <motion.div key="step1" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="space-y-6">
+                  <div className="flex items-center gap-4 border-b border-zinc-100 pb-4">
+                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center shrink-0"><Sparkles className="w-5 h-5" /></div>
+                    <div>
+                      <h1 className="text-xl font-black text-zinc-900 tracking-tight">Let&apos;s start with the basics</h1>
+                      <p className="text-zinc-450 text-sm font-semibold">
+                        {activeTemplate ? `Creating a ${activeTemplate.label} event.` : "Creating a custom event."}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <Label className="text-base font-bold text-zinc-900">Mode</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {MODES.map((mode) => (
-                        <button key={mode} onClick={() => updateForm("mode", mode)} className={`px-4 py-2 rounded-xl font-semibold text-sm capitalize transition-all ${formData.mode === mode ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20" : "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>{mode}</button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* --- STEP 2: TEMPLATE-SPECIFIC FIELDS OR CUSTOM BUILDER --- */}
-            {step === 2 && (
-              <motion.div key="step2" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.4 }} className="flex-1 flex flex-col overflow-y-auto pr-2">
-                <div className="w-16 h-16 bg-violet-50 text-violet-600 rounded-2xl flex items-center justify-center mb-6 shrink-0"><ListPlus className="w-8 h-8" /></div>
-                <h1 className="text-3xl font-extrabold text-zinc-900 mb-2 shrink-0">
-                  {isCustom ? "Build your own fields" : `${activeTemplate?.label || "Event"} details`}
-                </h1>
-                <p className="text-zinc-500 font-medium mb-6 shrink-0">
-                  {isCustom
-                    ? "Add whatever fields describe this event best."
-                    : "A few extra details specific to this kind of event."}
-                </p>
-
-                {!isCustom && activeTemplate && activeTemplate.fields.length > 0 && (
-                  <div className="space-y-6 flex-1">
-                    {activeTemplate.fields.map((field) => (
-                      <div key={field.id} className="space-y-2">
-                        <Label className="text-sm font-bold text-zinc-900">{field.label}</Label>
-                        {renderTemplateFieldInput(field)}
+                  <div className="space-y-5">
+                    <FormRow icon={<Sparkles className="w-4 h-4 text-indigo-500" />}>
+                      <div className="space-y-1">
+                        <Label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Event Title</Label>
+                        <input
+                          type="text"
+                          placeholder="Add title (e.g. CodeHack 2026)"
+                          value={formData.title}
+                          onChange={(e) => updateForm("title", e.target.value)}
+                          className={`text-xl font-extrabold w-full border-b border-zinc-200 hover:border-zinc-300 focus:border-indigo-600 focus:outline-none bg-transparent transition-all pb-1 placeholder:text-zinc-300 text-zinc-950 font-sans ${
+                            fieldErrors.title ? "border-red-400 focus:border-red-500 text-red-500" : ""
+                          }`}
+                        />
+                        {fieldErrors.title && <p className="text-sm text-red-500 mt-1 font-medium">{fieldErrors.title}</p>}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </FormRow>
 
-                {!isCustom && (!activeTemplate || activeTemplate.fields.length === 0) && (
-                  <div className="flex-1 flex items-center justify-center text-zinc-400 font-medium text-sm">
-                    No extra details needed for this template — continue to the next step.
-                  </div>
-                )}
-
-                {isCustom && (
-                  <div className="flex-1 space-y-5">
-                    <div className="flex flex-wrap gap-2">
-                      {CUSTOM_FIELD_TYPES.map((t) => (
-                        <button
-                          key={t.type}
-                          type="button"
-                          onClick={() => addCustomField(t.type)}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 transition-all text-xs font-bold"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> {t.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="space-y-4">
-                      {customFields.length === 0 && (
-                        <div className="text-center py-10 text-zinc-400 font-medium text-sm">
-                          No fields yet — pick a type above to add your first field.
+                    <FormRow icon={<ListPlus className="w-4 h-4 text-zinc-500" />}>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Event Category</Label>
+                          <Link href="/events/create" className="text-sm font-bold text-indigo-650 hover:text-indigo-700 transition-colors">
+                            Change template
+                          </Link>
                         </div>
-                      )}
-                      {customFields.map((field) => (
-                        <div key={field.id} className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-3">
-                          <div className="flex items-center gap-2">
-                            <Input
-                              value={field.label}
-                              onChange={(e) => updateCustomField(field.id, { label: e.target.value })}
-                              placeholder="Field label, e.g. Number of Judges"
-                              className="py-4 px-4 rounded-xl bg-white border-zinc-200 flex-1 font-semibold text-sm"
-                            />
+                        <div className="px-3.5 py-2.5 rounded-lg bg-zinc-50 text-zinc-700 border border-zinc-200 font-semibold text-sm flex items-center gap-2 mt-1">
+                          {isCustom ? <ListPlus className="w-3.5 h-3.5 text-zinc-400" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-500" />}
+                          {isCustom ? "Custom (User-Defined Schema)" : activeTemplate?.label || "Event"}
+                        </div>
+                      </div>
+                    </FormRow>
+
+                    <FormRow icon={<Users className="w-4 h-4 text-zinc-500" />}>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Hosting Mode</Label>
+                        <div className="flex gap-2">
+                          {MODES.map((mode) => (
                             <button
+                              key={mode}
                               type="button"
-                              onClick={() => removeCustomField(field.id)}
-                              className="p-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                              aria-label="Remove field"
+                              onClick={() => updateForm("mode", mode)}
+                              className={`flex-1 py-2 px-3 rounded-lg border font-bold text-sm capitalize transition-all ${
+                                formData.mode === mode
+                                  ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                  : "bg-white text-zinc-650 border-zinc-200 hover:bg-zinc-50"
+                              }`}
                             >
-                              <X className="w-4 h-4" />
+                              {mode}
                             </button>
-                          </div>
-                          {renderCustomFieldValueInput(field)}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            )}
-
-            {/* --- STEP 3: TIME & PLACE --- */}
-            {step === 3 && (
-              <motion.div key="step3" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.4 }} className="flex-1 flex flex-col">
-                <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-8"><MapPin className="w-8 h-8" /></div>
-                <h1 className="text-3xl font-extrabold text-zinc-900 mb-2">When and where?</h1>
-                <p className="text-zinc-500 font-medium mb-8">Set the stage for your attendees.</p>
-
-                <div className="space-y-6 flex-1">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      <Label className="text-base font-bold text-zinc-900">Start Date & Time</Label>
-                      <Input
-                        type="datetime-local"
-                        value={formData.start_date}
-                        onChange={(e) => updateForm("start_date", e.target.value)}
-                        className={`py-6 px-4 rounded-2xl bg-zinc-50 border-zinc-200 ${fieldErrors.start_date ? "border-red-400" : ""}`}
-                      />
-                      {fieldErrors.start_date && <p className="text-sm text-red-500">{fieldErrors.start_date}</p>}
-                    </div>
-                    <div className="space-y-3">
-                      <Label className="text-base font-bold text-zinc-900">End Date & Time</Label>
-                      <Input
-                        type="datetime-local"
-                        value={formData.end_date}
-                        onChange={(e) => updateForm("end_date", e.target.value)}
-                        className={`py-6 px-4 rounded-2xl bg-zinc-50 border-zinc-200 ${fieldErrors.end_date ? "border-red-400" : ""}`}
-                      />
-                      {fieldErrors.end_date && <p className="text-sm text-red-500">{fieldErrors.end_date}</p>}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-base font-bold text-zinc-900">Location {formData.mode === 'online' && '(Optional for Online)'}</Label>
-                    <div className="relative">
-                      <Input
-                        placeholder="e.g., Tech Hub Jaipur, or Zoom URL"
-                        value={formData.location}
-                        onChange={(e) => {
-                          updateForm("location", e.target.value);
-                          setIsLocationSelected(false);
-                        }}
-                        className={`text-lg py-7 px-5 pr-12 rounded-2xl bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 ${fieldErrors.location ? "border-red-400" : ""}`}
-                      />
-                      {formData.location.trim() && (
-                        <button
-                          type="button"
-                          onClick={clearSelectedLocation}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800"
-                          aria-label="Clear location"
-                        >
-                          ×
-                        </button>
-                      )}
-                      {isLoadingSuggestions && formData.location.trim().length >= 3 && (
-                        <p className="mt-2 text-sm text-zinc-500">Searching locations...</p>
-                      )}
-                      {locationSuggestions.length > 0 && (
-                        <ul className="absolute z-20 mt-2 w-full rounded-2xl border border-zinc-200 bg-white shadow-lg">
-                          {locationSuggestions.map((suggestion) => (
-                            <li
-                              key={suggestion.value}
-                              onMouseDown={(event) => {
-                                event.preventDefault();
-                                handleLocationSelect(suggestion.value);
-                              }}
-                              className="cursor-pointer px-4 py-3 text-sm text-zinc-700 hover:bg-zinc-50"
-                            >
-                              <div className="font-medium text-zinc-900">{suggestion.label}</div>
-                            </li>
                           ))}
-                        </ul>
-                      )}
-                    </div>
-                    {fieldErrors.location && <p className="text-sm text-red-500">{fieldErrors.location}</p>}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* --- STEP 4: DETAILS & REGISTRATION --- */}
-            {step === 4 && (
-              <motion.div key="step4" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.4 }} className="flex-1 flex flex-col overflow-y-auto pr-2">
-                <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-6 shrink-0"><AlignLeft className="w-8 h-8" /></div>
-                <h1 className="text-3xl font-extrabold text-zinc-900 mb-2 shrink-0">Registration details</h1>
-                <p className="text-zinc-500 font-medium mb-6 shrink-0">Define how people will join.</p>
-
-                <div className="space-y-6 flex-1">
-                  <div className="space-y-3">
-                    <Label className="text-base font-bold text-zinc-900">Description</Label>
-                    <textarea
-                      placeholder="What is the agenda? Who are the speakers?"
-                      value={formData.description}
-                      onChange={(e) => updateForm("description", e.target.value)}
-                      className={`w-full h-24 text-base py-4 px-5 rounded-2xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-none ${fieldErrors.description ? "border-red-400" : ""}`}
-                    />
-                    {fieldErrors.description && <p className="text-sm text-red-500">{fieldErrors.description}</p>}
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-base font-bold text-zinc-900">Keywords & Topic Tags</Label>
-                    <Input
-                      placeholder="e.g. AI, React, Hackathon, Workshop, Python (comma separated)"
-                      value={formData.keywords || ""}
-                      onChange={(e) => updateForm("keywords", e.target.value)}
-                      className="py-5 px-4 rounded-2xl bg-zinc-50 border-zinc-200"
-                    />
-                    <p className="text-xs text-zinc-400">
-                      Help attendees discover your event by adding searchable hashtags and topic keywords.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      <Label className="text-base font-bold text-zinc-900">Reg. Type</Label>
-                      <div className="flex gap-2">
-                        {REG_TYPES.map((type) => (
-                          <button key={type} onClick={() => updateForm("registration_type", type)} className={`px-4 py-2 rounded-xl font-semibold text-sm capitalize flex-1 transition-all ${formData.registration_type === type ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-600 border border-zinc-200"}`}>{type}</button>
-                        ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-3">
-                      <Label className="text-base font-bold text-zinc-900">Fee (₹)</Label>
-                      <Input 
-                        type="number" 
-                        placeholder="0 for Free" 
-                        value={formData.registration_fee} 
-                        onChange={(e) => updateForm("registration_fee", e.target.value)} 
-                        className={`py-5 px-4 rounded-2xl bg-zinc-50 border-zinc-200 ${fieldErrors.registration_fee ? "border-red-400 focus-visible:ring-red-400" : ""}`} 
-                      />
-                      {fieldErrors.registration_fee && <p className="text-sm text-red-500">{fieldErrors.registration_fee}</p>}
+                    </FormRow>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* --- STEP 2: TEMPLATE-SPECIFIC ATTRIBUTES (HORIZONTAL BLOCKS) --- */}
+              {step === 2 && (
+                <motion.div key="step2" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="space-y-6">
+                  <div className="flex items-center gap-4 border-b border-zinc-100 pb-4">
+                    <div className="w-10 h-10 bg-violet-50 text-violet-600 rounded-lg flex items-center justify-center shrink-0"><ListPlus className="w-5 h-5" /></div>
+                    <div>
+                      <h1 className="text-xl font-black text-zinc-900 tracking-tight">
+                        {isCustom ? "Build custom fields" : `${activeTemplate?.label || "Event"} attributes`}
+                      </h1>
+                      <p className="text-zinc-450 text-sm font-semibold">
+                        {isCustom ? "Add custom parameters your event tracks." : "Set extra attributes determined by template."}
+                      </p>
                     </div>
                   </div>
 
-                  {formData.registration_type === "team" && (
-                    <div className="grid grid-cols-2 gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-200">
-                      <div className="space-y-2">
-                        <Label className="text-sm font-bold text-zinc-900">Min Team Size</Label>
-                        <Input type="number" min="1" value={formData.min_team_size} onChange={(e) => updateForm("min_team_size", e.target.value)} className="rounded-xl" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-bold text-zinc-900">Max Team Size</Label>
-                        <Input type="number" min="1" value={formData.max_team_size} onChange={(e) => updateForm("max_team_size", e.target.value)} className="rounded-xl" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {/* --- STEP 5: ATTENDEE REGISTRATION FORM BUILDER --- */}
-            {step === 5 && (
-              <motion.div key="step5" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.4 }} className="flex-1 flex flex-col overflow-y-auto pr-2">
-                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 shrink-0"><FileText className="w-8 h-8" /></div>
-                <h1 className="text-3xl font-extrabold text-zinc-900 mb-2 shrink-0">Attendee Registration Form</h1>
-                <p className="text-zinc-500 font-medium mb-6 shrink-0">Configure the details attendees will fill out when registering.</p>
-
-                <div className="space-y-6 flex-1">
-                  {/* Fixed Fields Banner */}
-                  <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-100 space-y-2">
-                    <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
-                      <Lock className="w-4 h-4 text-indigo-600 shrink-0" /> Fixed Profile Fields (Auto-Collected)
-                    </div>
-                    <p className="text-xs text-indigo-700 font-medium">
-                      These fields are always required for every attendee and will update their profile:
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {["Full Name", "Phone Number", "Email Address"].map((f) => (
-                        <span key={f} className="px-2.5 py-1 rounded-lg bg-white/90 border border-indigo-200/60 text-xs font-semibold text-indigo-800 shadow-2xs">
-                          ✓ {f}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Host Dynamic Custom Questions */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-base font-bold text-zinc-900">Custom Registration Questions</Label>
-                      <span className="text-xs font-semibold text-zinc-400">
-                        {regFormFields.length} Custom Field{regFormFields.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
-
-                    {/* Quick Add Pill Options */}
-                    <div className="space-y-2">
-                      <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Quick Add Presets</p>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => addRegFormField("college", "College / University", "text")}
-                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-                        >
-                          + College / University
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => addRegFormField("year", "Graduation Year", "text")}
-                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-                        >
-                          + Year
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => addRegFormField("branch", "Branch / Stream", "text")}
-                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-                        >
-                          + Branch
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => addRegFormField("portfolio", "Portfolio URL", "text")}
-                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-                        >
-                          + Portfolio URL
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => addRegFormField("resume", "Resume Link", "text")}
-                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-                        >
-                          + Resume Link
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => addRegFormField("why_join", "Why do you want to join?", "textarea")}
-                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-                        >
-                          + Why Join?
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => addRegFormField(`custom_${Date.now()}`, "", "text")}
-                          className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all shadow-sm"
-                        >
-                          + Blank Field
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Field Editor List */}
-                    <div className="space-y-3 pt-2">
-                      {regFormFields.length === 0 && (
-                        <div className="text-center py-8 text-zinc-400 text-sm font-medium bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
-                          No custom questions added yet. Attendees will only answer standard profile questions.
+                  <div className="space-y-5">
+                    <FormRow icon={<ListPlus className="w-4 h-4 text-violet-500" />}>
+                      {!isCustom && activeTemplate && activeTemplate.fields.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {activeTemplate.fields.map((field) => (
+                            <div key={field.id} className="space-y-1.5 p-3 rounded-lg border border-zinc-150 bg-zinc-50/50">
+                              <Label className="text-sm font-bold text-zinc-700 uppercase tracking-wider">{field.label}</Label>
+                              <div className="mt-1">{renderTemplateFieldInput(field)}</div>
+                            </div>
+                          ))}
                         </div>
                       )}
 
-                      {regFormFields.map((field) => (
-                        <div key={field.id} className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-3">
-                          <div className="flex items-center gap-3">
-                            <Input
-                              value={field.label}
-                              onChange={(e) => updateRegFormField(field.id, { label: e.target.value })}
-                              placeholder="Question / Field Title (e.g., T-Shirt Size)"
-                              className="py-4 px-4 rounded-xl bg-white border-zinc-200 flex-1 font-semibold text-sm"
-                            />
-                            <select
-                              value={field.type}
-                              onChange={(e) =>
-                                updateRegFormField(field.id, {
-                                  type: e.target.value as any,
-                                  options: e.target.value === "select" ? field.options || ["Option 1", "Option 2"] : undefined,
-                                })
-                              }
-                              className="py-2.5 px-3 rounded-xl bg-white border border-zinc-200 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                            >
-                              <option value="text">Short Text</option>
-                              <option value="textarea">Long Text</option>
-                              <option value="number">Number</option>
-                              <option value="select">Dropdown Select</option>
-                              <option value="checkbox">Checkbox</option>
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => removeRegFormField(field.id)}
-                              className="p-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                              aria-label="Remove field"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                      {!isCustom && (!activeTemplate || activeTemplate.fields.length === 0) && (
+                        <div className="py-12 text-center text-zinc-450 text-sm font-semibold border border-dashed border-zinc-200 rounded-xl bg-zinc-50">
+                          No extra attributes required for this template. Press continue.
+                        </div>
+                      )}
+
+                      {isCustom && (
+                        <div className="space-y-5">
+                          <div className="space-y-1.5">
+                            <label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Add Event Parameters</label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {CUSTOM_FIELD_TYPES.map((t) => (
+                                <button
+                                  key={t.type}
+                                  type="button"
+                                  onClick={() => addCustomField(t.type)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 text-indigo-750 transition-all text-sm font-bold animate-pulse"
+                                >
+                                  <Plus className="w-4 h-4" /> {t.label}
+                                </button>
+                              ))}
+                            </div>
                           </div>
 
-                          {field.type === "select" && (
-                            <div className="space-y-1.5 pl-1">
-                              <Label className="text-xs font-bold text-zinc-500">Dropdown Options (Comma separated)</Label>
-                              <Input
-                                value={(field.options || []).join(", ")}
-                                onChange={(e) =>
-                                  updateRegFormField(field.id, {
-                                    options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean),
-                                  })
-                                }
-                                placeholder="e.g. S, M, L, XL"
-                                className="py-3 px-3 rounded-xl bg-white border-zinc-200 text-xs"
-                              />
-                            </div>
+                          {fieldErrors.custom_fields && (
+                            <p className="text-sm text-red-500 font-medium bg-red-55 p-2.5 rounded-lg border border-red-200">
+                              {fieldErrors.custom_fields}
+                            </p>
                           )}
 
-                          <div className="flex items-center justify-between pt-1 border-t border-zinc-200/60">
-                            <label className="flex items-center gap-2 text-xs font-semibold text-zinc-600 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={field.required}
-                                onChange={(e) => updateRegFormField(field.id, { required: e.target.checked })}
-                                className="w-4 h-4 rounded accent-indigo-600"
+                          {/* Horizontal Row block scaling builders */}
+                          <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
+                            {customFields.length === 0 && (
+                              <div className="text-center py-10 text-zinc-400 font-semibold text-sm border border-dashed border-zinc-200 rounded-xl bg-zinc-50">
+                                No custom parameters added. Click presets above to construct.
+                              </div>
+                            )}
+                            {customFields.map((field) => (
+                              <div key={field.id} className="flex flex-col md:flex-row items-center gap-3 p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+                                <div className="w-full md:w-1/3">
+                                  <Input
+                                    value={field.label}
+                                    onChange={(e) => updateCustomField(field.id, { label: e.target.value })}
+                                    placeholder="Param label (e.g. Prize)"
+                                    className="h-8.5 rounded-lg bg-white border-zinc-200 text-sm font-semibold"
+                                  />
+                                </div>
+                                <div className="w-full md:w-1/4">
+                                  <select
+                                    value={field.type}
+                                    onChange={(e) =>
+                                      updateCustomField(field.id, {
+                                        type: e.target.value as any,
+                                        options: e.target.value === "select" ? field.options || ["Option 1", "Option 2"] : undefined,
+                                        value: e.target.value === "boolean" ? "true" : "",
+                                      })
+                                    }
+                                    className="w-full h-8.5 py-1 px-2.5 rounded-lg border border-zinc-200 bg-white text-sm font-bold text-zinc-700 focus:outline-none"
+                                  >
+                                    <option value="text">Text</option>
+                                    <option value="number">Number</option>
+                                    <option value="date">Date</option>
+                                    <option value="select">Dropdown Choices</option>
+                                    <option value="checkbox">Checkbox</option>
+                                    <option value="boolean">Yes/No Toggle</option>
+                                  </select>
+                                </div>
+                                <div className="flex-1 w-full pl-0 md:pl-2 border-l-0 md:border-l-2 border-zinc-200">
+                                  {renderCustomFieldValueInput(field)}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeCustomField(field.id)}
+                                  className="p-1.5 rounded hover:text-red-500 text-zinc-450 hover:bg-red-50 transition-colors shrink-0"
+                                  aria-label="Remove parameter"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </FormRow>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* --- STEP 3: SCHEDULE & VENUE --- */}
+              {step === 3 && (
+                <motion.div key="step3" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="space-y-6">
+                  <div className="flex items-center gap-4 border-b border-zinc-100 pb-4">
+                    <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center shrink-0"><MapPin className="w-5 h-5" /></div>
+                    <div>
+                      <h1 className="text-xl font-black text-zinc-900 tracking-tight">Schedule & Venue</h1>
+                      <p className="text-zinc-450 text-sm font-semibold">Define event date boundaries and hosting addresses.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-5 relative">
+                    <FormRow icon={<Clock className="w-4 h-4 text-rose-500" />}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Start Date & Time</Label>
+                          <Input
+                            type="datetime-local"
+                            value={formData.start_date}
+                            onChange={(e) => updateForm("start_date", e.target.value)}
+                            className={`h-9 px-3 rounded-lg bg-zinc-55 border-zinc-200 text-sm focus-visible:ring-indigo-600 ${
+                              fieldErrors.start_date ? "border-red-400 focus-visible:ring-red-400" : ""
+                            }`}
+                          />
+                          {fieldErrors.start_date && <p className="text-sm text-red-500 mt-1 font-medium">{fieldErrors.start_date}</p>}
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">End Date & Time</Label>
+                          <Input
+                            type="datetime-local"
+                            value={formData.end_date}
+                            onChange={(e) => updateForm("end_date", e.target.value)}
+                            className={`h-9 px-3 rounded-lg bg-zinc-55 border-zinc-200 text-sm focus-visible:ring-indigo-600 ${
+                              fieldErrors.end_date ? "border-red-400 focus-visible:ring-red-400" : ""
+                            }`}
+                          />
+                          {fieldErrors.end_date && <p className="text-sm text-red-500 mt-1 font-medium">{fieldErrors.end_date}</p>}
+                        </div>
+                      </div>
+                    </FormRow>
+
+                    <FormRow icon={<MapPin className="w-4 h-4 text-red-500" />}>
+                      <div className="space-y-1.5 relative">
+                        <Label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">
+                          Location / Venue {formData.mode === "online" && "(Optional)"}
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            placeholder={formData.mode === "online" ? "e.g. Zoom or Meet URL" : "e.g. Auditorium Hall, Tech Hub Jaipur"}
+                            value={formData.location}
+                            onChange={(e) => {
+                              updateForm("location", e.target.value);
+                              setIsLocationSelected(false);
+                            }}
+                            className={`h-9 px-3 pr-9 rounded-lg bg-zinc-55 border-zinc-200 text-sm focus-visible:ring-indigo-600 ${
+                              fieldErrors.location ? "border-red-400 focus-visible:ring-red-400" : ""
+                            }`}
+                          />
+                          {formData.location.trim() && (
+                            <button
+                              type="button"
+                              onClick={clearSelectedLocation}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors"
+                              aria-label="Clear location"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        {isLoadingSuggestions && formData.location.trim().length >= 3 && (
+                          <p className="absolute z-30 mt-1 text-xs text-zinc-400 bg-white/95 px-2.5 py-1.5 rounded border border-zinc-100 shadow-sm animate-pulse">
+                            Searching locations...
+                          </p>
+                        )}
+                        {locationSuggestions.length > 0 && (
+                          <ul className="absolute z-50 mt-1 w-full max-h-40 overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-xl py-1 divide-y divide-zinc-50">
+                            {locationSuggestions.map((suggestion) => (
+                              <li
+                                key={suggestion.value}
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  handleLocationSelect(suggestion.value);
+                                }}
+                                className="cursor-pointer px-3 py-2.5 text-sm text-zinc-700 hover:bg-indigo-50 hover:text-indigo-950 transition-colors font-semibold"
+                              >
+                                {suggestion.label}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {fieldErrors.location && <p className="text-sm text-red-500 mt-1 font-medium">{fieldErrors.location}</p>}
+                      </div>
+                    </FormRow>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* --- STEP 4: REGISTRATION & LIMITS --- */}
+              {step === 4 && (
+                <motion.div key="step4" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="space-y-6">
+                  <div className="flex items-center gap-4 border-b border-zinc-100 pb-4">
+                    <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center shrink-0"><AlignLeft className="w-5 h-5" /></div>
+                    <div>
+                      <h1 className="text-xl font-black text-zinc-900 tracking-tight">Registration Specs & Limits</h1>
+                      <p className="text-zinc-450 text-sm font-semibold">Set pricing fee, capacities, and detailed guides.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-5">
+                    <FormRow icon={<AlignLeft className="w-4 h-4 text-amber-500 mt-1" />}>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <Label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Event Description</Label>
+                          <span className={`text-xs font-bold ${formData.description.length >= 20 ? "text-emerald-600" : "text-amber-550"}`}>
+                            {formData.description.length} / Min 20 chars
+                          </span>
+                        </div>
+                        <textarea
+                          placeholder="Provide descriptive details, speakers, agenda..."
+                          value={formData.description}
+                          onChange={(e) => updateForm("description", e.target.value)}
+                          className={`w-full h-20 text-sm py-2 px-3 rounded-lg bg-zinc-55 border border-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-600 resize-none text-zinc-900 placeholder:text-zinc-400 transition-all font-medium ${
+                            fieldErrors.description ? "border-red-400 focus:ring-red-500" : ""
+                          }`}
+                        />
+                        {fieldErrors.description && <p className="text-sm text-red-500 font-medium">{fieldErrors.description}</p>}
+                      </div>
+                    </FormRow>
+
+                    <FormRow icon={<Ticket className="w-4 h-4 text-indigo-500 mt-1" />}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Registration Type</Label>
+                          <div className="flex gap-2">
+                            {REG_TYPES.map((type) => (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => updateForm("registration_type", type)}
+                                className={`flex-1 py-2 px-3 rounded-lg border font-bold text-sm capitalize transition-all ${
+                                  formData.registration_type === type
+                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                    : "bg-white text-zinc-655 border-zinc-200 hover:bg-zinc-50"
+                                }`}
+                              >
+                                {type}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Registration Fee (₹)</Label>
+                          <Input
+                            type="number"
+                            placeholder="0 (Free)"
+                            value={formData.registration_fee}
+                            onChange={(e) => updateForm("registration_fee", e.target.value)}
+                            className={`h-9 px-3 rounded-lg bg-zinc-50 border-zinc-200 text-sm focus-visible:ring-indigo-600 ${
+                              fieldErrors.registration_fee ? "border-red-400 focus-visible:ring-red-400" : ""
+                            }`}
+                          />
+                          {fieldErrors.registration_fee && <p className="text-sm text-red-500 font-medium">{fieldErrors.registration_fee}</p>}
+                        </div>
+                      </div>
+                    </FormRow>
+
+                    <FormRow icon={<Users className="w-4 h-4 text-teal-500 mt-1" />}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Attendee Capacity</Label>
+                          <Input
+                            type="number"
+                            placeholder="e.g. 100"
+                            value={formData.capacity}
+                            onChange={(e) => updateForm("capacity", e.target.value)}
+                            className={`h-9 px-3 rounded-lg bg-zinc-55 border-zinc-200 text-sm focus-visible:ring-indigo-650 ${
+                              fieldErrors.capacity ? "border-red-400 focus-visible:ring-red-400" : ""
+                            }`}
+                          />
+                          {fieldErrors.capacity && <p className="text-sm text-red-500 font-medium">{fieldErrors.capacity}</p>}
+                        </div>
+
+                        {formData.registration_type === "team" && (
+                          <div className="grid grid-cols-2 gap-2 bg-zinc-50/50 p-2 rounded-lg border border-zinc-200/80">
+                            <div className="space-y-0.5">
+                              <Label className="text-xs font-bold text-zinc-555 uppercase">Min Size</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={formData.min_team_size}
+                                onChange={(e) => updateForm("min_team_size", e.target.value)}
+                                className="h-8 rounded bg-white border-zinc-200 text-sm font-semibold px-2"
                               />
-                              Required Question
-                            </label>
+                            </div>
+                            <div className="space-y-0.5">
+                              <Label className="text-xs font-bold text-zinc-555 uppercase">Max Size</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={formData.max_team_size}
+                                onChange={(e) => updateForm("max_team_size", e.target.value)}
+                                className="h-8 rounded bg-white border-zinc-200 text-sm font-semibold px-2"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {formData.registration_type === "team" && (fieldErrors.min_team_size || fieldErrors.max_team_size) && (
+                        <p className="text-sm text-red-500 font-medium mt-1">
+                          {fieldErrors.min_team_size || fieldErrors.max_team_size}
+                        </p>
+                      )}
+                    </FormRow>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* --- STEP 5: ATTENDEE QUESTION BUILDER (HORIZONTAL BLOCKS) --- */}
+              {step === 5 && (
+                <motion.div key="step5" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="space-y-6">
+                  <div className="flex items-center gap-4 border-b border-zinc-100 pb-4">
+                    <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0"><FileText className="w-5 h-5" /></div>
+                    <div>
+                      <h1 className="text-xl font-black text-zinc-900 tracking-tight">Attendee Custom Questionnaire</h1>
+                      <p className="text-zinc-450 text-sm font-semibold">Build forms attendees answer during checkout registration.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-5">
+                    <FormRow icon={<FileText className="w-4 h-4 text-blue-500 mt-1" />}>
+                      <div className="p-3.5 rounded-lg bg-indigo-50/50 border border-indigo-100/50 space-y-1">
+                        <div className="flex items-center gap-1.5 text-indigo-900 font-bold text-sm">
+                          <Lock className="w-3.5 h-3.5 text-indigo-600 shrink-0" /> Fixed Profile Fields
+                        </div>
+                        <p className="text-xs text-indigo-700 font-medium">
+                          These fields are mandatory: **Full Name, Email Address, Phone Number**.
+                        </p>
+                      </div>
+
+                      <div className="space-y-4 pt-1">
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Quick Presets & Blank</label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              { label: "College / University", key: "college", type: "text" },
+                              { label: "Graduation Year", key: "year", type: "text" },
+                              { label: "Branch / Stream", key: "branch", type: "text" },
+                              { label: "Resume Link", key: "resume", type: "text" },
+                              { label: "Why Join?", key: "why_join", type: "textarea" },
+                            ].map((p) => (
+                              <button
+                                key={p.label}
+                                type="button"
+                                onClick={() => addRegFormField(p.key, p.label, p.type as any)}
+                                className="px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-indigo-55 border border-zinc-200 text-zinc-700 hover:text-indigo-750 text-xs font-bold transition-all shadow-2xs"
+                              >
+                                + {p.label}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => addRegFormField(`custom_${Date.now()}`, "", "text")}
+                              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all animate-pulse"
+                            >
+                              + Blank Question
+                            </button>
                           </div>
                         </div>
-                      ))}
+
+                        {fieldErrors.reg_form_fields && (
+                          <p className="text-sm text-red-500 font-medium bg-red-50 p-2.5 rounded-lg border border-red-200">
+                            {fieldErrors.reg_form_fields}
+                          </p>
+                        )}
+
+                        {/* Horizontal Row block scaling builders */}
+                        <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                          {regFormFields.length === 0 && (
+                            <p className="text-center py-6 text-zinc-400 italic text-sm">No dynamic checkout questions added.</p>
+                          )}
+                          {regFormFields.map((field) => (
+                            <div key={field.id} className="flex flex-col md:flex-row items-center gap-3 p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+                              <div className="w-full md:w-1/3">
+                                <Input
+                                  value={field.label}
+                                  onChange={(e) => updateRegFormField(field.id, { label: e.target.value })}
+                                  placeholder="Question Label (e.g. Laptop Brand)"
+                                  className="h-8.5 rounded-lg bg-white border-zinc-200 text-sm font-semibold"
+                                />
+                              </div>
+                              <div className="w-full md:w-1/4">
+                                <select
+                                  value={field.type}
+                                  onChange={(e) =>
+                                    updateRegFormField(field.id, {
+                                      type: e.target.value as any,
+                                      options: e.target.value === "select" ? field.options || ["Option 1", "Option 2"] : undefined,
+                                    })
+                                  }
+                                  className="w-full h-8.5 py-1 px-2.5 rounded-lg border border-zinc-200 bg-white text-sm font-bold text-zinc-700 focus:outline-none"
+                                >
+                                  <option value="text">Short Text</option>
+                                  <option value="textarea">Long Text</option>
+                                  <option value="number">Number</option>
+                                  <option value="select">Dropdown Options</option>
+                                  <option value="checkbox">Checkbox Toggle</option>
+                                </select>
+                              </div>
+                              <div className="flex-1 w-full">
+                                {field.type === "select" ? (
+                                  <Input
+                                    value={(field.options || []).join(", ")}
+                                    onChange={(e) =>
+                                      updateRegFormField(field.id, {
+                                        options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean),
+                                      })
+                                    }
+                                    placeholder="e.g. S, M, L, XL"
+                                    className="h-8.5 rounded-lg bg-white border-zinc-200 text-sm font-semibold px-2.5"
+                                  />
+                                ) : (
+                                  <div className="text-xs text-zinc-400 font-semibold italic text-center md:text-left">
+                                    No additional configuration
+                                  </div>
+                                )}
+                              </div>
+                              <div className="shrink-0 flex items-center gap-3">
+                                <label className="flex items-center gap-1.5 text-xs font-bold text-zinc-555 cursor-pointer uppercase select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={field.required}
+                                    onChange={(e) => updateRegFormField(field.id, { required: e.target.checked })}
+                                    className="w-3.5 h-3.5 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+                                  />
+                                  Req
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => removeRegFormField(field.id)}
+                                  className="p-1.5 rounded hover:text-red-500 text-zinc-450 hover:bg-red-50 transition-colors shrink-0"
+                                  aria-label="Remove field"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </FormRow>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* --- STEP 6: VERIFY & DEPLOY --- */}
+              {step === 6 && (
+                <motion.div key="step6" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="space-y-6">
+                  <div className="flex items-center gap-4 border-b border-zinc-100 pb-4">
+                    <div className="w-10 h-10 bg-green-50 text-green-600 rounded-lg flex items-center justify-center shrink-0"><CheckCircle2 className="w-5 h-5" /></div>
+                    <div>
+                      <h1 className="text-xl font-black text-zinc-900 tracking-tight">Review event specs</h1>
+                      <p className="text-zinc-450 text-sm font-semibold">Verify setup parameters before launching.</p>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            )}
 
-            {/* --- STEP 6: REVIEW & PUBLISH --- */}
-            {step === 6 && (
-              <motion.div key="step6" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.4 }} className="flex-1 flex flex-col overflow-y-auto pr-2">
-                <div className="w-16 h-16 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center mb-8 shrink-0"><CheckCircle2 className="w-8 h-8" /></div>
-                <h1 className="text-3xl font-extrabold text-zinc-900 mb-2 shrink-0">Ready to publish?</h1>
-                <p className="text-zinc-500 font-medium mb-10 shrink-0">Here is a sneak peek of your event card.</p>
-
-                <div className="flex-1 flex flex-col items-center gap-8">
-                  <div className="w-full max-w-sm bg-white rounded-3xl p-3 border border-zinc-200 shadow-xl shadow-zinc-200/50">
-                    <div className="w-full h-40 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 relative overflow-hidden">
-                      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-zinc-900 shadow-sm capitalize">
-                        {formData.category} • {formData.mode}
+                  <div className="flex flex-col md:flex-row gap-6 justify-center items-start">
+                    <div className="w-full md:w-72 bg-white rounded-xl p-2 border border-zinc-200 shadow-md">
+                      <div className="w-full h-24 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                        <div className="text-white/20 font-black text-2xl uppercase">{formData.category.slice(0, 4)}</div>
                       </div>
-                    </div>
-                    <div className="p-5">
-                      <h3 className="text-xl font-bold text-zinc-900 mb-4 line-clamp-2">{formData.title}</h3>
-                      <div className="space-y-2">
-                        <div className="flex items-center text-sm font-medium text-zinc-500 gap-3">
-                          <Calendar className="w-4 h-4 text-indigo-400" />
-                          {formData.start_date ? new Date(formData.start_date).toLocaleDateString() : "Date TBA"}
-                        </div>
-                        <div className="flex items-center text-sm font-medium text-zinc-500 gap-3">
-                          <MapPin className="w-4 h-4 text-rose-400" />
-                          {formData.location || "Online"}
-                        </div>
-                        <div className="flex items-center text-sm font-medium text-zinc-500 gap-3">
-                          <Ticket className="w-4 h-4 text-amber-400" />
-                          {Number(formData.registration_fee) === 0 ? "Free Entry" : `₹${formData.registration_fee}`} • {formData.registration_type}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Attendee registration form fields preview */}
-                  <div className="w-full max-w-sm space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Attendee Registration Questions</p>
-                    <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100 space-y-2 text-xs">
-                      <div className="text-zinc-500 font-medium border-b border-zinc-200 pb-2">
-                        ✓ Fixed Profile: <span className="font-bold text-zinc-800">Name, Phone Number, Email Address</span>
-                      </div>
-                      {regFormFields.filter((f) => f.label.trim()).map((f) => (
-                        <div key={f.id} className="flex justify-between items-center py-1">
-                          <span className="text-zinc-700 font-semibold">{f.label}</span>
-                          <span className="text-zinc-400 font-mono text-[10px]">
-                            {f.type} {f.required ? "(Required)" : "(Optional)"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Custom / template field summary */}
-                  {isCustom && customFields.filter((f) => f.label.trim()).length > 0 && (
-                    <div className="w-full max-w-sm space-y-2">
-                      <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Custom Event Details</p>
-                      {customFields.filter((f) => f.label.trim()).map((f) => (
-                        <div key={f.id} className="flex justify-between text-sm bg-zinc-50 rounded-xl px-4 py-2 border border-zinc-100">
-                          <span className="text-zinc-500 font-medium">{f.label}</span>
-                          <span className="text-zinc-900 font-semibold">
-                            {f.type === "boolean" || f.type === "checkbox" ? (f.value === "true" ? "Yes" : "No") : f.value || "—"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {!isCustom && activeTemplate && activeTemplate.fields.some((f) => templateValues[f.id]) && (
-                    <div className="w-full max-w-sm space-y-2">
-                      <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">{activeTemplate.label} details</p>
-                      {activeTemplate.fields
-                        .filter((f) => templateValues[f.id])
-                        .map((f) => (
-                          <div key={f.id} className="flex justify-between text-sm bg-zinc-50 rounded-xl px-4 py-2 border border-zinc-100 gap-3">
-                            <span className="text-zinc-500 font-medium shrink-0">{f.label}</span>
-                            <span className="text-zinc-900 font-semibold text-right truncate">
-                              {f.type === "checkbox" ? (templateValues[f.id] === "true" ? "Yes" : "No") : templateValues[f.id]}
-                            </span>
+                      <div className="p-2 space-y-2">
+                        <h3 className="text-sm font-black text-zinc-900 line-clamp-1">{formData.title || "Untitled Event"}</h3>
+                        <div className="space-y-1.5 text-xs font-semibold text-zinc-500">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>{formData.start_date ? new Date(formData.start_date).toLocaleDateString() : "TBA"}</span>
                           </div>
-                        ))}
+                          <div className="flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                            <span className="truncate">{formData.location || "Online / TBA"}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Ticket className="w-3.5 h-3.5 text-amber-500" />
+                            <span>{Number(formData.registration_fee) === 0 ? "Free Entry" : `₹${formData.registration_fee}`}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
-          <div className="mt-8 pt-6 border-t border-zinc-100 flex items-center justify-between shrink-0">
-            <Button variant="ghost" onClick={prevStep} disabled={step === 1 || isLoading} className={`rounded-full px-6 font-semibold ${step === 1 ? 'invisible' : 'visible'}`}>
+                    <div className="flex-1 w-full rounded-xl border border-zinc-150 p-4 bg-zinc-50/50 space-y-3 text-sm">
+                      <div className="grid grid-cols-2 gap-y-3 pb-3 border-b border-zinc-200">
+                        <div>
+                          <p className="text-xs text-zinc-400 font-bold uppercase">Mode</p>
+                          <p className="font-bold text-zinc-900 text-sm capitalize">{formData.mode}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-zinc-400 font-bold uppercase">Pricing / Fee</p>
+                          <p className="font-bold text-zinc-900 text-sm">
+                            {Number(formData.registration_fee) === 0 ? "Free" : `₹${formData.registration_fee}`}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-zinc-400 font-bold uppercase">Attendee Capacity</p>
+                          <p className="font-bold text-zinc-900 text-sm">
+                            {Number(formData.capacity) === 0 ? "Unlimited" : `${formData.capacity} Seats`}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-zinc-400 font-bold uppercase">Registration Type</p>
+                          <p className="font-bold text-zinc-900 text-sm capitalize">
+                            {formData.registration_type} {formData.registration_type === "team" && `(Sizes: ${formData.min_team_size}-${formData.max_team_size})`}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-xs text-zinc-400 font-bold uppercase">Custom Questionnaire</p>
+                        <div className="bg-white rounded-lg p-2.5 border border-zinc-150 space-y-1.5 text-xs">
+                          {regFormFields.length === 0 ? (
+                            <p className="text-zinc-400 italic">No custom checkout questions added</p>
+                          ) : (
+                            regFormFields.map((f) => (
+                              <div key={f.id} className="flex justify-between items-center text-zinc-650 font-medium">
+                                <span>• {f.label || "(Empty)"}</span>
+                                <span className="font-bold text-zinc-500 capitalize">
+                                  {f.type} {f.required ? "(Req)" : ""}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Action buttons footer inside the card - Static */}
+          <footer className="h-16 border-t border-zinc-200 bg-zinc-50/50 px-6 flex items-center justify-between shrink-0">
+            <Button
+              variant="ghost"
+              onClick={prevStep}
+              disabled={step === 1 || isLoading}
+              className={`rounded-md font-bold text-zinc-500 hover:text-zinc-950 transition-all ${step === 1 ? 'invisible' : 'visible'}`}
+            >
               Back
             </Button>
 
             {step < TOTAL_STEPS ? (
-              <Button onClick={nextStep} className="rounded-full bg-zinc-900 hover:bg-zinc-800 text-white px-8 py-6 text-base shadow-lg transition-all hover:scale-105">
+              <Button
+                onClick={nextStep}
+                className="rounded-md bg-zinc-950 hover:bg-zinc-800 text-white px-8 py-5 text-sm shadow-md transition-all font-bold"
+              >
                 Continue <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={onSubmit} disabled={isLoading} className="rounded-full bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-6 text-base shadow-lg shadow-indigo-600/20 transition-all hover:scale-[1.02]">
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Publish Event <Sparkles className="w-4 h-4 ml-2" /></>}
+              <Button
+                onClick={onSubmit}
+                disabled={isLoading}
+                className="rounded-md bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-5 text-sm shadow-md shadow-indigo-600/10 transition-all font-bold"
+              >
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Publish Event <Sparkles className="w-4 h-4 ml-2" />
               </Button>
             )}
-          </div>
+          </footer>
         </div>
       </main>
     </div>
