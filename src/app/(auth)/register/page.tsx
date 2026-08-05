@@ -31,9 +31,11 @@ import {
   useRegisterInit,
   useVerifyRegister,
 } from "@/hooks/authHooks";
+import { useToast } from "@/components/providers/ToastProvider";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { success: showSuccess, error: showError } = useToast();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [serverError, setServerError] = useState("");
@@ -143,6 +145,8 @@ export default function RegisterPage() {
         result.refreshToken
       );
 
+      showSuccess("Account registered successfully! Welcome to CommunityConnect.");
+
       // Check return URL
       const returnUrl =
         localStorage.getItem("returnUrl");
@@ -154,10 +158,9 @@ export default function RegisterPage() {
         router.push("/home");
       }
     } catch (error: any) {
-      setServerError(
-        error.message ||
-          "Invalid OTP. Please try again."
-      );
+      const errMsg = error.message || "Invalid OTP. Please try again.";
+      setServerError(errMsg);
+      showError(errMsg);
     }
   };
 

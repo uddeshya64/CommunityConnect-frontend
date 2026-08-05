@@ -30,6 +30,7 @@ import {
   useVerifyResetOtp,
   useResetPassword,
 } from "@/hooks/authHooks";
+import { useToast } from "@/components/providers/ToastProvider";
 
 type ViewState =
   | "LOGIN"
@@ -40,6 +41,7 @@ type ViewState =
 
 export default function LoginPage() {
   const router = useRouter();
+  const { success: showSuccess, error: showError } = useToast();
 
   const [view, setView] = useState<ViewState>("LOGIN");
   const [serverError, setServerError] = useState("");
@@ -138,6 +140,7 @@ export default function LoginPage() {
 
       localStorage.setItem("accessToken", result.accessToken);
       localStorage.setItem("refreshToken", result.refreshToken);
+      showSuccess("Signed in successfully!");
 
       router.push("/home");
     } catch (error: any) {
@@ -179,6 +182,7 @@ export default function LoginPage() {
       localStorage.setItem("accessToken", pendingTokens.accessToken);
       localStorage.setItem("refreshToken", pendingTokens.refreshToken);
       setSuccessMessage("2FA verification successful! Welcome back.");
+      showSuccess("2FA verification successful! Welcome back.");
       setTimeout(() => {
         router.push("/home");
       }, 500);
@@ -241,6 +245,7 @@ export default function LoginPage() {
     try {
       await resetPassword(resetToken, newPassword, confirmPassword);
       setSuccessMessage("Password reset successfully");
+      showSuccess("Password reset successfully");
       setView("LOGIN");
     } catch (error: any) {
       setServerError(
@@ -266,12 +271,6 @@ export default function LoginPage() {
             {serverError && (
               <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-medium">
                 {serverError}
-              </div>
-            )}
-
-            {successMessage && view === "LOGIN" && (
-              <div className="p-4 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm font-medium">
-                {successMessage}
               </div>
             )}
 

@@ -18,6 +18,7 @@ import { eventService } from "@/services/event.service";
 import { api } from "@/lib/axios";
 import { Html5Qrcode } from "html5-qrcode";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
+import { useToast } from "@/components/providers/ToastProvider";
 
 interface EventDetails {
   id: string;
@@ -43,6 +44,7 @@ export default function EventDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.eventId as string;
+  const { success: showSuccess, error: showError } = useToast();
 
   const [event, setEvent] = useState<EventDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -379,6 +381,7 @@ export default function EventDetailsPage() {
       });
 
       setUpdateMessage({ type: "success", text: "Event updated successfully!" });
+      showSuccess("Event updated successfully!");
 
       setEvent((prev: any) => {
         if (!prev) return prev;
@@ -426,6 +429,7 @@ export default function EventDetailsPage() {
     try {
       setIsDeleting(true);
       await eventService.deleteEvent(eventId);
+      showSuccess("Event deleted successfully!");
       router.push("/home");
     } catch (err: any) {
       console.error(err);
@@ -450,6 +454,7 @@ export default function EventDetailsPage() {
         subscription_status: organizerConfig.subscription_status
       });
       setConfigMessage({ type: "success", text: "Settings saved successfully!" });
+      showSuccess("Settings saved successfully!");
     } catch (err: any) {
       console.error(err);
       setConfigMessage({ type: "error", text: err.response?.data?.error || "Failed to update configurations." });
@@ -471,6 +476,7 @@ export default function EventDetailsPage() {
       
       setOrganizerConfig({ ...organizerConfig, subscription_status: newPlan });
       setConfigMessage({ type: "success", text: `Successfully upgraded to ${newPlan} plan!` });
+      showSuccess(`Successfully upgraded to ${newPlan} plan!`);
     } catch (err: any) {
       console.error(err);
       setConfigMessage({ type: "error", text: err.response?.data?.error || "Failed to upgrade subscription." });
@@ -673,6 +679,7 @@ export default function EventDetailsPage() {
           const updatedTimelines = (prev.timelines || []).map(item => item.id === editingTimelineItem.id ? updatedItem : item);
           return { ...prev, timelines: updatedTimelines };
         });
+        showSuccess("Timeline item updated successfully!");
       } else {
         const res = await eventService.createTimeline(eventId, payload);
         const newItem = res.data?.data || res.data || res;
@@ -682,6 +689,7 @@ export default function EventDetailsPage() {
           if (!prev) return null;
           return { ...prev, timelines: sortList([...(prev.timelines || []), newItem]) };
         });
+        showSuccess("Timeline item created successfully!");
       }
 
       setIsAgendaModalOpen(false);
@@ -702,6 +710,7 @@ export default function EventDetailsPage() {
         if (!prev) return null;
         return { ...prev, timelines: (prev.timelines || []).filter(item => item.id !== timelineId) };
       });
+      showSuccess("Timeline item deleted successfully!");
     } catch (err: any) {
       alert(err.response?.data?.error || err.message || "Failed to delete agenda item.");
     }

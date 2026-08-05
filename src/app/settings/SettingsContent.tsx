@@ -55,6 +55,7 @@ import { Label } from "@/components/ui/label";
 import { profileService } from "@/services/profile.service";
 import { Profile } from "@/types/profile.types";
 import { useAppearance, ACCENT_COLORS_CONFIG as ACCENT_COLORS } from "@/components/providers/AppearanceProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 
 interface UserSettings {
   // Notifications
@@ -173,12 +174,12 @@ const ToggleSwitch = ({
 
 export default function SettingsContent() {
   const { isDark, activeAccent } = useAppearance();
+  const { success: showSuccess, info: showInfo, error: showError } = useToast();
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
-
   const [activeTab, setActiveTab] = useState<TabKey>("account");
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [searchQuery, setSearchQuery] = useState("");
@@ -351,6 +352,7 @@ export default function SettingsContent() {
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
+    showSuccess(msg);
     setTimeout(() => {
       setToastMessage(null);
     }, 3500);

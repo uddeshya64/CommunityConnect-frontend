@@ -18,6 +18,7 @@ interface AppEvent {
   location: string;
   attendees?: number;
   createdBy?: number | string;
+  bannerUrl?: string | null;
 }
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
@@ -39,10 +40,16 @@ export default function MyEventsPage() {
   const { getMyProfile } = useMyProfile();
 
   useEffect(() => {
+    const cachedUserId = localStorage.getItem("cc_user_id");
+    if (cachedUserId) {
+      setUserId(Number(cachedUserId));
+    }
+
     const fetchProfile = async () => {
       try {
         const profile = await getMyProfile();
         setUserId(profile.id);
+        localStorage.setItem("cc_user_id", String(profile.id));
       } catch (err) {
         // no-op — if profile fails to load, we just won't be able to filter to "mine" yet
       }
@@ -51,6 +58,14 @@ export default function MyEventsPage() {
   }, []);
 
   useEffect(() => {
+    const cachedEvents = localStorage.getItem("cc_my_events");
+    if (cachedEvents) {
+      try {
+        setEvents(JSON.parse(cachedEvents));
+        setIsLoading(false);
+      } catch (e) {}
+    }
+
     const fetchEvents = async () => {
       try {
         const response = await eventService.getFeed();
@@ -77,8 +92,10 @@ export default function MyEventsPage() {
           location: evt.location || evt.mode || "TBA",
           attendees: evt.capacity || 0,
           createdBy: evt.created_by,
+          bannerUrl: evt.banner_url || evt.bannerUrl || evt.banner || null,
         }));
         setEvents(formattedEvents);
+        localStorage.setItem("cc_my_events", JSON.stringify(formattedEvents));
       } catch (error) {
         console.error("Failed to fetch events:", error);
       } finally {
@@ -169,8 +186,21 @@ export default function MyEventsPage() {
                   <motion.div key={event.id} variants={itemVariants}>
                     <Link href={`/events/${event.id}`}>
                       <div className={`group ${isDark ? "bg-zinc-900/60 border-white/10 hover:border-white/20" : "bg-white border-zinc-200 hover:border-zinc-300"} rounded-3xl p-3 border transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 cursor-pointer relative overflow-hidden h-full flex flex-col`}>
-                        <div className={`w-full h-48 rounded-2xl bg-gradient-to-br ${randomGradient} relative overflow-hidden group-hover:scale-[1.02] transition-transform duration-500 ease-out`}>
-                          <div className={`absolute top-4 left-4 ${isDark ? "bg-zinc-950/90 text-zinc-100" : "bg-white/90 text-zinc-900"} backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold shadow-sm`}>
+                        <div
+                          className={`w-full h-48 rounded-2xl ${
+                            event.bannerUrl
+                              ? "bg-zinc-100"
+                              : `bg-gradient-to-br ${randomGradient}`
+                          } relative overflow-hidden group-hover:scale-[1.02] transition-transform duration-500 ease-out`}
+                        >
+                          {event.bannerUrl && (
+                            <img
+                              src={event.bannerUrl}
+                              alt={event.title}
+                              className="w-full h-full object-cover absolute inset-0"
+                            />
+                          )}
+                          <div className={`absolute top-4 left-4 ${isDark ? "bg-zinc-950/80 text-zinc-100" : "bg-white/90 text-zinc-900"} backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold shadow-sm z-10`}>
                             {event.category || "Tech Event"}
                           </div>
                         </div>

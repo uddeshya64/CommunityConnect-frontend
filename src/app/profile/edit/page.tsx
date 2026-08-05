@@ -37,6 +37,7 @@ import {
 
 import PageTransition from "@/components/layout/PageTransition";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import { useToast } from "@/components/providers/ToastProvider";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
@@ -44,6 +45,7 @@ type EditProfileFormValues = UpdateProfileFormValues;
 
 export default function EditProfilePage() {
   const { isDark, activeAccent } = useAppearance();
+  const { success: showSuccess, error: showError } = useToast();
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -84,12 +86,38 @@ export default function EditProfilePage() {
    * Fetch existing profile
    */
   useEffect(() => {
+    const cachedProfile = localStorage.getItem("cc_user_profile");
+    if (cachedProfile) {
+      try {
+        const profileData = JSON.parse(cachedProfile) as any;
+        const existingSkills = Array.isArray(profileData.skills)
+          ? profileData.skills
+          : [];
+        form.reset({
+          name: profileData.name || "",
+          phone: profileData.phone || "",
+          profession: profileData.profession || "",
+          bio: profileData.bio || "",
+          location: profileData.location || "",
+          linkedin: profileData.linkedin || "",
+          github: profileData.github || "",
+          avatar_url: profileData.avatar_url || "",
+          skills: existingSkills,
+        });
+        setSkills(existingSkills);
+        setIsLoading(false);
+      } catch (e) {}
+    }
+
     const fetchProfile = async () => {
       try {
-        setIsLoading(true);
+        if (!cachedProfile) {
+          setIsLoading(true);
+        }
 
         const data = await profileService.getMyProfile();
         const profileData = data as any;
+        localStorage.setItem("cc_user_profile", JSON.stringify(profileData));
 
         const existingSkills = Array.isArray(profileData.skills)
           ? profileData.skills
@@ -110,9 +138,11 @@ export default function EditProfilePage() {
         setSkills(existingSkills);
       } catch (error) {
         console.error("Failed to fetch profile:", error);
-        setServerError(
-          "Unable to load your profile. You can still create your profile."
-        );
+        if (!cachedProfile) {
+          setServerError(
+            "Unable to load your profile. You can still create your profile."
+          );
+        }
       } finally {
         setIsLoading(false);
       }
@@ -267,6 +297,7 @@ export default function EditProfilePage() {
       await profileService.updateMyProfile(payload);
       localStorage.setItem("profile_completed", "true");
       setSuccessMsg("Profile updated successfully!");
+      showSuccess("Profile updated successfully!");
 
       setTimeout(() => {
         router.push("/profile/me");
@@ -282,9 +313,16 @@ export default function EditProfilePage() {
         "Failed to update profile. Please try again.";
 
       setServerError(errorMessage);
+      showError(errorMessage);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const onInvalid = (errors: any) => {
+    console.error("Form validation errors:", errors);
+    setServerError("Please fix the validation errors in the form before saving.");
+    showError("Please fix the validation errors in the form before saving.");
   };
 
   /**
@@ -292,13 +330,52 @@ export default function EditProfilePage() {
    */
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-        >
-          <Loader2 className="w-10 h-10 text-indigo-500" />
-        </motion.div>
+      <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-200" : "bg-zinc-50 text-zinc-900"} relative overflow-hidden`}>
+        <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
+        <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/70 border-white/5" : "bg-white/80 border-zinc-200"} border-b shadow-sm`}>
+          <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between animate-pulse">
+            <div className="w-16 h-4 bg-zinc-700/40 rounded" />
+            <div className="w-24 h-8 bg-zinc-700/40 rounded-full" />
+          </div>
+        </nav>
+        <main className="max-w-4xl mx-auto px-6 pt-10 pb-20 relative z-10 animate-pulse space-y-8">
+          <div className="space-y-2">
+            <div className="w-48 h-8 bg-zinc-700/40 rounded-xl" />
+            <div className="w-72 h-4 bg-zinc-700/20 rounded" />
+          </div>
+          <div className={`rounded-[2rem] p-6 md:p-8 ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border flex flex-col md:flex-row gap-8`}>
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-32 h-32 rounded-full bg-zinc-700/40" />
+              <div className="w-28 h-6 bg-zinc-700/30 rounded-full" />
+            </div>
+            <div className="flex-1 space-y-6">
+              <div className="w-36 h-6 bg-zinc-700/40 rounded" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <div className="w-16 h-4 bg-zinc-700/30 rounded" />
+                  <div className="w-full h-11 bg-zinc-700/20 rounded-xl" />
+                </div>
+                <div className="space-y-2">
+                  <div className="w-24 h-4 bg-zinc-700/30 rounded" />
+                  <div className="w-full h-11 bg-zinc-700/20 rounded-xl" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className={`rounded-[2rem] p-6 md:p-8 ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border space-y-6`}>
+            <div className="w-40 h-6 bg-zinc-700/40 rounded" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <div className="w-20 h-4 bg-zinc-700/30 rounded" />
+                <div className="w-full h-11 bg-zinc-700/20 rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <div className="w-16 h-4 bg-zinc-700/30 rounded" />
+                <div className="w-full h-11 bg-zinc-700/20 rounded-xl" />
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -339,30 +416,16 @@ export default function EditProfilePage() {
                 exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                 className="overflow-hidden"
               >
-                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-medium text-sm flex items-center gap-2">
+                <div className={`p-4 rounded-xl ${isDark ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-red-50 border-red-200 text-red-900"} font-medium text-sm flex items-center gap-2`}>
                   <X className="w-4 h-4 shrink-0" />
                   {serverError}
-                </div>
-              </motion.div>
-            )}
-
-            {successMsg && (
-              <motion.div
-                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                animate={{ opacity: 1, height: "auto", marginBottom: 24 }}
-                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium text-sm flex items-center gap-2">
-                  <Save className="w-4 h-4 shrink-0" />
-                  {successMsg}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* Form */}
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-8">
             {/* BASIC INFORMATION & AVATAR */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -499,6 +562,11 @@ export default function EditProfilePage() {
                     disabled={isSaving}
                     className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
                   />
+                  {form.formState.errors.profession && (
+                    <p className="text-xs text-red-400">
+                      {form.formState.errors.profession.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Location */}
@@ -514,6 +582,11 @@ export default function EditProfilePage() {
                     disabled={isSaving}
                     className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
                   />
+                  {form.formState.errors.location && (
+                    <p className="text-xs text-red-400">
+                      {form.formState.errors.location.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Phone */}
@@ -529,6 +602,11 @@ export default function EditProfilePage() {
                     disabled={isSaving}
                     className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
                   />
+                  {form.formState.errors.phone && (
+                    <p className="text-xs text-red-400">
+                      {form.formState.errors.phone.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -547,6 +625,11 @@ export default function EditProfilePage() {
                   disabled={isSaving}
                   className="w-full rounded-xl px-4 py-3 bg-zinc-950/50 border border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:border-zinc-400 transition-all resize-none text-sm outline-none"
                 />
+                {form.formState.errors.bio && (
+                  <p className="text-xs text-red-400">
+                    {form.formState.errors.bio.message}
+                  </p>
+                )}
                 <div className="flex justify-end">
                   <span
                     className={`text-xs ${

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useToast } from "@/components/providers/ToastProvider";
 import { ArrowLeft, ArrowRight, Sparkles, MapPin, Calendar, AlignLeft, CheckCircle2, Loader2, Ticket, Plus, X, ListPlus, FileText, Lock, User, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,7 @@ const isValidTemplateId = (id: string | null) =>
 function CreateEventPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { success: showSuccess, error: showError } = useToast();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
@@ -416,9 +418,11 @@ function CreateEventPageInner() {
       };
 
       await eventService.createEvent(payload);
+      showSuccess("Event created successfully!");
       router.push("/home");
-    } catch {
+    } catch (err: any) {
       setIsLoading(false);
+      showError(err?.message || "Failed to create event. Please try again.");
     }
   };
 

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
 import { useMyProfile } from "@/hooks/profileHooks";
+import { useToast } from "@/components/providers/ToastProvider";
 
 // Add Razorpay to the Window object for TypeScript
 declare global {
@@ -22,6 +23,7 @@ export default function EventRegistrationPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.eventId as string;
+  const { success: showSuccess, error: showError } = useToast();
 
   const [event, setEvent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -204,6 +206,7 @@ export default function EventRegistrationPage() {
       // 4. Handle Free Registration (isFree: true)
       if (response.isFree) {
         const finalId = result.team_id || result.registration_id;
+        showSuccess("Registration successful!");
         router.push(`/dashboard/team/${finalId}`);
         return;
       }
@@ -229,9 +232,11 @@ export default function EventRegistrationPage() {
             
             // Redirect to Team Dashboard!
             const finalId = result.team_id || result.registration_id;
+            showSuccess("Registration and payment successful!");
             router.push(`/dashboard/team/${finalId}`);
           } catch (err) {
             setError("Payment verification failed. Please contact support.");
+            showError("Payment verification failed. Please contact support.");
             setIsProcessing(false);
           }
         },
@@ -249,12 +254,15 @@ export default function EventRegistrationPage() {
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', function (failedResponse: any) {
          setError(`Payment Failed: ${failedResponse.error.description}`);
+         showError(`Payment Failed: ${failedResponse.error.description}`);
          setIsProcessing(false);
       });
       rzp.open();
 
     } catch (err: any) {
-      setError(err.response?.data?.error || err.response?.data?.message || "Failed to initialize checkout.");
+      const errMsg = err.response?.data?.error || err.response?.data?.message || "Failed to initialize checkout.";
+      setError(errMsg);
+      showError(errMsg);
       setIsProcessing(false);
     }
   };

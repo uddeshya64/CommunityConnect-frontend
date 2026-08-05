@@ -300,42 +300,31 @@ export default function HomeContent() {
       return;
     }
 
+    const cachedProfile = localStorage.getItem("cc_user_profile");
+    if (cachedProfile) {
+      try {
+        const profile = JSON.parse(cachedProfile);
+        setUserName(profile.name || "there");
+        setUserId(profile.id);
+        setAvatarUrl(profile.avatar_url || null);
+      } catch (e) {}
+    }
+
     const fetchProfile =
       async () => {
         try {
-          console.log(
-            "Fetching logged-in user profile..."
-          );
-
           const accessToken =
             localStorage.getItem(
               "accessToken"
             );
 
-          console.log(
-            "Token before profile request:",
-            accessToken
-              ? "EXISTS"
-              : "MISSING"
-          );
-
           if (!accessToken) {
-            console.error(
-              "No access token found"
-            );
-
             setUserName("there");
-
             return;
           }
 
           const profile =
             await getMyProfile();
-
-          console.log(
-            "Logged-in profile:",
-            profile
-          );
 
           setUserName(
             profile.name ||
@@ -350,6 +339,8 @@ export default function HomeContent() {
             profile.avatar_url ||
               null
           );
+
+          localStorage.setItem("cc_user_profile", JSON.stringify(profile));
         } catch (err) {
           console.error(
             "Failed to fetch profile:",
@@ -372,6 +363,14 @@ export default function HomeContent() {
   // ============================================
 
   useEffect(() => {
+    const cachedEvents = localStorage.getItem("cc_home_events");
+    if (cachedEvents) {
+      try {
+        setEvents(JSON.parse(cachedEvents));
+        setIsLoading(false);
+      } catch (e) {}
+    }
+
     const fetchEvents =
       async () => {
         try {
@@ -470,14 +469,6 @@ export default function HomeContent() {
           const formattedEvents =
             rawEvents.map(
               (evt: any) => {
-                console.log(
-                  "RAW EVENT:",
-                  evt.id,
-                  "created_by:",
-                  evt.created_by,
-                  typeof evt.created_by
-                );
-
                 return {
                   id:
                     String(
@@ -522,6 +513,7 @@ export default function HomeContent() {
           setEvents(
             formattedEvents
           );
+          localStorage.setItem("cc_home_events", JSON.stringify(formattedEvents));
         } catch (error) {
           console.error(
             "Failed to fetch events:",

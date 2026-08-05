@@ -37,18 +37,27 @@ export default function MyProfilePage() {
 
     // Fetch profile
     useEffect(() => {
+        const cached = localStorage.getItem("cc_user_profile");
+        if (cached) {
+            try {
+                setProfile(JSON.parse(cached));
+                setIsLoading(false);
+            } catch (e) {}
+        }
+
         const fetchProfile = async () => {
             try {
                 const data = await profileService.getMyProfile();
-
                 setProfile(data);
-
+                localStorage.setItem("cc_user_profile", JSON.stringify(data));
                 localStorage.setItem("profile_completed", "true");
             } catch (err: any) {
-                setError(
-                    err.response?.data?.error ||
-                    "Failed to load profile."
-                );
+                if (!cached) {
+                    setError(
+                        err.response?.data?.error ||
+                        "Failed to load profile."
+                    );
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -164,17 +173,57 @@ export default function MyProfilePage() {
     // Loading state
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-                <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{
-                        repeat: Infinity,
-                        duration: 1,
-                        ease: "linear",
-                    }}
-                >
-                    <Loader2 className="w-10 h-10 text-indigo-400" />
-                </motion.div>
+            <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative overflow-hidden`}>
+                <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
+                <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/60 border-white/5" : "bg-white/70 border-zinc-200"} border-b`}>
+                    <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between animate-pulse">
+                        <div className="w-16 h-4 bg-zinc-700/40 rounded" />
+                        <div className="flex gap-2">
+                            <div className="w-20 h-8 bg-zinc-700/40 rounded-full" />
+                            <div className="w-24 h-8 bg-zinc-700/40 rounded-full" />
+                        </div>
+                    </div>
+                </nav>
+                <main className="max-w-3xl mx-auto px-6 pt-10 pb-20 relative z-10 space-y-8 animate-pulse">
+                    <div className="flex flex-col items-center text-center space-y-4">
+                        <div className="w-28 h-28 rounded-full bg-zinc-700/40" />
+                        <div className="w-48 h-8 bg-zinc-700/40 rounded-xl" />
+                        <div className="flex gap-2">
+                            <div className="w-32 h-8 bg-zinc-700/30 rounded-full" />
+                            <div className="w-28 h-8 bg-zinc-700/30 rounded-full" />
+                        </div>
+                        <div className="w-64 h-4 bg-zinc-700/20 rounded-md" />
+                    </div>
+                    <div className="mt-12 space-y-4">
+                        <div className={`rounded-2xl p-5 ${isDark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-zinc-200 shadow-sm"} space-y-4`}>
+                            <div className="w-20 h-4 bg-zinc-700/40 rounded" />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-zinc-700/30" />
+                                    <div className="space-y-1">
+                                        <div className="w-12 h-3 bg-zinc-700/20 rounded" />
+                                        <div className="w-32 h-4 bg-zinc-700/30 rounded" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-zinc-700/30" />
+                                    <div className="space-y-1">
+                                        <div className="w-12 h-3 bg-zinc-700/20 rounded" />
+                                        <div className="w-32 h-4 bg-zinc-700/30 rounded" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className={`rounded-2xl p-5 ${isDark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-zinc-200 shadow-sm"} space-y-4`}>
+                            <div className="w-24 h-4 bg-zinc-700/40 rounded" />
+                            <div className="flex flex-wrap gap-2">
+                                <div className="w-16 h-8 bg-zinc-700/30 rounded-full" />
+                                <div className="w-24 h-8 bg-zinc-700/30 rounded-full" />
+                                <div className="w-20 h-8 bg-zinc-700/30 rounded-full" />
+                            </div>
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
