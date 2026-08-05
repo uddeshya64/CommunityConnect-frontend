@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useToast } from "@/components/providers/ToastProvider";
 import { ArrowLeft, ArrowRight, Sparkles, MapPin, Calendar, AlignLeft, CheckCircle2, Loader2, Ticket, Plus, X, ListPlus, FileText, Lock, User, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,9 @@ import {
   getTemplateById,
   type FieldType,
 } from "@/lib/eventTemplates";
+
+
+
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
@@ -33,6 +37,7 @@ interface EventFormData {
   registration_fee: string;
   min_team_size: string;
   max_team_size: string;
+  keywords?: string;
 }
 
 interface FormErrors {
@@ -72,6 +77,7 @@ const isValidTemplateId = (id: string | null) =>
 function CreateEventPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { success: showSuccess, error: showError } = useToast();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
@@ -109,6 +115,7 @@ function CreateEventPageInner() {
     registration_fee: "0",
     min_team_size: "1",
     max_team_size: "1",
+    keywords: "",
   });
 
   const isCustom = formData.category === CUSTOM_TEMPLATE_ID;
@@ -402,15 +409,20 @@ function CreateEventPageInner() {
         registration_fee: parseFloat(formData.registration_fee) || 0,
         min_team_size: parseInt(formData.min_team_size) || 1,
         max_team_size: parseInt(formData.max_team_size) || 1,
-        custom_fields,
+        custom_fields: {
+          ...custom_fields,
+          keywords: formData.keywords || "",
+        },
         registration_form_schema,
         ...(custom_form_schema ? { custom_form_schema } : {}),
       };
 
       await eventService.createEvent(payload);
+      showSuccess("Event created successfully!");
       router.push("/home");
-    } catch {
+    } catch (err: any) {
       setIsLoading(false);
+      showError(err?.message || "Failed to create event. Please try again.");
     }
   };
 
@@ -831,6 +843,19 @@ function CreateEventPageInner() {
                       className={`w-full h-24 text-base py-4 px-5 rounded-2xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-600 resize-none ${fieldErrors.description ? "border-red-400" : ""}`}
                     />
                     {fieldErrors.description && <p className="text-sm text-red-500">{fieldErrors.description}</p>}
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label className="text-base font-bold text-zinc-900">Keywords & Topic Tags</Label>
+                    <Input
+                      placeholder="e.g. AI, React, Hackathon, Workshop, Python (comma separated)"
+                      value={formData.keywords || ""}
+                      onChange={(e) => updateForm("keywords", e.target.value)}
+                      className="py-5 px-4 rounded-2xl bg-zinc-50 border-zinc-200"
+                    />
+                    <p className="text-xs text-zinc-400">
+                      Help attendees discover your event by adding searchable hashtags and topic keywords.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">

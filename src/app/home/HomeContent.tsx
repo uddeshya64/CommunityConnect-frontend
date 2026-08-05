@@ -20,6 +20,7 @@ import { eventService } from "@/services/event.service";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
 import Sidebar from "@/app/home/SideBar";
 import { useMyProfile } from "@/hooks/profileHooks";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 // ============================================
 // TYPES
@@ -132,12 +133,19 @@ function ProfileAvatar({
 // ============================================
 
 export default function HomeContent() {
+  const { isDark, activeAccent } = useAppearance();
   const searchParams = useSearchParams();
   const router = useRouter();
 
   // ============================================
   // STATE
   // ============================================
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [events, setEvents] =
     useState<AppEvent[]>([]);
@@ -292,42 +300,31 @@ export default function HomeContent() {
       return;
     }
 
+    const cachedProfile = localStorage.getItem("cc_user_profile");
+    if (cachedProfile) {
+      try {
+        const profile = JSON.parse(cachedProfile);
+        setUserName(profile.name || "there");
+        setUserId(profile.id);
+        setAvatarUrl(profile.avatar_url || null);
+      } catch (e) {}
+    }
+
     const fetchProfile =
       async () => {
         try {
-          console.log(
-            "Fetching logged-in user profile..."
-          );
-
           const accessToken =
             localStorage.getItem(
               "accessToken"
             );
 
-          console.log(
-            "Token before profile request:",
-            accessToken
-              ? "EXISTS"
-              : "MISSING"
-          );
-
           if (!accessToken) {
-            console.error(
-              "No access token found"
-            );
-
             setUserName("there");
-
             return;
           }
 
           const profile =
             await getMyProfile();
-
-          console.log(
-            "Logged-in profile:",
-            profile
-          );
 
           setUserName(
             profile.name ||
@@ -342,6 +339,8 @@ export default function HomeContent() {
             profile.avatar_url ||
               null
           );
+
+          localStorage.setItem("cc_user_profile", JSON.stringify(profile));
         } catch (err) {
           console.error(
             "Failed to fetch profile:",
@@ -364,6 +363,14 @@ export default function HomeContent() {
   // ============================================
 
   useEffect(() => {
+    const cachedEvents = localStorage.getItem("cc_home_events");
+    if (cachedEvents) {
+      try {
+        setEvents(JSON.parse(cachedEvents));
+        setIsLoading(false);
+      } catch (e) {}
+    }
+
     const fetchEvents =
       async () => {
         try {
@@ -462,14 +469,6 @@ export default function HomeContent() {
           const formattedEvents =
             rawEvents.map(
               (evt: any) => {
-                console.log(
-                  "RAW EVENT:",
-                  evt.id,
-                  "created_by:",
-                  evt.created_by,
-                  typeof evt.created_by
-                );
-
                 return {
                   id:
                     String(
@@ -514,6 +513,7 @@ export default function HomeContent() {
           setEvents(
             formattedEvents
           );
+          localStorage.setItem("cc_home_events", JSON.stringify(formattedEvents));
         } catch (error) {
           console.error(
             "Failed to fetch events:",
@@ -562,8 +562,16 @@ export default function HomeContent() {
   // RENDER
   // ============================================
 
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-zinc-800 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-50 relative flex flex-col md:flex-row">
+    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative flex flex-col md:flex-row transition-colors duration-300`}>
 
       {/* ============================================
           SIDEBAR
@@ -629,17 +637,17 @@ export default function HomeContent() {
             }}
             className="mb-6 md:mb-12"
           >
-            <h1 className="text-3xl md:text-5xl font-extrabold text-zinc-900 tracking-tight mb-4">
+            <h1 className={`text-3xl md:text-5xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} tracking-tight mb-4`}>
 
               Welcome back,{" "}
 
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">
+              <span className={`text-transparent bg-clip-text bg-gradient-to-r ${activeAccent.gradient}`}>
                 {userName || "there"}
               </span>
 
             </h1>
 
-            <p className="text-base md:text-lg text-zinc-500 font-medium max-w-2xl">
+            <p className={`text-base md:text-lg ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium max-w-2xl`}>
               Ready to explore? Discover,
               register, and manage your
               next tech meetup all in one
@@ -653,25 +661,22 @@ export default function HomeContent() {
           ============================================ */}
 
           {isLoading && (
-            <div className="w-full flex flex-col items-center justify-center py-32">
-
-              <motion.div
-                animate={{
-                  rotate: 360,
-                }}
-                transition={{
-                  repeat: Infinity,
-                  duration: 1,
-                  ease: "linear",
-                }}
-              >
-                <Compass className="w-12 h-12 text-indigo-300" />
-              </motion.div>
-
-              <p className="text-zinc-500 font-medium mt-4 animate-pulse">
-                Finding events near you...
-              </p>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
+              {[...Array(6)].map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-zinc-100/50 border border-zinc-200 rounded-3xl p-3 flex flex-col animate-pulse h-[340px]"
+                >
+                  <div className="w-full h-48 bg-zinc-200 rounded-2xl mb-4" />
+                  <div className="p-5 flex-1 flex flex-col space-y-4">
+                    <div className="h-6 bg-zinc-200 rounded-md w-3/4" />
+                    <div className="space-y-3 mt-auto">
+                      <div className="h-4 bg-zinc-200/50 rounded-md w-1/2" />
+                      <div className="h-4 bg-zinc-200/50 rounded-md w-2/3" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -693,7 +698,7 @@ export default function HomeContent() {
                 transition={{
                   duration: 0.6,
                 }}
-                className="w-full max-w-3xl mx-auto mt-8 p-6 md:p-16 rounded-3xl md:rounded-[2.5rem] bg-white border border-zinc-100 shadow-2xl shadow-indigo-900/5 relative overflow-hidden text-center"
+                className={`w-full max-w-3xl mx-auto mt-8 p-6 md:p-16 rounded-3xl md:rounded-[2.5rem] ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-100"} shadow-2xl ${isDark ? "" : "shadow-indigo-900/5"} relative overflow-hidden text-center`}
               >
 
                 <div className="relative w-full h-64 mb-8 flex items-center justify-center">
@@ -732,9 +737,9 @@ export default function HomeContent() {
                       duration: 5,
                       ease: "easeInOut",
                     }}
-                    className="relative z-10 w-28 h-28 bg-gradient-to-br from-white to-indigo-50 rounded-3xl shadow-xl shadow-indigo-500/20 border border-white flex items-center justify-center"
+                    className={`relative z-10 w-28 h-28 bg-gradient-to-br ${isDark ? "from-zinc-800 to-zinc-900 border-white/10" : "from-white to-indigo-50 border-white"} rounded-3xl shadow-xl ${activeAccent.shadow} border flex items-center justify-center`}
                   >
-                    <CalendarX className="w-12 h-12 text-indigo-600" />
+                    <CalendarX className={`w-12 h-12 ${activeAccent.text}`} />
                   </motion.div>
 
                   <motion.div
@@ -843,7 +848,7 @@ export default function HomeContent() {
                     href="/events/create"
                     className="w-full sm:w-auto"
                   >
-                    <Button className="w-full rounded-full bg-indigo-600 text-white hover:bg-indigo-700 px-8 py-6 text-lg transition-all hover:scale-105 shadow-xl shadow-indigo-600/20">
+                    <Button className={`w-full rounded-full ${activeAccent.bg} text-white hover:opacity-90 px-8 py-6 text-lg transition-all hover:scale-105 shadow-xl ${activeAccent.shadow}`}>
                       <Plus className="w-5 h-5 mr-2" />
                       Host an Event
                     </Button>
@@ -851,7 +856,7 @@ export default function HomeContent() {
 
                   <Button
                     variant="outline"
-                    className="w-full sm:w-auto rounded-full bg-white text-zinc-700 hover:bg-zinc-50 border-zinc-200 px-8 py-6 text-lg transition-all"
+                    className={`w-full sm:w-auto rounded-full ${isDark ? "bg-zinc-800 text-zinc-200 hover:bg-zinc-700 border-white/10" : "bg-white text-zinc-700 hover:bg-zinc-50 border-zinc-200"} px-8 py-6 text-lg transition-all`}
                   >
                     Explore Communities
                   </Button>
@@ -907,7 +912,7 @@ export default function HomeContent() {
                           href={`/events/${event.id}`}
                         >
 
-                          <div className="group bg-white rounded-3xl p-3 border border-zinc-200 hover:border-indigo-200 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 cursor-pointer relative overflow-hidden h-full flex flex-col">
+                          <div className={`group ${isDark ? "bg-zinc-900/60 border-white/10 hover:border-white/20" : "bg-white border-zinc-200 hover:border-indigo-200"} rounded-3xl p-3 border transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 cursor-pointer relative overflow-hidden h-full flex flex-col`}>
 
                             {/* BANNER */}
 
@@ -931,7 +936,7 @@ export default function HomeContent() {
                                 />
                               )}
 
-                              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold text-zinc-900 shadow-sm z-10">
+                              <div className={`absolute top-4 left-4 ${isDark ? "bg-zinc-950/80 text-zinc-100" : "bg-white/90 text-zinc-900"} backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold shadow-sm z-10`}>
                                 {event.category ||
                                   "Tech Event"}
                               </div>
@@ -942,7 +947,7 @@ export default function HomeContent() {
 
                             <div className="p-5 flex-1 flex flex-col">
 
-                              <h3 className="text-xl font-bold text-zinc-900 mb-4 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                              <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-zinc-900"} mb-4 group-hover:${activeAccent.text} transition-colors line-clamp-2`}>
                                 {event.title}
                               </h3>
 
@@ -952,7 +957,7 @@ export default function HomeContent() {
 
                                 <div className="flex items-center text-sm font-medium text-zinc-500 gap-3">
 
-                                  <Calendar className="w-4 h-4 text-zinc-400" />
+                                  <Calendar className={`w-4 h-4 ${activeAccent.text}`} />
 
                                   {new Date(
                                     event.date ||
@@ -965,7 +970,7 @@ export default function HomeContent() {
 
                                 <div className="flex items-center text-sm font-medium text-zinc-500 gap-3">
 
-                                  <MapPin className="w-4 h-4 text-zinc-400" />
+                                  <MapPin className={`w-4 h-4 ${activeAccent.text}`} />
 
                                   {event.location ||
                                     "TBA"}
