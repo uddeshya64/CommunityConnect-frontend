@@ -317,7 +317,7 @@ export default function DiscoverContent() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex flex-col md:flex-row relative overflow-x-hidden">
+      <div className="min-h-screen bg-zinc-950 text-white flex flex-col md:flex-row relative">
         <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 flex items-center justify-center">
           <div className="w-10 h-10 border-4 border-zinc-800 border-t-indigo-600 rounded-full animate-spin" />
         </div>
@@ -329,7 +329,7 @@ export default function DiscoverContent() {
     <div
       className={`min-h-screen ${
         isDark ? "bg-zinc-950 text-white" : "bg-zinc-50 text-zinc-900"
-      } flex flex-col md:flex-row relative overflow-x-hidden`}
+      } flex flex-col md:flex-row relative`}
     >
       {/* Background Ambient Glow */}
       <div
