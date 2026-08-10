@@ -8,7 +8,8 @@ import {
   Ticket, Building2, UserCircle2,
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
-  UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus
+  UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
+  HelpCircle, Copy
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { eventService } from "@/services/event.service";
 import { api } from "@/lib/axios";
 import { Html5Qrcode } from "html5-qrcode";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
+import { useToast } from "@/components/providers/ToastProvider";
 
 interface EventDetails {
   id: string;
@@ -37,15 +39,226 @@ interface EventDetails {
   organizerId?: string;
   organizerName?: string;
   timelines?: any[];
+  registeredCount: number;
 }
+
+interface EventTheme {
+  bg: string;
+  cardBg: string;
+  accent: string;
+  accentBg: string;
+  button: string;
+  textMuted: string;
+  textHeading: string;
+  badge: string;
+  pill: string;
+  divider: string;
+  agendaDefault: string;
+  isDark: boolean;
+  gradOverlay: string;
+  gimmicks?: React.ReactNode;
+}
+
+const getEventTheme = (type: string): EventTheme => {
+  const t = (type || "").toLowerCase();
+  if (t.includes("hack") || t.includes("code") || t.includes("compet") || t.includes("technical") || t.includes("conference") || t.includes("tech") || t.includes("developer")) {
+    return {
+      bg: "bg-zinc-50 text-zinc-900",
+      cardBg: "bg-white border-zinc-200 hover:border-indigo-500/30 shadow-indigo-500/5 text-zinc-850",
+      accent: "text-indigo-600",
+      accentBg: "bg-indigo-50 border-indigo-150 text-indigo-705",
+      button: "bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-200 disabled:text-zinc-455 disabled:border-zinc-200 text-white shadow-indigo-600/20",
+      textMuted: "text-zinc-500",
+      textHeading: "text-zinc-900",
+      badge: "bg-indigo-50 border-indigo-200 text-indigo-705",
+      pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
+      divider: "border-zinc-150",
+      agendaDefault: "bg-indigo-50/60 border-indigo-100/50 text-indigo-905",
+      isDark: false,
+      gradOverlay: "from-indigo-100/20 via-zinc-50 to-zinc-50",
+      gimmicks: (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-5 select-none z-0">
+          <div className="absolute top-24 left-10 text-[10px] font-mono text-green-700 whitespace-pre">
+            {"import { hackathon } from 'community-connect';\n\nfunction init() {\n  return '🚀 code the future';\n}"}
+          </div>
+          <div className="absolute top-1/3 right-12 text-[10px] font-mono text-indigo-700 whitespace-pre">
+            {"const config = {\n  spots: 'limited',\n  prizes: '₹50K+',\n  status: 'active'\n};"}
+          </div>
+          <div className="absolute bottom-40 left-16 text-[10px] font-mono text-purple-700 whitespace-pre">
+            {"// TODO: Win the grand prize!\nconsole.log('Build, Hack, Deploy');"}
+          </div>
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+        </div>
+      )
+    };
+  } else if (t.includes("wed") || t.includes("person") || t.includes("marry") || t.includes("marriage")) {
+    return {
+      bg: "bg-rose-50/15 text-zinc-900",
+      cardBg: "bg-white/80 backdrop-blur-md border-rose-100 hover:border-rose-350 shadow-rose-550/5 text-zinc-850",
+      accent: "text-rose-600",
+      accentBg: "bg-rose-50 border-rose-150 text-rose-705",
+      button: "bg-rose-600 hover:bg-rose-705 disabled:bg-zinc-205 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-rose-600/20",
+      textMuted: "text-zinc-550",
+      textHeading: "text-rose-950 font-serif",
+      badge: "bg-rose-50 border-rose-200 text-rose-705",
+      pill: "bg-amber-50 border-amber-250 text-amber-800",
+      divider: "border-rose-100",
+      agendaDefault: "bg-rose-50/60 border-rose-100/50 text-rose-900",
+      isDark: false,
+      gradOverlay: "from-rose-100/20 via-zinc-50 to-zinc-50",
+      gimmicks: (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 select-none z-0">
+          <svg className="absolute top-24 right-20 w-32 h-32 text-rose-300/40 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          <svg className="absolute bottom-40 left-10 w-24 h-24 text-rose-300/30 rotate-12" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          <div className="absolute top-1/3 left-[5%] text-2xl font-serif text-rose-800/10 italic tracking-wider select-none">
+            Save the Date
+          </div>
+          <div className="absolute bottom-1/4 right-[5%] text-3xl font-serif text-rose-800/10 italic tracking-wider select-none">
+            Always & Forever
+          </div>
+        </div>
+      )
+    };
+  } else if (t.includes("sport") || t.includes("recreat") || t.includes("run") || t.includes("game") || t.includes("athle")) {
+    return {
+      bg: "bg-emerald-50/15 text-zinc-900",
+      cardBg: "bg-white border-emerald-200/80 shadow-emerald-500/5 text-zinc-850",
+      accent: "text-emerald-650",
+      accentBg: "bg-emerald-50 border-emerald-150 text-emerald-705",
+      button: "bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-emerald-600/20",
+      textMuted: "text-zinc-550",
+      textHeading: "text-zinc-900",
+      badge: "bg-emerald-50 border-emerald-200 text-emerald-705",
+      pill: "bg-zinc-50 border-zinc-200 text-zinc-750",
+      divider: "border-emerald-100",
+      agendaDefault: "bg-emerald-50/60 border-emerald-100/50 text-emerald-900",
+      isDark: false,
+      gradOverlay: "from-emerald-100/20 via-zinc-50 to-zinc-50",
+      gimmicks: (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.03] select-none z-0">
+          <div className="absolute w-[200%] h-[200%] top-[-50%] left-[-50%] border-[4px] border-emerald-700/20 rounded-full" />
+          <div className="absolute w-[100%] h-[2px] bg-emerald-700/20 top-1/2" />
+          <div className="absolute w-[2px] h-[100%] bg-emerald-700/20 left-1/2" />
+        </div>
+      )
+    };
+  } else if (t.includes("corporat") || t.includes("govern") || t.includes("civic") || t.includes("business") || t.includes("office")) {
+    return {
+      bg: "bg-slate-50/50 text-slate-900",
+      cardBg: "bg-white border-slate-200/80 shadow-slate-500/5 text-zinc-850",
+      accent: "text-slate-650",
+      accentBg: "bg-slate-55 border-slate-150 text-slate-705",
+      button: "bg-slate-700 hover:bg-slate-800 disabled:bg-zinc-250 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-slate-650/20",
+      textMuted: "text-zinc-550",
+      textHeading: "text-slate-955 font-semibold",
+      badge: "bg-slate-50 border-slate-200 text-slate-705",
+      pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
+      divider: "border-slate-150",
+      agendaDefault: "bg-slate-50/60 border-slate-100/50 text-slate-900",
+      isDark: false,
+      gradOverlay: "from-slate-100/20 via-zinc-50 to-zinc-50",
+      gimmicks: (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.02] select-none z-0">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] bg-[size:40px_40px]" />
+        </div>
+      )
+    };
+  } else if (t.includes("academ") || t.includes("train") || t.includes("study") || t.includes("course") || t.includes("commun") || t.includes("nonprofit") || t.includes("charity")) {
+    return {
+      bg: "bg-teal-50/10 text-zinc-900",
+      cardBg: "bg-white border-teal-200/80 shadow-teal-500/5 text-zinc-850",
+      accent: "text-teal-650",
+      accentBg: "bg-teal-50 border-teal-150 text-teal-705",
+      button: "bg-teal-600 hover:bg-teal-750 disabled:bg-zinc-250 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-teal-650/20",
+      textMuted: "text-zinc-550",
+      textHeading: "text-zinc-900",
+      badge: "bg-teal-50 border-teal-200 text-teal-705",
+      pill: "bg-zinc-50 border-zinc-200 text-zinc-750",
+      divider: "border-zinc-150",
+      agendaDefault: "bg-teal-50/60 border-teal-100/50 text-teal-900",
+      isDark: false,
+      gradOverlay: "from-teal-100/20 via-zinc-50 to-zinc-50",
+      gimmicks: (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-5 select-none z-0">
+          <div className="absolute top-1/4 left-1/12 w-24 h-24 rounded-tr-full rounded-bl-full bg-teal-500/10" />
+          <div className="absolute bottom-1/4 right-1/12 w-32 h-32 rounded-tl-full rounded-br-full bg-teal-500/10" />
+        </div>
+      )
+    };
+  } else {
+    return {
+      bg: "bg-zinc-50 text-zinc-900",
+      cardBg: "bg-white border-zinc-250/80 hover:border-amber-500/30 shadow-amber-550/5 text-zinc-850",
+      accent: "text-amber-600",
+      accentBg: "bg-amber-50 border-amber-150 text-amber-705",
+      button: "bg-amber-600 hover:bg-amber-700 disabled:bg-zinc-250 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-amber-600/20",
+      textMuted: "text-zinc-555",
+      textHeading: "text-zinc-900",
+      badge: "bg-amber-50 border-amber-200 text-amber-705",
+      pill: "bg-zinc-50 border-zinc-200 text-zinc-750",
+      divider: "border-zinc-150",
+      agendaDefault: "bg-amber-50/60 border-amber-100/50 text-amber-900",
+      isDark: false,
+      gradOverlay: "from-amber-100/20 via-zinc-50 to-zinc-50",
+      gimmicks: (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.03] select-none z-0">
+          <div className="absolute inset-0 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]" />
+        </div>
+      )
+    };
+  }
+};
 
 export default function EventDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.eventId as string;
+  const { success: showSuccess, error: showError } = useToast();
 
   const [event, setEvent] = useState<EventDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [timeLeftStr, setTimeLeftStr] = useState("");
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [registeredCount, setRegisteredCount] = useState(0);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // --- AGENDA / TIMELINE STATES ---
+  const [expandedTimelineId, setExpandedTimelineId] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 30550);
+    return () => clearInterval(timer);
+  }, []);
+
+  const theme = getEventTheme(event?.type || "");
+
+  const isStarted = event ? (currentTime >= new Date(event.startDate)) : false;
+  const isConcluded = event ? (currentTime > new Date(event.endDate)) : false;
+  const isSoldOut = event ? (event.capacity > 0 && registeredCount >= event.capacity) : false;
+  const isRegistrationBlocked = isStarted || isConcluded || isSoldOut;
+
+  let ctaText = "Secure Your Spot";
+  if (isConcluded) {
+    ctaText = "Event Concluded";
+  } else if (isStarted) {
+    ctaText = "Event Underway";
+  } else if (isSoldOut) {
+    ctaText = "Sold Out";
+  }
 
   // --- PBAC & RBAC STATES ---
   const [isStaff, setIsStaff] = useState(false);
@@ -55,14 +268,45 @@ export default function EventDetailsPage() {
   const [viewMode, setViewMode] = useState<"DASHBOARD" | "PREVIEW">("PREVIEW");
   const [activeTab, setActiveTab] = useState<"OVERVIEW" | "PARTICIPANTS" | "EDIT" | "AGENDA" | "STAFF" | "SETTINGS" | "ORGANIZER_SETTINGS">("OVERVIEW");
 
-  // --- AGENDA / TIMELINE STATES ---
-  const [expandedTimelineId, setExpandedTimelineId] = useState<number | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
+
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
-    return () => clearInterval(timer);
-  }, []);
+    if (!event?.startDate) return;
+    const calculateTimeLeft = () => {
+      const now = new Date();
+      const start = new Date(event.startDate);
+      const diffMs = start.getTime() - now.getTime();
+
+      if (diffMs <= 0) {
+        if (event.endDate) {
+          const end = new Date(event.endDate);
+          const diffEndMs = end.getTime() - now.getTime();
+          if (diffEndMs > 0) {
+            setTimeLeftStr("Ongoing / Active Now");
+            return;
+          }
+        }
+        setTimeLeftStr("Concluded");
+        return;
+      }
+
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (diffDays > 0) {
+        setTimeLeftStr(`Starts in ${diffDays}d ${diffHours}h`);
+      } else if (diffHours > 0) {
+        setTimeLeftStr(`Starts in ${diffHours}h ${diffMins}m`);
+      } else {
+        setTimeLeftStr(`Starts in ${diffMins}m`);
+      }
+    };
+
+    calculateTimeLeft();
+    const interval = setInterval(calculateTimeLeft, 60000);
+    return () => clearInterval(interval);
+  }, [event?.startDate, event?.endDate]);
 
   const [timelinesList, setTimelinesList] = useState<any[]>([]);
   const [isAgendaModalOpen, setIsAgendaModalOpen] = useState(false);
@@ -164,6 +408,8 @@ export default function EventDetailsPage() {
         const rawEvent = response?.data?.event || response?.data || response?.event || response;
 
         const currentBanner = rawEvent.banner_url || rawEvent.bannerUrl || rawEvent.banner || "";
+        const rCount = rawEvent._count?.registrations || rawEvent.registeredCount || 0;
+        setRegisteredCount(rCount);
 
         setEvent({
           id: rawEvent.id || rawEvent._id,
@@ -182,7 +428,8 @@ export default function EventDetailsPage() {
           bannerUrl: currentBanner,
           organizerId: rawEvent.organizerId || rawEvent.hostId || rawEvent.userId,
           organizerName: rawEvent.organizer?.name || rawEvent.creator?.name,
-          timelines: rawEvent.timelines || []
+          timelines: rawEvent.timelines || [],
+          registeredCount: rCount
         });
 
         setTimelinesList(rawEvent.timelines || []);
@@ -379,6 +626,7 @@ export default function EventDetailsPage() {
       });
 
       setUpdateMessage({ type: "success", text: "Event updated successfully!" });
+      showSuccess("Event updated successfully!");
 
       setEvent((prev: any) => {
         if (!prev) return prev;
@@ -426,6 +674,7 @@ export default function EventDetailsPage() {
     try {
       setIsDeleting(true);
       await eventService.deleteEvent(eventId);
+      showSuccess("Event deleted successfully!");
       router.push("/home");
     } catch (err: any) {
       console.error(err);
@@ -450,6 +699,7 @@ export default function EventDetailsPage() {
         subscription_status: organizerConfig.subscription_status
       });
       setConfigMessage({ type: "success", text: "Settings saved successfully!" });
+      showSuccess("Settings saved successfully!");
     } catch (err: any) {
       console.error(err);
       setConfigMessage({ type: "error", text: err.response?.data?.error || "Failed to update configurations." });
@@ -471,6 +721,7 @@ export default function EventDetailsPage() {
       
       setOrganizerConfig({ ...organizerConfig, subscription_status: newPlan });
       setConfigMessage({ type: "success", text: `Successfully upgraded to ${newPlan} plan!` });
+      showSuccess(`Successfully upgraded to ${newPlan} plan!`);
     } catch (err: any) {
       console.error(err);
       setConfigMessage({ type: "error", text: err.response?.data?.error || "Failed to upgrade subscription." });
@@ -673,6 +924,7 @@ export default function EventDetailsPage() {
           const updatedTimelines = (prev.timelines || []).map(item => item.id === editingTimelineItem.id ? updatedItem : item);
           return { ...prev, timelines: updatedTimelines };
         });
+        showSuccess("Timeline item updated successfully!");
       } else {
         const res = await eventService.createTimeline(eventId, payload);
         const newItem = res.data?.data || res.data || res;
@@ -682,6 +934,7 @@ export default function EventDetailsPage() {
           if (!prev) return null;
           return { ...prev, timelines: sortList([...(prev.timelines || []), newItem]) };
         });
+        showSuccess("Timeline item created successfully!");
       }
 
       setIsAgendaModalOpen(false);
@@ -702,6 +955,7 @@ export default function EventDetailsPage() {
         if (!prev) return null;
         return { ...prev, timelines: (prev.timelines || []).filter(item => item.id !== timelineId) };
       });
+      showSuccess("Timeline item deleted successfully!");
     } catch (err: any) {
       alert(err.response?.data?.error || err.message || "Failed to delete agenda item.");
     }
@@ -1727,87 +1981,193 @@ export default function EventDetailsPage() {
   // VIEW 2: PUBLIC / ATTENDEE PREVIEW VIEW
   // ==========================================
   return (
-    <>
-      {/* HERO BANNER */}
-      <div className="w-full h-[45vh] bg-gradient-to-br from-indigo-950 via-violet-900 to-zinc-900 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-500/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3" />
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-rose-500/20 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4" />
+    <div className={`min-h-screen pb-20 relative select-none transition-colors duration-500 ${theme.bg}`}>
+      
+      {/* BACKGROUND EFFECTS */}
+      <div className={`absolute top-0 left-0 w-full h-[60vh] bg-gradient-to-b ${theme.gradOverlay} pointer-events-none z-0`} />
 
-        <div className="absolute top-0 w-full p-6 flex justify-between items-center z-20">
-          <Link href="/home">
-            <Button variant="ghost" className="text-white hover:bg-white/20 rounded-full backdrop-blur-md transition-all">
-              <ArrowLeft className="w-5 h-5 mr-2" /> Back to Feed
-            </Button>
-          </Link>
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 rounded-full backdrop-blur-md transition-all">
-            <Share2 className="w-5 h-5" />
+      {/* CUSTOM THEME GIMMICKS */}
+      {theme.gimmicks}
+
+      {/* TOP NAVIGATION BAR */}
+      <header className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex justify-between items-center relative z-25">
+        <Link href="/home">
+          <Button variant="ghost" className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-4 ${
+            theme.isDark 
+              ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white" 
+              : "bg-white/80 hover:bg-white border-zinc-200/80 text-zinc-650 hover:text-zinc-950"
+          }`}>
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Feed
+          </Button>
+        </Link>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setIsShareModalOpen(true)}
+            variant="ghost" 
+            className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-4 ${
+              theme.isDark 
+                ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white" 
+                : "bg-white/80 hover:bg-white border-zinc-200/80 text-zinc-650 hover:text-zinc-950"
+            }`}
+          >
+            <Share2 className="w-4 h-4 mr-2" /> Share Event
           </Button>
         </div>
+      </header>
 
-        {/* Floating Title Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: "easeOut" }}
-          className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-[90%] max-w-5xl bg-white/95 backdrop-blur-2xl p-5 sm:p-8 md:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl border border-white/60 z-40 flex flex-col justify-end items-center text-center"
-        >
-          <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
-            <span className="px-4 py-1.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-black uppercase tracking-widest shadow-sm">
-              {event.type}
-            </span>
-            <span className="px-4 py-1.5 rounded-full bg-zinc-100 text-zinc-600 text-xs font-bold uppercase tracking-widest shadow-sm flex items-center gap-1.5">
-              {event.mode === 'online' ? <Laptop className="w-3.5 h-3.5" /> : event.mode === 'hybrid' ? <MonitorSmartphone className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
-              {event.mode}
-            </span>
+      {/* SPLIT-HERO SECTION */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 relative z-20 items-stretch">
+        {/* Left hero banner image */}
+        <div className={`lg:col-span-7 rounded-3xl overflow-hidden border shadow-xl relative aspect-video lg:aspect-auto min-h-[220px] sm:min-h-[300px] lg:min-h-[350px] ${
+          theme.isDark ? "border-zinc-800 bg-zinc-900" : "border-zinc-200 bg-white"
+        }`}>
+          {event.bannerUrl ? (
+            <img
+              src={event.bannerUrl}
+              alt={event.title}
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 hover:scale-[1.01]"
+            />
+          ) : (
+            <div className={`absolute inset-0 ${
+              event.type.toLowerCase().includes("hack") || event.type.toLowerCase().includes("code") || event.type.toLowerCase().includes("tech")
+                ? "bg-gradient-to-br from-indigo-900 via-purple-900 to-zinc-950"
+                : event.type.toLowerCase().includes("meet") || event.type.toLowerCase().includes("social") || event.type.toLowerCase().includes("network")
+                ? "bg-gradient-to-br from-amber-955 via-rose-900 to-zinc-950"
+                : "bg-gradient-to-br from-teal-955 via-emerald-900 to-zinc-950"
+            } flex items-center justify-center`} />
+          )}
+        </div>
+
+        {/* Right hero main details panel */}
+        <div className={`lg:col-span-5 p-6 sm:p-8 rounded-3xl border shadow-xl flex flex-col justify-between space-y-6 ${theme.cardBg}`}>
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${theme.badge}`}>
+                {event.type}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 border ${theme.pill}`}>
+                {event.mode === 'online' ? <Laptop className="w-3.5 h-3.5" /> : event.mode === 'hybrid' ? <MonitorSmartphone className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
+                {event.mode} Event
+              </span>
+            </div>
+
+            <h1 className={`text-2xl sm:text-3xl font-black tracking-tight leading-tight break-words ${theme.textHeading}`}>
+              {event.title}
+            </h1>
           </div>
-          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-zinc-900 tracking-tight leading-[1.1] md:leading-[1.2] text-center">
-            {event.title}
-          </h1>
-        </motion.div>
-      </div>
 
-      {/* MAIN CONTENT LAYOUT */}
-      <div className="max-w-5xl mx-auto px-6 mt-32 grid grid-cols-1 lg:grid-cols-12 gap-12 relative z-10">
-
-        {/* LEFT COLUMN: Deep Details */}
-        <div className="lg:col-span-7 space-y-12">
-
-          {/* Event Highlights (Hack2Skill Style) */}
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col gap-2">
-              <Users className="w-6 h-6 text-indigo-500" />
+          <div className={`space-y-4 border-t pt-6 ${theme.divider}`}>
+            <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 ${
+                theme.isDark ? "bg-zinc-800/80 border-zinc-700" : "bg-zinc-50 border-zinc-200"
+              }`}>
+                <UserCircle2 className="w-6 h-6 text-zinc-400" />
+              </div>
               <div>
-                <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Format</p>
-                <p className="font-bold text-zinc-900 capitalize">{event.regType} Participation</p>
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Hosted by</p>
+                <p className={`text-base font-bold ${theme.isDark ? "text-zinc-200" : "text-zinc-800"}`}>{event.organizerName || "Community Connect Admin"}</p>
               </div>
             </div>
-            {event.regType === 'team' && (
-              <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col gap-2">
-                <Users className="w-6 h-6 text-rose-500" />
-                <div>
-                  <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Team Size</p>
-                  <p className="font-bold text-zinc-900">{event.minTeam} - {event.maxTeam} Members</p>
-                </div>
+
+            {timeLeftStr && (
+              <div className={`flex items-center gap-2 text-xs font-bold w-fit px-3 py-1.5 rounded-xl border ${theme.badge}`}>
+                <Clock className="w-4 h-4 animate-pulse" />
+                <span>{timeLeftStr}</span>
               </div>
             )}
-            <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm flex flex-col gap-2">
-              <Ticket className="w-6 h-6 text-amber-500" />
-              <div>
-                <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Capacity</p>
-                <p className="font-bold text-zinc-900">{event.capacity === 0 ? "Unlimited Seats" : `${event.capacity} Max Capacity`}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* MAIN BODY WORKSPACE GRID */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 mt-10 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 relative z-20">
+        
+        {/* LEFT COLUMN: Block designs */}
+        <div className="lg:col-span-7 space-y-6 lg:space-y-8">
+          
+          {/* Card Block 1: About this event */}
+          <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
+            <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
+              <Building2 className={`w-5 h-5 ${theme.accent}`} /> About this Event
+            </h2>
+            <div className={`prose prose-base leading-relaxed font-medium whitespace-pre-wrap ${
+              theme.isDark ? "text-zinc-350 prose-invert" : "text-zinc-650"
+            }`}>
+              {event.description.length > 600 && !isDescExpanded ? (
+                <>
+                  {event.description.slice(0, 600)}...{" "}
+                  <button
+                    type="button"
+                    onClick={() => setIsDescExpanded(true)}
+                    className="text-indigo-400 hover:underline font-bold text-sm inline-block ml-1"
+                  >
+                    Read More
+                  </button>
+                </>
+              ) : (
+                <>
+                  {event.description}
+                  {event.description.length > 600 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsDescExpanded(false)}
+                      className="text-indigo-400 hover:underline font-bold text-sm block mt-3"
+                    >
+                      Read Less
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Card Block 2: Participation Guidelines */}
+          <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
+            <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
+              <Users className={`w-5 h-5 ${theme.accent}`} /> Participation Guidelines
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className={`p-4 rounded-2xl border flex flex-col gap-2 ${
+                theme.isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-zinc-50/50 border-zinc-200"
+              }`}>
+                <Users className="w-5 h-5 text-indigo-505 shrink-0" />
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Format</p>
+                  <p className={`font-extrabold text-sm capitalize ${theme.isDark ? "text-zinc-200" : "text-zinc-900"}`}>{event.regType} Entry</p>
+                </div>
+              </div>
+              {event.regType === 'team' && (
+                <div className={`p-4 rounded-2xl border flex flex-col gap-2 ${
+                  theme.isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-zinc-50/50 border-zinc-200"
+                }`}>
+                  <Users className="w-5 h-5 text-rose-500 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Team Size</p>
+                    <p className={`font-extrabold text-sm ${theme.isDark ? "text-zinc-200" : "text-zinc-900"}`}>{event.minTeam} - {event.maxTeam} members</p>
+                  </div>
+                </div>
+              )}
+              <div className={`p-4 rounded-2xl border flex flex-col gap-2 ${
+                theme.isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-zinc-50/50 border-zinc-200"
+              }`}>
+                <Ticket className="w-5 h-5 text-amber-500 shrink-0" />
+                <div>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Capacity Limit</p>
+                  <p className={`font-extrabold text-sm ${theme.isDark ? "text-zinc-200" : "text-zinc-900"}`}>
+                    {event.capacity === 0 ? "Unlimited Seats" : `${event.capacity} Spots Max`}
+                  </p>
+                </div>
               </div>
             </div>
-          </motion.section>
+          </div>
 
-          {/* Description */}
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <h2 className="text-2xl font-bold text-zinc-900 mb-6 flex items-center gap-2">About this event</h2>
-            <div className="prose prose-zinc prose-lg leading-relaxed text-zinc-600 font-medium whitespace-pre-wrap">
-              {event.description}
-            </div>
-          </motion.section>
-
-          {/* Timeline / Agenda */}
+          {/* Card Block 3: Schedule & Agenda */}
           {event?.timelines && event.timelines.length > 0 && (
-            <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="space-y-6">
+            <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
+              <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
+                <Calendar className={`w-5 h-5 ${theme.accent}`} /> Event Agenda & Schedule
+              </h2>
+
               <style>{`
                 @keyframes sway {
                   0%, 100% { transform: translateY(0) rotate(0deg); }
@@ -1825,30 +2185,12 @@ export default function EventDetailsPage() {
                 }
               `}</style>
 
-              <h2 className="text-2xl font-bold text-zinc-900 mb-6 flex items-center gap-3">
-                <Calendar className="w-6 h-6 text-indigo-500" /> Event Agenda & Schedule
-              </h2>
-
-              <motion.div 
-                initial="hidden"
-                animate="show"
-                variants={{
-                  hidden: { opacity: 0 },
-                  show: {
-                    opacity: 1,
-                    transition: { staggerChildren: 0.1 }
-                  }
-                }}
-                className="space-y-8 pl-2"
-              >
+              <div className="space-y-6 pl-1">
                 {(() => {
-                  // Group timelines by date
                   const groups: { [key: string]: any[] } = {};
                   event.timelines.forEach((item: any) => {
                     const dateStr = new Date(item.start_time).toDateString();
-                    if (!groups[dateStr]) {
-                      groups[dateStr] = [];
-                    }
+                    if (!groups[dateStr]) groups[dateStr] = [];
                     groups[dateStr].push(item);
                   });
                   const sortedGroups = Object.entries(groups).sort(
@@ -1861,60 +2203,25 @@ export default function EventDetailsPage() {
                     const day = d.getDate();
 
                     return (
-                      <motion.div 
-                        key={dateStr} 
-                        variants={{
-                          hidden: { opacity: 0, y: 15 },
-                          show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } }
-                        }}
-                        className="flex gap-4 items-start"
-                      >
-                        {/* Date Header (Light Theme) */}
-                        <div className="w-12 flex flex-col items-center shrink-0 py-2">
-                          <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">{month}</span>
-                          <span className="text-2xl font-black text-zinc-900 mt-0.5">{day}</span>
+                      <div key={dateStr} className="flex gap-4 items-start">
+                        <div className={`w-12 flex flex-col items-center shrink-0 py-2 border-r pr-3 ${theme.divider}`}>
+                          <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">{month}</span>
+                          <span className={`text-2xl font-black mt-0.5 ${theme.isDark ? "text-zinc-200" : "text-zinc-900"}`}>{day}</span>
                         </div>
 
-                        {/* Session Cards Stack */}
-                        <div className="flex-1 space-y-4">
+                        <div className="flex-1 space-y-3">
                           {items.map((timeline: any) => {
-                            // Get theme styling
                             const tTitle = timeline.title.toLowerCase();
-                            let theme = {
-                              bgClass: "bg-[#4285F4] border-[#4285F4]/30 text-white hover:shadow-[0_15px_30px_rgba(66,133,244,0.35)]",
-                              timeClass: "text-blue-105",
-                              locationClass: "text-blue-150",
-                              type: "default"
-                            };
+                            let agendaTheme = theme.agendaDefault;
 
                             if (tTitle.includes("tea") || tTitle.includes("coffee") || tTitle.includes("networking") || tTitle.includes("break") || tTitle.includes("snack")) {
-                              theme = {
-                                bgClass: "bg-gradient-to-br from-amber-100 to-orange-100 border-amber-250/20 text-amber-950 hover:shadow-[0_15px_30px_rgba(245,158,11,0.25)]",
-                                timeClass: "text-amber-800",
-                                locationClass: "text-amber-700",
-                                type: "coffee"
-                              };
+                              agendaTheme = "bg-amber-500/10 border-amber-550/20 text-amber-300";
                             } else if (tTitle.includes("lunch") || tTitle.includes("dinner") || tTitle.includes("food") || tTitle.includes("meal") || tTitle.includes("brunch")) {
-                              theme = {
-                                bgClass: "bg-gradient-to-br from-rose-50 to-orange-50 border-orange-250/20 text-orange-950 hover:shadow-[0_15px_30px_rgba(239,68,68,0.2)]",
-                                timeClass: "text-orange-855",
-                                locationClass: "text-orange-755",
-                                type: "lunch"
-                              };
+                              agendaTheme = "bg-rose-500/10 border-rose-550/20 text-rose-350";
                             } else if (tTitle.includes("party") || tTitle.includes("celebration") || tTitle.includes("social") || tTitle.includes("afterparty") || tTitle.includes("dj")) {
-                              theme = {
-                                bgClass: "bg-gradient-to-br from-indigo-950 via-purple-950 to-zinc-950 border-indigo-800/40 text-indigo-50 hover:shadow-[0_15px_30px_rgba(168,85,247,0.4)]",
-                                timeClass: "text-indigo-355",
-                                locationClass: "text-indigo-400",
-                                type: "party"
-                              };
+                              agendaTheme = "bg-purple-500/10 border-purple-550/20 text-purple-300";
                             } else if (tTitle.includes("register") || tTitle.includes("registration") || tTitle.includes("welcome") || tTitle.includes("check-in") || tTitle.includes("checkin")) {
-                              theme = {
-                                bgClass: "bg-gradient-to-br from-emerald-950 to-zinc-900 border-emerald-800/40 text-emerald-50 hover:shadow-[0_15px_30px_rgba(16,185,129,0.4)]",
-                                timeClass: "text-emerald-300",
-                                locationClass: "text-emerald-400",
-                                type: "welcome"
-                              };
+                              agendaTheme = "bg-emerald-500/10 border-emerald-550/20 text-emerald-300";
                             }
 
                             const start = new Date(timeline.start_time);
@@ -1927,178 +2234,259 @@ export default function EventDetailsPage() {
                               <div
                                 key={timeline.id}
                                 onClick={() => setExpandedTimelineId(isExpanded ? null : timeline.id)}
-                                className={`relative overflow-hidden p-5 rounded-[1.25rem] border shadow-sm cursor-pointer transition-all duration-500 hover:-translate-y-1.5 hover:scale-[1.01] ${theme.bgClass}`}
+                                className={`relative overflow-hidden p-4 rounded-2xl border shadow-xs cursor-pointer transition-all duration-300 hover:scale-[1.01] ${agendaTheme}`}
                               >
-                                {/* Live pulsing indicator */}
                                 {isLive && (
-                                  <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500 text-red-500 text-[8px] font-black tracking-widest uppercase animate-pulse">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                                  <div className="absolute top-3.5 right-3.5 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500 text-red-500 text-[8px] font-black tracking-widest uppercase animate-pulse">
+                                    <span className="w-1 h-1 rounded-full bg-red-500 animate-ping" />
                                     <span>Live</span>
                                   </div>
                                 )}
 
-                                {/* Background Illustrations with dynamic float/sway animations */}
-                                {theme.type === "coffee" && (
-                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-[0.12] pointer-events-none text-amber-900 animate-sway" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M30 40h40v30C70 78.3 63.3 85 55 85h-10C36.7 85 30 78.3 30 70V40z" fill="currentColor" />
-                                    <path d="M70 45h8c4.4 0 8 3.6 8 8v4c0 4.4-3.6 8-8 8h-8V45z" stroke="currentColor" strokeWidth="4" />
-                                    <path d="M40 25c0-5 5-5 5-10M50 25c0-5 5-5 5-10M60 25c0-5 5-5 5-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-                                  </svg>
-                                )}
-                                {theme.type === "lunch" && (
-                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-[0.12] pointer-events-none text-orange-900 animate-float" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="50" cy="50" r="30" stroke="currentColor" strokeWidth="4" />
-                                    <path d="M50 20v60M20 50h60" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" />
-                                    <path d="M35 45c2 0 5 2 5 5s-3 5-5 5" stroke="currentColor" strokeWidth="3" />
-                                    <path d="M65 45c-2 0-5 2-5 5s3 5 5 5" stroke="currentColor" strokeWidth="3" />
-                                  </svg>
-                                )}
-                                {theme.type === "party" && (
-                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-20 pointer-events-none text-indigo-400 animate-float" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="35" cy="40" r="12" fill="currentColor" />
-                                    <path d="M35 52v20M35 72l-5 5M35 72l5 5" stroke="currentColor" strokeWidth="2" />
-                                    <circle cx="65" cy="30" r="10" fill="currentColor" />
-                                    <path d="M65 40v25" stroke="currentColor" strokeWidth="2" />
-                                    <path d="M15 15l10 5M85 15l-10 5M50 15l2 10" stroke="currentColor" strokeWidth="2" />
-                                  </svg>
-                                )}
-                                {theme.type === "welcome" && (
-                                  <svg className="absolute right-0 bottom-0 w-24 h-24 opacity-[0.12] pointer-events-none text-emerald-400 animate-float" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M20 80V40l30-20 30 20v80" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                                    <circle cx="50" cy="50" r="8" stroke="currentColor" strokeWidth="3" />
-                                  </svg>
-                                )}
-
-                                <div className="relative z-10 space-y-1">
+                                <div className="relative z-10 space-y-0.5">
                                   <h4 className="font-extrabold text-sm leading-tight pr-12">{timeline.title}</h4>
-                                  <p className={`text-[11px] font-black opacity-80`}>
+                                  <p className="text-[10px] font-bold opacity-80">
                                     {formattedTime}
                                   </p>
                                   {(timeline.speaker_name || timeline.location) && (
-                                    <p className={`text-[10px] font-bold mt-1 flex flex-wrap gap-2 opacity-85`}>
+                                    <p className="text-[10px] font-medium mt-1 flex flex-wrap gap-2 opacity-90">
                                       {timeline.speaker_name && <span>Speaker: {timeline.speaker_name}</span>}
-                                      {timeline.location && <span>At: {timeline.location}</span>}
+                                      {timeline.location && <span>Room: {timeline.location}</span>}
                                     </p>
                                   )}
                                   
-                                  {/* Click expansion indicator */}
-                                  {!isExpanded && timeline.description && (
-                                    <p className="text-[10px] font-bold opacity-60 mt-1.5 flex items-center gap-1">
-                                      Click to view details <span className="text-[8px]">▼</span>
-                                    </p>
+                                  {isExpanded && timeline.description && (
+                                    <div
+                                      className="text-[11px] font-semibold opacity-95 pt-2 mt-2 border-t border-current/10 prose prose-sm max-w-none prose-current leading-relaxed"
+                                      dangerouslySetInnerHTML={{ __html: timeline.description }}
+                                    />
                                   )}
-
-                                  {/* Expandable creative details accordion */}
-                                  <AnimatePresence initial={false}>
-                                    {isExpanded && timeline.description && (
-                                      <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: "auto", opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        transition={{ duration: 0.25, ease: "easeInOut" }}
-                                        className="overflow-hidden"
-                                      >
-                                        <div
-                                          className="text-[11px] font-medium opacity-95 pt-2 mt-2 border-t border-current/10 prose prose-sm max-w-none prose-current leading-relaxed"
-                                          dangerouslySetInnerHTML={{ __html: timeline.description }}
-                                        />
-                                      </motion.div>
-                                    )}
-                                  </AnimatePresence>
                                 </div>
                               </div>
                             );
                           })}
                         </div>
-                      </motion.div>
+                      </div>
                     );
                   });
                 })()}
-              </motion.div>
-            </motion.section>
+              </div>
+            </div>
           )}
 
-          {/* Organizer UI */}
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="flex items-center gap-5 p-6 bg-white rounded-3xl border border-zinc-200 shadow-sm">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-100 to-rose-100 border-2 border-white shadow-md flex items-center justify-center overflow-hidden shrink-0">
-              <UserCircle2 className="w-10 h-10 text-indigo-400" />
+          {/* Card Block 4: Map Location Card with iframe embed */}
+          <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
+            <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
+              <MapPin className={`w-5 h-5 ${theme.accent}`} /> Location Details
+            </h2>
+
+            <div className="flex flex-col gap-6">
+              <div className="space-y-2.5">
+                <h3 className={`font-extrabold text-base capitalize ${theme.textHeading}`}>{event.mode} Venue</h3>
+                <p className={`${theme.textMuted} font-semibold text-sm leading-relaxed`}>{event.location}</p>
+                <a 
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-block text-indigo-400 hover:underline font-bold text-xs underline-offset-4 mt-2"
+                >
+                  View on Google Maps →
+                </a>
+              </div>
+
+              {/* Real Google Maps embed iframe preview */}
+              <div className="w-full h-64 rounded-2xl overflow-hidden border border-zinc-200 relative shadow-sm shrink-0 bg-zinc-150">
+                <iframe
+                  title="Event Location Map"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(event.location)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                />
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-1">Hosted by</p>
-              <p className="text-xl font-bold text-zinc-900">{event.organizerName || "Community Connect Admin"}</p>
-            </div>
-          </motion.section>
+          </div>
+
         </div>
 
-        {/* RIGHT COLUMN: Sticky Registration Ticket (Luma Style) */}
+        {/* RIGHT COLUMN: Sticky Ticket sidebar */}
         <div className="lg:col-span-5 relative">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-            className="lg:sticky lg:top-28 bg-white p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl shadow-zinc-200/60 border border-zinc-100"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+            className={`lg:sticky lg:top-8 p-6 sm:p-8 rounded-3xl shadow-xl border space-y-6 ${theme.cardBg}`}
           >
-            {/* Price Header */}
-            <div className="mb-8 pb-8 border-b border-zinc-100 text-center">
-              <p className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-2">Registration</p>
-              <h2 className="text-5xl font-black text-zinc-900 tracking-tight">
+            {/* Pricing Tag */}
+            <div className={`text-center pb-6 border-b ${theme.divider}`}>
+              <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-1.5">Ticket Pricing</p>
+              <h2 className={`text-4xl font-black tracking-tight ${theme.textHeading}`}>
                 {event.fee === 0 ? "Free" : `₹${event.fee}`}
               </h2>
             </div>
 
-            {/* Time & Place Stack */}
-            <div className="space-y-6 mb-10">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0 border border-indigo-100">
-                  <Calendar className="w-5 h-5 text-indigo-600" />
+            {/* Time & location lists */}
+            <div className="space-y-5">
+              <div className="flex gap-3.5 items-start">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                  theme.isDark ? "bg-indigo-950/60 border-indigo-900" : "bg-indigo-50 border-indigo-100"
+                }`}>
+                  <Calendar className="w-4 h-4 text-indigo-400" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-zinc-900 text-lg leading-tight mb-1">{formatFullDate(event.startDate)}</h4>
-                  <p className="text-zinc-500 font-medium text-sm">
+                  <h4 className={`font-bold text-sm leading-snug ${theme.textHeading}`}>{formatFullDate(event.startDate)}</h4>
+                  <p className={`${theme.textMuted} text-xs font-semibold mt-0.5`}>
                     {formatTime(event.startDate)} - {formatTime(event.endDate)}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center shrink-0 border border-rose-100">
-                  <MapPin className="w-5 h-5 text-rose-600" />
+              <div className="flex gap-3.5 items-start">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                  theme.isDark ? "bg-rose-950/60 border-rose-900" : "bg-rose-50 border-rose-100"
+                }`}>
+                  <MapPin className="w-4 h-4 text-rose-400" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-zinc-900 text-lg leading-tight mb-1">{event.location}</h4>
-                  <p className="text-zinc-500 font-medium text-sm capitalize">{event.mode} Event</p>
+                  <h4 className={`font-bold text-sm leading-snug truncate max-w-[200px] sm:max-w-[240px] ${theme.textHeading}`}>{event.location}</h4>
+                  <p className={`${theme.textMuted} text-xs font-semibold capitalize mt-0.5`}>{event.mode} Event</p>
                 </div>
               </div>
             </div>
 
-            {/* DYNAMIC CTA BUTTON */}
-            {isRegistered ? (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center gap-3">
-                  <div className="bg-emerald-100 p-2 rounded-full text-emerald-600 shrink-0">
-                    <CheckCircle2 className="w-5 h-5" />
+            {/* Live widget statistics */}
+            <div className={`p-4.5 rounded-2xl border space-y-3.5 ${
+              theme.isDark ? "bg-zinc-900/40 border-zinc-800" : "bg-zinc-50 border-zinc-200/80"
+            }`}>
+              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                <span>Capacity Status</span>
+                {timeLeftStr.includes("Ongoing") && (
+                  <span className="flex items-center gap-1 text-red-500 animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Live
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                {event.capacity > 0 ? (
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs font-bold text-zinc-400">
+                      <span>Seats Capacity</span>
+                      <span className="text-indigo-400 font-black">
+                        {event.capacity - registeredCount > 0 
+                          ? `${event.capacity - registeredCount} spots left` 
+                          : "Sold Out"}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-zinc-850 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          (registeredCount / event.capacity) > 0.85 ? "bg-red-500" : "bg-indigo-500"
+                        }`}
+                        style={{ width: `${Math.min(100, (registeredCount / event.capacity) * 100)}%` }}
+                      />
+                    </div>
                   </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Ticket className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span className="text-xs font-black uppercase text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-900/50">
+                      Unlimited Spots Available
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 text-zinc-400 font-bold text-[10px] border-t border-zinc-800/60 pt-2">
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span>{registeredCount} participants registered</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ACTION CTA CHECKS */}
+            {isRegistered ? (
+              <div className="space-y-3">
+                <div className={`p-4.5 rounded-2xl flex items-start gap-3 border ${
+                  theme.isDark ? "bg-emerald-950/20 border-emerald-900 text-emerald-400" : "bg-emerald-50 border-emerald-150 text-emerald-955"
+                }`}>
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-bold text-emerald-900 text-sm">You&apos;re already registered!</p>
-                    <p className="text-emerald-700 text-xs font-medium">Your spot is secured.</p>
+                    <p className="font-extrabold text-xs">You are registered!</p>
+                    <p className="opacity-80 text-[10px] font-semibold mt-0.5">Your ticket check details are confirmed.</p>
                   </div>
                 </div>
-                <Link href={`/dashboard/team/${userDashboardId}`} className="block w-full">
-                  <Button className="w-full rounded-2xl py-7 bg-zinc-900 hover:bg-zinc-800 text-white text-lg font-bold shadow-xl transition-all hover:scale-[1.02]">
+                <Link href={`/dashboard/team/${userDashboardId}`} className="block">
+                  <Button className="w-full rounded-2xl py-6 bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-sm shadow-xl transition-all">
                     Go to Participant Dashboard
                   </Button>
                 </Link>
               </div>
             ) : (
-              <Link href={`/events/${eventId}/register`} className="block w-full">
-                <Button className="w-full rounded-2xl py-7 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-bold shadow-xl shadow-indigo-600/20 transition-all hover:scale-[1.02]">
-                  Secure Your Spot
+              <Link href={`/events/${eventId}/register`} className="block">
+                <Button 
+                  disabled={isRegistrationBlocked}
+                  className={`w-full rounded-2xl py-6 text-white font-bold text-sm shadow-xl transition-all ${theme.button}`}
+                >
+                  {ctaText}
                 </Button>
               </Link>
             )}
-
           </motion.div>
         </div>
-      </div>
+      </section>
 
+      {/* SHARE MODAL COMPONENT */}
+      <AnimatePresence>
+        {isShareModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative space-y-4 text-zinc-900"
+            >
+              <button 
+                type="button"
+                onClick={() => setIsShareModalOpen(false)}
+                className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-650 p-1.5 hover:bg-zinc-50 rounded-full transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="space-y-1">
+                <h3 className="text-lg font-black tracking-tight">Share Event</h3>
+                <p className="text-zinc-400 text-xs font-semibold">Copy link below to invite participants.</p>
+              </div>
+
+              <div className="flex gap-2 items-center bg-zinc-50 p-2.5 rounded-xl border border-zinc-200">
+                <input 
+                  type="text" 
+                  value={typeof window !== "undefined" ? window.location.href : ""} 
+                  readOnly 
+                  className="flex-1 bg-transparent text-xs font-semibold text-zinc-600 focus:outline-none select-all min-w-0"
+                />
+                <Button 
+                  onClick={handleCopyLink}
+                  size="sm" 
+                  className="rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-[10px] shrink-0"
+                >
+                  {copied ? "Copied!" : "Copy Link"}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* STAFF PREVIEW TOOLBAR */}
       {isStaff && viewMode === "PREVIEW" && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-zinc-950/95 text-white px-6 py-4 rounded-3xl border border-zinc-800 shadow-2xl backdrop-blur-md flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5">
           <div className="flex items-center gap-2">
@@ -2115,6 +2503,6 @@ export default function EventDetailsPage() {
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 }

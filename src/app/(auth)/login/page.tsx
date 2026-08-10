@@ -23,21 +23,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import PageTransition from "@/components/layout/PageTransition";
+import { verify2FACode } from "@/lib/totp";
 import {
   useLogin,
   useSendResetOtp,
   useVerifyResetOtp,
   useResetPassword,
 } from "@/hooks/authHooks";
+import { useToast } from "@/components/providers/ToastProvider";
 
 type ViewState =
   | "LOGIN"
   | "FORGOT_EMAIL"
   | "FORGOT_OTP"
-  | "FORGOT_NEW_PASSWORD";
+  | "FORGOT_NEW_PASSWORD"
+  | "TWO_FACTOR_VERIFY";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { success: showSuccess, error: showError } = useToast();
 
   const [view, setView] = useState<ViewState>("LOGIN");
   const [serverError, setServerError] = useState("");
@@ -58,6 +62,22 @@ export default function LoginPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // 2FA state during login
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [twoFactorError, setTwoFactorError] = useState("");
+  const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+  const [pendingTokens, setPendingTokens] = useState<{
+    accessToken: string;
+    refreshToken: string;
+  } | null>(null);
+  const [pending2FAData, setPending2FAData] = useState<{
+    secret: string;
+    backupCodes: string[];
+  }>({
+    secret: "JBSWY3DPEHPK3PXP",
+    backupCodes: [],
+  });
+
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(LoginSchema),
     defaultValues: {
@@ -74,12 +94,101 @@ export default function LoginPage() {
       setServerError("");
       const result = await login(data.email, data.password);
 
+      const settings = (result as any).user_settings || (() => {
+        try {
+          const stored = localStorage.getItem("cc_user_settings");
+          return stored ? JSON.parse(stored) : {};
+        } catch {
+          return {};
+        }
+      })();
+
+      const is2FAEnabled =
+        settings.twoFactorEnabled === true ||
+        localStorage.getItem("cc_2fa_enabled") === "true";
+
+      if (is2FAEnabled) {
+        const secret =
+          settings.twoFactorSecret ||
+          localStorage.getItem("cc_2fa_secret") ||
+          "JBSWY3DPEHPK3PXP";
+
+        let backupCodes = settings.twoFactorBackupCodes;
+        if (!backupCodes) {
+          try {
+            const storedCodes = localStorage.getItem("cc_2fa_backup_codes");
+            if (storedCodes) backupCodes = JSON.parse(storedCodes);
+          } catch {
+            // Ignore parse error
+          }
+        }
+
+        setPending2FAData({
+          secret,
+          backupCodes: Array.isArray(backupCodes) ? backupCodes : [],
+        });
+
+        setPendingTokens({
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+        });
+        setTwoFactorCode("");
+        setTwoFactorError("");
+        setView("TWO_FACTOR_VERIFY");
+        return;
+      }
+
       localStorage.setItem("accessToken", result.accessToken);
       localStorage.setItem("refreshToken", result.refreshToken);
+      showSuccess("Signed in successfully!");
 
       router.push("/home");
     } catch (error: any) {
       setServerError(error.message || "Failed to login");
+    }
+  };
+
+  // =============================
+  // 2FA Verification Handler
+  // =============================
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTwoFactorError("");
+    if (!twoFactorCode) {
+      setTwoFactorError("Please enter your 6-digit code or backup code.");
+      return;
+    }
+
+    setIsVerifying2FA(true);
+    try {
+      const isValid = await verify2FACode(
+        twoFactorCode,
+        pending2FAData.secret,
+        pending2FAData.backupCodes
+      );
+      if (!isValid) {
+        setIsVerifying2FA(false);
+        setTwoFactorError("Invalid verification code. Please check your Authenticator app and try again.");
+        return;
+      }
+
+      if (!pendingTokens) {
+        setIsVerifying2FA(false);
+        setTwoFactorError("Authentication session expired. Please log in again.");
+        setView("LOGIN");
+        return;
+      }
+
+      localStorage.setItem("accessToken", pendingTokens.accessToken);
+      localStorage.setItem("refreshToken", pendingTokens.refreshToken);
+      setSuccessMessage("2FA verification successful! Welcome back.");
+      showSuccess("2FA verification successful! Welcome back.");
+      setTimeout(() => {
+        router.push("/home");
+      }, 500);
+    } catch {
+      setIsVerifying2FA(false);
+      setTwoFactorError("Failed to verify authentication code. Please try again.");
     }
   };
 
@@ -136,6 +245,7 @@ export default function LoginPage() {
     try {
       await resetPassword(resetToken, newPassword, confirmPassword);
       setSuccessMessage("Password reset successfully");
+      showSuccess("Password reset successfully");
       setView("LOGIN");
     } catch (error: any) {
       setServerError(
@@ -161,12 +271,6 @@ export default function LoginPage() {
             {serverError && (
               <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-medium">
                 {serverError}
-              </div>
-            )}
-
-            {successMessage && view === "LOGIN" && (
-              <div className="p-4 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm font-medium">
-                {successMessage}
               </div>
             )}
 
@@ -408,6 +512,77 @@ export default function LoginPage() {
                   >
                     Reset Password
                   </Button>
+                </form>
+              </div>
+            )}
+
+            {/* ================================
+                2FA VERIFICATION STEP
+            ================================= */}
+            {view === "TWO_FACTOR_VERIFY" && (
+              <div className="space-y-6">
+                <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center">
+                  <KeyRound className="w-8 h-8" />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider">
+                    <span>Two-Factor Authentication</span>
+                  </div>
+                  <h1 className="text-3xl font-extrabold text-zinc-900 dark:text-white">
+                    Verification Required
+                  </h1>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Enter the 6-digit verification code from your Authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 1Password, etc.) or use an Emergency Backup Code.
+                  </p>
+                </div>
+
+                <form onSubmit={handleVerify2FA} className="space-y-6">
+                  <div>
+                    <Label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 block mb-2">
+                      Authentication Code or Backup Code
+                    </Label>
+                    <Input
+                      maxLength={14}
+                      value={twoFactorCode}
+                      onChange={(e) => {
+                        setTwoFactorCode(e.target.value);
+                        setTwoFactorError("");
+                      }}
+                      placeholder="6-digit code (e.g. 123456) or CC-XXXX-XXXX"
+                      className="rounded-2xl py-6 text-center font-mono text-xl tracking-widest font-bold bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-white/10"
+                    />
+                    {twoFactorError && (
+                      <p className="text-xs text-rose-500 mt-2 font-medium">{twoFactorError}</p>
+                    )}
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isVerifying2FA}
+                    className="w-full rounded-2xl py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-lg transition-all"
+                  >
+                    {isVerifying2FA ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                        Verifying Code...
+                      </>
+                    ) : (
+                      "Verify & Continue"
+                    )}
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setView("LOGIN");
+                      setTwoFactorCode("");
+                      setTwoFactorError("");
+                    }}
+                    className="w-full text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-white transition-colors"
+                  >
+                    Back to login
+                  </button>
                 </form>
               </div>
             )}

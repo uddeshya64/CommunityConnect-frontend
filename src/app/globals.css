@@ -1,1 +1,236 @@
 @import "tailwindcss";
+
+:root {
+  --accent-hex: #6366f1;
+  --accent-rgb: 99, 102, 241;
+  --accent-color: #6366f1;
+}
+
+/* Compact Mode Styles */
+html.compact-mode .compact-card {
+  padding: 0.75rem !important;
+}
+html.compact-mode .compact-grid {
+  gap: 0.75rem !important;
+}
+html.compact-mode .compact-text {
+  font-size: 0.875rem !important;
+}
+html.compact-mode {
+  --card-padding: 0.75rem;
+  --grid-gap: 0.75rem;
+}
+
+/* No Animations Styles */
+html.no-animations *,
+html.no-animations *::before,
+html.no-animations *::after {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+
+/* Accent helper classes */
+.text-accent {
+  color: var(--accent-color);
+}
+.bg-accent {
+  background-color: var(--accent-color);
+}
+.border-accent {
+  border-color: var(--accent-color);
+}
+
+::selection {
+  background-color: rgba(var(--accent-rgb), 0.25);
+}
+
+/* =========================================================
+   GLOBAL THEME & FONT COLOR ADAPTATION ENGINE
+   Ensures ALL pages & font colors adapt attractively
+   ========================================================= */
+
+/* --- BASE ROOT & BODY THEME STYLES --- */
+html.dark,
+html[data-theme="dark"] {
+  --bg-page: #09090b;
+  --bg-card: rgba(24, 24, 27, 0.75);
+  --text-main: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --border-theme: rgba(255, 255, 255, 0.08);
+  color-scheme: dark;
+}
+
+html.light,
+html[data-theme="light"] {
+  --bg-page: #f8fafc;
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border-theme: rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--bg-page) !important;
+  color: var(--text-main) !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* =========================================================
+   LIGHT MODE AUTOMATIC ADAPTATION (FOR HARDCODED DARK PAGES)
+   ========================================================= */
+
+/* 1. Universal Page & Section Backgrounds in Light Mode */
+html.light .bg-zinc-950,
+html.light .bg-\[\#09090b\],
+html.light .bg-zinc-900 {
+  background-color: var(--bg-page) !important;
+}
+
+/* 2. Card, Modal & Panel Backgrounds in Light Mode */
+html.light .bg-zinc-900\/40,
+html.light .bg-zinc-900\/50,
+html.light .bg-zinc-900\/60,
+html.light .bg-zinc-900\/80,
+html.light .bg-zinc-950\/40,
+html.light .bg-zinc-950\/60,
+html.light .bg-zinc-950\/80,
+html.light .bg-zinc-950\/70,
+html.light .bg-zinc-900\/70 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 25px -2px rgba(0, 0, 0, 0.06);
+}
+
+/* 3. Text Colors in Light Mode (Crisp, attractive dark slate font colors) */
+html.light :not(button):not(a):not([class*="bg-"]):not([class*="from-"]):not([class*="to-"]) > .text-white,
+html.light h1.text-white,
+html.light h2.text-white,
+html.light h3.text-white,
+html.light h4.text-white,
+html.light p.text-white,
+html.light span.text-white:not([class*="bg-"]),
+html.light div.text-white:not([class*="bg-"]),
+html.light .text-zinc-100,
+html.light .text-zinc-200,
+html.light .text-zinc-300 {
+  color: #0f172a !important;
+}
+
+html.light .text-zinc-400,
+html.light .text-zinc-500 {
+  color: #475569 !important;
+}
+
+/* 4. Borders & Dividers in Light Mode */
+html.light .border-white\/5,
+html.light .border-white\/10,
+html.light .border-white\/20 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 5. Inputs, Selects & Textareas in Light Mode */
+html.light input.bg-zinc-900\/80,
+html.light input.bg-zinc-950,
+html.light input.bg-zinc-950\/80,
+html.light select.bg-zinc-950,
+html.light select.bg-zinc-900\/80,
+html.light textarea.bg-zinc-900\/80,
+html.light textarea.bg-zinc-950 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* =========================================================
+   DARK MODE AUTOMATIC ADAPTATION (FOR HARDCODED LIGHT PAGES & CARDS)
+   ========================================================= */
+
+/* 1. Page & Section Backgrounds in Dark Mode */
+html.dark .bg-zinc-50,
+html.dark .bg-zinc-100,
+html.dark .bg-slate-50,
+html.dark .bg-slate-100,
+html.dark .min-h-screen.bg-white {
+  background-color: var(--bg-page) !important;
+}
+
+/* 2. Card, Modal & Panel Backgrounds in Dark Mode */
+html.dark :not(button):not(a) > .bg-white,
+html.dark div.bg-white,
+html.dark section.bg-white,
+html.dark article.bg-white,
+html.dark .bg-white\/95,
+html.dark .bg-white\/90,
+html.dark .bg-white\/80,
+html.dark .bg-white\/70,
+html.dark .bg-zinc-50\/90,
+html.dark .bg-zinc-100\/90,
+html.dark .bg-zinc-50\/80,
+html.dark .bg-zinc-100\/80 {
+  background-color: rgba(24, 24, 27, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f4f4f5 !important;
+}
+
+/* 3. Text Colors in Dark Mode (Crisp, attractive white & light-zinc font colors) */
+html.dark :not(button):not(a):not([class*="bg-"]):not([class*="from-"]):not([class*="to-"]) > .text-zinc-900,
+html.dark h1.text-zinc-900,
+html.dark h2.text-zinc-900,
+html.dark h3.text-zinc-900,
+html.dark h4.text-zinc-900,
+html.dark p.text-zinc-900,
+html.dark span.text-zinc-900:not([class*="bg-"]),
+html.dark div.text-zinc-900:not([class*="bg-"]),
+html.dark .text-zinc-800,
+html.dark .text-zinc-700,
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-gray-900 {
+  color: #f4f4f5 !important;
+}
+
+html.dark .text-zinc-600,
+html.dark .text-zinc-500,
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: #a1a1aa !important;
+}
+
+/* 4. Border Colors in Dark Mode */
+html.dark .border-zinc-100,
+html.dark .border-zinc-200,
+html.dark .border-zinc-300,
+html.dark .border-zinc-200\/50,
+html.dark .border-zinc-200\/70,
+html.dark .border-slate-100,
+html.dark .border-slate-200 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 5. Inputs, Selects & Textareas in Dark Mode */
+html.dark input.bg-white,
+html.dark input.bg-zinc-50,
+html.dark input.bg-zinc-100,
+html.dark select.bg-white,
+html.dark select.bg-zinc-50,
+html.dark select.bg-zinc-100,
+html.dark textarea.bg-white,
+html.dark textarea.bg-zinc-50,
+html.dark textarea.bg-zinc-100 {
+  background-color: rgba(24, 24, 27, 0.95) !important;
+  color: #f4f4f5 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #71717a !important;
+}
