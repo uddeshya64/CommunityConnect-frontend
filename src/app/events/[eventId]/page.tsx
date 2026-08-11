@@ -358,6 +358,31 @@ export default function EventDetailsPage() {
   // --- REGISTRATION STATES ---
   const [isRegistered, setIsRegistered] = useState(false);
   const [userDashboardId, setUserDashboardId] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/events/${eventId}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: event?.title || "CommunityConnect Event",
+          url: shareUrl,
+        });
+        return;
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch (err) {
+      console.error("Failed to copy share link:", err);
+    }
+  };
 
   // --- DYNAMIC EVENT TYPES STATES ---
   const [eventTypes, setEventTypes] = useState<any[]>([]);
@@ -367,9 +392,9 @@ export default function EventDetailsPage() {
   const MODES = ["online", "offline", "hybrid"];
   const REG_TYPES = ["solo", "team"];
 
-  const hasPermission = (perm: string) => 
-    isOwner || 
-    permissions.includes(perm) || 
+  const hasPermission = (perm: string) =>
+    isOwner ||
+    permissions.includes(perm) ||
     (perm === "MANAGE_ATTENDEES" && permissions.includes("MANAGE_CHECK_IN"));
 
   const formatFullDate = (isoString?: string) => {
@@ -403,6 +428,14 @@ export default function EventDetailsPage() {
   // 1. INITIAL EVENT FETCH
   useEffect(() => {
     const fetchEventAndTypes = async () => {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        const returnUrl = `/events/${eventId}`;
+        localStorage.setItem("returnUrl", returnUrl);
+        router.push("/login");
+        return;
+      }
+
       try {
         const response = await eventService.getEventById(eventId);
         const rawEvent = response?.data?.event || response?.data || response?.event || response;
@@ -596,7 +629,7 @@ export default function EventDetailsPage() {
         const bannerRes = await api.post(`/events/${eventId}/banner`, bannerFormData, {
           headers: { "Content-Type": "multipart/form-data" }
         });
-        
+
         // Update the banner URL based on the response from your new API
         updatedBannerUrl = bannerRes.data?.data?.banner_url || bannerRes.data?.banner_url || bannerPreview;
       }
@@ -655,8 +688,8 @@ export default function EventDetailsPage() {
       } else {
         setUpdateMessage({ type: "error", text: backendError || "Failed to update event." });
       }
-    } finally { 
-      setIsUpdating(false); 
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -713,12 +746,12 @@ export default function EventDetailsPage() {
     try {
       setIsSavingConfig(true);
       setConfigMessage({ type: "", text: "" });
-      
+
       await api.patch(`/organizers/${event.organizerId}/config`, {
         ...organizerConfig,
         subscription_status: newPlan
       });
-      
+
       setOrganizerConfig({ ...organizerConfig, subscription_status: newPlan });
       setConfigMessage({ type: "success", text: `Successfully upgraded to ${newPlan} plan!` });
       showSuccess(`Successfully upgraded to ${newPlan} plan!`);
@@ -740,13 +773,13 @@ export default function EventDetailsPage() {
       await api.post(`/events/${eventId}/manage/check-in`, {
         ticketCode: participant.ticketCode
       });
-      
+
       const displayName = participant.name || participant.user?.name || "Participant";
       setWelcomeAttendee(displayName);
       setTimeout(() => {
         setWelcomeAttendee(null);
       }, 4000);
-      
+
       setParticipants(prev =>
         prev.map(p =>
           p.registrationId === participant.registrationId
@@ -769,7 +802,7 @@ export default function EventDetailsPage() {
       });
 
       const attendeeName = res.data.data?.user?.name || "Participant";
-      
+
       setIsQrScanning(false);
       setScanResult(null);
       setWelcomeAttendee(attendeeName);
@@ -786,7 +819,7 @@ export default function EventDetailsPage() {
             : p
         )
       );
-      
+
     } catch (err: any) {
       console.error("QR check in error:", err);
       setScanResult({
@@ -813,7 +846,7 @@ export default function EventDetailsPage() {
             }
             handleQrCheckIn(qrCodeMessage);
           },
-          () => {}
+          () => { }
         ).catch(err => {
           console.error("Failed to start QR scanner:", err);
           alert("Could not open camera. Please check camera permissions.");
@@ -1176,15 +1209,15 @@ export default function EventDetailsPage() {
                                       </p>
                                     </div>
                                   ) : (
-                                    <Button 
+                                    <Button
                                       onClick={() => handleManualCheckIn(p)}
                                       disabled={isChecking}
                                       className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 text-xs flex items-center gap-1.5 shadow-sm"
                                     >
                                       {isChecking ? (
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin"/>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                       ) : (
-                                        <CheckCircle2 className="w-3.5 h-3.5"/>
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
                                       )}
                                       Mark Present
                                     </Button>
@@ -1208,13 +1241,13 @@ export default function EventDetailsPage() {
 
                     {updateMessage.text && (
                       <div className={`p-4 rounded-2xl flex items-center gap-3 font-semibold text-sm ${updateMessage.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
-                        {updateMessage.type === "success" ? <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0"/> : <AlertTriangle className="w-5 h-5 text-red-600 shrink-0"/>}
+                        {updateMessage.type === "success" ? <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />}
                         <span>{updateMessage.text}</span>
                       </div>
                     )}
 
                     <form onSubmit={handleUpdate} className="space-y-6">
-                      
+
                       {/* BANNER / IMAGE UPLOAD FIELD (FILE UPLOAD, FILE DETAILS, AND PREVIEW IMAGE) */}
                       <div className="space-y-4">
                         <Label className="font-bold text-zinc-700">Event Cover Banner</Label>
@@ -1223,7 +1256,7 @@ export default function EventDetailsPage() {
                         <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-zinc-300 hover:border-indigo-500 rounded-2xl cursor-pointer bg-zinc-50 hover:bg-indigo-50/30 transition-all">
                           <div className="flex flex-col items-center justify-center text-center px-4">
                             <div className="p-2.5 bg-zinc-200/60 rounded-xl text-zinc-600 mb-2">
-                              <UploadCloud className="w-5 h-5"/>
+                              <UploadCloud className="w-5 h-5" />
                             </div>
                             <p className="text-sm font-bold text-zinc-800">
                               {bannerFile ? "Choose a different banner" : "Click to select or drag event banner"}
@@ -1243,7 +1276,7 @@ export default function EventDetailsPage() {
                           <div className="flex items-center justify-between p-3.5 bg-indigo-50/60 rounded-xl border border-indigo-100">
                             <div className="flex items-center gap-3 overflow-hidden">
                               <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg shrink-0">
-                                <ImageIcon className="w-4 h-4"/>
+                                <ImageIcon className="w-4 h-4" />
                               </div>
                               <div className="min-w-0">
                                 <p className="text-xs font-bold text-zinc-900 truncate">{bannerFile.name}</p>
@@ -1276,7 +1309,7 @@ export default function EventDetailsPage() {
                               />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                                 <label className="cursor-pointer bg-white text-zinc-900 hover:bg-zinc-100 font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
-                                  <UploadCloud className="w-4 h-4"/> Swap Image
+                                  <UploadCloud className="w-4 h-4" /> Swap Image
                                   <input
                                     type="file"
                                     accept="image/png, image/jpeg, image/webp"
@@ -1289,7 +1322,7 @@ export default function EventDetailsPage() {
                                   onClick={handleRemoveBanner}
                                   className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5"
                                 >
-                                  <X className="w-4 h-4"/> Delete
+                                  <X className="w-4 h-4" /> Delete
                                 </button>
                               </div>
                             </div>
@@ -1299,8 +1332,8 @@ export default function EventDetailsPage() {
 
                       <div className="space-y-2">
                         <Label className="font-bold text-zinc-700">Event Title</Label>
-                        <Input 
-                          value={editData.title || ""} 
+                        <Input
+                          value={editData.title || ""}
                           onChange={(e) => setEditData({ ...editData, title: e.target.value })}
                           required
                           className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
@@ -1323,8 +1356,8 @@ export default function EventDetailsPage() {
                             <option value="other">Other (Specify dynamic type)</option>
                           </select>
                           {customTypeEditMode && (
-                            <Input 
-                              placeholder="Enter custom type..." 
+                            <Input
+                              placeholder="Enter custom type..."
                               value={customType}
                               onChange={(e) => setCustomType(e.target.value)}
                               className="mt-2 py-5 rounded-xl bg-zinc-50 border-zinc-200"
@@ -1349,8 +1382,8 @@ export default function EventDetailsPage() {
 
                       <div className="space-y-2">
                         <Label className="font-bold text-zinc-700">Location</Label>
-                        <Input 
-                          value={editData.mode === "online" ? "Online" : editData.location || ""} 
+                        <Input
+                          value={editData.mode === "online" ? "Online" : editData.location || ""}
                           onChange={(e) => setEditData({ ...editData, location: e.target.value })}
                           disabled={editData.mode === "online"}
                           className="py-6 rounded-xl bg-zinc-50 border-zinc-200 disabled:opacity-50"
@@ -1360,9 +1393,9 @@ export default function EventDetailsPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <Label className="font-bold text-zinc-700">Start Date & Time</Label>
-                          <Input 
-                            type="datetime-local" 
-                            value={editData.start_date || ""} 
+                          <Input
+                            type="datetime-local"
+                            value={editData.start_date || ""}
                             onChange={(e) => setEditData({ ...editData, start_date: e.target.value })}
                             required
                             className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
@@ -1370,9 +1403,9 @@ export default function EventDetailsPage() {
                         </div>
                         <div className="space-y-2">
                           <Label className="font-bold text-zinc-700">End Date & Time</Label>
-                          <Input 
-                            type="datetime-local" 
-                            value={editData.end_date || ""} 
+                          <Input
+                            type="datetime-local"
+                            value={editData.end_date || ""}
                             onChange={(e) => setEditData({ ...editData, end_date: e.target.value })}
                             required
                             className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
@@ -1383,18 +1416,18 @@ export default function EventDetailsPage() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
                           <Label className="font-bold text-zinc-700">Capacity</Label>
-                          <Input 
-                            type="number" 
-                            value={editData.capacity || "0"} 
+                          <Input
+                            type="number"
+                            value={editData.capacity || "0"}
                             onChange={(e) => setEditData({ ...editData, capacity: e.target.value })}
                             className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
                           />
                         </div>
                         <div className="space-y-2">
                           <Label className="font-bold text-zinc-700">Registration Fee (₹)</Label>
-                          <Input 
-                            type="number" 
-                            value={editData.registration_fee || "0"} 
+                          <Input
+                            type="number"
+                            value={editData.registration_fee || "0"}
                             onChange={(e) => setEditData({ ...editData, registration_fee: e.target.value })}
                             className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
                           />
@@ -1417,18 +1450,18 @@ export default function EventDetailsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50 p-6 rounded-2xl border border-zinc-200">
                           <div className="space-y-2">
                             <Label className="font-bold text-zinc-700">Min Team Size</Label>
-                            <Input 
-                              type="number" 
-                              value={editData.min_team_size || "1"} 
+                            <Input
+                              type="number"
+                              value={editData.min_team_size || "1"}
                               onChange={(e) => setEditData({ ...editData, min_team_size: e.target.value })}
                               className="py-6 rounded-xl bg-white border-zinc-200"
                             />
                           </div>
                           <div className="space-y-2">
                             <Label className="font-bold text-zinc-700">Max Team Size</Label>
-                            <Input 
-                              type="number" 
-                              value={editData.max_team_size || "1"} 
+                            <Input
+                              type="number"
+                              value={editData.max_team_size || "1"}
                               onChange={(e) => setEditData({ ...editData, max_team_size: e.target.value })}
                               className="py-6 rounded-xl bg-white border-zinc-200"
                             />
@@ -1447,7 +1480,7 @@ export default function EventDetailsPage() {
                       </div>
 
                       <Button className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-6 shadow-lg shadow-indigo-600/25" disabled={isUpdating} type="submit">
-                        {isUpdating ? <Loader2 className="w-5 h-5 animate-spin"/> : "Save Event Changes"}
+                        {isUpdating ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save Event Changes"}
                       </Button>
                     </form>
                   </div>
@@ -1490,7 +1523,7 @@ export default function EventDetailsPage() {
                             <div key={timeline.id} className="relative group">
                               {/* Timeline Point */}
                               <div className="absolute -left-[41px] top-1.5 w-6 h-6 rounded-full bg-white border-4 border-indigo-600 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform" />
-                              
+
                               <div className="bg-zinc-50 border border-zinc-200/60 p-6 rounded-3xl hover:border-zinc-300 hover:bg-white hover:shadow-md transition-all duration-300 space-y-4">
                                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                                   <div className="space-y-1.5">
@@ -1548,7 +1581,7 @@ export default function EventDetailsPage() {
                                 </div>
 
                                 {timeline.description && (
-                                  <div 
+                                  <div
                                     className="text-zinc-600 text-sm font-medium leading-relaxed border-t border-zinc-150 pt-3 prose prose-zinc prose-sm max-w-none"
                                     dangerouslySetInnerHTML={{ __html: timeline.description }}
                                   />
@@ -1573,9 +1606,9 @@ export default function EventDetailsPage() {
                     <form onSubmit={handleInviteStaff} className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 space-y-4">
                       <h3 className="font-bold text-zinc-900 text-base">Invite Staff Member</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Input 
-                          placeholder="Staff email address..." 
-                          type="email" 
+                        <Input
+                          placeholder="Staff email address..."
+                          type="email"
                           value={inviteEmail}
                           onChange={(e) => setInviteEmail(e.target.value)}
                           className="py-6 bg-white border-zinc-200 rounded-xl md:col-span-2"
@@ -1592,7 +1625,7 @@ export default function EventDetailsPage() {
                         </select>
                       </div>
                       <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-5 shadow-sm" disabled={isInviting} type="submit">
-                        {isInviting ? <Loader2 className="w-4 h-4 animate-spin"/> : "Send Role Invitation"}
+                        {isInviting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Role Invitation"}
                       </Button>
                     </form>
 
@@ -1629,7 +1662,7 @@ export default function EventDetailsPage() {
 
                     {configMessage.text && (
                       <div className={`p-4 rounded-2xl flex items-center gap-3 font-semibold text-sm ${configMessage.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
-                        {configMessage.type === "success" ? <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0"/> : <AlertTriangle className="w-5 h-5 text-red-600 shrink-0"/>}
+                        {configMessage.type === "success" ? <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />}
                         <span>{configMessage.text}</span>
                       </div>
                     )}
@@ -1648,15 +1681,15 @@ export default function EventDetailsPage() {
                           </div>
 
                           <div className="flex gap-3 pt-2">
-                            <Button 
-                              onClick={() => handleUpgradeSubscription("PRO")} 
+                            <Button
+                              onClick={() => handleUpgradeSubscription("PRO")}
                               type="button"
                               className="rounded-xl bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 text-xs font-bold px-4 py-2"
                             >
                               Upgrade to PRO
                             </Button>
-                            <Button 
-                              onClick={() => handleUpgradeSubscription("ENTERPRISE")} 
+                            <Button
+                              onClick={() => handleUpgradeSubscription("ENTERPRISE")}
                               type="button"
                               className="rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold px-4 py-2"
                             >
@@ -1670,8 +1703,8 @@ export default function EventDetailsPage() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label className="text-xs font-bold text-zinc-600">Primary Brand Color</Label>
-                              <Input 
-                                value={organizerConfig.branding_config?.primary_color || "#4F46E5"} 
+                              <Input
+                                value={organizerConfig.branding_config?.primary_color || "#4F46E5"}
                                 onChange={(e) => setOrganizerConfig({
                                   ...organizerConfig,
                                   branding_config: { ...organizerConfig.branding_config, primary_color: e.target.value }
@@ -1681,8 +1714,8 @@ export default function EventDetailsPage() {
                             </div>
                             <div className="space-y-2">
                               <Label className="text-xs font-bold text-zinc-600">Organization Logo URL</Label>
-                              <Input 
-                                value={organizerConfig.branding_config?.logo_url || ""} 
+                              <Input
+                                value={organizerConfig.branding_config?.logo_url || ""}
                                 onChange={(e) => setOrganizerConfig({
                                   ...organizerConfig,
                                   branding_config: { ...organizerConfig.branding_config, logo_url: e.target.value }
@@ -1714,7 +1747,7 @@ export default function EventDetailsPage() {
                         </div>
 
                         <Button className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-6 shadow-lg shadow-indigo-600/25" disabled={isSavingConfig} type="submit">
-                          {isSavingConfig ? <Loader2 className="w-5 h-5 animate-spin"/> : "Save Organization Configurations"}
+                          {isSavingConfig ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save Organization Configurations"}
                         </Button>
                       </form>
                     )}
@@ -1731,13 +1764,13 @@ export default function EventDetailsPage() {
 
                     <div className="p-6 bg-red-50/50 rounded-3xl border border-red-200/60 space-y-4">
                       <div className="flex items-center gap-3 text-red-700 font-extrabold text-lg">
-                        <AlertTriangle className="w-6 h-6"/> Danger Zone
+                        <AlertTriangle className="w-6 h-6" /> Danger Zone
                       </div>
                       <p className="text-sm font-medium text-zinc-600">
                         Deleting this event will permanently purge all registrations, ticket data, check-in history, and staff permissions associated with it. This action cannot be undone.
                       </p>
                       <Button className="rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-6 shadow-lg shadow-red-600/20" onClick={handleDelete}>
-                        <Trash2 className="w-5 h-5 mr-2"/> Delete Event
+                        <Trash2 className="w-5 h-5 mr-2" /> Delete Event
                       </Button>
                     </div>
                   </div>
@@ -1763,7 +1796,7 @@ export default function EventDetailsPage() {
                   type="button"
                   className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-700 p-2"
                 >
-                  <XCircle className="w-6 h-6"/>
+                  <XCircle className="w-6 h-6" />
                 </button>
 
                 <div className="text-center mb-4">
@@ -1781,7 +1814,7 @@ export default function EventDetailsPage() {
                   </div>
                 )}
 
-                <Button 
+                <Button
                   onClick={() => setIsQrScanning(false)}
                   type="button"
                   className="w-full mt-4 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-bold py-3"
@@ -1813,7 +1846,7 @@ export default function EventDetailsPage() {
                   type="button"
                   className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-700 p-2 rounded-full hover:bg-zinc-100 transition-colors"
                 >
-                  <X className="w-5 h-5"/>
+                  <X className="w-5 h-5" />
                 </button>
 
                 <div className="mb-6">
@@ -1833,8 +1866,8 @@ export default function EventDetailsPage() {
                 <form onSubmit={handleSaveAgenda} className="space-y-5">
                   <div className="space-y-1.5">
                     <Label className="font-bold text-zinc-700 text-sm">Session Title *</Label>
-                    <Input 
-                      value={agendaFormData.title} 
+                    <Input
+                      value={agendaFormData.title}
                       onChange={(e) => setAgendaFormData({ ...agendaFormData, title: e.target.value })}
                       required
                       placeholder="e.g. Opening Keynote, Technical Session 1"
@@ -1845,9 +1878,9 @@ export default function EventDetailsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label className="font-bold text-zinc-700 text-sm">Start Time *</Label>
-                      <Input 
-                        type="datetime-local" 
-                        value={agendaFormData.start_time} 
+                      <Input
+                        type="datetime-local"
+                        value={agendaFormData.start_time}
                         onChange={(e) => setAgendaFormData({ ...agendaFormData, start_time: e.target.value })}
                         required
                         className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
@@ -1855,9 +1888,9 @@ export default function EventDetailsPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="font-bold text-zinc-700 text-sm">End Time (Optional)</Label>
-                      <Input 
-                        type="datetime-local" 
-                        value={agendaFormData.end_time} 
+                      <Input
+                        type="datetime-local"
+                        value={agendaFormData.end_time}
                         onChange={(e) => setAgendaFormData({ ...agendaFormData, end_time: e.target.value })}
                         className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
                       />
@@ -1867,8 +1900,8 @@ export default function EventDetailsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label className="font-bold text-zinc-700 text-sm">Speaker Name</Label>
-                      <Input 
-                        value={agendaFormData.speaker_name} 
+                      <Input
+                        value={agendaFormData.speaker_name}
                         onChange={(e) => setAgendaFormData({ ...agendaFormData, speaker_name: e.target.value })}
                         placeholder="e.g. Dr. Jane Doe"
                         className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
@@ -1876,8 +1909,8 @@ export default function EventDetailsPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="font-bold text-zinc-700 text-sm">Location / Room</Label>
-                      <Input 
-                        value={agendaFormData.location} 
+                      <Input
+                        value={agendaFormData.location}
                         onChange={(e) => setAgendaFormData({ ...agendaFormData, location: e.target.value })}
                         placeholder="e.g. Auditorium A, Room 402"
                         className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
@@ -1887,7 +1920,7 @@ export default function EventDetailsPage() {
 
                   <div className="space-y-1.5">
                     <Label className="font-bold text-zinc-700 text-sm">Creative Description (Rich Text)</Label>
-                    <RichTextEditor 
+                    <RichTextEditor
                       value={agendaFormData.description}
                       onChange={(val) => setAgendaFormData({ ...agendaFormData, description: val })}
                       placeholder="Add interactive instructions, links, key speakers, or notes with custom colors & formatting..."
@@ -1895,19 +1928,19 @@ export default function EventDetailsPage() {
                   </div>
 
                   <div className="flex gap-3 pt-4 border-t border-zinc-150">
-                    <Button 
+                    <Button
                       onClick={() => setIsAgendaModalOpen(false)}
                       type="button"
                       className="flex-1 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold py-5"
                     >
                       Cancel
                     </Button>
-                    <Button 
-                      className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 shadow-md shadow-indigo-600/20" 
-                      disabled={isSavingAgenda} 
+                    <Button
+                      className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 shadow-md shadow-indigo-600/20"
+                      disabled={isSavingAgenda}
                       type="submit"
                     >
-                      {isSavingAgenda ? <Loader2 className="w-4 h-4 animate-spin"/> : "Save Session"}
+                      {isSavingAgenda ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Session"}
                     </Button>
                   </div>
                 </form>
@@ -1926,7 +1959,7 @@ export default function EventDetailsPage() {
               className="fixed bottom-8 right-8 z-50 bg-zinc-950 text-white p-6 rounded-3xl shadow-2xl border border-zinc-800 flex items-center gap-4 max-w-md"
             >
               <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-6 h-6"/>
+                <CheckCircle2 className="w-6 h-6" />
               </div>
               <div>
                 <p className="text-xs font-black text-emerald-400 uppercase tracking-widest">Check-In Successful</p>
@@ -1951,21 +1984,21 @@ export default function EventDetailsPage() {
                 <p className="text-sm font-medium text-zinc-600">
                   Type <span className="font-mono font-bold text-zinc-900">&quot;{event.title}&quot;</span> to confirm permanent deletion.
                 </p>
-                <Input 
+                <Input
                   value={deleteConfirmText}
                   onChange={(e) => setDeleteConfirmText(e.target.value)}
                   placeholder="Enter event title..."
                   className="py-5 bg-zinc-50 border-zinc-200 rounded-xl font-semibold"
                 />
                 <div className="flex gap-3 pt-2">
-                  <Button 
+                  <Button
                     onClick={() => setShowDeleteModal(false)}
                     className="flex-1 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold py-5"
                   >
                     Cancel
                   </Button>
                   <Button className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold py-5 shadow-md shadow-red-600/20" disabled={isDeleting} onClick={handleConfirmDelete}>
-                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin"/> : "Delete"}
+                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
                   </Button>
                 </div>
               </div>
@@ -2260,6 +2293,11 @@ export default function EventDetailsPage() {
                                       className="text-[11px] font-semibold opacity-95 pt-2 mt-2 border-t border-current/10 prose prose-sm max-w-none prose-current leading-relaxed"
                                       dangerouslySetInnerHTML={{ __html: timeline.description }}
                                     />
+                                  )}
+                                  {!isExpanded && timeline.description && (
+                                    <p className="text-[10px] font-bold opacity-60 mt-1.5 flex items-center gap-1">
+                                      Click to view details <span className="text-[8px]">▼</span>
+                                    </p>
                                   )}
                                 </div>
                               </div>

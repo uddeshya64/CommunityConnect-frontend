@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -39,8 +39,10 @@ type ViewState =
   | "FORGOT_NEW_PASSWORD"
   | "TWO_FACTOR_VERIFY";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get("redirect");
   const { success: showSuccess, error: showError } = useToast();
 
   const [view, setView] = useState<ViewState>("LOGIN");
@@ -142,7 +144,13 @@ export default function LoginPage() {
       localStorage.setItem("refreshToken", result.refreshToken);
       showSuccess("Signed in successfully!");
 
-      router.push("/home");
+      const targetUrl = localStorage.getItem("returnUrl") || redirectParam;
+      if (targetUrl) {
+        localStorage.removeItem("returnUrl");
+        router.push(targetUrl);
+      } else {
+        router.push("/home");
+      }
     } catch (error: any) {
       setServerError(error.message || "Failed to login");
     }
@@ -196,6 +204,10 @@ export default function LoginPage() {
   // Google Login
   // =============================
   const handleGoogleLogin = () => {
+    const targetUrl = localStorage.getItem("returnUrl") || redirectParam;
+    if (targetUrl) {
+      sessionStorage.setItem("redirectUrl", targetUrl);
+    }
     window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
   };
 
@@ -612,3 +624,18 @@ export default function LoginPage() {
     </PageTransition>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen w-full flex items-center justify-center bg-white">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
+  );
+}
+
