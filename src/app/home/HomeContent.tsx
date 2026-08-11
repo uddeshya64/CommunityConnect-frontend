@@ -233,10 +233,10 @@ export default function HomeContent() {
     // ============================================
 
     if (name) {
-      localStorage.setItem(
-        "userName",
-        name
-      );
+      // localStorage.setItem(
+      //   "userName",
+      //   name
+      // );
     }
 
     // ============================================
@@ -244,10 +244,10 @@ export default function HomeContent() {
     // ============================================
 
     if (email) {
-      localStorage.setItem(
-        "userEmail",
-        email
-      );
+      // localStorage.setItem(
+      //   "userEmail",
+      //   email
+      // );
     }
 
     // ============================================
@@ -340,7 +340,7 @@ export default function HomeContent() {
               null
           );
 
-          localStorage.setItem("cc_user_profile", JSON.stringify(profile));
+          // localStorage.setItem("cc_user_profile", JSON.stringify(profile));
         } catch (err) {
           console.error(
             "Failed to fetch profile:",
@@ -513,7 +513,7 @@ export default function HomeContent() {
           setEvents(
             formattedEvents
           );
-          localStorage.setItem("cc_home_events", JSON.stringify(formattedEvents));
+          // localStorage.setItem("cc_home_events", JSON.stringify(formattedEvents));
         } catch (error) {
           console.error(
             "Failed to fetch events:",

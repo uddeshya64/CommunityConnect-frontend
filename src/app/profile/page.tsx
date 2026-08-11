@@ -49,8 +49,8 @@ export default function MyProfilePage() {
             try {
                 const data = await profileService.getMyProfile();
                 setProfile(data);
-                localStorage.setItem("cc_user_profile", JSON.stringify(data));
-                localStorage.setItem("profile_completed", "true");
+                // localStorage.setItem("cc_user_profile", JSON.stringify(data));
+                // localStorage.setItem("profile_completed", "true");
             } catch (err: any) {
                 if (!cached) {
                     setError(

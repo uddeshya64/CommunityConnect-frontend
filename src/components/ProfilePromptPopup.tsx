@@ -24,7 +24,7 @@ export default function ProfilePromptPopup() {
         if (count >= MAX_POPUP_SHOWS) return;
 
         // Increment count and show after a short delay for better UX
-        localStorage.setItem("profile_popup_count", String(count + 1));
+        // localStorage.setItem("profile_popup_count", String(count + 1));
         const timer = setTimeout(() => setIsVisible(true), 1500);
         return () => clearTimeout(timer);
     }, []);
@@ -34,7 +34,7 @@ export default function ProfilePromptPopup() {
     };
 
     const handleGoToProfile = () => {
-        localStorage.setItem("profile_completed", "true");
+        // localStorage.setItem("profile_completed", "true");
         router.push("/profile/edit");
     };
 

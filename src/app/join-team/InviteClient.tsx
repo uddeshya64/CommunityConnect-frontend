@@ -76,7 +76,7 @@ export default function InviteClient() {
   const returnUrl = `/join-team?token=${token}`;
 
   const handleRedirectToAuth = (page: "login" | "register") => {
-    localStorage.setItem("returnUrl", returnUrl);
+    // localStorage.setItem("returnUrl", returnUrl);
     router.push(`/${page}`);
   };
 

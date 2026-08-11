@@ -65,10 +65,10 @@ export default function OAuthSuccessContent() {
     // ============================================
 
     if (name) {
-      localStorage.setItem(
-        "userName",
-        name
-      );
+      // localStorage.setItem(
+      //   "userName",
+      //   name
+      // );
     }
 
     // ============================================
@@ -76,10 +76,10 @@ export default function OAuthSuccessContent() {
     // ============================================
 
     if (email) {
-      localStorage.setItem(
-        "userEmail",
-        email
-      );
+      // localStorage.setItem(
+      //   "userEmail",
+      //   email
+      // );
     }
 
     // ============================================

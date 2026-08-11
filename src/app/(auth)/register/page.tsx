@@ -135,12 +135,12 @@ export default function RegisterPage() {
       );
 
       // Save authentication tokens
-      localStorage.setItem(
+      // localStorage.setItem(
         "accessToken",
         result.accessToken
       );
 
-      localStorage.setItem(
+      // localStorage.setItem(
         "refreshToken",
         result.refreshToken
       );

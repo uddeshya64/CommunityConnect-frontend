@@ -170,10 +170,10 @@ export default function DiscoverContent() {
             favoriteCategories: newFavs,
             defaultCity: newCity,
           });
-          localStorage.setItem(
-            "cc_user_settings",
-            JSON.stringify({ ...backendSettings, favoriteCategories: newFavs, defaultCity: newCity })
-          );
+          // // localStorage.setItem(
+          //   "cc_user_settings",
+          //   JSON.stringify({ ...backendSettings, favoriteCategories: newFavs, defaultCity: newCity })
+          // );
         }
       } catch {
         // Fallback silently if offline or unauthenticated

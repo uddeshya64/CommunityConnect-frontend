@@ -138,7 +138,7 @@ export default function PublicProfilePage() {
         const data = await getProfileById(profileId);
         setProfile(data);
         if (profileId === "me") {
-          localStorage.setItem("cc_user_profile", JSON.stringify(data));
+          // localStorage.setItem("cc_user_profile", JSON.stringify(data));
         }
       } catch (err: any) {
         if (!profile) {

@@ -209,7 +209,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
         if (remote && Object.keys(remote).length > 0) {
           setSettings((prev) => {
             const merged = { ...prev, ...remote };
-            localStorage.setItem("cc_user_settings", JSON.stringify(merged));
+            // localStorage.setItem("cc_user_settings", JSON.stringify(merged));
             return merged;
           });
         }
@@ -335,7 +335,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     setSettings(updated);
 
     if (typeof window !== "undefined") {
-      localStorage.setItem("cc_user_settings", JSON.stringify(updated));
+      // localStorage.setItem("cc_user_settings", JSON.stringify(updated));
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: updated })
       );
@@ -348,7 +348,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const resetToDefaults = () => {
     setSettings(DEFAULT_SETTINGS);
     if (typeof window !== "undefined") {
-      localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
+      // localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: DEFAULT_SETTINGS })
       );

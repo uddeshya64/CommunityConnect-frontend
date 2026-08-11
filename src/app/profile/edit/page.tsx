@@ -117,7 +117,7 @@ export default function EditProfilePage() {
 
         const data = await profileService.getMyProfile();
         const profileData = data as any;
-        localStorage.setItem("cc_user_profile", JSON.stringify(profileData));
+        // localStorage.setItem("cc_user_profile", JSON.stringify(profileData));
 
         const existingSkills = Array.isArray(profileData.skills)
           ? profileData.skills
@@ -295,7 +295,7 @@ export default function EditProfilePage() {
       };
 
       await profileService.updateMyProfile(payload);
-      localStorage.setItem("profile_completed", "true");
+      // localStorage.setItem("profile_completed", "true");
       setSuccessMsg("Profile updated successfully!");
       showSuccess("Profile updated successfully!");
 
