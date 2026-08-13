@@ -103,9 +103,13 @@ export default function LoginPage() {
         }
       })();
 
-      const is2FAEnabled =
-        settings.twoFactorEnabled === true ||
-        localStorage.getItem("cc_2fa_enabled") === "true";
+      let is2FAEnabled = false;
+      if (typeof settings.twoFactorEnabled === "boolean") {
+        is2FAEnabled = settings.twoFactorEnabled;
+      } else {
+        is2FAEnabled = localStorage.getItem("cc_2fa_enabled") === "true";
+      }
+
 
       if (is2FAEnabled) {
         const secret =

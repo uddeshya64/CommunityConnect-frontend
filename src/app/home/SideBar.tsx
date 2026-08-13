@@ -36,16 +36,35 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Discover", href: "/discover", icon: Compass },
   { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
   { label: "Saved", href: "/saved", icon: Bookmark, disabled: true },
-  { label: "Notifications", href: "/notifications", icon: Bell },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  collapsed?: boolean;
+  setCollapsed?: React.Dispatch<React.SetStateAction<boolean>>;
+  mobileOpen?: boolean;
+  setMobileOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export default function Sidebar({
+  collapsed: propCollapsed,
+  setCollapsed: propSetCollapsed,
+  mobileOpen: propMobileOpen,
+  setMobileOpen: propSetMobileOpen,
+}: SidebarProps = {}) {
   const { isDark, activeAccent } = useAppearance();
   const pathname = usePathname();
   const router = useRouter();
   const [userName, setUserName] = useState("");
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  
+  const [internalMobileOpen, setInternalMobileOpen] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+
+  const mobileOpen = propMobileOpen ?? internalMobileOpen;
+  const setMobileOpen = propSetMobileOpen ?? setInternalMobileOpen;
+
+  const collapsed = propCollapsed ?? internalCollapsed;
+  const setCollapsed = propSetCollapsed ?? setInternalCollapsed;
+
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const { getMyProfile } = useMyProfile();
@@ -209,31 +228,6 @@ export default function Sidebar() {
       >
         {renderSidebarContent(collapsed)}
       </motion.aside>
-
-      {/* Mobile top bar trigger */}
-      <div className={`md:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-16 ${isDark ? "bg-zinc-950/80 border-white/5 text-white" : "bg-white/70 border-zinc-200/50 text-zinc-900"} backdrop-blur-xl border-b transition-colors duration-300`}>
-        {/* Left: Hamburger menu */}
-        <button
-          onClick={() => setMobileOpen(true)}
-          className={`w-9 h-9 rounded-full flex items-center justify-center ${isDark ? "text-zinc-400 hover:bg-white/5" : "text-zinc-600 hover:bg-zinc-100"} transition-colors relative z-10`}
-          title="Open menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-
-        {/* Center: Centered Logo */}
-        <div className="absolute inset-x-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
-          <Link href="/home" className={`flex items-center gap-2 font-extrabold text-lg ${isDark ? "text-white" : "text-zinc-900"} pointer-events-auto`}>
-            <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center`}>
-              <span className="text-white text-[10px] font-black">CC</span>
-            </div>
-            Circle
-          </Link>
-        </div>
-
-        {/* Right: Placeholder to keep space clear for the fixed floating profile avatar */}
-        <div className="w-9 h-9 shrink-0" />
-      </div>
 
       {/* Mobile drawer — always renders expanded, regardless of desktop collapsed state */}
       <AnimatePresence>

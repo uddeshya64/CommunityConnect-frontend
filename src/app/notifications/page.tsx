@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { notificationService, NotificationItem } from "@/services/notification.service";
 
@@ -91,15 +92,14 @@ function NotificationsPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 relative flex flex-col md:flex-row">
-      <Sidebar />
+    <div className="min-h-screen bg-zinc-50">
+      <AppLayout>
+        {/* BACKGROUND GLOWS */}
+        <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[150px] pointer-events-none" />
+        <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-rose-500/10 blur-[150px] pointer-events-none" />
 
-      {/* BACKGROUND GLOWS */}
-      <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[150px] pointer-events-none" />
-      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-rose-500/10 blur-[150px] pointer-events-none" />
-
-      {/* MAIN MAIN */}
-      <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
+        {/* MAIN MAIN */}
+        <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
         <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-12 relative z-10">
           
           {/* HEADER */}
@@ -278,6 +278,7 @@ function NotificationsPageContent() {
 
         </main>
       </div>
+      </AppLayout>
     </div>
   );
 }

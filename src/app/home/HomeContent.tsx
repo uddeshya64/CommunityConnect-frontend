@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { eventService } from "@/services/event.service";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { useMyProfile } from "@/hooks/profileHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
@@ -571,33 +572,9 @@ export default function HomeContent() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative flex flex-col md:flex-row transition-colors duration-300`}>
-
-      {/* ============================================
-          SIDEBAR
-      ============================================ */}
-
-      <Sidebar />
-
-      {/* ============================================
-          PROFILE AVATAR
-      ============================================ */}
-
-      <ProfileAvatar
-        profile={{
-          id: userId,
-          name:
-            userName ||
-            "Community Member",
-          avatarUrl,
-        }}
-      />
-
-      {/* ============================================
-          MAIN CONTENT
-      ============================================ */}
-
-      <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
+    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} transition-colors duration-300`}>
+      <AppLayout>
+        <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
 
         {/* ============================================
             BACKGROUND EFFECTS
@@ -994,9 +971,8 @@ export default function HomeContent() {
             )}
 
         </main>
-
       </div>
-
+    </AppLayout>
     </div>
   );
 }

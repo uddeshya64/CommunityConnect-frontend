@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search, ListPlus, Sparkles } from "lucide-react";
 import Sidebar from "@/app/home/SideBar"; // <-- swap in your existing sidebar import/path
+import AppLayout from "@/components/layout/AppLayout";
 import { EVENT_TEMPLATES, CUSTOM_TEMPLATE_ID } from "@/lib/eventTemplates";
 
 // Optional: give a few templates a distinct icon/gradient. Falls back to a default look.
@@ -31,10 +32,9 @@ export default function SelectTemplatePage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col md:flex-row">
-      <Sidebar />
-
-      <main className="flex-1 px-8 py-10 max-w-5xl mx-auto w-full">
+    <div className="min-h-screen bg-zinc-50">
+      <AppLayout>
+        <main className="flex-1 px-8 py-10 max-w-5xl mx-auto w-full">
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold text-zinc-900 mb-2">Create an event</h1>
           <p className="text-zinc-500 font-medium">Pick a template to get started, or build your own.</p>
@@ -102,6 +102,7 @@ export default function SelectTemplatePage() {
           </div>
         )}
       </main>
+      </AppLayout>
     </div>
   );
 }

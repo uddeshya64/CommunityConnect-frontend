@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { eventService } from "@/services/event.service";
 import { profileService } from "@/services/profile.service";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
 
@@ -329,22 +330,20 @@ export default function DiscoverContent() {
     <div
       className={`min-h-screen ${
         isDark ? "bg-zinc-950 text-white" : "bg-zinc-50 text-zinc-900"
-      } flex flex-col md:flex-row relative overflow-x-hidden`}
+      }`}
     >
-      {/* Background Ambient Glow */}
-      <div
-        className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${
-          isDark
-            ? "from-indigo-900/20 via-zinc-950 to-zinc-950"
-            : "from-indigo-200/40 via-zinc-50 to-zinc-50"
-        } pointer-events-none`}
-      />
+      <AppLayout>
+        {/* Background Ambient Glow */}
+        <div
+          className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${
+            isDark
+              ? "from-indigo-900/20 via-zinc-950 to-zinc-950"
+              : "from-indigo-200/40 via-zinc-50 to-zinc-50"
+          } pointer-events-none`}
+        />
 
-      {/* Navigation Sidebar */}
-      <Sidebar />
-
-      {/* Main Discover Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10">
+        {/* Main Discover Content */}
+        <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 w-full">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
@@ -691,6 +690,7 @@ export default function DiscoverContent() {
       </main>
 
       <ProfilePromptPopup />
+      </AppLayout>
     </div>
   );
 }
