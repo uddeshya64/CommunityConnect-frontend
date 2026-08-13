@@ -28,7 +28,7 @@ export const pushNotificationService = {
     );
   },
 
-  // Register the service worker
+  // Register the service worker and wait for activation
   async registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
     if (!this.isPushSupported()) return null;
 
@@ -36,7 +36,27 @@ export const pushNotificationService = {
       const registration = await navigator.serviceWorker.register("/sw.js", {
         scope: "/",
       });
-      await navigator.serviceWorker.ready;
+      
+      // Wait for service worker to become fully active
+      await new Promise<void>((resolve) => {
+        if (registration.active) {
+          resolve();
+        } else {
+          const sw = registration.installing || registration.waiting;
+          if (sw) {
+            const stateChangeListener = () => {
+              if (sw.state === "activated") {
+                sw.removeEventListener("statechange", stateChangeListener);
+                resolve();
+              }
+            };
+            sw.addEventListener("statechange", stateChangeListener);
+          } else {
+            resolve();
+          }
+        }
+      });
+
       return registration;
     } catch (err) {
       console.error("Service worker registration failed:", err);
@@ -134,8 +154,23 @@ export const pushNotificationService = {
     }
 
     try {
-      // 1. Request notification permission
-      const permission = await Notification.requestPermission();
+      // 1. Request notification permission (support both Promise and Callback styles for mobile/legacy browsers)
+      let permission: NotificationPermission;
+      try {
+        const promise = Notification.requestPermission();
+        if (promise && typeof promise.then === "function") {
+          permission = await promise;
+        } else {
+          permission = await new Promise<NotificationPermission>((resolve) => {
+            Notification.requestPermission(resolve);
+          });
+        }
+      } catch (e) {
+        permission = await new Promise<NotificationPermission>((resolve) => {
+          Notification.requestPermission(resolve);
+        });
+      }
+
       if (permission !== "granted") {
         return {
           success: false,

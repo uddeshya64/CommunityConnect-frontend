@@ -1061,27 +1061,54 @@ export default function EventDetailsPage() {
         {/* Sidebar spacer placeholder */}
         <div className="hidden md:block w-64 h-screen shrink-0" />
 
-        {/* Sidebar - fixed to viewport */}
-        <div className="w-full md:w-64 bg-zinc-950 text-zinc-400 flex flex-col p-4 md:h-screen md:fixed md:top-0 md:left-0 md:z-30 shrink-0 overflow-hidden">
-          <div className="mb-8 p-4">
-            <Link href="/home" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-semibold mb-6">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </Link>
-            <h2 className="text-white font-bold text-lg leading-tight line-clamp-2">{event.title}</h2>
-            <p className="text-xs font-semibold text-indigo-400 uppercase tracking-widest mt-2">Organizer Dashboard</p>
+        {/* Sidebar - fixed to viewport on desktop, sticky top bar on mobile */}
+        <div className="w-full md:w-64 bg-zinc-950 text-zinc-400 flex flex-col p-3 md:p-4 sticky top-0 md:fixed md:top-0 md:left-0 md:h-screen md:z-30 shrink-0 overflow-hidden border-b border-white/5 md:border-b-0 md:border-r">
+          <div className="mb-2 md:mb-8 p-2 md:p-4 flex md:flex-col justify-between items-center md:items-start gap-4">
+            <div className="min-w-0">
+              <Link href="/home" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-xs md:text-sm font-semibold mb-1 md:mb-6">
+                <ArrowLeft className="w-4 h-4" /> Back
+              </Link>
+              <h2 className="text-white font-bold text-sm md:text-lg leading-tight line-clamp-1 md:line-clamp-2">{event.title}</h2>
+              <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-widest mt-1 hidden md:block">Organizer Dashboard</p>
+            </div>
+
+            {/* On mobile, place Scan QR and Preview Event actions in a compact row */}
+            <div className="flex md:hidden gap-1.5 shrink-0">
+              {hasPermission("MANAGE_ATTENDEES") && (
+                <Button 
+                  onClick={() => {
+                    setScanResult(null);
+                    setIsQrScanning(true);
+                  }}
+                  size="sm"
+                  className="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs"
+                >
+                  <QrCode className="w-4 h-4" />
+                </Button>
+              )}
+              <Button 
+                onClick={() => setViewMode("PREVIEW")}
+                size="sm"
+                className="rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs"
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
-          <nav className="flex flex-col gap-2 flex-1">
-            <button onClick={() => setActiveTab("OVERVIEW")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "OVERVIEW" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
-              <LayoutDashboard className="w-5 h-5" /> Overview
+          {/* Navigation links: horizontal scroll on mobile, vertical list on desktop */}
+          <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-y-auto no-scrollbar pb-2 md:pb-0 flex-1 min-w-0">
+            <button onClick={() => setActiveTab("OVERVIEW")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "OVERVIEW" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+              <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" /> Overview
             </button>
 
             {hasPermission("MANAGE_ATTENDEES") && (
-              <button onClick={() => setActiveTab("PARTICIPANTS")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "PARTICIPANTS" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
-                <List className="w-5 h-5" /> Participants
+              <button onClick={() => setActiveTab("PARTICIPANTS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "PARTICIPANTS" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+                <List className="w-4 h-4 md:w-5 md:h-5" /> Participants
               </button>
             )}
 
+            {/* Scan QR Button on Desktop only */}
             {hasPermission("MANAGE_ATTENDEES") && (
               <button
                 onClick={() => {
@@ -1089,42 +1116,42 @@ export default function EventDetailsPage() {
                   setIsQrScanning(true);
                 }}
                 type="button"
-                className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all hover:bg-zinc-900 hover:text-white"
+                className="hidden md:flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all hover:bg-zinc-900 hover:text-white"
               >
                 <QrCode className="w-5 h-5" /> Scan Ticket QR
               </button>
             )}
 
-            <button onClick={() => setActiveTab("EDIT")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "EDIT" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
-              <Pencil className="w-5 h-5" /> Edit Details
+            <button onClick={() => setActiveTab("EDIT")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "EDIT" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+              <Pencil className="w-4 h-4 md:w-5 md:h-5" /> Edit Details
             </button>
 
             {hasPermission("MANAGE_EVENT") && (
-              <button onClick={() => setActiveTab("AGENDA")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "AGENDA" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
-                <Calendar className="w-5 h-5" /> Event Agenda
+              <button onClick={() => setActiveTab("AGENDA")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "AGENDA" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+                <Calendar className="w-4 h-4 md:w-5 md:h-5" /> Event Agenda
               </button>
             )}
 
             {hasPermission("MANAGE_STAFF") && (
-              <button onClick={() => setActiveTab("STAFF")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "STAFF" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
-                <Shield className="w-5 h-5" /> Staff & Roles
+              <button onClick={() => setActiveTab("STAFF")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "STAFF" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+                <Shield className="w-4 h-4 md:w-5 md:h-5" /> Staff & Roles
               </button>
             )}
 
             {isOwner && (
-              <button onClick={() => setActiveTab("ORGANIZER_SETTINGS")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "ORGANIZER_SETTINGS" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
-                <Building2 className="w-5 h-5" /> Org Settings
+              <button onClick={() => setActiveTab("ORGANIZER_SETTINGS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "ORGANIZER_SETTINGS" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+                <Building2 className="w-4 h-4 md:w-5 md:h-5" /> Org Settings
               </button>
             )}
 
             {isOwner && (
-              <button onClick={() => setActiveTab("SETTINGS")} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === "SETTINGS" ? "bg-indigo-600/10 text-indigo-400" : "hover:bg-zinc-900 hover:text-white"}`}>
-                <Settings className="w-5 h-5" /> Settings
+              <button onClick={() => setActiveTab("SETTINGS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "SETTINGS" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+                <Settings className="w-4 h-4 md:w-5 md:h-5" /> Settings
               </button>
             )}
           </nav>
 
-          <div className="p-4 mt-auto">
+          <div className="hidden md:block p-4 mt-auto">
             <Button onClick={() => setViewMode("PREVIEW")} className="w-full rounded-xl bg-white text-zinc-900 hover:bg-zinc-200 font-bold py-6">
               <Eye className="w-4 h-4 mr-2" /> Preview Event
             </Button>
