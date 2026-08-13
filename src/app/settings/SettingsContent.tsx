@@ -160,15 +160,17 @@ const ToggleSwitch = ({
       e.stopPropagation();
       onChange(!checked);
     }}
-    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-950 ${
-      checked ? activeBg : "bg-zinc-800"
-    } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-zinc-950 ${
+      checked 
+        ? activeBg 
+        : "bg-zinc-250 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+    } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
   >
     <motion.span
       initial={false}
       animate={{ x: checked ? 20 : 0 }}
-      transition={{ type: "spring", stiffness: 500, damping: 35 }}
-      className="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0"
+      transition={{ type: "spring", stiffness: 600, damping: 30 }}
+      className="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.15)] ring-0"
     />
   </button>
 );
@@ -668,9 +670,9 @@ export default function SettingsContent() {
         </div>
 
         {/* Layout Grid: Sidebar Tabs + Content Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 min-h-0 overflow-hidden pb-6">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 flex-1 min-h-0 overflow-hidden pb-6">
           {/* Sidebar / Mobile Tabs */}
-          <div className="lg:col-span-3 h-full overflow-y-auto no-scrollbar">
+          <div className="lg:col-span-3 shrink-0 lg:h-full lg:overflow-y-auto lg:no-scrollbar">
             <div className="sticky top-24 space-y-1">
               {/* Mobile Horizontal Scrollable Tabs */}
               <div className="flex lg:hidden overflow-x-auto pb-2 gap-2 no-scrollbar">
@@ -780,7 +782,7 @@ export default function SettingsContent() {
           </div>
 
           {/* Settings Content Area */}
-          <div className="lg:col-span-9 space-y-6 h-full overflow-y-auto pr-2 pb-12">
+          <div className="lg:col-span-9 flex-1 min-h-0 lg:h-full lg:overflow-y-auto overflow-y-auto pr-2 pb-12">
             {isProfileLoading ? (
               <div className="space-y-6">
                 {/* Skeleton Card 1 */}
@@ -1024,7 +1026,7 @@ export default function SettingsContent() {
                         <ToggleSwitch
                           id="toggle-systemPush"
                           checked={pushStatus.isSubscribed}
-                          disabled={isPushLoading || pushStatus.permission === "denied"}
+                          disabled={isPushLoading || pushStatus.permission === "denied" || !pushStatus.supported}
                           onChange={(val) => handleTogglePush(val)}
                           activeBg={activeAccent.bg}
                         />
@@ -1035,6 +1037,16 @@ export default function SettingsContent() {
                       <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400 text-xs font-semibold flex items-center gap-2.5">
                         <AlertTriangle className="w-5 h-5 shrink-0" />
                         <span>Notifications are blocked in your browser settings. Please click the padlock or tune icon in your address bar to allow notifications.</span>
+                      </div>
+                    )}
+
+                    {!pushStatus.supported && (
+                      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold flex items-start gap-2.5">
+                        <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="font-bold">PWA Mode Required on Mobile Devices</p>
+                          <p>To enable system push notifications on iOS or some Android browsers, install this app on your device first by tapping your browser menu &gt; <strong>&quot;Add to Home Screen&quot;</strong>, then launch it from your home screen.</p>
+                        </div>
                       </div>
                     )}
 
