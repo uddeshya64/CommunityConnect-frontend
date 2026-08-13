@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -31,6 +31,7 @@ import {
   useResetPassword,
 } from "@/hooks/authHooks";
 import { useToast } from "@/components/providers/ToastProvider";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 type ViewState =
   | "LOGIN"
@@ -39,8 +40,11 @@ type ViewState =
   | "FORGOT_NEW_PASSWORD"
   | "TWO_FACTOR_VERIFY";
 
-export default function LoginPage() {
+function LoginContent() {
+  const { isDark, activeAccent } = useAppearance();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get("redirect");
   const { success: showSuccess, error: showError } = useToast();
 
   const [view, setView] = useState<ViewState>("LOGIN");
@@ -142,7 +146,13 @@ export default function LoginPage() {
       localStorage.setItem("refreshToken", result.refreshToken);
       showSuccess("Signed in successfully!");
 
-      router.push("/home");
+      const targetUrl = localStorage.getItem("returnUrl") || redirectParam;
+      if (targetUrl) {
+        localStorage.removeItem("returnUrl");
+        router.push(targetUrl);
+      } else {
+        router.push("/home");
+      }
     } catch (error: any) {
       setServerError(error.message || "Failed to login");
     }
@@ -196,6 +206,10 @@ export default function LoginPage() {
   // Google Login
   // =============================
   const handleGoogleLogin = () => {
+    const targetUrl = localStorage.getItem("returnUrl") || redirectParam;
+    if (targetUrl) {
+      sessionStorage.setItem("redirectUrl", targetUrl);
+    }
     window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
   };
 
@@ -256,20 +270,26 @@ export default function LoginPage() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white">
+      <div className={`min-h-screen w-full flex flex-col lg:flex-row transition-colors duration-300 ${
+        isDark ? "bg-zinc-950 text-zinc-100" : "bg-white text-zinc-900"
+      }`}>
         {/* LEFT SIDE */}
         <div className="w-full lg:w-1/2 flex flex-col justify-center p-4 sm:p-16 xl:p-24 py-8">
           <div className="w-full max-w-md mx-auto space-y-8">
             <Link
               href="/"
-              className="flex items-center gap-2 font-extrabold text-xl mb-12 text-zinc-900 w-fit"
+              className={`flex items-center gap-2 font-extrabold text-xl mb-12 w-fit ${
+                isDark ? "text-white" : "text-zinc-900"
+              }`}
             >
-              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-600 to-violet-600" />
+              <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${activeAccent.gradient}`} />
               CommunityConnect
             </Link>
 
             {serverError && (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-medium">
+              <div className={`p-4 rounded-xl border text-sm font-medium ${
+                isDark ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-red-50 border-red-100 text-red-600"
+              }`}>
                 {serverError}
               </div>
             )}
@@ -277,10 +297,14 @@ export default function LoginPage() {
             {view === "LOGIN" && (
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
+                  <h1 className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
+                    isDark ? "text-white" : "text-zinc-900"
+                  }`}>
                     Welcome back
                   </h1>
-                  <p className="text-lg text-zinc-500 font-medium">
+                  <p className={`text-lg font-medium ${
+                    isDark ? "text-zinc-400" : "text-zinc-500"
+                  }`}>
                     Enter your details to sign in.
                   </p>
                 </div>
@@ -289,16 +313,18 @@ export default function LoginPage() {
                   type="button"
                   variant="outline"
                   onClick={handleGoogleLogin}
-                  className="w-full rounded-xl py-6 text-lg font-semibold flex items-center justify-center gap-3"
+                  className={`w-full rounded-xl py-6 text-base font-semibold flex items-center justify-center gap-3 transition-colors ${
+                    isDark ? "bg-zinc-900 border-white/10 text-zinc-200 hover:bg-zinc-800" : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                  }`}
                 >
                   <FcGoogle className="w-6 h-6" />
                   Continue with Google
                 </Button>
                 {/* DIVIDER */}
                 <div className="flex items-center gap-4">
-                  <div className="h-px bg-zinc-200 flex-1" />
+                  <div className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-zinc-200"}`} />
                   <span className="text-sm text-zinc-400">OR</span>
-                  <div className="h-px bg-zinc-200 flex-1" />
+                  <div className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-zinc-200"}`} />
                 </div>
                 <form
                   onSubmit={form.handleSubmit(onSubmitLogin)}
@@ -306,7 +332,7 @@ export default function LoginPage() {
                 >
                   {/* EMAIL */}
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="font-semibold">
+                    <Label htmlFor="email" className={`font-semibold ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
                       Email Address
                     </Label>
                     <Input
@@ -315,7 +341,9 @@ export default function LoginPage() {
                       placeholder="m@example.com"
                       {...form.register("email")}
                       disabled={isLoggingIn}
-                      className="rounded-xl px-4 py-6 bg-zinc-50"
+                      className={`rounded-xl px-4 py-6 text-base ${
+                        isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                      }`}
                     />
                     {form.formState.errors.email && (
                       <p className="text-sm text-red-500">
@@ -327,7 +355,7 @@ export default function LoginPage() {
                   {/* PASSWORD */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="password" className="font-semibold">
+                      <Label htmlFor="password" className={`font-semibold ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
                         Password
                       </Label>
                       <button
@@ -336,7 +364,7 @@ export default function LoginPage() {
                           setView("FORGOT_EMAIL");
                           setServerError("");
                         }}
-                        className="text-sm font-semibold text-indigo-600"
+                        className={`text-sm font-semibold ${activeAccent.text} hover:underline`}
                       >
                         Forgot password?
                       </button>
@@ -348,14 +376,16 @@ export default function LoginPage() {
                         type={showLoginPassword ? "text" : "password"}
                         {...form.register("password")}
                         disabled={isLoggingIn}
-                        className="rounded-xl px-4 py-6 pr-12 bg-zinc-50"
+                        className={`rounded-xl px-4 py-6 pr-12 text-base ${
+                          isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                        }`}
                       />
                       <button
                         type="button"
                         onClick={() =>
                           setShowLoginPassword(!showLoginPassword)
                         }
-                        className="absolute right-4 top-1/2 -translate-y-1/2"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
                       >
                         {showLoginPassword ? (
                           <EyeOff className="h-5 w-5" />
@@ -370,7 +400,7 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     disabled={isLoggingIn}
-                    className="w-full rounded-xl py-6 bg-indigo-600 text-white text-lg font-semibold"
+                    className={`w-full rounded-xl py-6 ${activeAccent.bg} text-white hover:opacity-90 text-lg font-semibold shadow-md ${activeAccent.shadow} transition-all`}
                   >
                     {isLoggingIn ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -383,15 +413,11 @@ export default function LoginPage() {
                   </Button>
                 </form>
 
-
-
-
-
                 <p className="text-center text-zinc-500 font-medium">
-                  Don't have an account?
+                  Don&apos;t have an account?
                   <Link
                     href="/register"
-                    className="ml-1 font-bold text-indigo-600"
+                    className={`ml-1 font-bold ${activeAccent.text}`}
                   >
                     Sign up
                   </Link>
@@ -404,15 +430,15 @@ export default function LoginPage() {
             ================================= */}
             {view === "FORGOT_EMAIL" && (
               <div className="space-y-6">
-                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${activeAccent.badgeBg} ${activeAccent.text}`}>
                   <KeyRound className="w-8 h-8" />
                 </div>
 
                 <div className="space-y-2">
-                  <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-900">
+                  <h1 className={`text-3xl sm:text-4xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"}`}>
                     Reset password
                   </h1>
-                  <p className="text-lg text-zinc-500">
+                  <p className={`text-lg ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
                     Enter your email and we will send you a verification code.
                   </p>
                 </div>
@@ -423,12 +449,14 @@ export default function LoginPage() {
                     placeholder="m@example.com"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    className="rounded-xl py-6"
+                    className={`rounded-xl py-6 text-base ${
+                      isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                    }`}
                   />
 
                   <Button
                     type="submit"
-                    className="w-full rounded-xl py-6 bg-indigo-600 text-white"
+                    className={`w-full rounded-xl py-6 ${activeAccent.bg} text-white hover:opacity-90 font-semibold shadow-md`}
                   >
                     Send Reset Code
                   </Button>
@@ -436,7 +464,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setView("LOGIN")}
-                    className="w-full text-sm text-zinc-500"
+                    className="w-full text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                   >
                     Back to login
                   </button>
@@ -449,11 +477,11 @@ export default function LoginPage() {
             ================================= */}
             {view === "FORGOT_OTP" && (
               <div className="space-y-6">
-                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${activeAccent.badgeBg} ${activeAccent.text}`}>
                   <MailCheck className="w-8 h-8" />
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-900">
+                <h1 className={`text-3xl sm:text-4xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"}`}>
                   Verify OTP
                 </h1>
 
@@ -463,12 +491,14 @@ export default function LoginPage() {
                     value={resetOtp}
                     onChange={(e) => setResetOtp(e.target.value)}
                     placeholder="Enter OTP"
-                    className="rounded-xl py-6 text-center text-xl tracking-widest"
+                    className={`rounded-xl py-6 text-center text-xl tracking-widest font-mono font-bold ${
+                      isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                    }`}
                   />
 
                   <Button
                     type="submit"
-                    className="w-full rounded-xl py-6 bg-indigo-600 text-white"
+                    className={`w-full rounded-xl py-6 ${activeAccent.bg} text-white hover:opacity-90 font-semibold shadow-md`}
                   >
                     Verify Code
                   </Button>
@@ -481,11 +511,11 @@ export default function LoginPage() {
             ================================= */}
             {view === "FORGOT_NEW_PASSWORD" && (
               <div className="space-y-6">
-                <div className="w-16 h-16 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center">
+                <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center">
                   <RotateCcw className="w-8 h-8" />
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-900">
+                <h1 className={`text-3xl sm:text-4xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"}`}>
                   Create new password
                 </h1>
 
@@ -495,7 +525,9 @@ export default function LoginPage() {
                     placeholder="New Password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="rounded-xl py-6"
+                    className={`rounded-xl py-6 ${
+                      isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                    }`}
                   />
 
                   <Input
@@ -503,12 +535,14 @@ export default function LoginPage() {
                     placeholder="Confirm Password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="rounded-xl py-6"
+                    className={`rounded-xl py-6 ${
+                      isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                    }`}
                   />
 
                   <Button
                     type="submit"
-                    className="w-full rounded-xl py-6 bg-green-600 text-white"
+                    className={`w-full rounded-xl py-6 ${activeAccent.bg} text-white hover:opacity-90 font-semibold shadow-md`}
                   >
                     Reset Password
                   </Button>
@@ -521,25 +555,25 @@ export default function LoginPage() {
             ================================= */}
             {view === "TWO_FACTOR_VERIFY" && (
               <div className="space-y-6">
-                <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center">
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${activeAccent.badgeBg} ${activeAccent.text}`}>
                   <KeyRound className="w-8 h-8" />
                 </div>
 
                 <div className="space-y-2">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider">
+                  <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${activeAccent.badgeBg} ${activeAccent.text}`}>
                     <span>Two-Factor Authentication</span>
                   </div>
-                  <h1 className="text-3xl font-extrabold text-zinc-900 dark:text-white">
+                  <h1 className={`text-3xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"}`}>
                     Verification Required
                   </h1>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
                     Enter the 6-digit verification code from your Authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 1Password, etc.) or use an Emergency Backup Code.
                   </p>
                 </div>
 
                 <form onSubmit={handleVerify2FA} className="space-y-6">
                   <div>
-                    <Label className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 block mb-2">
+                    <Label className={`text-xs font-semibold block mb-2 ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
                       Authentication Code or Backup Code
                     </Label>
                     <Input
@@ -550,7 +584,9 @@ export default function LoginPage() {
                         setTwoFactorError("");
                       }}
                       placeholder="6-digit code (e.g. 123456) or CC-XXXX-XXXX"
-                      className="rounded-2xl py-6 text-center font-mono text-xl tracking-widest font-bold bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-white/10"
+                      className={`rounded-2xl py-6 text-center font-mono text-xl tracking-widest font-bold ${
+                        isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                      }`}
                     />
                     {twoFactorError && (
                       <p className="text-xs text-rose-500 mt-2 font-medium">{twoFactorError}</p>
@@ -560,7 +596,7 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     disabled={isVerifying2FA}
-                    className="w-full rounded-2xl py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-lg transition-all"
+                    className={`w-full rounded-2xl py-6 ${activeAccent.bg} hover:opacity-90 text-white font-semibold shadow-lg transition-all`}
                   >
                     {isVerifying2FA ? (
                       <>
@@ -612,3 +648,18 @@ export default function LoginPage() {
     </PageTransition>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen w-full flex items-center justify-center bg-white">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
+  );
+}
+

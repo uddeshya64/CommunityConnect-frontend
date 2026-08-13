@@ -219,7 +219,7 @@ export default function PublicProfilePage() {
 
   if (isLoading) {
     return (
-      <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative overflow-hidden`}>
+      <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative`}>
         <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
         <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/60 border-white/5" : "bg-white/70 border-zinc-200"} border-b`}>
           <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between animate-pulse">
@@ -697,7 +697,7 @@ export default function PublicProfilePage() {
             {/* ==============================
                 SIDEBAR
             ============================== */}
-            <div className="space-y-6">
+            <div className="space-y-6 lg:sticky lg:top-24 self-start">
               {/* CONTACT CARD */}
               <motion.div
                 initial={{ opacity: 0, y: 15 }}

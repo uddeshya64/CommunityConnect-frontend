@@ -9,6 +9,7 @@ import React, {
   ReactNode,
 } from "react";
 import { profileService } from "@/services/profile.service";
+import { pushNotificationService } from "@/services/pushNotification.service";
 
 export interface UserSettings {
   emailReminders: boolean;
@@ -190,8 +191,13 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     return true;
   });
 
-  // Listen for OS system dark mode changes
+  // Listen for OS system dark mode changes and register Service Worker for Push
   useEffect(() => {
+    // Register Service Worker for Background Push Notifications
+    if (typeof window !== "undefined") {
+      pushNotificationService.registerServiceWorker().catch(() => {});
+    }
+
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e: MediaQueryListEvent) => setSystemPreferDark(e.matches);

@@ -6,7 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Crown, QrCode, Send, Edit3, Check, X,
   Trash2, Loader2, MessageCircle, UploadCloud,
-  Activity, Calendar, Clock, Plus, AlertTriangle
+  Activity, Calendar, Clock, Plus, AlertTriangle,
+  MapPin, Share2, ExternalLink, Download, CreditCard,
+  Receipt, Mail, Copy, CheckCircle2, UserCircle2,
+  CalendarPlus, ShieldCheck, Printer, Bell, Compass, Laptop, MonitorSmartphone, Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,7 +61,7 @@ export default function TeamParticipantDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -236,6 +239,117 @@ export default function TeamParticipantDashboard() {
   const isTeamFull = teamData?.capacity?.is_full || false;
   const meetsMinimum = teamData?.capacity?.meets_minimum || false;
 
+  const regType = (
+    teamData?.event?.registration_type ||
+    teamData?.event?.regType ||
+    teamData?.event?.registrationType ||
+    teamData?.registration_type ||
+    ""
+  ).toLowerCase();
+
+  const isSolo = regType === "solo" || maxTeamSize === 1;
+
+  // Rich Event & Booking Metadata Extraction
+  const eventDetails = teamData?.event || {};
+  const eventTitle = eventDetails.title || "CommunityConnect Event";
+  const eventStartDate = eventDetails.start_date || eventDetails.date;
+  const eventEndDate = eventDetails.end_date || eventStartDate;
+  const eventMode = eventDetails.mode || "offline";
+  const eventLocation = eventDetails.location || (eventMode === "online" ? "Online Event" : "Location TBA");
+  const eventBannerUrl = eventDetails.banner_url || eventDetails.bannerUrl || eventDetails.banner;
+  const eventOrganizerName = eventDetails.organizerName || eventDetails.organizer?.name || eventDetails.creator?.name || "CommunityConnect Host";
+  const eventOrganizerEmail = eventDetails.organizerEmail || eventDetails.organizer?.email || eventDetails.creator?.email || "support@communityconnect.org";
+  const registrationFee = eventDetails.registration_fee || eventDetails.fee || 0;
+
+  // Formatted Date & Time Strings for Start & End
+  const formatFullDateTime = (isoString?: string) => {
+    if (!isoString) return "TBA";
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return "TBA";
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    }) + " • " + d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+
+  const formattedStartDate = formatFullDateTime(eventStartDate);
+  const formattedEndDate = formatFullDateTime(eventEndDate);
+
+  // Countdown Helper
+  const getCountdown = (startDateIso?: string) => {
+    if (!startDateIso) return null;
+    const diff = new Date(startDateIso).getTime() - currentTime.getTime();
+    if (diff <= 0) return { isLive: true, label: "Live Now" };
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+    const seconds = Math.floor((diff / 1000) % 60);
+    return {
+      isLive: false,
+      days,
+      hours,
+      minutes,
+      seconds,
+      label: `Starts in ${days > 0 ? `${days}d ` : ''}${hours}h ${minutes}m ${seconds}s`
+    };
+  };
+
+  const countdown = getCountdown(eventStartDate);
+
+  // Directions & Calendar Helpers
+  const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(eventLocation)}`;
+
+  const handleAddToGoogleCalendar = () => {
+    const formatIso = (iso?: string) => iso ? new Date(iso).toISOString().replace(/-|:|\.\d\d\d/g, "") : "";
+    const startStr = formatIso(eventStartDate);
+    const endStr = formatIso(eventEndDate);
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(eventDetails.description?.replace(/<[^>]*>?/gm, "") || "")}`;
+    window.open(url, "_blank");
+  };
+
+  const handleDownloadIcs = () => {
+    const formatIso = (iso?: string) => iso ? new Date(iso).toISOString().replace(/-|:|\.\d\d\d/g, "") : "";
+    const startStr = formatIso(eventStartDate);
+    const endStr = formatIso(eventEndDate);
+    const icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${eventTitle}\nDESCRIPTION:${eventDetails.description?.replace(/<[^>]*>?/gm, "") || ""}\nLOCATION:${eventLocation}\nDTSTART:${startStr}\nDTEND:${endStr}\nEND:VEVENT\nEND:VCALENDAR`;
+    const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `${eventTitle.replace(/\s+/g, "_")}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const handleShareEvent = async () => {
+    const shareUrl = `${window.location.origin}/events/${eventDetails.id || id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: eventTitle,
+          url: shareUrl,
+        });
+        return;
+      } catch (e) {}
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedShareLink(true);
+      setTimeout(() => setCopiedShareLink(false), 2500);
+    } catch (e) {}
+  };
+
+  const handlePrintReceipt = () => {
+    window.print();
+  };
+
   if (isLoading) return (
     <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600/20 blur-[100px] rounded-full" />
@@ -277,25 +391,49 @@ export default function TeamParticipantDashboard() {
             ========================================================= */}
         <div className="xl:col-span-8 space-y-8">
 
-          {/* 1. HERO / IDENTITY CARD */}
-          <section className="relative overflow-hidden bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl">
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-indigo-500/20 via-purple-500/5 to-transparent blur-[80px] -translate-y-1/2 translate-x-1/3 rounded-full pointer-events-none" />
+          {/* 1. UNIFIED HERO & ENTRY PASS CARD */}
+          <section className="relative overflow-hidden bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl group space-y-8">
+            {eventBannerUrl ? (
+              <div className="absolute inset-0 z-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={eventBannerUrl} alt={eventTitle} className="w-full h-full object-cover opacity-20 group-hover:scale-105 transition-transform duration-700 blur-[2px]" />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent" />
+              </div>
+            ) : (
+              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-indigo-500/20 via-purple-500/5 to-transparent blur-[80px] -translate-y-1/2 translate-x-1/3 rounded-full pointer-events-none" />
+            )}
 
-            <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
-              <div className="space-y-6 flex-1">
+            <div className="relative z-10 space-y-8">
+              {/* BADGES & SHARE ROW */}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-black uppercase tracking-[0.15em] border border-indigo-500/20">
-                    Official Registration
+                  <span className="px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-black uppercase tracking-[0.15em] border border-indigo-500/20 backdrop-blur-md">
+                    {isSolo ? "Individual Registration" : "Official Registration"}
                   </span>
-                  {isLeader && (
+                  {countdown && (
+                    <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] border backdrop-blur-md flex items-center gap-2 ${countdown.isLive ? 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                      <Clock className="w-3.5 h-3.5" />
+                      {countdown.label}
+                    </span>
+                  )}
+                  {!isSolo && isLeader && (
                     <span className="px-4 py-1.5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-black uppercase tracking-[0.15em] border border-amber-500/20 flex items-center gap-1.5 shadow-lg shadow-amber-500/10">
                       <Crown className="w-4 h-4" /> Team Leader
                     </span>
                   )}
                 </div>
 
-                {isEditingName && isLeader ? (
-                  <div className="flex items-center gap-3 max-w-lg">
+                <Button onClick={handleShareEvent} variant="outline" className="h-11 px-4 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-bold transition-all shrink-0">
+                  {copiedShareLink ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mr-2" /> : <Share2 className="w-4 h-4 mr-2 text-indigo-400" />}
+                  {copiedShareLink ? "Link Copied!" : "Invite / Share"}
+                </Button>
+              </div>
+
+              {/* EVENT TITLE & PARTICIPANT / TEAM NAME */}
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-indigo-400 mb-1.5">{eventTitle}</p>
+                {!isSolo && isEditingName && isLeader ? (
+                  <div className="flex items-center gap-3 max-w-lg mt-2">
                     <Input
                       value={editNameStr}
                       onChange={(e) => setEditNameStr(e.target.value)}
@@ -308,190 +446,259 @@ export default function TeamParticipantDashboard() {
                     <Button onClick={() => setIsEditingName(false)} variant="ghost" size="icon" className="h-16 w-16 bg-white/5 hover:bg-white/10 rounded-2xl shrink-0"><X /></Button>
                   </div>
                 ) : (
-                  <h1 className="text-5xl md:text-6xl font-black tracking-tight flex items-center gap-4 group">
-                    {teamData?.name}
-                    {isLeader && (
-                      <button onClick={() => setIsEditingName(true)} className="opacity-0 group-hover:opacity-100 p-3 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all cursor-pointer">
-                        <Edit3 className="w-6 h-6" />
+                  <h1 className="text-4xl md:text-5xl font-black tracking-tight flex items-center gap-4 group">
+                    {isSolo
+                      ? (members[0]?.user?.name || teamData?.name || "Participant")
+                      : teamData?.name
+                    }
+                    {!isSolo && isLeader && (
+                      <button onClick={() => setIsEditingName(true)} className="opacity-0 group-hover:opacity-100 p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all cursor-pointer">
+                        <Edit3 className="w-5 h-5" />
                       </button>
                     )}
                   </h1>
                 )}
               </div>
 
-              <Button onClick={() => setShowEntryPassModal(true)} className="h-16 px-8 rounded-2xl bg-white text-black hover:bg-zinc-200 font-bold shadow-2xl transition-transform hover:scale-105 shrink-0 text-lg">
-                <QrCode className="w-6 h-6 mr-3" /> Entry Pass
-              </Button>
-            </div>
-          </section>
-
-          {/* 2. TEAM ROSTER & SLOTS */}
-          <section className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl">
-            <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-8">
-              <div>
-                <h3 className="text-2xl font-bold flex items-center gap-3">
-                  <Users className="w-6 h-6 text-indigo-400" /> Team Roster
-                </h3>
-                <p className="text-zinc-500 mt-1 font-medium">Manage your squad for the event.</p>
-              </div>
-              <div className="text-right flex flex-col items-end gap-2">
-                <div className="flex items-center gap-4">
-                  {!isLeader && (
-                    <Button onClick={() => setShowLeaveModal(true)} variant="outline" className="h-9 px-4 rounded-xl border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-bold transition-all shrink-0">
-                      Leave Team
-                    </Button>
-                  )}
-                  <p className="text-3xl font-black leading-none mb-1.5">{members.length} <span className="text-zinc-600">/ {maxTeamSize}</span></p>
+              {/* DUAL START DATE & END DATE SECTION */}
+              <div className="bg-black/40 rounded-3xl p-6 border border-white/5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/5 pb-4">
+                  <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-indigo-400" /> Event Schedule & Dates
+                  </h4>
+                  <Button onClick={handleAddToGoogleCalendar} variant="outline" className="h-10 px-4 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs">
+                    <CalendarPlus className="w-4 h-4 mr-2 text-indigo-400" /> Add to Google Calendar
+                  </Button>
                 </div>
-                {meetsMinimum ? (
-                  <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-[10px] font-black uppercase tracking-widest text-emerald-500 border border-emerald-500/20">
-                    Ready to Compete
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-1 rounded-md bg-amber-500/10 text-[10px] font-black uppercase tracking-widest text-amber-500 border border-amber-500/20">
-                    Below Min. Size
-                  </span>
-                )}
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-              {/* --- RENDER ACTIVE MEMBERS --- */}
-              {members.map((member: any) => {
-                const isThisMemberLeader = member.user_id === teamData?.leader_id;
-
-                return (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                    key={`member-${member.user_id}`}
-                    className="flex items-center justify-between p-5 bg-black/40 rounded-[1.5rem] border border-white/5 group hover:border-white/10 transition-all"
-                  >
-                    <div className="flex items-center gap-4 overflow-hidden">
-                      {/* LEADER BADGE LOGIC */}
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border ${isThisMemberLeader ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'}`}>
-                        {isThisMemberLeader ? <Crown className="w-6 h-6" /> : <Users className="w-6 h-6" />}
-                      </div>
-                      <div className="truncate">
-                        <p className="font-bold text-lg truncate text-zinc-100">
-                          {member.user.name || "Participant"}
-                        </p>
-                        <p className="text-xs font-bold text-zinc-500 mt-0.5 truncate">
-                          {member.user.email}
-                        </p>
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-zinc-900/60 rounded-2xl border border-white/5 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold shrink-0 border border-indigo-500/20">
+                      <Calendar className="w-5 h-5" />
                     </div>
-
-                    {/* LEADER CONTROLS: Remove Member (cannot remove themselves) */}
-                    {isLeader && !isThisMemberLeader && (
-                      <Button
-                        variant="ghost" size="icon"
-                        onClick={() => openRemoveModal(member)}
-                        className="opacity-0 group-hover:opacity-100 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all shrink-0 ml-2"
-                      >
-                        {actionLoading === `remove-${member.user_id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      </Button>
-                    )}
-                  </motion.div>
-                );
-              })}
-
-              {/* --- RENDER PENDING INVITES (Blocked Slots) --- */}
-              {invites.map((invite: any, i: number) => (
-                <div key={`invite-${i}`} className="flex items-center justify-between p-5 bg-zinc-900/30 rounded-[1.5rem] border border-dashed border-indigo-500/30 opacity-80 group/invite">
-                  <div className="flex items-center gap-4 overflow-hidden">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-indigo-500/5 text-indigo-400/50 shrink-0">
-                      <Clock className="w-6 h-6" />
-                    </div>
-                    <div className="truncate">
-                      <p className="font-bold text-lg text-zinc-300 truncate">{invite.email}</p>
-                      <p className="text-xs uppercase font-bold text-indigo-400 tracking-wider mt-0.5">Invite Pending...</p>
+                    <div className="min-w-0 truncate">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Start Date & Time</p>
+                      <p className="text-sm font-extrabold text-white truncate">{formattedStartDate}</p>
                     </div>
                   </div>
-                  {isLeader && (
-                    <Button
-                      variant="ghost" size="icon"
-                      onClick={() => {
-                        setInviteToRevoke(invite);
-                        setShowRevokeModal(true);
-                      }}
-                      className="opacity-0 group-hover/invite:opacity-100 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all shrink-0 ml-2"
-                    >
-                      {actionLoading === `revoke-${invite.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+
+                  <div className="p-4 bg-zinc-900/60 rounded-2xl border border-white/5 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold shrink-0 border border-purple-500/20">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 truncate">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">End Date & Time</p>
+                      <p className="text-sm font-extrabold text-white truncate">{formattedEndDate}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* MERGED INLINE QR PASS BLOCK */}
+              <div className="pt-4 flex flex-col md:flex-row items-center gap-8 bg-zinc-950/40 p-6 md:p-8 rounded-3xl border border-white/5">
+                <div className="w-44 h-44 bg-white p-3.5 rounded-3xl shrink-0 shadow-2xl border-4 border-indigo-500/20 flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${userTicketCode || `TEAM-${teamData?.id}`}`}
+                    alt="Entry Pass QR Code"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="space-y-3 flex-1 text-center md:text-left">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                    <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Entry Ticket Confirmed
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
+                      {isSolo ? "Individual Pass" : "Team Pass"}
+                    </span>
+                  </div>
+                  <h3 className="text-2xl font-black text-white">
+                    {isSolo ? (members[0]?.user?.name || teamData?.name || "Participant") : teamData?.name}
+                  </h3>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
+                    <Button onClick={() => setShowEntryPassModal(true)} variant="default" className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/20 transition-all">
+                      <QrCode className="w-4 h-4 mr-2" /> Expand Entry Ticket
                     </Button>
-                  )}
+                    <Button onClick={handlePrintReceipt} variant="outline" className="h-11 px-4 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-zinc-200 text-xs font-bold">
+                      <Printer className="w-3.5 h-3.5 mr-2 text-indigo-400" /> Print / Save Ticket
+                    </Button>
+                  </div>
                 </div>
-              ))}
-
-              {/* --- RENDER EMPTY SLOTS (Interactive for Leaders) --- */}
-              {Array.from({ length: emptySlotsCount }).map((_, i) => (
-                <div key={`empty-${i}`} className="h-24 relative group">
-                  {/* If Leader clicked this slot, show the invite form */}
-                  {isLeader && activeInviteSlot === i ? (
-                    <motion.form
-                      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                      onSubmit={handleInvite}
-                      className="absolute inset-0 flex items-center gap-2 p-3 bg-zinc-900 rounded-[1.5rem] border border-indigo-500/50 shadow-xl shadow-indigo-500/10 z-10"
-                    >
-                      <Input
-                        type="email"
-                        placeholder="Teammate's email..."
-                        value={inviteEmail}
-                        onChange={e => setInviteEmail(e.target.value)}
-                        className="h-full bg-black/50 border-none rounded-xl px-4 text-base focus-visible:ring-0 flex-1"
-                        autoFocus
-                        required
-                      />
-                      <Button type="submit" disabled={actionLoading === "invite"} className="h-full px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all">
-                        {actionLoading === "invite" ? <Loader2 className="animate-spin w-5 h-5" /> : <Send className="w-4 h-4" />}
-                      </Button>
-                      <Button type="button" onClick={() => setActiveInviteSlot(null)} variant="ghost" className="h-full px-4 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white">
-                        <X className="w-5 h-5" />
-                      </Button>
-                    </motion.form>
-                  ) : (
-                    /* Default Empty Slot View */
-                    <button
-                      onClick={() => isLeader ? setActiveInviteSlot(i) : null}
-                      className={`w-full h-full flex items-center gap-4 p-5 bg-zinc-900/20 rounded-[1.5rem] border-2 border-dashed border-white/10 transition-all text-left ${isLeader ? 'hover:bg-indigo-500/5 hover:border-indigo-500/30 cursor-pointer' : 'opacity-50 cursor-default'}`}
-                    >
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 transition-colors ${isLeader ? 'group-hover:bg-indigo-500/20 group-hover:text-indigo-400 text-zinc-600' : 'text-zinc-700'}`}>
-                        {isLeader ? <Plus className="w-6 h-6" /> : <Users className="w-6 h-6" />}
-                      </div>
-                      <div>
-                        <p className={`font-bold text-lg transition-colors ${isLeader ? 'group-hover:text-indigo-300 text-zinc-500' : 'text-zinc-600'}`}>
-                          {isLeader ? "Invite Teammate" : "Empty Slot"}
-                        </p>
-                        <p className="text-xs uppercase font-bold text-zinc-600 tracking-wider mt-0.5">
-                          {isLeader ? "Click to add via email" : "Waiting for invite"}
-                        </p>
-                      </div>
-                    </button>
-                  )}
-                </div>
-              ))}
+              </div>
             </div>
-
-            {/* --- TEAM FULL SUCCESS MESSAGE --- */}
-            {isLeader && isTeamFull && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                className="mt-6 pt-6 border-t border-white/5 flex items-center justify-center gap-3 text-emerald-400 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10"
-              >
-                <div className="p-1.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                  <Check className="w-5 h-5" />
-                </div>
-                <p className="font-bold text-sm tracking-wide">Team Capacity Reached. Your roster is locked and ready!</p>
-              </motion.div>
-            )}
-
           </section>
+
+          {/* 2. TEAM ROSTER & SLOTS (ONLY RENDERED FOR TEAMS) */}
+          {!isSolo && (
+            <section className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl">
+              <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-8">
+                <div>
+                  <h3 className="text-2xl font-bold flex items-center gap-3">
+                    <Users className="w-6 h-6 text-indigo-400" /> Team Roster
+                  </h3>
+                  <p className="text-zinc-500 mt-1 font-medium">Manage your squad for the event.</p>
+                </div>
+                <div className="text-right flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-4">
+                    {!isLeader && (
+                      <Button onClick={() => setShowLeaveModal(true)} variant="outline" className="h-9 px-4 rounded-xl border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-bold transition-all shrink-0">
+                        Leave Team
+                      </Button>
+                    )}
+                    <p className="text-3xl font-black leading-none mb-1.5">{members.length} <span className="text-zinc-600">/ {maxTeamSize}</span></p>
+                  </div>
+                  {meetsMinimum ? (
+                    <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-[10px] font-black uppercase tracking-widest text-emerald-500 border border-emerald-500/20">
+                      Ready to Compete
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-md bg-amber-500/10 text-[10px] font-black uppercase tracking-widest text-amber-500 border border-amber-500/20">
+                      Below Min. Size
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* --- RENDER ACTIVE MEMBERS --- */}
+                {members.map((member: any) => {
+                  const isThisMemberLeader = member.user_id === teamData?.leader_id;
+
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                      key={`member-${member.user_id}`}
+                      className="flex items-center justify-between p-5 bg-black/40 rounded-[1.5rem] border border-white/5 group hover:border-white/10 transition-all"
+                    >
+                      <div className="flex items-center gap-4 overflow-hidden">
+                        {/* LEADER BADGE LOGIC */}
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border ${isThisMemberLeader ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)]' : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'}`}>
+                          {isThisMemberLeader ? <Crown className="w-6 h-6" /> : <Users className="w-6 h-6" />}
+                        </div>
+                        <div className="truncate">
+                          <p className="font-bold text-lg truncate text-zinc-100">
+                            {member.user?.name || "Participant"}
+                          </p>
+                          <p className="text-xs font-bold text-zinc-500 mt-0.5 truncate">
+                            {member.user?.email}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* LEADER CONTROLS: Remove Member (cannot remove themselves) */}
+                      {isLeader && !isThisMemberLeader && (
+                        <Button
+                          variant="ghost" size="icon"
+                          onClick={() => openRemoveModal(member)}
+                          className="opacity-0 group-hover:opacity-100 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all shrink-0 ml-2"
+                        >
+                          {actionLoading === `remove-${member.user_id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </Button>
+                      )}
+                    </motion.div>
+                  );
+                })}
+
+                {/* --- RENDER PENDING INVITES (Blocked Slots) --- */}
+                {invites.map((invite: any, i: number) => (
+                  <div key={`invite-${i}`} className="flex items-center justify-between p-5 bg-zinc-900/30 rounded-[1.5rem] border border-dashed border-indigo-500/30 opacity-80 group/invite">
+                    <div className="flex items-center gap-4 overflow-hidden">
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-indigo-500/5 text-indigo-400/50 shrink-0">
+                        <Clock className="w-6 h-6" />
+                      </div>
+                      <div className="truncate">
+                        <p className="font-bold text-lg text-zinc-300 truncate">{invite.email}</p>
+                        <p className="text-xs uppercase font-bold text-indigo-400 tracking-wider mt-0.5">Invite Pending...</p>
+                      </div>
+                    </div>
+                    {isLeader && (
+                      <Button
+                        variant="ghost" size="icon"
+                        onClick={() => {
+                          setInviteToRevoke(invite);
+                          setShowRevokeModal(true);
+                        }}
+                        className="opacity-0 group-hover/invite:opacity-100 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all shrink-0 ml-2"
+                      >
+                        {actionLoading === `revoke-${invite.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+
+                {/* --- RENDER EMPTY SLOTS (Interactive for Leaders) --- */}
+                {Array.from({ length: emptySlotsCount }).map((_, i) => (
+                  <div key={`empty-${i}`} className="h-24 relative group">
+                    {/* If Leader clicked this slot, show the invite form */}
+                    {isLeader && activeInviteSlot === i ? (
+                      <motion.form
+                        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                        onSubmit={handleInvite}
+                        className="absolute inset-0 flex items-center gap-2 p-3 bg-zinc-900 rounded-[1.5rem] border border-indigo-500/50 shadow-xl shadow-indigo-500/10 z-10"
+                      >
+                        <Input
+                          type="email"
+                          placeholder="Teammate's email..."
+                          value={inviteEmail}
+                          onChange={e => setInviteEmail(e.target.value)}
+                          className="h-full bg-black/50 border-none rounded-xl px-4 text-base focus-visible:ring-0 flex-1"
+                          autoFocus
+                          required
+                        />
+                        <Button type="submit" disabled={actionLoading === "invite"} className="h-full px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all">
+                          {actionLoading === "invite" ? <Loader2 className="animate-spin w-5 h-5" /> : <Send className="w-4 h-4" />}
+                        </Button>
+                        <Button type="button" onClick={() => setActiveInviteSlot(null)} variant="ghost" className="h-full px-4 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white">
+                          <X className="w-5 h-5" />
+                        </Button>
+                      </motion.form>
+                    ) : (
+                      /* Default Empty Slot View */
+                      <button
+                        onClick={() => isLeader ? setActiveInviteSlot(i) : null}
+                        className={`w-full h-full flex items-center gap-4 p-5 bg-zinc-900/20 rounded-[1.5rem] border-2 border-dashed border-white/10 transition-all text-left ${isLeader ? 'hover:bg-indigo-500/5 hover:border-indigo-500/30 cursor-pointer' : 'opacity-50 cursor-default'}`}
+                      >
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 transition-colors ${isLeader ? 'group-hover:bg-indigo-500/20 group-hover:text-indigo-400 text-zinc-600' : 'text-zinc-700'}`}>
+                          {isLeader ? <Plus className="w-6 h-6" /> : <Users className="w-6 h-6" />}
+                        </div>
+                        <div>
+                          <p className={`font-bold text-lg transition-colors ${isLeader ? 'group-hover:text-indigo-300 text-zinc-500' : 'text-zinc-600'}`}>
+                            {isLeader ? "Invite Teammate" : "Empty Slot"}
+                          </p>
+                          <p className="text-xs uppercase font-bold text-zinc-600 tracking-wider mt-0.5">
+                            {isLeader ? "Click to add via email" : "Waiting for invite"}
+                          </p>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* --- TEAM FULL SUCCESS MESSAGE --- */}
+              {isLeader && isTeamFull && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  className="mt-6 pt-6 border-t border-white/5 flex items-center justify-center gap-3 text-emerald-400 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10"
+                >
+                  <div className="p-1.5 rounded-full bg-emerald-500/20 text-emerald-300">
+                    <Check className="w-5 h-5" />
+                  </div>
+                  <p className="font-bold text-sm tracking-wide">Team Capacity Reached. Your roster is locked and ready!</p>
+                </motion.div>
+              )}
+
+            </section>
+          )}
         </div>
 
         {/* =========================================================
-            RIGHT COLUMN: EVENT TIMELINE & AGENDA (GOOGLE ICS STYLE WITH ANIMATIONS)
+            RIGHT COLUMN: AGENDA & TIMELINE
             ========================================================= */}
-        <div className="xl:col-span-4 space-y-6">
+        <div className="xl:col-span-4 space-y-6 xl:sticky xl:top-32 self-start">
+
           <style>{`
             @keyframes sway {
               0%, 100% { transform: translateY(0) rotate(0deg); }
@@ -1016,8 +1223,12 @@ export default function TeamParticipantDashboard() {
                   />
                 </div>
 
-                <h3 className="text-2xl font-black text-white mb-1">{teamData?.name}</h3>
-                <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Team Pass</p>
+                <h3 className="text-2xl font-black text-white mb-1">
+                  {isSolo ? (members[0]?.user?.name || teamData?.name || "Participant") : teamData?.name}
+                </h3>
+                <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider">
+                  {isSolo ? "Individual Pass" : "Team Pass"}
+                </p>
               </div>
 
               <div className="p-8 bg-black/30 space-y-4">
@@ -1026,8 +1237,8 @@ export default function TeamParticipantDashboard() {
                   <span className="text-white font-bold max-w-[180px] truncate text-right">{teamData?.event?.title}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500 font-medium">Leader:</span>
-                  <span className="text-white font-bold text-right">{members.find((m: any) => m.user_id === teamData?.leader_id)?.user?.name || "Organizer"}</span>
+                  <span className="text-zinc-500 font-medium">{isSolo ? "Participant:" : "Leader:"}</span>
+                  <span className="text-white font-bold text-right">{members.find((m: any) => m.user_id === teamData?.leader_id)?.user?.name || members[0]?.user?.name || "Participant"}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-500 font-medium">Status:</span>

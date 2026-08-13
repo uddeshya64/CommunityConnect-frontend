@@ -3,7 +3,7 @@ import SettingsContent from "./SettingsContent";
 
 function SettingsLoading() {
   return (
-    <div className="min-h-screen bg-zinc-50 overflow-hidden relative pb-24">
+    <div className="h-screen bg-zinc-50 relative overflow-hidden flex flex-col">
       {/* Ambient background */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/5 via-zinc-50 to-zinc-50 pointer-events-none" />
 

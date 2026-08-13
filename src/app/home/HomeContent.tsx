@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { eventService } from "@/services/event.service";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
+import NotificationPromptPopup from "@/components/NotificationPromptPopup";
 import Sidebar from "@/app/home/SideBar";
 import { useMyProfile } from "@/hooks/profileHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
@@ -608,10 +609,11 @@ export default function HomeContent() {
         <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-rose-500/10 blur-[150px] pointer-events-none" />
 
         {/* ============================================
-            PROFILE PROMPT
+            PROFILE & NOTIFICATION PROMPTS
         ============================================ */}
 
         <ProfilePromptPopup />
+        <NotificationPromptPopup />
 
         {/* ============================================
             MAIN

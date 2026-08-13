@@ -7,8 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export default function AcceptStaffInvitePage() {
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-50 font-sans selection:bg-indigo-500/30 flex flex-col">
-      <Navbar theme="dark" />
+    <div className="min-h-screen font-sans flex flex-col transition-colors duration-300">
+      <Navbar />
 
       <main className="flex-1 flex items-center justify-center p-6 pt-32 relative overflow-hidden">
         {/* Ambient Backgrounds */}
