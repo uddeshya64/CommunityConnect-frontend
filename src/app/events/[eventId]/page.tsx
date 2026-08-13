@@ -9,13 +9,14 @@ import {
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
-  HelpCircle, Copy
+  HelpCircle, Copy, Tag, Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
+import { profileService } from "@/services/profile.service";
 import { api } from "@/lib/axios";
 import { Html5Qrcode } from "html5-qrcode";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
@@ -39,6 +40,7 @@ interface EventDetails {
   organizerId?: string;
   organizerName?: string;
   timelines?: any[];
+  tags?: string[];
   registeredCount: number;
 }
 
@@ -311,10 +313,15 @@ export default function EventDetailsPage() {
   const [timelinesList, setTimelinesList] = useState<any[]>([]);
   const [isAgendaModalOpen, setIsAgendaModalOpen] = useState(false);
   const [editingTimelineItem, setEditingTimelineItem] = useState<any | null>(null);
+  const [agendaToDeleteId, setAgendaToDeleteId] = useState<number | null>(null);
+  const [isDeletingAgenda, setIsDeletingAgenda] = useState(false);
+  const [userSkills, setUserSkills] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
   const [agendaFormData, setAgendaFormData] = useState({
     title: "",
     speaker_name: "",
     description: "",
+    tags: [] as string[],
     start_time: "",
     end_time: "",
     location: "",
@@ -322,6 +329,33 @@ export default function EventDetailsPage() {
   });
   const [isSavingAgenda, setIsSavingAgenda] = useState(false);
   const [agendaError, setAgendaError] = useState("");
+
+  useEffect(() => {
+    profileService.getMyProfile().then((profile: any) => {
+      if (profile?.skills && Array.isArray(profile.skills)) {
+        setUserSkills(profile.skills);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleAddTag = (tagToAdd: string) => {
+    const trimmed = tagToAdd.trim().replace(/^#/, "");
+    if (!trimmed) return;
+    if (!agendaFormData.tags.some(t => t.toLowerCase() === trimmed.toLowerCase())) {
+      setAgendaFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, trimmed]
+      }));
+    }
+    setTagInput("");
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setAgendaFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(t => t !== tagToRemove)
+    }));
+  };
 
   // --- MANAGEMENT DATA STATES ---
   const [overviewStats, setOverviewStats] = useState<any>(null);
@@ -897,11 +931,13 @@ export default function EventDetailsPage() {
       title: "",
       speaker_name: "",
       description: "",
+      tags: [],
       start_time: "",
       end_time: "",
       location: "",
       should_notify: true
     });
+    setTagInput("");
     setAgendaError("");
     setIsAgendaModalOpen(true);
   };
@@ -912,11 +948,13 @@ export default function EventDetailsPage() {
       title: item.title || "",
       speaker_name: item.speaker_name || "",
       description: item.description || "",
+      tags: Array.isArray(item.tags) ? item.tags : [],
       start_time: formatForDateTimeLocal(item.start_time),
       end_time: formatForDateTimeLocal(item.end_time),
       location: item.location || "",
       should_notify: item.should_notify ?? true
     });
+    setTagInput("");
     setAgendaError("");
     setIsAgendaModalOpen(true);
   };
@@ -942,10 +980,12 @@ export default function EventDetailsPage() {
 
       const payload = {
         ...agendaFormData,
+        tags: agendaFormData.tags || [],
         speaker_name: agendaFormData.speaker_name || null,
         description: agendaFormData.description || null,
         location: agendaFormData.location || null,
-        end_time: agendaFormData.end_time || null,
+        start_time: agendaFormData.start_time ? new Date(agendaFormData.start_time).toISOString() : null,
+        end_time: agendaFormData.end_time ? new Date(agendaFormData.end_time).toISOString() : null,
       };
 
       if (editingTimelineItem) {
@@ -973,24 +1013,38 @@ export default function EventDetailsPage() {
       setIsAgendaModalOpen(false);
     } catch (err: any) {
       console.error(err);
-      setAgendaError(err.response?.data?.error || err.message || "Failed to save agenda item.");
+      const backendError = err.response?.data?.error || err.message;
+      if (Array.isArray(backendError)) {
+        const errorMessages = backendError.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(", ");
+        setAgendaError(errorMessages);
+      } else {
+        setAgendaError(backendError || "Failed to save agenda item.");
+      }
     } finally {
       setIsSavingAgenda(false);
     }
   };
 
-  const handleDeleteAgenda = async (timelineId: number) => {
-    if (!confirm("Are you sure you want to delete this agenda session?")) return;
+  const handleDeleteAgenda = (timelineId: number) => {
+    setAgendaToDeleteId(timelineId);
+  };
+
+  const handleConfirmDeleteAgenda = async () => {
+    if (agendaToDeleteId === null) return;
     try {
-      await eventService.deleteTimeline(eventId, timelineId);
-      setTimelinesList(prev => prev.filter(item => item.id !== timelineId));
+      setIsDeletingAgenda(true);
+      await eventService.deleteTimeline(eventId, agendaToDeleteId);
+      setTimelinesList(prev => prev.filter(item => item.id !== agendaToDeleteId));
       setEvent(prev => {
         if (!prev) return null;
-        return { ...prev, timelines: (prev.timelines || []).filter(item => item.id !== timelineId) };
+        return { ...prev, timelines: (prev.timelines || []).filter(item => item.id !== agendaToDeleteId) };
       });
       showSuccess("Timeline item deleted successfully!");
+      setAgendaToDeleteId(null);
     } catch (err: any) {
       alert(err.response?.data?.error || err.message || "Failed to delete agenda item.");
+    } finally {
+      setIsDeletingAgenda(false);
     }
   };
 
@@ -1004,8 +1058,11 @@ export default function EventDetailsPage() {
     return (
       <div className="min-h-screen bg-zinc-100 flex flex-col md:flex-row">
 
-        {/* Sidebar */}
-        <div className="w-full md:w-64 bg-zinc-950 text-zinc-400 flex flex-col p-4 md:min-h-screen shrink-0">
+        {/* Sidebar spacer placeholder */}
+        <div className="hidden md:block w-64 h-screen shrink-0" />
+
+        {/* Sidebar - fixed to viewport */}
+        <div className="w-full md:w-64 bg-zinc-950 text-zinc-400 flex flex-col p-4 md:h-screen md:fixed md:top-0 md:left-0 md:z-30 shrink-0 overflow-hidden">
           <div className="mb-8 p-4">
             <Link href="/home" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-semibold mb-6">
               <ArrowLeft className="w-4 h-4" /> Back
@@ -1580,6 +1637,20 @@ export default function EventDetailsPage() {
                                   )}
                                 </div>
 
+                                {timeline.tags && Array.isArray(timeline.tags) && timeline.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 pt-1">
+                                    {timeline.tags.map((tag: string) => (
+                                      <span
+                                        key={tag}
+                                        className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center gap-1"
+                                      >
+                                        <Tag className="w-3 h-3 text-indigo-500" />
+                                        #{tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
                                 {timeline.description && (
                                   <div
                                     className="text-zinc-600 text-sm font-medium leading-relaxed border-t border-zinc-150 pt-3 prose prose-zinc prose-sm max-w-none"
@@ -1870,6 +1941,7 @@ export default function EventDetailsPage() {
                       value={agendaFormData.title}
                       onChange={(e) => setAgendaFormData({ ...agendaFormData, title: e.target.value })}
                       required
+                      maxLength={100}
                       placeholder="e.g. Opening Keynote, Technical Session 1"
                       className="py-5 rounded-xl bg-zinc-50 border-zinc-200 font-semibold"
                     />
@@ -1903,6 +1975,7 @@ export default function EventDetailsPage() {
                       <Input
                         value={agendaFormData.speaker_name}
                         onChange={(e) => setAgendaFormData({ ...agendaFormData, speaker_name: e.target.value })}
+                        maxLength={100}
                         placeholder="e.g. Dr. Jane Doe"
                         className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
                       />
@@ -1915,6 +1988,107 @@ export default function EventDetailsPage() {
                         placeholder="e.g. Auditorium A, Room 402"
                         className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
                       />
+                    </div>
+                  </div>
+
+                  {/* SESSION TAGS & CATEGORIES */}
+                  <div className="space-y-2.5 bg-zinc-50 border border-zinc-200/80 p-4 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-bold text-zinc-700 text-sm flex items-center gap-1.5">
+                        <Tag className="w-4 h-4 text-indigo-600" />
+                        Session Tags &amp; Categories
+                      </Label>
+                      <span className="text-[11px] font-semibold text-zinc-400">
+                        Used for skills matching &amp; Discover search
+                      </span>
+                    </div>
+
+                    {/* Active Tags Bubble List */}
+                    {agendaFormData.tags && agendaFormData.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded-xl border border-zinc-200 min-h-[38px] items-center">
+                        {agendaFormData.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 border border-indigo-200 text-indigo-700 shadow-2xs group"
+                          >
+                            <span>#{tag}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              className="w-3.5 h-3.5 rounded-full hover:bg-indigo-200 flex items-center justify-center text-indigo-500 hover:text-indigo-800 transition-colors"
+                              title={`Remove ${tag}`}
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Tag Input Field */}
+                    <div className="flex gap-2">
+                      <Input
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === ",") {
+                            e.preventDefault();
+                            handleAddTag(tagInput);
+                          }
+                        }}
+                        placeholder="Type tag (e.g. React, Salesforce, Web Dev) & press Enter"
+                        className="py-4 rounded-xl bg-white border-zinc-200 text-xs font-semibold"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => handleAddTag(tagInput)}
+                        disabled={!tagInput.trim()}
+                        className="rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-xs px-4 shrink-0"
+                      >
+                        Add Tag
+                      </Button>
+                    </div>
+
+                    {/* Quick Suggested Category Pills */}
+                    <div className="pt-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
+                        Suggested Categories:
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          "Salesforce",
+                          "Web Dev",
+                          "React",
+                          "AI/ML",
+                          "Python",
+                          "Cloud",
+                          "Cybersecurity",
+                          "UI/UX",
+                          "DevOps",
+                          "Mobile",
+                          "Blockchain",
+                          "Next.js"
+                        ].map((suggestion) => {
+                          const isSelected = agendaFormData.tags.some(
+                            (t) => t.toLowerCase() === suggestion.toLowerCase()
+                          );
+                          return (
+                            <button
+                              key={suggestion}
+                              type="button"
+                              disabled={isSelected}
+                              onClick={() => handleAddTag(suggestion)}
+                              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                                isSelected
+                                  ? "bg-indigo-600 text-white border-indigo-600 opacity-40 cursor-not-allowed"
+                                  : "bg-white text-zinc-650 border-zinc-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50"
+                              }`}
+                            >
+                              + {suggestion}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
@@ -2006,6 +2180,41 @@ export default function EventDetailsPage() {
           )}
         </AnimatePresence>
 
+        {/* DELETE AGENDA CONFIRMATION MODAL */}
+        <AnimatePresence>
+          {agendaToDeleteId !== null && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            >
+              <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4">
+                <h3 className="text-xl font-extrabold text-zinc-900">Delete Agenda Session</h3>
+                <p className="text-sm font-medium text-zinc-600">
+                  Are you sure you want to delete the session <strong className="text-zinc-900">&quot;{timelinesList.find(t => t.id === agendaToDeleteId)?.title}&quot;</strong>? This action is permanent.
+                </p>
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    onClick={() => setAgendaToDeleteId(null)}
+                    className="flex-1 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold py-5"
+                    disabled={isDeletingAgenda}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold py-5 shadow-md shadow-red-600/20" 
+                    disabled={isDeletingAgenda} 
+                    onClick={handleConfirmDeleteAgenda}
+                  >
+                    {isDeletingAgenda ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
       </div>
     );
   }
@@ -2087,6 +2296,24 @@ export default function EventDetailsPage() {
             <h1 className={`text-2xl sm:text-3xl font-black tracking-tight leading-tight break-words ${theme.textHeading}`}>
               {event.title}
             </h1>
+
+            {/* COLLECTIVE EVENT TAGS */}
+            {event.tags && Array.isArray(event.tags) && event.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {event.tags.map((tag: string) => (
+                  <span
+                    key={tag}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                      theme.isDark
+                        ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-400"
+                        : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                    }`}
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className={`space-y-4 border-t pt-6 ${theme.divider}`}>
@@ -2286,6 +2513,42 @@ export default function EventDetailsPage() {
                                       {timeline.speaker_name && <span>Speaker: {timeline.speaker_name}</span>}
                                       {timeline.location && <span>Room: {timeline.location}</span>}
                                     </p>
+                                  )}
+
+                                  {/* Bubble UI Tags with Profile Skill Match Highlighting */}
+                                  {timeline.tags && Array.isArray(timeline.tags) && timeline.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 pt-1.5 pb-0.5">
+                                      {timeline.tags.map((tag: string) => {
+                                        const isMatch = userSkills.some(
+                                          (skill) =>
+                                            skill.toLowerCase() === tag.toLowerCase() ||
+                                            tag.toLowerCase().includes(skill.toLowerCase()) ||
+                                            skill.toLowerCase().includes(tag.toLowerCase())
+                                        );
+                                        return (
+                                          <span
+                                            key={tag}
+                                            className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition-all duration-300 ${
+                                              isMatch
+                                                ? "bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-rose-500/25 border border-amber-500/50 text-amber-300 shadow-2xs shadow-amber-500/20 animate-pulse"
+                                                : "bg-black/15 dark:bg-white/10 border border-current/15 text-current/90 backdrop-blur-xs"
+                                            }`}
+                                          >
+                                            {isMatch ? (
+                                              <Sparkles className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                                            ) : (
+                                              <Tag className="w-2.5 h-2.5 opacity-70 shrink-0" />
+                                            )}
+                                            <span>#{tag}</span>
+                                            {isMatch && (
+                                              <span className="text-[8px] font-black uppercase tracking-wider text-amber-400 bg-amber-950/60 px-1 py-0.2 rounded border border-amber-500/30">
+                                                Match
+                                              </span>
+                                            )}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
                                   )}
                                   
                                   {isExpanded && timeline.description && (

@@ -12,12 +12,18 @@ import {
   Sparkles,
   Filter,
   SlidersHorizontal,
-  ArrowUpRight,
-  CheckCircle2,
   Tag,
   Users,
-  AlertCircle,
   Settings as SettingsIcon,
+  Zap,
+  Code2,
+  Plus,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Check,
+  CheckCircle2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +33,7 @@ import { profileService } from "@/services/profile.service";
 import Sidebar from "@/app/home/SideBar";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
+import NotificationPromptPopup from "@/components/NotificationPromptPopup";
 
 interface AppEvent {
   id: string;
@@ -39,6 +46,7 @@ interface AppEvent {
   description?: string;
   mode?: string;
   keywords?: string;
+  tags?: string[];
 }
 
 interface UserPreferences {
@@ -48,101 +56,75 @@ interface UserPreferences {
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   favoriteCategories: ["Technical Conferences", "Hackathons and Competitions"],
-  defaultCity: "San Francisco, CA",
+  defaultCity: "Global",
 };
 
-const POPULAR_KEYWORDS = [
-  "AI & ML",
+const BASE_TOPICS_POOL = [
+  "Salesforce",
+  "Web Dev",
   "React",
+  "AI & ML",
+  "Python",
+  "Cloud",
   "Hackathon",
   "TypeScript",
-  "Python",
-  "Web3",
-  "Cloud",
-  "Networking",
-  "Design",
-  "Startup",
   "Cybersecurity",
-  "Virtual",
+  "UI/UX",
+  "DevOps",
+  "Mobile",
+  "Web3",
+  "Next.js",
+  "Data Science",
+  "Backend",
 ];
 
-// Dynamically extract keyword tags from event text fields (title, category, description, keywords)
-const extractEventKeywords = (evt: AppEvent): string[] => {
-  const found: string[] = [];
-
-  // 1) First check organizer-defined keywords
-  if (evt.keywords && evt.keywords.trim()) {
-    const orgTags = evt.keywords
-      .split(/[\s,]+/)
-      .map((t) => t.replace(/#/g, "").trim().toLowerCase())
-      .filter((t) => t.length > 1);
-    found.push(...orgTags);
-  }
-
-  // 2) Always include category word if not present
-  const catWord = evt.category.toLowerCase().split(/[\s-]+/)[0];
-  if (catWord && catWord.length > 2 && !found.includes(catWord)) {
-    found.push(catWord);
-  }
-
-  // 3) Then auto-extract from title/description if we have fewer than 4 keywords
-  const text = `${evt.title} ${evt.description || ""} ${evt.category} ${evt.location}`.toLowerCase();
-  const keywordPool = [
-    "ai",
-    "ml",
-    "react",
-    "python",
-    "hackathon",
-    "typescript",
-    "nextjs",
-    "node",
-    "cloud",
-    "web3",
-    "design",
-    "networking",
-    "startup",
-    "cybersecurity",
-    "virtual",
-    "workshop",
-    "conference",
-    "meetup",
-    "aws",
-    "docker",
-  ];
-
-  for (const kw of keywordPool) {
-    if (found.length >= 4) break;
-    if (text.includes(kw) && !found.includes(kw)) {
-      found.push(kw);
-    }
-  }
-
-  return found.length > 0 ? found.slice(0, 4) : ["community", "event"];
-};
+const STANDARD_CATEGORIES_POOL = [
+  "Technical Conferences",
+  "Hackathons and Competitions",
+  "Tech & AI",
+  "Meetups",
+  "Workshops",
+  "Web Development",
+  "Open Source",
+  "Corporate Events",
+  "Exhibitions and Trade Shows",
+  "Academic and Training Events",
+  "Community and Nonprofit Events",
+  "Hybrid and Virtual Events",
+];
 
 export default function DiscoverContent() {
   const { isDark, activeAccent } = useAppearance();
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("matched");
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [userSkills, setUserSkills] = useState<string[]>([]);
+  const [userProfileLocation, setUserProfileLocation] = useState<string>("");
 
-  // Load preferences from localStorage & backend
+  // In-Place Recommendation Customizer States
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
+  const [skillInput, setSkillInput] = useState("");
+  const [cityInput, setCityInput] = useState("");
+  const [isSavingCustomization, setIsSavingCustomization] = useState(false);
+  const [customizationSaveMsg, setCustomizationSaveMsg] = useState("");
+
   useEffect(() => {
-    const loadPreferences = async () => {
-      // 1. Try local storage first for speed
+    setMounted(true);
+  }, []);
+
+  // 1. Load user profile, skills, and preferences from backend & localStorage
+  useEffect(() => {
+    const loadUserData = async () => {
+      // Fast cache load
       try {
-        const stored = localStorage.getItem("cc_user_settings");
-        if (stored) {
-          const parsed = JSON.parse(stored);
+        const storedSettings = localStorage.getItem("cc_user_settings");
+        if (storedSettings) {
+          const parsed = JSON.parse(storedSettings);
           setPreferences({
             favoriteCategories:
               Array.isArray(parsed.favoriteCategories) && parsed.favoriteCategories.length > 0
@@ -151,39 +133,57 @@ export default function DiscoverContent() {
             defaultCity: parsed.defaultCity || DEFAULT_PREFERENCES.defaultCity,
           });
         }
-      } catch {
-        // Ignore parse error
-      }
+      } catch { }
 
-      // 2. Fetch fresh settings from backend
+      // Fetch fresh authenticated profile & settings
       try {
-        const backendSettings = await profileService.getMySettings();
-        if (backendSettings && typeof backendSettings === "object") {
+        const [profile, backendSettings] = await Promise.allSettled([
+          profileService.getMyProfile(),
+          profileService.getMySettings(),
+        ]);
+
+        if (profile.status === "fulfilled" && profile.value) {
+          const profData = profile.value;
+          if (Array.isArray(profData.skills)) {
+            setUserSkills(profData.skills);
+          }
+          if (profData.location) {
+            setUserProfileLocation(profData.location);
+            setCityInput(profData.location);
+          }
+        }
+
+        if (backendSettings.status === "fulfilled" && backendSettings.value) {
+          const setts = backendSettings.value;
           const newFavs =
-            Array.isArray(backendSettings.favoriteCategories) &&
-            backendSettings.favoriteCategories.length > 0
-              ? backendSettings.favoriteCategories
+            Array.isArray(setts.favoriteCategories) && setts.favoriteCategories.length > 0
+              ? setts.favoriteCategories
               : DEFAULT_PREFERENCES.favoriteCategories;
-          const newCity = backendSettings.defaultCity || DEFAULT_PREFERENCES.defaultCity;
+          const newCity =
+            setts.defaultCity ||
+            (profile.status === "fulfilled" ? profile.value?.location : null) ||
+            DEFAULT_PREFERENCES.defaultCity;
 
           setPreferences({
             favoriteCategories: newFavs,
             defaultCity: newCity,
           });
+          if (!cityInput) setCityInput(newCity);
+
           localStorage.setItem(
             "cc_user_settings",
-            JSON.stringify({ ...backendSettings, favoriteCategories: newFavs, defaultCity: newCity })
+            JSON.stringify({ ...setts, favoriteCategories: newFavs, defaultCity: newCity })
           );
         }
-      } catch {
-        // Fallback silently if offline or unauthenticated
+      } catch (err) {
+        console.warn("Discover: Using cached preferences", err);
       }
     };
 
-    loadPreferences();
+    loadUserData();
   }, []);
 
-  // Fetch events feed
+  // 2. Fetch live events feed with session tags
   useEffect(() => {
     const fetchEvents = async () => {
       setIsLoading(true);
@@ -213,6 +213,7 @@ export default function DiscoverContent() {
           description: evt.description || "",
           mode: evt.mode || "in-person",
           keywords: evt.custom_fields?.keywords || evt.keywords || "",
+          tags: Array.isArray(evt.tags) ? evt.tags : [],
         }));
 
         setEvents(mapped);
@@ -227,44 +228,96 @@ export default function DiscoverContent() {
     fetchEvents();
   }, []);
 
-  // Calculate preference matches for events
+  // 3. Dynamic Categories extracted from live events + standard categories
+  const dynamicCategories = useMemo(() => {
+    const cats = new Set<string>(STANDARD_CATEGORIES_POOL);
+    events.forEach((e) => {
+      if (e.category && e.category.trim()) {
+        cats.add(e.category.trim());
+      }
+    });
+    return Array.from(cats);
+  }, [events]);
+
+  // 5. Smart Multi-Dimensional Scoring Engine (Skills Match + Category Match + Location Match)
   const scoredEvents = useMemo(() => {
-    const userCityParts = preferences.defaultCity
+    const effectiveCity = userProfileLocation || preferences.defaultCity;
+    const userCityParts = effectiveCity
       .toLowerCase()
       .split(/[\s,]+/)
       .filter((p) => p.length > 2);
 
     return events.map((event) => {
+      // A. Category Matching
       const eventCat = (event.category || "").toLowerCase();
       const isCatMatch = preferences.favoriteCategories.some(
         (fav) =>
           eventCat.includes(fav.toLowerCase()) ||
           fav.toLowerCase().includes(eventCat) ||
           (fav.toLowerCase() === "other" &&
-            !["technical conferences", "hackathons and competitions", "corporate events", "exhibitions and trade shows", "academic and training events", "weddings and personal events", "community and nonprofit events", "sports and recreational events", "government and civic events", "hybrid and virtual events"].includes(eventCat))
+            ![
+              "technical conferences",
+              "hackathons and competitions",
+              "corporate events",
+              "exhibitions and trade shows",
+              "academic and training events",
+              "community and nonprofit events",
+              "sports and recreational events",
+              "hybrid and virtual events",
+            ].includes(eventCat))
       );
 
+      // B. Location / City Matching
       const eventLoc = (event.location || "").toLowerCase();
-      const isCityMatch = userCityParts.some((part) => eventLoc.includes(part));
+      const isOnline =
+        event.mode?.toLowerCase() === "online" ||
+        eventLoc.includes("online") ||
+        eventLoc.includes("virtual");
+      const isCityMatch = isOnline || userCityParts.some((part) => eventLoc.includes(part));
 
+      // C. Skill & Session Tag Matching
+      const matchingSkills: string[] = [];
+      const allEventTags = (event.tags || []).map((t) => t.toLowerCase());
+      const eventText = `${event.title} ${event.description || ""}`.toLowerCase();
+
+      userSkills.forEach((skill) => {
+        const sLower = skill.toLowerCase().trim();
+        if (!sLower) return;
+
+        const isTagMatch = allEventTags.some(
+          (t) => t === sLower || t.includes(sLower) || sLower.includes(t)
+        );
+        const isTextMatch = eventText.includes(sLower);
+
+        if (isTagMatch || isTextMatch) {
+          matchingSkills.push(skill);
+        }
+      });
+
+      const isSkillMatch = matchingSkills.length > 0;
+
+      // Calculate Total Recommendation Score
       let score = 0;
-      if (isCatMatch) score += 2;
-      if (isCityMatch) score += 1;
+      if (isSkillMatch) score += 3; // Highest priority: skills match
+      if (isCatMatch) score += 2;   // Favorite category match
+      if (isCityMatch) score += 1;  // Location / Online match
 
       return {
         ...event,
         isCategoryMatch: isCatMatch,
         isCityMatch: isCityMatch,
+        isSkillMatch: isSkillMatch,
+        matchedSkills: matchingSkills,
         matchScore: score,
       };
     });
-  }, [events, preferences]);
+  }, [events, preferences, userSkills, userProfileLocation]);
 
-  // Filter & sort events
+  // 6. Reactive Filtering & Sorting Engine
   const filteredEvents = useMemo(() => {
     return scoredEvents
       .filter((evt) => {
-        // Multi-keyword token search filter (searches title, description, category, location, mode)
+        // Multi-keyword token search filter
         if (searchQuery.trim()) {
           const queryTokens = searchQuery
             .toLowerCase()
@@ -279,6 +332,7 @@ export default function DiscoverContent() {
             evt.location,
             evt.mode || "",
             evt.keywords || "",
+            ...(evt.tags || []),
           ]
             .join(" ")
             .toLowerCase();
@@ -290,17 +344,139 @@ export default function DiscoverContent() {
           if (!matchesAllKeywords) return false;
         }
 
-        // Pill filter
+        // Filter Pills
         if (activeFilter === "matched") {
           return evt.matchScore > 0;
         } else if (activeFilter === "all") {
           return true;
+        } else if (activeFilter === "skills") {
+          return evt.isSkillMatch;
         } else {
-          return evt.category.toLowerCase().includes(activeFilter.toLowerCase());
+          return (
+            evt.category.toLowerCase().includes(activeFilter.toLowerCase()) ||
+            (evt.tags || []).some((t) => t.toLowerCase() === activeFilter.toLowerCase())
+          );
         }
       })
       .sort((a, b) => b.matchScore - a.matchScore);
   }, [scoredEvents, searchQuery, activeFilter]);
+
+  // --- IN-PLACE CUSTOMIZATION ACTIONS ---
+  const handleAddSkill = async (newSkill: string) => {
+    const trimmed = newSkill.trim().replace(/^#/, "");
+    if (!trimmed) return;
+    if (userSkills.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
+      setSkillInput("");
+      return;
+    }
+    const updatedSkills = [...userSkills, trimmed];
+    setUserSkills(updatedSkills);
+    setSkillInput("");
+
+    try {
+      setIsSavingCustomization(true);
+      await profileService.updateMyProfile({ skills: updatedSkills });
+      setCustomizationSaveMsg("Skills saved!");
+      setTimeout(() => setCustomizationSaveMsg(""), 2000);
+    } catch (err) {
+      console.error("Failed to save skill update:", err);
+    } finally {
+      setIsSavingCustomization(false);
+    }
+  };
+
+  const handleRemoveSkill = async (skillToRemove: string) => {
+    const updatedSkills = userSkills.filter((s) => s !== skillToRemove);
+    setUserSkills(updatedSkills);
+
+    try {
+      setIsSavingCustomization(true);
+      await profileService.updateMyProfile({ skills: updatedSkills });
+      setCustomizationSaveMsg("Skill removed!");
+      setTimeout(() => setCustomizationSaveMsg(""), 2000);
+    } catch (err) {
+      console.error("Failed to remove skill:", err);
+    } finally {
+      setIsSavingCustomization(false);
+    }
+  };
+
+  const handleToggleCategory = async (cat: string) => {
+    let updatedCats: string[];
+    if (preferences.favoriteCategories.includes(cat)) {
+      updatedCats = preferences.favoriteCategories.filter((c) => c !== cat);
+    } else {
+      updatedCats = [...preferences.favoriteCategories, cat];
+    }
+
+    const updatedPrefs = { ...preferences, favoriteCategories: updatedCats };
+    setPreferences(updatedPrefs);
+    localStorage.setItem("cc_user_settings", JSON.stringify(updatedPrefs));
+
+    try {
+      setIsSavingCustomization(true);
+      await profileService.updateMySettings({ favoriteCategories: updatedCats });
+      setCustomizationSaveMsg("Preferences saved!");
+      setTimeout(() => setCustomizationSaveMsg(""), 2000);
+    } catch (err) {
+      console.error("Failed to update categories:", err);
+    } finally {
+      setIsSavingCustomization(false);
+    }
+  };
+
+  const handleSaveCity = async (newCity: string) => {
+    const trimmed = newCity.trim();
+    if (!trimmed) return;
+    const updatedPrefs = { ...preferences, defaultCity: trimmed };
+    setPreferences(updatedPrefs);
+    setUserProfileLocation(trimmed);
+    localStorage.setItem("cc_user_settings", JSON.stringify(updatedPrefs));
+
+    try {
+      setIsSavingCustomization(true);
+      await Promise.allSettled([
+        profileService.updateMySettings({ defaultCity: trimmed }),
+        profileService.updateMyProfile({ location: trimmed }),
+      ]);
+      setCustomizationSaveMsg("Location saved!");
+      setTimeout(() => setCustomizationSaveMsg(""), 2000);
+    } catch (err) {
+      console.error("Failed to update location:", err);
+    } finally {
+      setIsSavingCustomization(false);
+    }
+  };
+
+  // Extract clean keywords for a specific event card
+  const extractCardTags = (evt: AppEvent): string[] => {
+    const found: string[] = [];
+
+    if (evt.tags && Array.isArray(evt.tags) && evt.tags.length > 0) {
+      for (const t of evt.tags) {
+        const clean = t.trim();
+        if (clean && !found.some((x) => x.toLowerCase() === clean.toLowerCase())) {
+          found.push(clean);
+        }
+      }
+    }
+
+    if (evt.keywords && evt.keywords.trim()) {
+      const orgTags = evt.keywords
+        .split(/[\s,]+/)
+        .map((t) => t.replace(/#/g, "").trim())
+        .filter((t) => t.length > 1);
+      for (const t of orgTags) {
+        if (!found.some((x) => x.toLowerCase() === t.toLowerCase())) found.push(t);
+      }
+    }
+
+    if (found.length === 0 && evt.category) {
+      found.push(evt.category.split(/[\s-]+/)[0]);
+    }
+
+    return found.slice(0, 6);
+  };
 
   const formatDate = (dateStr: string) => {
     try {
@@ -317,7 +493,7 @@ export default function DiscoverContent() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex flex-col md:flex-row relative overflow-x-hidden">
+      <div className="min-h-screen bg-zinc-950 text-white flex flex-col md:flex-row relative">
         <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 flex items-center justify-center">
           <div className="w-10 h-10 border-4 border-zinc-800 border-t-indigo-600 rounded-full animate-spin" />
         </div>
@@ -327,17 +503,15 @@ export default function DiscoverContent() {
 
   return (
     <div
-      className={`min-h-screen ${
-        isDark ? "bg-zinc-950 text-white" : "bg-zinc-50 text-zinc-900"
-      } flex flex-col md:flex-row relative overflow-x-hidden`}
+      className={`min-h-screen ${isDark ? "bg-zinc-950 text-white" : "bg-zinc-50 text-zinc-900"
+        } flex flex-col md:flex-row relative`}
     >
       {/* Background Ambient Glow */}
       <div
-        className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${
-          isDark
-            ? "from-indigo-900/20 via-zinc-950 to-zinc-950"
-            : "from-indigo-200/40 via-zinc-50 to-zinc-50"
-        } pointer-events-none`}
+        className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark
+            ? "from-indigo-950/30 via-zinc-950 to-zinc-950"
+            : "from-indigo-100/40 via-zinc-50 to-zinc-50"
+          } pointer-events-none`}
       />
 
       {/* Navigation Sidebar */}
@@ -348,166 +522,439 @@ export default function DiscoverContent() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
-            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${activeAccent.badgeBg} border ${activeAccent.border}/20 ${activeAccent.text} text-xs font-semibold mb-3`}>
+            <div
+              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${activeAccent.badgeBg} border ${activeAccent.border}/20 ${activeAccent.text} text-xs font-semibold mb-3`}
+            >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Personalized Event Discovery</span>
+              <span>Personalized Event Discovery &amp; Agenda Match</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
               Discover Events
             </h1>
             <p
-              className={`text-sm sm:text-base ${
-                isDark ? "text-zinc-400" : "text-zinc-600"
-              } mt-1 max-w-xl`}
+              className={`text-sm sm:text-base ${isDark ? "text-zinc-400" : "text-zinc-600"
+                } mt-1 max-w-xl`}
             >
-              Explore meetups, hackathons, and conferences matched to your favorite categories and primary location.
+              Explore meetups, hackathons, and conferences matched dynamically to your profile skills, categories, and location.
             </p>
           </div>
 
           {/* Search Bar */}
           <div className="w-full md:w-80 relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by title, topic, or city..."
-              className={`pl-10 rounded-2xl h-11 text-sm font-medium ${
-                isDark
-                  ? "bg-zinc-900/80 border-white/10 text-white placeholder:text-zinc-500"
-                  : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
-              } shadow-sm`}
+              placeholder="Search by title, tag, topic, or city..."
+              className={`pl-10 rounded-2xl h-11 text-sm font-medium ${isDark
+                  ? "bg-zinc-900/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-700"
+                  : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-300"
+                } shadow-xs`}
             />
           </div>
         </div>
 
-        {/* Quick Keyword & Topic Search Tags */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 no-scrollbar">
-          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap mr-1 flex items-center gap-1">
-            <Tag className={`w-3.5 h-3.5 ${activeAccent.text}`} />
-            Trending Topics:
-          </span>
-          {POPULAR_KEYWORDS.map((kw) => {
-            const isSelected =
-              searchQuery.toLowerCase() === kw.toLowerCase() ||
-              searchQuery.toLowerCase() === `#${kw.toLowerCase()}`;
-            return (
-              <button
-                key={kw}
-                type="button"
-                onClick={() =>
-                  setSearchQuery(isSelected ? "" : kw)
-                }
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${
-                  isSelected
-                    ? `bg-gradient-to-r ${activeAccent.gradient} text-white border-transparent shadow-md`
-                    : isDark
-                    ? "bg-zinc-900/80 border-white/10 text-zinc-300 hover:text-white hover:border-white/20"
-                    : "bg-white border-zinc-200 text-zinc-700 hover:text-zinc-950 hover:bg-zinc-100"
-                }`}
-              >
-                #{kw}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Your Active Preferences Banner */}
+        {/* --- SMART RECOMMENDATION PROFILE CARD (SIMPLE & ADJACENT UI) --- */}
         <div
-          className={`p-5 sm:p-6 rounded-3xl border mb-8 backdrop-blur-xl transition-all ${
+          className={`rounded-3xl border mb-8 transition-all duration-300 overflow-hidden ${
             isDark
-              ? "bg-zinc-900/60 border-white/10 shadow-2xl"
-              : "bg-white/80 border-zinc-200 shadow-md"
-          } flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4`}
+              ? "bg-zinc-900/80 border-zinc-800 shadow-xl"
+              : "bg-white border-zinc-200 shadow-sm"
+          }`}
         >
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
-              <SlidersHorizontal className={`w-4 h-4 ${activeAccent.text}`} />
-              <span>Matching Based On Your Preferences</span>
+          {/* Top Summary Header */}
+          <div className="p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-3 flex-1">
+              <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-wider ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+                <div className={`p-1.5 rounded-lg ${activeAccent.badgeBg} ${activeAccent.text}`}>
+                  <SlidersHorizontal className="w-4 h-4" />
+                </div>
+                <span className={`text-base font-extrabold ${isDark ? "text-white" : "text-zinc-950"}`}>
+                  Active Filters &amp; Skills
+                </span>
+                {isSavingCustomization && (
+                  <span className="flex items-center gap-1 text-[11px] font-bold text-indigo-500 dark:text-indigo-400 normal-case ml-2 animate-pulse">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Saving...
+                  </span>
+                )}
+                {customizationSaveMsg && (
+                  <span className={`flex items-center gap-1 text-[11px] font-bold normal-case ml-2 animate-in fade-in ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {customizationSaveMsg}
+                  </span>
+                )}
+              </div>
+
+              {/* Badges / Chips Row */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Location Badge */}
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold ${
+                    isDark
+                      ? "bg-zinc-800 border border-zinc-700 text-zinc-100"
+                      : "bg-zinc-100 border border-zinc-300 text-zinc-900"
+                  }`}
+                >
+                  <MapPin className={`w-3.5 h-3.5 ${activeAccent.text}`} />
+                  <span>{userProfileLocation || preferences.defaultCity}</span>
+                </span>
+
+                {/* User Profile Skills Badges */}
+                {userSkills.map((skill) => (
+                  <span
+                    key={skill}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold ${
+                      isDark
+                        ? `${activeAccent.badgeBg} border border-indigo-700/60 text-indigo-200`
+                        : "bg-indigo-50 border border-indigo-300 text-indigo-950"
+                    }`}
+                  >
+                    <Code2 className="w-3.5 h-3.5 shrink-0 opacity-90" />
+                    <span>{skill}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveSkill(skill);
+                      }}
+                      className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ml-0.5 ${
+                        isDark ? "hover:bg-white/15 text-indigo-200" : "hover:bg-indigo-200 text-indigo-900"
+                      }`}
+                      title={`Remove ${skill}`}
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </span>
+                ))}
+
+                {/* Favorite Categories Badges */}
+                {preferences.favoriteCategories.map((cat) => (
+                  <span
+                    key={cat}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold ${
+                      isDark
+                        ? "bg-zinc-800 border border-zinc-700 text-zinc-100"
+                        : "bg-zinc-100 border border-zinc-300 text-zinc-900"
+                    }`}
+                  >
+                    <Tag className="w-3.5 h-3.5 opacity-70" />
+                    <span>{cat}</span>
+                  </span>
+                ))}
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold ${
-                  isDark
-                    ? "bg-zinc-800 border border-white/10 text-zinc-200"
-                    : "bg-zinc-100 border border-zinc-300 text-zinc-800"
+            {/* Toggle Customize Button */}
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                onClick={() => setIsCustomizerOpen(!isCustomizerOpen)}
+                className={`rounded-2xl font-extrabold text-xs px-4 py-2.5 flex items-center gap-2 transition-all cursor-pointer ${
+                  isCustomizerOpen
+                    ? isDark
+                      ? "bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700"
+                      : "bg-zinc-200 hover:bg-zinc-300 text-zinc-900 border border-zinc-300"
+                    : `bg-gradient-to-r ${activeAccent.gradient} text-white shadow-sm`
                 }`}
               >
-                <MapPin className={`w-3.5 h-3.5 ${activeAccent.text}`} />
-                {preferences.defaultCity}
-              </span>
-
-              {preferences.favoriteCategories.map((cat) => (
-                <span
-                  key={cat}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-gradient-to-r ${activeAccent.gradient} text-white shadow-sm`}
-                >
-                  <Tag className="w-3.5 h-3.5" />
-                  {cat}
-                </span>
-              ))}
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>{isCustomizerOpen ? "Close Controls" : "Customize Filters"}</span>
+                {isCustomizerOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </Button>
             </div>
           </div>
 
-          <Link href="/settings?tab=preferences">
-            <Button
-              variant="outline"
-              size="sm"
-              className={`rounded-2xl font-semibold text-xs border ${
-                isDark
-                  ? "border-white/10 bg-white/5 hover:bg-white/10 text-white"
-                  : "border-zinc-300 bg-zinc-100 hover:bg-zinc-200 text-zinc-900"
-              } flex items-center gap-1.5`}
-            >
-              <SettingsIcon className="w-3.5 h-3.5" />
-              Customize Preferences
-            </Button>
-          </Link>
+          {/* Unified, High-Contrast In-Place Customizer Drawer */}
+          <AnimatePresence>
+            {isCustomizerOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className={`border-t p-5 sm:p-7 space-y-6 ${
+                  isDark
+                    ? "border-zinc-800 bg-zinc-950/70"
+                    : "border-zinc-200 bg-zinc-50"
+                }`}
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  {/* Left Column: Technical Skills (7 cols) */}
+                  <div
+                    className={`lg:col-span-7 rounded-2xl p-5 border space-y-4 shadow-xs ${
+                      isDark
+                        ? "bg-zinc-900/90 border-zinc-800"
+                        : "bg-white border-zinc-200"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2.5 mb-1">
+                        <div className={`p-1.5 rounded-lg ${isDark ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-100 text-indigo-700"}`}>
+                          <Code2 className="w-4 h-4" />
+                        </div>
+                        <h4 className={`text-base font-extrabold ${isDark ? "text-white" : "text-zinc-950"} tracking-tight`}>
+                          Technical Skills &amp; Focus Areas
+                        </h4>
+                      </div>
+                      <p className={`text-xs font-semibold ${isDark ? "text-zinc-300" : "text-zinc-700"} ml-8`}>
+                        Events with matching session agenda topics will be prioritized and highlighted.
+                      </p>
+                    </div>
+
+                    {/* Skill Input Form */}
+                    <div className="flex gap-2">
+                      <Input
+                        value={skillInput}
+                        onChange={(e) => setSkillInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === ",") {
+                            e.preventDefault();
+                            handleAddSkill(skillInput);
+                          }
+                        }}
+                        placeholder="Add skill (e.g. React, Salesforce, Python, AI/ML)..."
+                        className={`rounded-xl text-xs font-bold ${
+                          isDark
+                            ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-400"
+                            : "bg-zinc-50 border-zinc-300 text-zinc-950 placeholder:text-zinc-500"
+                        }`}
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => handleAddSkill(skillInput)}
+                        disabled={!skillInput.trim()}
+                        className={`rounded-xl font-bold text-xs px-4 shrink-0 bg-gradient-to-r ${activeAccent.gradient} text-white cursor-pointer`}
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Add Skill
+                      </Button>
+                    </div>
+
+                    {/* Quick Suggested Skills Pool */}
+                    <div className={`space-y-2 pt-2 border-t ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+                      <span className={`text-xs font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+                        Popular Suggestions:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {BASE_TOPICS_POOL.filter(
+                          (t) => !userSkills.some((s) => s.toLowerCase() === t.toLowerCase())
+                        ).slice(0, 10).map((topic) => (
+                          <button
+                            key={topic}
+                            type="button"
+                            onClick={() => handleAddSkill(topic)}
+                            className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                              isDark
+                                ? "bg-zinc-800/90 border-zinc-700 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-750"
+                                : "bg-zinc-100 border-zinc-300 text-zinc-900 hover:border-zinc-400 hover:bg-zinc-200"
+                            }`}
+                          >
+                            <Plus className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
+                            <span>{topic}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Location Focus (5 cols) */}
+                  <div
+                    className={`lg:col-span-5 rounded-2xl p-5 border space-y-4 shadow-xs ${
+                      isDark
+                        ? "bg-zinc-900/90 border-zinc-800"
+                        : "bg-white border-zinc-200"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2.5 mb-1">
+                        <div className={`p-1.5 rounded-lg ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"}`}>
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <h4 className={`text-base font-extrabold ${isDark ? "text-white" : "text-zinc-950"} tracking-tight`}>
+                          Preferred City &amp; Region
+                        </h4>
+                      </div>
+                      <p className={`text-xs font-semibold ${isDark ? "text-zinc-300" : "text-zinc-700"} ml-8`}>
+                        Events in this location or online will be ranked higher for you.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Input
+                        value={cityInput}
+                        onChange={(e) => setCityInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleSaveCity(cityInput);
+                          }
+                        }}
+                        placeholder="e.g. San Francisco, CA / Bengaluru / Global"
+                        className={`rounded-xl text-xs font-bold ${
+                          isDark
+                            ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-400"
+                            : "bg-zinc-50 border-zinc-300 text-zinc-950 placeholder:text-zinc-500"
+                        }`}
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => handleSaveCity(cityInput)}
+                        disabled={!cityInput.trim() || cityInput === preferences.defaultCity}
+                        className={`rounded-xl font-bold text-xs px-4 shrink-0 bg-gradient-to-r ${activeAccent.gradient} text-white cursor-pointer`}
+                      >
+                        Save
+                      </Button>
+                    </div>
+
+                    <div className={`space-y-2 pt-2 border-t ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+                      <span className={`text-xs font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+                        Popular Locations:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["Global", "San Francisco, CA", "Bengaluru, India", "New York, NY", "London, UK"].map(
+                          (preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => {
+                                setCityInput(preset);
+                                handleSaveCity(preset);
+                              }}
+                              className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                preferences.defaultCity === preset
+                                  ? `bg-gradient-to-r ${activeAccent.gradient} text-white border-transparent shadow-xs`
+                                  : isDark
+                                  ? "bg-zinc-800 border-zinc-700 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-750"
+                                  : "bg-zinc-100 border-zinc-300 text-zinc-900 hover:border-zinc-400 hover:bg-zinc-200"
+                              }`}
+                            >
+                              {preset}
+                            </button>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Row: Favorite Categories (Full Width) */}
+                <div
+                  className={`rounded-2xl p-5 border space-y-4 shadow-xs ${
+                    isDark
+                      ? "bg-zinc-900/90 border-zinc-800"
+                      : "bg-white border-zinc-200"
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`p-1.5 rounded-lg ${isDark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700"}`}>
+                        <Tag className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className={`text-base font-extrabold ${isDark ? "text-white" : "text-zinc-950"} tracking-tight`}>
+                          Favorite Event Categories
+                        </h4>
+                        <p className={`text-xs font-semibold ${isDark ? "text-zinc-300" : "text-zinc-700"} mt-0.5`}>
+                          Toggle categories to prioritize them in your recommendations.
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`text-xs font-bold ml-8 sm:ml-0 ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
+                      Click to toggle on / off
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {dynamicCategories.map((cat) => {
+                      const isFav = preferences.favoriteCategories.includes(cat);
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => handleToggleCategory(cat)}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer border ${
+                            isFav
+                              ? `bg-gradient-to-r ${activeAccent.gradient} text-white border-transparent shadow-xs`
+                              : isDark
+                              ? "bg-zinc-800/90 border-zinc-700 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-750"
+                              : "bg-zinc-100 border-zinc-300 text-zinc-900 hover:border-zinc-400 hover:bg-zinc-200"
+                          }`}
+                        >
+                          {isFav ? (
+                            <Check className="w-3.5 h-3.5 shrink-0" />
+                          ) : (
+                            <Plus className="w-3.5 h-3.5 shrink-0 opacity-60" />
+                          )}
+                          <span>{cat}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Filter Pills */}
+        {/* Dynamic Filter Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-8 no-scrollbar">
+          {/* Matched Pill */}
           <button
             type="button"
             onClick={() => setActiveFilter("matched")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeFilter === "matched"
-                ? `bg-gradient-to-r ${activeAccent.gradient} text-white shadow-lg ${activeAccent.shadow}`
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${activeFilter === "matched"
+                ? `bg-gradient-to-r ${activeAccent.gradient} text-white shadow-md ${activeAccent.shadow}`
                 : isDark
-                ? "bg-zinc-900/80 border border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-800"
-                : "bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-            }`}
+                  ? "bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850"
+                  : "bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+              }`}
           >
             <Sparkles className="w-4 h-4" />
-            <span>Matched For You ({scoredEvents.filter((e) => e.matchScore > 0).length})</span>
+            <span>★ Recommended For You</span>
           </button>
 
+          {/* Skill Matches Pill */}
+          {userSkills.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveFilter("skills")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer border ${activeFilter === "skills"
+                  ? `bg-gradient-to-r ${activeAccent.gradient} text-white border-transparent shadow-md`
+                  : isDark
+                    ? `${activeAccent.badgeBg} border-zinc-800 ${activeAccent.text} hover:opacity-90`
+                    : `${activeAccent.badgeBg} border-zinc-200 ${activeAccent.text} hover:opacity-90`
+                }`}
+            >
+              <Zap className="w-4 h-4" />
+              <span>Skill Matches ({scoredEvents.filter((e) => e.isSkillMatch).length})</span>
+            </button>
+          )}
+
+          {/* All Events Pill */}
           <button
             type="button"
             onClick={() => setActiveFilter("all")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeFilter === "all"
-                ? `bg-gradient-to-r ${activeAccent.gradient} text-white shadow-lg ${activeAccent.shadow}`
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${activeFilter === "all"
+                ? `bg-gradient-to-r ${activeAccent.gradient} text-white shadow-md ${activeAccent.shadow}`
                 : isDark
-                ? "bg-zinc-900/80 border border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-800"
-                : "bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-            }`}
+                  ? "bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850"
+                  : "bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+              }`}
           >
+            <Filter className="w-4 h-4" />
             <span>All Events ({events.length})</span>
           </button>
 
-          {preferences.favoriteCategories.map((cat) => (
+          {/* Dynamic Live Categories Pills */}
+          {dynamicCategories.map((cat) => (
             <button
               key={cat}
               type="button"
               onClick={() => setActiveFilter(cat)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                activeFilter === cat
-                  ? `bg-gradient-to-r ${activeAccent.gradient} text-white shadow-lg ${activeAccent.shadow}`
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap cursor-pointer ${activeFilter === cat
+                  ? `bg-gradient-to-r ${activeAccent.gradient} text-white shadow-md ${activeAccent.shadow}`
                   : isDark
-                  ? "bg-zinc-900/80 border border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-800"
-                  : "bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-              }`}
+                    ? "bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850"
+                    : "bg-white border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+                }`}
             >
               <span>{cat}</span>
             </button>
@@ -520,14 +967,14 @@ export default function DiscoverContent() {
             {[...Array(6)].map((_, i) => (
               <div
                 key={i}
-                className="bg-zinc-100/60 border border-zinc-200 rounded-[2rem] p-6 h-[340px] flex flex-col animate-pulse"
+                className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 rounded-[2rem] p-6 h-[340px] flex flex-col animate-pulse"
               >
-                <div className="w-full h-40 bg-zinc-200 rounded-2xl mb-4" />
-                <div className="h-6 bg-zinc-200 rounded-md w-3/4 mb-3" />
-                <div className="h-4 bg-zinc-200/50 rounded-md w-1/2 mb-auto" />
+                <div className="w-full h-40 bg-zinc-200 dark:bg-zinc-800 rounded-2xl mb-4" />
+                <div className="h-6 bg-zinc-200 dark:bg-zinc-800 rounded-md w-3/4 mb-3" />
+                <div className="h-4 bg-zinc-200/50 dark:bg-zinc-800/50 rounded-md w-1/2 mb-auto" />
                 <div className="flex justify-between items-center mt-4">
-                  <div className="h-8 w-24 bg-zinc-200 rounded-xl" />
-                  <div className="h-9 w-28 bg-zinc-200 rounded-xl" />
+                  <div className="h-8 w-24 bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
+                  <div className="h-9 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
                 </div>
               </div>
             ))}
@@ -535,21 +982,19 @@ export default function DiscoverContent() {
         ) : filteredEvents.length === 0 ? (
           /* Empty State */
           <div
-            className={`p-12 rounded-3xl border text-center my-8 ${
-              isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"
-            }`}
+            className={`p-12 rounded-3xl border text-center my-8 ${isDark ? "bg-zinc-900/40 border-zinc-800" : "bg-white border-zinc-200 shadow-sm"
+              }`}
           >
-            <div className="w-16 h-16 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-4">
+            <div className={`w-16 h-16 rounded-full ${activeAccent.badgeBg} ${activeAccent.text} flex items-center justify-center mx-auto mb-4`}>
               <Compass className="w-8 h-8" />
             </div>
             <h3 className="text-xl font-bold mb-2">No Events Found in This View</h3>
             <p
-              className={`text-sm max-w-md mx-auto mb-6 ${
-                isDark ? "text-zinc-400" : "text-zinc-600"
-              }`}
+              className={`text-sm max-w-md mx-auto mb-6 ${isDark ? "text-zinc-400" : "text-zinc-600"
+                }`}
             >
               {activeFilter === "matched"
-                ? "There are currently no events matching your specific category or location preferences. Try switching to 'All Events' or updating your preferences."
+                ? "No events match your current skills, category, or location preferences yet. Click 'Customize Feed' above to add your skills & categories!"
                 : "No events match your current search query or filter selection."}
             </p>
             <div className="flex items-center justify-center gap-3">
@@ -559,15 +1004,18 @@ export default function DiscoverContent() {
               >
                 View All Events ({events.length})
               </Button>
-              <Link href="/settings?tab=preferences">
-                <Button variant="outline" className="rounded-2xl font-semibold">
-                  Update Preferences
-                </Button>
-              </Link>
+              <Button
+                onClick={() => setIsCustomizerOpen(true)}
+                variant="outline"
+                className="rounded-2xl font-semibold flex items-center gap-1.5"
+              >
+                <Code2 className="w-4 h-4" />
+                Customize Feed
+              </Button>
             </div>
           </div>
         ) : (
-          /* Events Grid (using existing Home card component style) */
+          /* Events Grid */
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -581,22 +1029,21 @@ export default function DiscoverContent() {
                 "from-emerald-400 to-teal-500",
               ];
               const randomGradient = gradients[index % gradients.length];
+              const cardTags = extractCardTags(event);
 
               return (
                 <motion.div key={event.id}>
                   <Link href={`/events/${event.id}`}>
                     <div
-                      className={`group ${
-                        isDark
-                          ? "bg-zinc-900/60 border-white/10 hover:border-white/20"
-                          : "bg-white border-zinc-200 hover:border-indigo-200"
-                      } rounded-3xl p-3 border transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 cursor-pointer relative overflow-hidden h-full flex flex-col`}
+                      className={`group ${isDark
+                          ? "bg-zinc-900/60 border-zinc-800 hover:border-zinc-700"
+                          : "bg-white border-zinc-200 hover:border-zinc-300"
+                        } rounded-3xl p-3 border transition-all duration-300 hover:shadow-xl cursor-pointer relative overflow-hidden h-full flex flex-col`}
                     >
                       {/* BANNER */}
                       <div
-                        className={`w-full h-48 rounded-2xl ${
-                          event.bannerUrl ? "bg-zinc-100" : `bg-gradient-to-br ${randomGradient}`
-                        } relative overflow-hidden group-hover:scale-[1.02] transition-transform duration-500 ease-out`}
+                        className={`w-full h-48 rounded-2xl ${event.bannerUrl ? "bg-zinc-100" : `bg-gradient-to-br ${randomGradient}`
+                          } relative overflow-hidden group-hover:scale-[1.01] transition-transform duration-500 ease-out`}
                       >
                         {event.bannerUrl && (
                           <img
@@ -608,27 +1055,30 @@ export default function DiscoverContent() {
 
                         {/* Category Badge - Top Left */}
                         <div
-                          className={`absolute top-4 left-4 ${
-                            isDark ? "bg-zinc-950/80 text-zinc-100" : "bg-white/90 text-zinc-900"
-                          } backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold shadow-sm z-10`}
+                          className={`absolute top-4 left-4 ${isDark ? "bg-zinc-950/80 text-zinc-100 border border-white/10" : "bg-white/90 text-zinc-900 border border-zinc-200/80"
+                            } backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold shadow-xs z-10`}
                         >
                           {event.category || "Tech Event"}
                         </div>
 
-                        {/* Preference Match Badge - Top Right */}
+                        {/* Recommendation Match Badge - Top Right */}
                         <div className="absolute top-4 right-4 z-10">
-                          {event.matchScore === 3 ? (
-                            <span className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg flex items-center gap-1">
-                              ★ Perfect Match
+                          {event.matchScore >= 4 ? (
+                            <span className={`px-3 py-1.5 rounded-full text-xs font-extrabold bg-gradient-to-r ${activeAccent.gradient} text-white shadow-md flex items-center gap-1`}>
+                              <Sparkles className="w-3 h-3" /> Top Match
+                            </span>
+                          ) : event.isSkillMatch ? (
+                            <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${activeAccent.badgeBg} ${activeAccent.text} border border-current/20 backdrop-blur-md shadow-xs flex items-center gap-1`}>
+                              <Zap className="w-3 h-3" /> Skill Match
                             </span>
                           ) : event.isCategoryMatch ? (
                             <span
-                              className={`px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r ${activeAccent.gradient} text-white shadow-md flex items-center gap-1`}
+                              className={`px-3 py-1.5 rounded-full text-xs font-bold bg-zinc-900/80 text-white border border-white/10 backdrop-blur-md shadow-xs flex items-center gap-1`}
                             >
                               🏷️ Category Match
                             </span>
                           ) : event.isCityMatch ? (
-                            <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-cyan-600/90 text-white shadow-md flex items-center gap-1">
+                            <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-zinc-900/80 text-white border border-white/10 backdrop-blur-md shadow-xs flex items-center gap-1">
                               📍 Location Match
                             </span>
                           ) : null}
@@ -638,46 +1088,73 @@ export default function DiscoverContent() {
                       {/* EVENT DETAILS */}
                       <div className="p-5 flex-1 flex flex-col">
                         <h3
-                          className={`text-xl font-bold ${
-                            isDark ? "text-white" : "text-zinc-900"
-                          } mb-3 group-hover:${activeAccent.text} transition-colors line-clamp-2`}
+                          className={`text-xl font-bold ${isDark ? "text-white" : "text-zinc-900"
+                            } mb-3 group-hover:${activeAccent.text} transition-colors line-clamp-2 leading-tight`}
                         >
                           {event.title}
                         </h3>
 
-                        {/* Extracted Keyword Tags */}
-                        <div className="flex flex-wrap gap-1.5 mb-4">
-                          {extractEventKeywords(event).map((kw) => (
-                            <button
-                              key={kw}
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setSearchQuery(kw);
-                              }}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                                isDark
-                                  ? "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-white/5"
-                                  : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 hover:text-zinc-950 border border-zinc-200"
-                              } transition-colors`}
-                            >
-                              #{kw}
-                            </button>
-                          ))}
-                        </div>
+                        {/* Interactive Session Tag Bubbles */}
+                        {cardTags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-4">
+                            {cardTags.map((tag) => {
+                              const isSkillMatch = userSkills.some(
+                                (s) =>
+                                  s.toLowerCase() === tag.toLowerCase() ||
+                                  tag.toLowerCase().includes(s.toLowerCase()) ||
+                                  s.toLowerCase().includes(tag.toLowerCase())
+                              );
 
-                        <div className="space-y-3 mt-auto">
+                              return (
+                                <button
+                                  key={tag}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setSearchQuery(tag);
+                                  }}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border ${isSkillMatch
+                                      ? `${activeAccent.badgeBg} border-current/30 ${activeAccent.text} hover:opacity-80 shadow-2xs`
+                                      : isDark
+                                        ? "bg-zinc-800/80 hover:bg-zinc-750 text-zinc-300 hover:text-white border-zinc-700/60"
+                                        : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 hover:text-zinc-950 border-zinc-200"
+                                    }`}
+                                  title={`Filter events by ${tag}`}
+                                >
+                                  {isSkillMatch ? (
+                                    <Sparkles className="w-2.5 h-2.5" />
+                                  ) : (
+                                    <Tag className="w-2.5 h-2.5 opacity-60" />
+                                  )}
+                                  <span>#{tag}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        <div className="space-y-2.5 mt-auto border-t border-zinc-100 dark:border-zinc-800 pt-3">
                           {/* DATE */}
-                          <div className={`flex items-center text-sm font-medium ${isDark ? "text-zinc-300" : "text-zinc-700"} gap-3`}>
-                            <Calendar className={`w-4 h-4 ${activeAccent.text}`} />
+                          <div
+                            className={`flex items-center text-xs font-semibold ${isDark ? "text-zinc-300" : "text-zinc-700"
+                              } gap-2.5`}
+                          >
+                            <Calendar className={`w-3.5 h-3.5 ${activeAccent.text}`} />
                             {formatDate(event.date)}
                           </div>
 
-                          {/* LOCATION */}
-                          <div className={`flex items-center text-sm font-medium ${isDark ? "text-zinc-300" : "text-zinc-700"} gap-3`}>
-                            <MapPin className={`w-4 h-4 ${activeAccent.text}`} />
-                            {event.location || "TBA"}
+                          {/* LOCATION & MODE */}
+                          <div
+                            className={`flex items-center text-xs font-semibold ${isDark ? "text-zinc-300" : "text-zinc-700"
+                              } gap-2.5`}
+                          >
+                            <MapPin className={`w-3.5 h-3.5 ${activeAccent.text}`} />
+                            <span className="capitalize line-clamp-1">{event.location}</span>
+                            <span className="text-zinc-400 dark:text-zinc-600">•</span>
+                            <span className={`uppercase text-[10px] font-black ${activeAccent.text}`}>
+                              {event.mode}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -690,7 +1167,9 @@ export default function DiscoverContent() {
         )}
       </main>
 
+      {/* Prompts */}
       <ProfilePromptPopup />
+      <NotificationPromptPopup />
     </div>
   );
 }

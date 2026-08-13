@@ -697,7 +697,7 @@ export default function TeamParticipantDashboard() {
         {/* =========================================================
             RIGHT COLUMN: AGENDA & TIMELINE
             ========================================================= */}
-        <div className="xl:col-span-4 space-y-6">
+        <div className="xl:col-span-4 space-y-6 xl:sticky xl:top-32 self-start">
 
           <style>{`
             @keyframes sway {

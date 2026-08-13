@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 export interface RegistrationFormField {
   id: string;
@@ -17,6 +18,7 @@ export interface RegistrationFormField {
 }
 
 export default function RegistrationFormBuilder({ eventId }: { eventId: string }) {
+  const { isDark, activeAccent } = useAppearance();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
@@ -103,12 +105,11 @@ export default function RegistrationFormBuilder({ eventId }: { eventId: string }
         custom_fields: {
           registration_form_schema,
         },
-        registration_form_schema,
       });
 
-      setSuccessMsg("Registration form schema updated successfully!");
+      setSuccessMsg("Registration questions saved successfully!");
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.error || err.response?.data?.message || "Failed to update registration form schema.");
+      setErrorMsg(err.response?.data?.error || err.message || "Failed to save registration form questions.");
     } finally {
       setIsSaving(false);
     }
@@ -116,55 +117,73 @@ export default function RegistrationFormBuilder({ eventId }: { eventId: string }
 
   if (isLoading) {
     return (
-      <div className="p-12 text-center flex items-center justify-center bg-white rounded-[2.5rem] border border-zinc-200">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      <div className={`p-12 rounded-[2.5rem] border flex items-center justify-center min-h-[300px] ${
+        isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200"
+      }`}>
+        <Loader2 className={`w-8 h-8 animate-spin ${activeAccent.text}`} />
       </div>
     );
   }
 
   return (
-    <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-100 pb-6">
+    <div className={`p-8 md:p-10 rounded-[2.5rem] border shadow-sm space-y-8 animate-in fade-in duration-500 transition-colors ${
+      isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200"
+    }`}>
+      <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6 ${
+        isDark ? "border-white/10" : "border-zinc-100"
+      }`}>
         <div>
-          <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight flex items-center gap-3">
-            <FileText className="w-8 h-8 text-indigo-600" /> Attendee Registration Form Builder
+          <h1 className={`text-3xl font-extrabold tracking-tight flex items-center gap-3 ${
+            isDark ? "text-white" : "text-zinc-900"
+          }`}>
+            <FileText className={`w-8 h-8 ${activeAccent.text}`} /> Attendee Registration Form Builder
           </h1>
-          <p className="text-zinc-500 font-medium mt-1">
+          <p className={`font-medium mt-1 ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
             Customize the questions attendees must answer when signing up for this event.
           </p>
         </div>
         <Button
           onClick={handleSave}
           disabled={isSaving}
-          className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-6 shadow-md shadow-indigo-600/20"
+          className={`rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-bold px-6 py-6 shadow-md ${activeAccent.shadow} transition-all`}
         >
           {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-4 h-4 mr-2" /> Save Form Schema</>}
         </Button>
       </div>
 
       {successMsg && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-sm flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" /> {successMsg}
+        <div className={`p-4 rounded-2xl border font-bold text-sm flex items-center gap-2 ${
+          isDark ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"
+        }`}>
+          <CheckCircle2 className="w-5 h-5 shrink-0" /> {successMsg}
         </div>
       )}
 
       {errorMsg && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-600 font-bold text-sm">
+        <div className={`p-4 rounded-2xl border font-bold text-sm ${
+          isDark ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-red-50 border-red-200 text-red-600"
+        }`}>
           {errorMsg}
         </div>
       )}
 
       {/* Fixed Profile Fields Banner */}
-      <div className="p-5 rounded-2xl bg-indigo-50/80 border border-indigo-100 space-y-2">
-        <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
-          <Lock className="w-4 h-4 text-indigo-600 shrink-0" /> Fixed Profile Fields (Auto-Collected)
+      <div className={`p-5 rounded-2xl border space-y-2 ${
+        isDark ? "bg-zinc-950/70 border-white/10" : "bg-indigo-50/80 border-indigo-100"
+      }`}>
+        <div className={`flex items-center gap-2 font-bold text-sm ${
+          isDark ? "text-zinc-200" : "text-indigo-900"
+        }`}>
+          <Lock className={`w-4 h-4 ${activeAccent.text} shrink-0`} /> Fixed Profile Fields (Auto-Collected)
         </div>
-        <p className="text-xs text-indigo-700 font-medium">
+        <p className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-indigo-700"}`}>
           These profile fields are always collected for every attendee:
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
           {["Full Name", "Phone Number", "Email Address"].map((f) => (
-            <span key={f} className="px-3 py-1 rounded-xl bg-white border border-indigo-200/80 text-xs font-bold text-indigo-800 shadow-2xs">
+            <span key={f} className={`px-3 py-1 rounded-xl border text-xs font-bold shadow-2xs ${
+              isDark ? "bg-zinc-900 border-white/10 text-zinc-200" : "bg-white border-indigo-200/80 text-indigo-800"
+            }`}>
               ✓ {f}
             </span>
           ))}
@@ -175,52 +194,31 @@ export default function RegistrationFormBuilder({ eventId }: { eventId: string }
       <div className="space-y-3">
         <Label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Quick Add Presets</Label>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => addField("college", "College / University", "text")}
-            className="px-3 py-2 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-          >
-            + College
-          </button>
-          <button
-            type="button"
-            onClick={() => addField("year", "Graduation Year", "text")}
-            className="px-3 py-2 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-          >
-            + Year
-          </button>
-          <button
-            type="button"
-            onClick={() => addField("branch", "Branch / Stream", "text")}
-            className="px-3 py-2 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-          >
-            + Branch
-          </button>
-          <button
-            type="button"
-            onClick={() => addField("portfolio", "Portfolio URL", "text")}
-            className="px-3 py-2 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-          >
-            + Portfolio
-          </button>
-          <button
-            type="button"
-            onClick={() => addField("resume", "Resume Link", "text")}
-            className="px-3 py-2 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-          >
-            + Resume
-          </button>
-          <button
-            type="button"
-            onClick={() => addField("why_join", "Why do you want to join?", "textarea")}
-            className="px-3 py-2 rounded-xl bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 text-xs font-bold transition-all border border-zinc-200"
-          >
-            + Why Join?
-          </button>
+          {[
+            { key: "college", label: "College / University", type: "text" as const, title: "+ College" },
+            { key: "year", label: "Graduation Year", type: "text" as const, title: "+ Year" },
+            { key: "branch", label: "Branch / Stream", type: "text" as const, title: "+ Branch" },
+            { key: "portfolio", label: "Portfolio URL", type: "text" as const, title: "+ Portfolio" },
+            { key: "resume", label: "Resume Link", type: "text" as const, title: "+ Resume" },
+            { key: "why_join", label: "Why do you want to join?", type: "textarea" as const, title: "+ Why Join?" },
+          ].map((preset) => (
+            <button
+              key={preset.key}
+              type="button"
+              onClick={() => addField(preset.key, preset.label, preset.type)}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                isDark
+                  ? "bg-zinc-800/80 hover:bg-zinc-800 border-white/10 text-zinc-300 hover:text-white"
+                  : "bg-zinc-100 hover:bg-indigo-50 hover:text-indigo-600 text-zinc-700 border-zinc-200"
+              }`}
+            >
+              {preset.title}
+            </button>
+          ))}
           <button
             type="button"
             onClick={() => addField(`custom_${Date.now()}`, "", "text")}
-            className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all shadow-sm"
+            className={`px-3 py-2 rounded-xl text-white text-xs font-bold transition-all shadow-sm ${activeAccent.bg} hover:opacity-90`}
           >
             + Blank Question
           </button>
@@ -230,19 +228,25 @@ export default function RegistrationFormBuilder({ eventId }: { eventId: string }
       {/* Dynamic Fields List */}
       <div className="space-y-4">
         {fields.length === 0 && (
-          <div className="text-center py-12 text-zinc-400 font-medium text-sm bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+          <div className={`text-center py-12 font-medium text-sm rounded-2xl border border-dashed ${
+            isDark ? "bg-zinc-950/40 border-white/10 text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-400"
+          }`}>
             No custom questions added. Click a preset above to add questions.
           </div>
         )}
 
         {fields.map((field) => (
-          <div key={field.id} className="p-5 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-4">
+          <div key={field.id} className={`p-5 rounded-2xl border space-y-4 transition-colors ${
+            isDark ? "bg-zinc-950/50 border-white/10" : "bg-zinc-50 border-zinc-200"
+          }`}>
             <div className="flex items-center gap-3">
               <Input
                 value={field.label}
                 onChange={(e) => updateField(field.id, { label: e.target.value })}
                 placeholder="Question / Field Label"
-                className="py-5 px-4 rounded-xl bg-white border-zinc-200 flex-1 font-semibold text-sm"
+                className={`py-5 px-4 rounded-xl flex-1 font-semibold text-sm ${
+                  isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                }`}
               />
               <select
                 value={field.type}
@@ -252,18 +256,20 @@ export default function RegistrationFormBuilder({ eventId }: { eventId: string }
                     options: e.target.value === "select" ? field.options || ["Option 1", "Option 2"] : undefined,
                   })
                 }
-                className="py-3 px-3 rounded-xl bg-white border border-zinc-200 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                className={`py-3 px-3 rounded-xl border text-xs font-bold focus:outline-none transition-colors ${
+                  isDark ? "bg-zinc-900 border-white/10 text-zinc-200" : "bg-white border-zinc-200 text-zinc-700"
+                }`}
               >
-                <option value="text">Short Text</option>
-                <option value="textarea">Long Text</option>
-                <option value="number">Number</option>
-                <option value="select">Dropdown Select</option>
-                <option value="checkbox">Checkbox</option>
+                <option value="text" className={isDark ? "bg-zinc-900" : "bg-white"}>Short Text</option>
+                <option value="textarea" className={isDark ? "bg-zinc-900" : "bg-white"}>Long Text</option>
+                <option value="number" className={isDark ? "bg-zinc-900" : "bg-white"}>Number</option>
+                <option value="select" className={isDark ? "bg-zinc-900" : "bg-white"}>Dropdown Select</option>
+                <option value="checkbox" className={isDark ? "bg-zinc-900" : "bg-white"}>Checkbox</option>
               </select>
               <button
                 type="button"
                 onClick={() => removeField(field.id)}
-                className="p-2.5 rounded-xl text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                className="p-2.5 rounded-xl text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-colors shrink-0"
               >
                 <Trash2 className="w-5 h-5" />
               </button>
@@ -280,13 +286,19 @@ export default function RegistrationFormBuilder({ eventId }: { eventId: string }
                     })
                   }
                   placeholder="e.g. XS, S, M, L, XL"
-                  className="py-3 px-3 rounded-xl bg-white border-zinc-200 text-xs"
+                  className={`py-3 px-3 rounded-xl text-xs ${
+                    isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                  }`}
                 />
               </div>
             )}
 
-            <div className="flex items-center justify-between pt-2 border-t border-zinc-200/60">
-              <label className="flex items-center gap-2 text-xs font-semibold text-zinc-700 cursor-pointer">
+            <div className={`flex items-center justify-between pt-2 border-t ${
+              isDark ? "border-white/10" : "border-zinc-200/60"
+            }`}>
+              <label className={`flex items-center gap-2 text-xs font-semibold cursor-pointer ${
+                isDark ? "text-zinc-300" : "text-zinc-700"
+              }`}>
                 <input
                   type="checkbox"
                   checked={field.required}
