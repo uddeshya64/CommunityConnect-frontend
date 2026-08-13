@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
-  HelpCircle, Copy
+  HelpCircle, Copy, Bookmark
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ interface EventDetails {
   organizerName?: string;
   timelines?: any[];
   registeredCount: number;
+  is_saved?: boolean;
 }
 
 interface EventTheme {
@@ -232,6 +233,23 @@ export default function EventDetailsPage() {
       navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleToggleSave = async () => {
+    if (!event) return;
+    const currentState = !!event.is_saved;
+    setEvent(prev => prev ? { ...prev, is_saved: !currentState } : prev);
+    try {
+      if (currentState) {
+        await eventService.unsaveEvent(event.id);
+      } else {
+        await eventService.saveEvent(event.id);
+      }
+    } catch (err) {
+      console.error("Failed to toggle save:", err);
+      setEvent(prev => prev ? { ...prev, is_saved: currentState } : prev);
+      showError("Failed to update saved status.");
     }
   };
 
@@ -429,7 +447,8 @@ export default function EventDetailsPage() {
           organizerId: rawEvent.organizerId || rawEvent.hostId || rawEvent.userId,
           organizerName: rawEvent.organizer?.name || rawEvent.creator?.name,
           timelines: rawEvent.timelines || [],
-          registeredCount: rCount
+          registeredCount: rCount,
+          is_saved: rawEvent.user_context?.is_saved || false
         });
 
         setTimelinesList(rawEvent.timelines || []);
@@ -2001,6 +2020,21 @@ export default function EventDetailsPage() {
           </Button>
         </Link>
         <div className="flex gap-2">
+          <Button 
+            onClick={handleToggleSave}
+            variant="ghost" 
+            className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-4 ${
+              event?.is_saved 
+                ? theme.isDark ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/20" : "bg-indigo-50 text-indigo-600 border border-indigo-200" 
+                : theme.isDark 
+                  ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white" 
+                  : "bg-white/80 hover:bg-white border border-zinc-200/80 text-zinc-650 hover:text-zinc-950"
+            }`}
+          >
+            <Bookmark className={`w-4 h-4 mr-2 ${event?.is_saved ? "fill-current" : ""}`} /> 
+            {event?.is_saved ? "Saved" : "Save Event"}
+          </Button>
+
           <Button 
             onClick={() => setIsShareModalOpen(true)}
             variant="ghost" 

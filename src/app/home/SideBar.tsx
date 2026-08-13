@@ -35,7 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/home", icon: Home },
   { label: "Discover", href: "/discover", icon: Compass },
   { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
-  { label: "Saved", href: "/saved", icon: Bookmark, disabled: true },
+  { label: "Saved", href: "/events/saved", icon: Bookmark },
 ];
 
 interface SidebarProps {

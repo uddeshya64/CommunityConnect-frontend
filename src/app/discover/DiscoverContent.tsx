@@ -18,6 +18,7 @@ import {
   Users,
   AlertCircle,
   Settings as SettingsIcon,
+  Bookmark
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ interface AppEvent {
   description?: string;
   mode?: string;
   keywords?: string;
+  is_saved?: boolean;
 }
 
 interface UserPreferences {
@@ -214,6 +216,7 @@ export default function DiscoverContent() {
           description: evt.description || "",
           mode: evt.mode || "in-person",
           keywords: evt.custom_fields?.keywords || evt.keywords || "",
+          is_saved: evt.is_saved || false,
         }));
 
         setEvents(mapped);
@@ -227,6 +230,26 @@ export default function DiscoverContent() {
 
     fetchEvents();
   }, []);
+
+  const handleToggleSave = async (e: React.MouseEvent, eventId: string, currentSavedState: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Optimistic UI update
+    setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, is_saved: !currentSavedState } : ev));
+
+    try {
+      if (currentSavedState) {
+        await eventService.unsaveEvent(eventId);
+      } else {
+        await eventService.saveEvent(eventId);
+      }
+    } catch (err) {
+      console.error("Failed to toggle save event:", err);
+      // Revert on failure
+      setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, is_saved: currentSavedState } : ev));
+    }
+  };
 
   // Calculate preference matches for events
   const scoredEvents = useMemo(() => {
@@ -614,8 +637,8 @@ export default function DiscoverContent() {
                           {event.category || "Tech Event"}
                         </div>
 
-                        {/* Preference Match Badge - Top Right */}
-                        <div className="absolute top-4 right-4 z-10">
+                        {/* Preference Match & Save Badge - Top Right */}
+                        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
                           {event.matchScore === 3 ? (
                             <span className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg flex items-center gap-1">
                               ★ Perfect Match
@@ -636,13 +659,27 @@ export default function DiscoverContent() {
 
                       {/* EVENT DETAILS */}
                       <div className="p-5 flex-1 flex flex-col">
-                        <h3
-                          className={`text-xl font-bold ${
-                            isDark ? "text-white" : "text-zinc-900"
-                          } mb-3 group-hover:${activeAccent.text} transition-colors line-clamp-2`}
-                        >
-                          {event.title}
-                        </h3>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <h3
+                            className={`text-xl font-bold ${
+                              isDark ? "text-white" : "text-zinc-900"
+                            } group-hover:${activeAccent.text} transition-colors line-clamp-2`}
+                          >
+                            {event.title}
+                          </h3>
+                          <button
+                            onClick={(e) => handleToggleSave(e, event.id, !!event.is_saved)}
+                            className={`p-2 shrink-0 rounded-full transition-all ${
+                              event.is_saved
+                                ? `bg-gradient-to-r ${activeAccent.gradient} text-white shadow-md`
+                                : isDark
+                                ? "bg-zinc-800/80 text-zinc-400 hover:text-white hover:bg-zinc-700"
+                                : "bg-zinc-100 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200"
+                            }`}
+                          >
+                            <Bookmark className={`w-4 h-4 ${event.is_saved ? "fill-current" : ""}`} />
+                          </button>
+                        </div>
 
                         {/* Extracted Keyword Tags */}
                         <div className="flex flex-wrap gap-1.5 mb-4">

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Bell, Menu, User } from "lucide-react";
 import { useMyProfile } from "@/hooks/profileHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import { notificationService } from "@/services/notification.service";
 
 interface NavbarProps {
   collapsed?: boolean;
@@ -22,10 +23,11 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
     name?: string;
     avatarUrl?: string | null;
   }>({});
+  const [hasNotifications, setHasNotifications] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       try {
         const data = await getMyProfile();
         if (isMounted && data) {
@@ -38,12 +40,22 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
       } catch (err) {
         // Guest mode fallback
       }
+
+      try {
+        const notifs = await notificationService.getNotifications();
+        if (isMounted && Array.isArray(notifs)) {
+          setHasNotifications(notifs.length > 0);
+        }
+      } catch (err) {
+        if (isMounted) setHasNotifications(false);
+      }
     };
-    fetchProfile();
+
+    fetchData();
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [pathname]);
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -135,8 +147,10 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
               title="Notifications"
             >
               <Bell className="w-5 h-5" strokeWidth={2.2} />
-              {/* Notification dot indicator */}
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950" />
+              {/* Notification dot indicator: only rendered if there are unread/pending notifications */}
+              {hasNotifications && (
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950" />
+              )}
             </div>
           </Link>
 
