@@ -42,4 +42,14 @@ export const profileService = {
         const response = await api.post('/auth/logout-all');
         return response.data;
     },
+
+    getActiveSessions: async (): Promise<any[]> => {
+        const response = await api.get('/auth/sessions');
+        return response.data.data || response.data;
+    },
+
+    revokeSession: async (sessionId: string): Promise<any> => {
+        const response = await api.delete(`/auth/sessions/${sessionId}`);
+        return response.data;
+    },
 };

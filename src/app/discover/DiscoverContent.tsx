@@ -43,12 +43,12 @@ interface AppEvent {
 
 interface UserPreferences {
   favoriteCategories: string[];
-  defaultCity: string;
+  preferredCities: string[];
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   favoriteCategories: ["Technical Conferences", "Hackathons and Competitions"],
-  defaultCity: "San Francisco, CA",
+  preferredCities: [],
 };
 
 const POPULAR_KEYWORDS = [
@@ -148,7 +148,7 @@ export default function DiscoverContent() {
               Array.isArray(parsed.favoriteCategories) && parsed.favoriteCategories.length > 0
                 ? parsed.favoriteCategories
                 : DEFAULT_PREFERENCES.favoriteCategories,
-            defaultCity: parsed.defaultCity || DEFAULT_PREFERENCES.defaultCity,
+            preferredCities: Array.isArray(parsed.preferredCities) ? parsed.preferredCities : DEFAULT_PREFERENCES.preferredCities,
           });
         }
       } catch {
@@ -164,15 +164,15 @@ export default function DiscoverContent() {
             backendSettings.favoriteCategories.length > 0
               ? backendSettings.favoriteCategories
               : DEFAULT_PREFERENCES.favoriteCategories;
-          const newCity = backendSettings.defaultCity || DEFAULT_PREFERENCES.defaultCity;
+          const newCities = Array.isArray(backendSettings.preferredCities) ? backendSettings.preferredCities : DEFAULT_PREFERENCES.preferredCities;
 
           setPreferences({
             favoriteCategories: newFavs,
-            defaultCity: newCity,
+            preferredCities: newCities,
           });
           // // localStorage.setItem(
           //   "cc_user_settings",
-          //   JSON.stringify({ ...backendSettings, favoriteCategories: newFavs, defaultCity: newCity })
+          //   JSON.stringify({ ...backendSettings, favoriteCategories: newFavs, preferredCities: newCities })
           // );
         }
       } catch {
@@ -229,9 +229,8 @@ export default function DiscoverContent() {
 
   // Calculate preference matches for events
   const scoredEvents = useMemo(() => {
-    const userCityParts = preferences.defaultCity
-      .toLowerCase()
-      .split(/[\s,]+/)
+    const userCityParts = preferences.preferredCities
+      .flatMap(city => city.toLowerCase().split(/[\s,]+/))
       .filter((p) => p.length > 2);
 
     return events.map((event) => {
@@ -426,16 +425,19 @@ export default function DiscoverContent() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold ${
-                  isDark
-                    ? "bg-zinc-800 border border-white/10 text-zinc-200"
-                    : "bg-zinc-100 border border-zinc-300 text-zinc-800"
-                }`}
-              >
-                <MapPin className={`w-3.5 h-3.5 ${activeAccent.text}`} />
-                {preferences.defaultCity}
-              </span>
+              {preferences.preferredCities.map((city) => (
+                <span
+                  key={city}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold ${
+                    isDark
+                      ? "bg-zinc-800 border border-white/10 text-zinc-200"
+                      : "bg-zinc-100 border border-zinc-300 text-zinc-800"
+                  }`}
+                >
+                  <MapPin className={`w-3.5 h-3.5 ${activeAccent.text}`} />
+                  {city}
+                </span>
+              ))}
 
               {preferences.favoriteCategories.map((cat) => (
                 <span

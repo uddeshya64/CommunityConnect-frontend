@@ -994,7 +994,46 @@ export default function HomeContent() {
             )}
 
         </main>
-
+  
+      {/* Footer */}
+      <footer className={`relative z-10 mt-32 pt-16 pb-8 px-4 sm:px-6 w-full border-t ${isDark ? "bg-zinc-950/80 border-white/10" : "bg-zinc-100/50 border-zinc-200"}`}>
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8 mb-12">
+          <div className="md:col-span-2 space-y-4">
+            <div className={`text-xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-zinc-900"} flex items-center gap-2`}>
+              <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${activeAccent.gradient}`}></div>
+              CommunityConnect
+            </div>
+            <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} max-w-xs leading-relaxed`}>
+              The modern platform for discovering, hosting, and managing local tech events, hackathons, and meetups.
+            </p>
+          </div>
+          <div>
+            <h3 className={`font-semibold mb-4 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>Resources</h3>
+            <ul className="space-y-3">
+              <li><Link href="/discover" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}>Discover Events</Link></li>
+              <li><Link href="/events/create" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}>Host an Event</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className={`font-semibold mb-4 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>Legal</h3>
+            <ul className="space-y-3">
+              <li><Link href="/policy" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}>Privacy Policy</Link></li>
+              <li><Link href="/terms" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}>Terms of Service</Link></li>
+            </ul>
+          </div>
+        </div>
+        
+        <div className={`pt-8 border-t ${isDark ? "border-white/10" : "border-zinc-200"} flex flex-col sm:flex-row items-center justify-between gap-4`}>
+          <p className={`text-sm ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+            &copy; {new Date().getFullYear()} CommunityConnect. All rights reserved.
+          </p>
+          <div className="flex items-center gap-4">
+            
+          </div>
+        </div>
+        </div>
+      </footer>
       </div>
 
     </div>

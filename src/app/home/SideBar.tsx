@@ -195,6 +195,7 @@ export default function Sidebar() {
           <LogOut className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
           {!isCollapsed && "Log out"}
         </button>
+      
       </div>
     </div>
   );

@@ -25,10 +25,11 @@ export interface UserSettings {
   showEmailOnProfile: boolean;
   showLocationOnProfile: boolean;
   allowDirectMessages: "everyone" | "attendees" | "nobody";
-  defaultCity: string;
+  preferredCities: string[];
   favoriteCategories: string[];
   calendarFormat: "google" | "ical" | "outlook";
   twoFactorEnabled: boolean;
+  searchPreferences: string[];
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -46,10 +47,11 @@ export const DEFAULT_SETTINGS: UserSettings = {
   showEmailOnProfile: false,
   showLocationOnProfile: true,
   allowDirectMessages: "attendees",
-  defaultCity: "San Francisco, CA",
+  preferredCities: [],
   favoriteCategories: ["Tech & AI", "Meetups", "Workshops"],
   calendarFormat: "google",
   twoFactorEnabled: false,
+  searchPreferences: [],
 };
 
 export interface AccentColorConfig {

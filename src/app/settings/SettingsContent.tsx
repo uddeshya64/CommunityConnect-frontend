@@ -79,8 +79,9 @@ interface UserSettings {
   allowDirectMessages: "everyone" | "attendees" | "nobody";
 
   // Event Preferences
-  defaultCity: string;
+  preferredCities: string[];
   favoriteCategories: string[];
+  searchPreferences: string[];
   calendarFormat: "google" | "ical" | "outlook";
 
   // Security
@@ -104,8 +105,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   showEmailOnProfile: false,
   showLocationOnProfile: true,
   allowDirectMessages: "attendees",
-  defaultCity: "San Francisco, CA",
+  preferredCities: [],
   favoriteCategories: ["Technical Conferences", "Hackathons and Competitions"],
+  searchPreferences: [],
   calendarFormat: "google",
   twoFactorEnabled: false,
 };
@@ -130,7 +132,6 @@ const TABS: TabItem[] = [
   { key: "account", label: "Account & Profile", icon: User, description: "Manage profile snapshot, email, and account actions" },
   { key: "notifications", label: "Notifications", icon: Bell, description: "Configure alerts, digests, and audio feedback" },
   { key: "appearance", label: "Appearance", icon: Palette, description: "Customize themes, accent colors, and UI density" },
-  { key: "privacy", label: "Privacy & Visibility", icon: Shield, description: "Control who sees your profile and information" },
   { key: "preferences", label: "Event Preferences", icon: Sliders, description: "Set location defaults and favorite categories" },
   { key: "security", label: "Sessions & Security", icon: Lock, description: "Manage 2FA, passwords, and active devices" },
 ];
@@ -183,6 +184,8 @@ export default function SettingsContent() {
   const [activeTab, setActiveTab] = useState<TabKey>("account");
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchPrefInput, setSearchPrefInput] = useState("");
+  const [cityInput, setCityInput] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -221,38 +224,7 @@ export default function SettingsContent() {
   ]);
 
   // Active Browser Sessions State
-  const [activeSessions, setActiveSessions] = useState([
-    {
-      id: "sess-1",
-      device: "Windows",
-      browser: "Chrome",
-      location: "Current Device",
-      ip: "192.168.1.100",
-      lastActive: "Active now",
-      isCurrent: true,
-      icon: Laptop,
-    },
-    {
-      id: "sess-2",
-      device: "iOS",
-      browser: "Safari",
-      location: "San Francisco, CA",
-      ip: "172.16.0.45",
-      lastActive: "Last active 2 days ago",
-      isCurrent: false,
-      icon: Smartphone,
-    },
-    {
-      id: "sess-3",
-      device: "macOS",
-      browser: "Firefox",
-      location: "New York, NY",
-      ip: "10.0.0.12",
-      lastActive: "Last active 5 days ago",
-      isCurrent: false,
-      icon: Laptop,
-    },
-  ]);
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
 
   // Load Settings from localStorage & Fetch Profile/Settings from backend API
   useEffect(() => {
@@ -270,9 +242,10 @@ export default function SettingsContent() {
     // 2. Fetch User Profile and Settings from Backend API
     const fetchUserData = async () => {
       try {
-        const [profileData, backendSettings] = await Promise.all([
+        const [profileData, backendSettings, sessionsData] = await Promise.all([
           profileService.getMyProfile().catch(() => null),
           profileService.getMySettings().catch(() => null),
+          profileService.getActiveSessions().catch(() => []),
         ]);
         if (profileData) setProfile(profileData);
         if (backendSettings && typeof backendSettings === "object" && Object.keys(backendSettings).length > 0) {
@@ -289,6 +262,16 @@ export default function SettingsContent() {
             // localStorage.setItem("cc_2fa_backup_codes", JSON.stringify(merged.twoFactorBackupCodes));
           }
         }
+        
+        if (sessionsData && Array.isArray(sessionsData)) {
+          const mapped = sessionsData.map((s: any) => ({
+            ...s,
+            icon: s.device === "Mobile" ? Smartphone : (s.device === "Tablet" ? Smartphone : Laptop),
+            location: s.isCurrent ? "Current Device" : "Recent Location"
+          }));
+          setActiveSessions(mapped);
+        }
+        
       } finally {
         setIsProfileLoading(false);
       }
@@ -1395,49 +1378,97 @@ export default function SettingsContent() {
                   transition={{ duration: 0.2 }}
                   className="space-y-6"
                 >
-                  {/* Default Location */}
+                  {/* Preferred Locations */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Default Event Location</h3>
+                      <h3 className="text-lg font-bold text-white">Preferred Event Locations</h3>
                       <p className="text-sm text-zinc-400 mt-1">
-                        Set your primary region so we can automatically show events near you.
+                        Add cities or regions so we can automatically show events near you.
                       </p>
                     </div>
 
-                    <div className="max-w-md space-y-2">
-                      <Label htmlFor="input-defaultCity" className="text-xs font-semibold text-zinc-300">
-                        Primary City / Region
-                      </Label>
-                      <div className="relative">
-                        <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-                        <Input
-                          id="input-defaultCity"
-                          value={settings.defaultCity}
-                          onChange={(e) => updateSetting("defaultCity", e.target.value)}
-                          placeholder="e.g. San Francisco, CA or London, UK"
-                          className="pl-10 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
-                        />
+                    <div className="max-w-md space-y-4">
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                          <Input
+                            value={cityInput}
+                            onChange={(e) => setCityInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && cityInput.trim() !== '') {
+                                e.preventDefault();
+                                const newCities = [...(settings.preferredCities || []), cityInput.trim()];
+                                updateSetting("preferredCities", newCities);
+                                setCityInput("");
+                              }
+                            }}
+                            placeholder="e.g. San Francisco, CA or London, UK"
+                            className="pl-10 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
+                          />
+                        </div>
+                        <Button 
+                          type="button" 
+                          onClick={() => {
+                            if (cityInput.trim() !== '') {
+                              const newCities = [...(settings.preferredCities || []), cityInput.trim()];
+                              updateSetting("preferredCities", newCities);
+                              setCityInput("");
+                            }
+                          }}
+                          className={`rounded-2xl px-6 ${activeAccent.bg} hover:opacity-90 transition-opacity`}
+                        >
+                          Add
+                        </Button>
                       </div>
-                    </div>
 
-                    {/* Quick city suggestions */}
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {["San Francisco, CA", "New York, NY", "London, UK", "Tokyo, JP", "Remote / Online"].map(
-                        (city) => (
-                          <button
-                            key={city}
-                            type="button"
-                            onClick={() => updateSetting("defaultCity", city)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                              settings.defaultCity === city
-                                ? `${activeAccent.badgeBg} ${activeAccent.border} ${activeAccent.text}`
-                                : "bg-zinc-800/60 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800"
-                            }`}
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {(settings.preferredCities || []).map((city, idx) => (
+                          <div 
+                            key={idx} 
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeAccent.badgeBg} ${activeAccent.border} ${activeAccent.text}`}
                           >
-                            {city}
-                          </button>
-                        )
-                      )}
+                            <span>{city}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newCities = (settings.preferredCities || []).filter((_, i) => i !== idx);
+                                updateSetting("preferredCities", newCities);
+                              }}
+                              className="opacity-70 hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        {(settings.preferredCities || []).length === 0 && (
+                          <span className="text-sm text-zinc-500 italic">No preferred locations added yet.</span>
+                        )}
+                      </div>
+                      
+                      {/* Quick city suggestions */}
+                      <div className="pt-2">
+                        <Label className="text-xs font-semibold text-zinc-500 mb-2 block">
+                          Quick Suggestions
+                        </Label>
+                        <div className="flex flex-wrap gap-2">
+                          {["Jaipur", "Delhi", "Pune", "Bangalore"].map(
+                            (city) => (
+                              <button
+                                key={city}
+                                type="button"
+                                onClick={() => {
+                                  if (!(settings.preferredCities || []).includes(city)) {
+                                    updateSetting("preferredCities", [...(settings.preferredCities || []), city]);
+                                  }
+                                }}
+                                className="px-3 py-1.5 rounded-full text-xs font-medium border bg-zinc-800/60 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                              >
+                                + {city}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1474,6 +1505,72 @@ export default function SettingsContent() {
                           </button>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  {/* Search Preferences */}
+                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Saved Search Preferences</h3>
+                      <p className="text-sm text-zinc-400 mt-1">
+                        Add keywords or tags to quickly access specific events you care about.
+                      </p>
+                    </div>
+
+                    <div className="max-w-md space-y-4">
+                      <div className="flex gap-2">
+                        <Input
+                          value={searchPrefInput}
+                          onChange={(e) => setSearchPrefInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && searchPrefInput.trim() !== '') {
+                              e.preventDefault();
+                              const newPrefs = [...(settings.searchPreferences || []), searchPrefInput.trim()];
+                              updateSetting("searchPreferences", newPrefs);
+                              setSearchPrefInput("");
+                            }
+                          }}
+                          placeholder="e.g. Hackathon, Machine Learning"
+                          className="bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
+                        />
+                        <Button 
+                          type="button" 
+                          onClick={() => {
+                            if (searchPrefInput.trim() !== '') {
+                              const newPrefs = [...(settings.searchPreferences || []), searchPrefInput.trim()];
+                              updateSetting("searchPreferences", newPrefs);
+                              setSearchPrefInput("");
+                            }
+                          }}
+                          className={`rounded-2xl px-6 ${activeAccent.bg} hover:opacity-90 transition-opacity`}
+                        >
+                          Add
+                        </Button>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {(settings.searchPreferences || []).map((pref, idx) => (
+                          <div 
+                            key={idx} 
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/60 border border-white/5 rounded-full text-xs font-medium text-zinc-300"
+                          >
+                            <span>{pref}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newPrefs = (settings.searchPreferences || []).filter((_, i) => i !== idx);
+                                updateSetting("searchPreferences", newPrefs);
+                              }}
+                              className="text-zinc-500 hover:text-white transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        {(settings.searchPreferences || []).length === 0 && (
+                          <span className="text-sm text-zinc-500 italic">No search preferences added yet.</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -1592,14 +1689,14 @@ export default function SettingsContent() {
                           try {
                             setActiveSessions((prev) => prev.filter((s) => s.isCurrent));
                             await profileService.logoutAllDevices();
-                            showToast("All other browser sessions have been revoked and logged out.");
+                            showToast("All other browser sessions have been logged out.");
                           } catch {
-                            showToast("Failed to revoke sessions.");
+                            showToast("Failed to log out sessions.");
                           }
                         }}
                         className="rounded-2xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white text-xs font-semibold disabled:opacity-50"
                       >
-                        Revoke All Other Sessions
+                        Log Out All Other Sessions
                       </Button>
                     </div>
 
@@ -1641,7 +1738,7 @@ export default function SettingsContent() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
+                              onClick={async () => {
                                 if (sess.isCurrent) {
                                   showToast("Logging out of current device...");
                                   setTimeout(() => {
@@ -1650,8 +1747,13 @@ export default function SettingsContent() {
                                     router.push("/login");
                                   }, 800);
                                 } else {
-                                  setActiveSessions((prev) => prev.filter((s) => s.id !== sess.id));
-                                  showToast(`Session (${sess.device} • ${sess.browser}) revoked and logged out successfully.`);
+                                  try {
+                                    await profileService.revokeSession(sess.id);
+                                    setActiveSessions((prev) => prev.filter((s) => s.id !== sess.id));
+                                    showToast(`Session (${sess.device} • ${sess.browser}) revoked and logged out successfully.`);
+                                  } catch (error: any) {
+                                    showToast(`Failed to revoke session: ${error.message || 'Unknown error'}`);
+                                  }
                                 }
                               }}
                               className={`text-xs ${
@@ -1663,10 +1765,13 @@ export default function SettingsContent() {
                               {sess.isCurrent ? (
                                 <>
                                   <LogOut className="w-3.5 h-3.5" />
-                                  Log Out Device
+                                  Log Out Current Device
                                 </>
                               ) : (
-                                "Revoke"
+                                <>
+                                  <LogOut className="w-3.5 h-3.5" />
+                                  Log Out Device
+                                </>
                               )}
                             </Button>
                           </div>
@@ -1675,28 +1780,8 @@ export default function SettingsContent() {
                     </div>
                   </div>
 
-                  {/* Recent Login Activity */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Activity className={`w-5 h-5 ${activeAccent.text}`} />
-                      Security Audit Log
-                    </h3>
-
-                    <div className="space-y-2 text-xs text-zinc-400">
-                      <div className="flex items-center justify-between py-2 border-b border-white/5">
-                        <span>Successful sign-in (Windows / Chrome)</span>
-                        <span className="text-zinc-500">Just now</span>
-                      </div>
-                      <div className="flex items-center justify-between py-2 border-b border-white/5">
-                        <span>Profile details updated</span>
-                        <span className="text-zinc-500">Yesterday</span>
-                      </div>
-                      <div className="flex items-center justify-between py-2">
-                        <span>Password verified</span>
-                        <span className="text-zinc-500">3 days ago</span>
-                      </div>
-                    </div>
-                  </div>
+                 
+                
                 </motion.div>
               )}
             </AnimatePresence>
