@@ -2250,7 +2250,7 @@ export default function EventDetailsPage() {
   // VIEW 2: PUBLIC / ATTENDEE PREVIEW VIEW
   // ==========================================
   return (
-    <div className={`min-h-screen pb-20 relative select-none transition-colors duration-500 ${theme.bg}`}>
+    <div className={`min-h-screen pb-20 relative select-none transition-colors duration-500 w-full min-w-0 overflow-x-hidden ${theme.bg}`}>
       
       {/* BACKGROUND EFFECTS */}
       <div className={`absolute top-0 left-0 w-full h-[60vh] bg-gradient-to-b ${theme.gradOverlay} pointer-events-none z-0`} />
@@ -2261,25 +2261,29 @@ export default function EventDetailsPage() {
       {/* TOP NAVIGATION BAR */}
       <header className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex justify-between items-center relative z-25">
         <Link href="/home">
-          <Button variant="ghost" className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-4 ${
+          <Button variant="ghost" className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-3 sm:px-4 ${
             theme.isDark 
               ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white" 
               : "bg-white/80 hover:bg-white border-zinc-200/80 text-zinc-650 hover:text-zinc-950"
           }`}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Feed
+            <ArrowLeft className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Back to Feed</span>
+            <span className="sm:hidden ml-1">Back</span>
           </Button>
         </Link>
         <div className="flex gap-2">
           <Button 
             onClick={() => setIsShareModalOpen(true)}
             variant="ghost" 
-            className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-4 ${
+            className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-3 sm:px-4 ${
               theme.isDark 
                 ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white" 
                 : "bg-white/80 hover:bg-white border-zinc-200/80 text-zinc-650 hover:text-zinc-950"
             }`}
           >
-            <Share2 className="w-4 h-4 mr-2" /> Share Event
+            <Share2 className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Share Event</span>
+            <span className="sm:hidden ml-1">Share</span>
           </Button>
         </div>
       </header>
@@ -2287,7 +2291,7 @@ export default function EventDetailsPage() {
       {/* SPLIT-HERO SECTION */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 relative z-20 items-stretch">
         {/* Left hero banner image */}
-        <div className={`lg:col-span-7 rounded-3xl overflow-hidden border shadow-xl relative aspect-video lg:aspect-auto min-h-[220px] sm:min-h-[300px] lg:min-h-[350px] ${
+        <div className={`lg:col-span-7 rounded-3xl overflow-hidden border shadow-xl relative w-full h-48 sm:h-64 lg:h-auto lg:min-h-[350px] ${
           theme.isDark ? "border-zinc-800 bg-zinc-900" : "border-zinc-200 bg-white"
         }`}>
           {event.bannerUrl ? (
@@ -2816,15 +2820,18 @@ export default function EventDetailsPage() {
 
       {/* STAFF PREVIEW TOOLBAR */}
       {isStaff && viewMode === "PREVIEW" && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-zinc-950/95 text-white px-6 py-4 rounded-3xl border border-zinc-800 shadow-2xl backdrop-blur-md flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
-            <p className="text-xs font-extrabold text-zinc-300">Preview Mode: Organizer view</p>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-zinc-950/95 text-white px-4 py-3 sm:px-6 sm:py-4 rounded-2xl sm:rounded-3xl border border-zinc-850 shadow-2xl backdrop-blur-md flex items-center gap-2.5 sm:gap-4 animate-in fade-in slide-in-from-bottom-5 max-w-[92vw] w-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <p className="text-[10px] sm:text-xs font-bold text-zinc-200 whitespace-nowrap">
+              <span className="hidden sm:inline">Preview Mode: Organizer view</span>
+              <span className="sm:hidden">Organizer Preview</span>
+            </p>
           </div>
-          <div className="w-px h-4 bg-zinc-800" />
+          <div className="w-px h-4 bg-zinc-800 shrink-0" />
           <button
             onClick={() => setViewMode("DASHBOARD")}
-            className="text-xs font-black text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest cursor-pointer"
+            className="text-[9px] sm:text-xs font-black bg-rose-600 hover:bg-rose-500 text-white px-2.5 py-1.5 rounded-xl transition-all uppercase tracking-wider cursor-pointer shadow-sm hover:scale-105 active:scale-95 whitespace-nowrap"
             type="button"
           >
             Exit Preview
