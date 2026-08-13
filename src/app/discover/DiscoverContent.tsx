@@ -518,12 +518,12 @@ export default function DiscoverContent() {
       <Sidebar />
 
       {/* Main Discover Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 w-full min-w-0 overflow-x-hidden">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
             <div
-              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${activeAccent.badgeBg} border ${activeAccent.border}/20 ${activeAccent.text} text-xs font-semibold mb-3`}
+              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${activeAccent.badgeBg} border ${activeAccent.border}/20 ${activeAccent.text} text-[10px] sm:text-xs font-semibold mb-3`}
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Personalized Event Discovery &amp; Agenda Match</span>
@@ -644,11 +644,11 @@ export default function DiscoverContent() {
             </div>
 
             {/* Toggle Customize Button */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
               <Button
                 type="button"
                 onClick={() => setIsCustomizerOpen(!isCustomizerOpen)}
-                className={`rounded-2xl font-extrabold text-xs px-4 py-2.5 flex items-center gap-2 transition-all cursor-pointer ${
+                className={`w-full sm:w-auto rounded-2xl font-extrabold text-xs px-4 py-2.5 flex items-center justify-center sm:justify-start gap-2 transition-all cursor-pointer ${
                   isCustomizerOpen
                     ? isDark
                       ? "bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700"
@@ -722,9 +722,10 @@ export default function DiscoverContent() {
                         type="button"
                         onClick={() => handleAddSkill(skillInput)}
                         disabled={!skillInput.trim()}
-                        className={`rounded-xl font-bold text-xs px-4 shrink-0 bg-gradient-to-r ${activeAccent.gradient} text-white cursor-pointer`}
+                        className={`rounded-xl font-bold text-xs px-3 sm:px-4 shrink-0 bg-gradient-to-r ${activeAccent.gradient} text-white cursor-pointer flex items-center justify-center`}
                       >
-                        <Plus className="w-3.5 h-3.5 mr-1" /> Add Skill
+                        <Plus className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline ml-1">Add Skill</span>
                       </Button>
                     </div>
 
@@ -1147,12 +1148,12 @@ export default function DiscoverContent() {
                           {/* LOCATION & MODE */}
                           <div
                             className={`flex items-center text-xs font-semibold ${isDark ? "text-zinc-300" : "text-zinc-700"
-                              } gap-2.5`}
+                              } gap-2.5 min-w-0 w-full`}
                           >
-                            <MapPin className={`w-3.5 h-3.5 ${activeAccent.text}`} />
-                            <span className="capitalize line-clamp-1">{event.location}</span>
-                            <span className="text-zinc-400 dark:text-zinc-600">•</span>
-                            <span className={`uppercase text-[10px] font-black ${activeAccent.text}`}>
+                            <MapPin className={`w-3.5 h-3.5 ${activeAccent.text} shrink-0`} />
+                            <span className="capitalize truncate flex-1 min-w-0" title={event.location}>{event.location}</span>
+                            <span className="text-zinc-400 dark:text-zinc-600 shrink-0">•</span>
+                            <span className={`uppercase text-[10px] font-black ${activeAccent.text} shrink-0`}>
                               {event.mode}
                             </span>
                           </div>
