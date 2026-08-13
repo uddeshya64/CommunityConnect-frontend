@@ -56,6 +56,7 @@ import { profileService } from "@/services/profile.service";
 import { Profile } from "@/types/profile.types";
 import { useAppearance, ACCENT_COLORS_CONFIG as ACCENT_COLORS } from "@/components/providers/AppearanceProvider";
 import { useToast } from "@/components/providers/ToastProvider";
+import { pushNotificationService } from "@/services/pushNotification.service";
 
 interface UserSettings {
   // Notifications
@@ -219,6 +220,66 @@ export default function SettingsContent() {
     "CC-3321-8842",
     "CC-5501-2290",
   ]);
+
+  // Native Push Notifications State
+  const [pushStatus, setPushStatus] = useState<{
+    supported: boolean;
+    permission: NotificationPermission | "unsupported";
+    isSubscribed: boolean;
+  }>({ supported: true, permission: "default", isSubscribed: false });
+  const [isPushLoading, setIsPushLoading] = useState(false);
+  const [isTestingPush, setIsTestingPush] = useState(false);
+
+  useEffect(() => {
+    const checkPush = async () => {
+      const status = await pushNotificationService.getStatus();
+      setPushStatus(status);
+    };
+    checkPush();
+  }, []);
+
+  const handleTogglePush = async (enable: boolean) => {
+    setIsPushLoading(true);
+    try {
+      if (enable) {
+        const res = await pushNotificationService.subscribeToPush();
+        if (res.success) {
+          showSuccess(res.message || "Native system push notifications enabled!");
+        } else {
+          showError(res.error || "Failed to enable notifications.");
+        }
+      } else {
+        const res = await pushNotificationService.unsubscribeFromPush();
+        if (res.success) {
+          showInfo("Push notifications disabled on this device.");
+        } else {
+          showError(res.error || "Failed to disable notifications.");
+        }
+      }
+      const status = await pushNotificationService.getStatus();
+      setPushStatus(status);
+    } catch (err: any) {
+      showError(err.message || "An error occurred.");
+    } finally {
+      setIsPushLoading(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    setIsTestingPush(true);
+    try {
+      const res = await pushNotificationService.sendTestPush();
+      if (res.success) {
+        showSuccess(res.message);
+      } else {
+        showError(res.message);
+      }
+    } catch (err: any) {
+      showError("Failed to trigger test notification.");
+    } finally {
+      setIsTestingPush(false);
+    }
+  };
 
   // Active Browser Sessions State
   const [activeSessions, setActiveSessions] = useState([
@@ -463,7 +524,7 @@ export default function SettingsContent() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans pb-24 relative overflow-hidden">
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans pb-24 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-10 relative z-10 flex items-center justify-center min-h-[50vh]">
           <div className="w-10 h-10 border-4 border-zinc-800 border-t-indigo-600 rounded-full animate-spin" />
         </div>
@@ -472,7 +533,7 @@ export default function SettingsContent() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 pb-24 relative overflow-hidden transition-colors duration-300`}>
+    <div className={`h-screen flex flex-col ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 relative transition-colors duration-300 overflow-hidden`}>
       {/* Dynamic Ambient Background Glow */}
       <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-indigo-900/20 via-zinc-950 to-zinc-950" : "from-indigo-200/40 via-zinc-50 to-zinc-50"} pointer-events-none`} />
       <div className="fixed -top-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -574,7 +635,7 @@ export default function SettingsContent() {
       </AnimatePresence>
 
       {/* Main Settings Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 relative z-10">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 relative z-10 w-full flex-1 min-h-0 flex flex-col overflow-hidden">
         {/* Search Bar & Page Overview */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -607,9 +668,9 @@ export default function SettingsContent() {
         </div>
 
         {/* Layout Grid: Sidebar Tabs + Content Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 min-h-0 overflow-hidden pb-6">
           {/* Sidebar / Mobile Tabs */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 h-full overflow-y-auto no-scrollbar">
             <div className="sticky top-24 space-y-1">
               {/* Mobile Horizontal Scrollable Tabs */}
               <div className="flex lg:hidden overflow-x-auto pb-2 gap-2 no-scrollbar">
@@ -719,7 +780,7 @@ export default function SettingsContent() {
           </div>
 
           {/* Settings Content Area */}
-          <div className="lg:col-span-9 space-y-6">
+          <div className="lg:col-span-9 space-y-6 h-full overflow-y-auto pr-2 pb-12">
             {isProfileLoading ? (
               <div className="space-y-6">
                 {/* Skeleton Card 1 */}
@@ -929,10 +990,100 @@ export default function SettingsContent() {
                   transition={{ duration: 0.2 }}
                   className="space-y-6"
                 >
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                  {/* NATIVE SYSTEM PUSH NOTIFICATIONS (PC & PHONE PWA) */}
+                  <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${
+                    isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"
+                  }`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            pushStatus.isSubscribed
+                              ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                              : pushStatus.permission === "denied"
+                              ? "bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400"
+                              : "bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400"
+                          }`}>
+                            {pushStatus.isSubscribed
+                              ? "✓ Active On This Device"
+                              : pushStatus.permission === "denied"
+                              ? "✕ Blocked In Browser"
+                              : "○ Not Enabled"}
+                          </span>
+                        </div>
+                        <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>
+                          System Push Notifications (PC &amp; Mobile PWA)
+                        </h3>
+                        <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                          Receive native OS alerts with sound, vibration, and banners on your phone or desktop even when the app is closed.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        {isPushLoading && <Loader2 className={`w-5 h-5 animate-spin ${activeAccent.text}`} />}
+                        <ToggleSwitch
+                          id="toggle-systemPush"
+                          checked={pushStatus.isSubscribed}
+                          disabled={isPushLoading || pushStatus.permission === "denied"}
+                          onChange={(val) => handleTogglePush(val)}
+                          activeBg={activeAccent.bg}
+                        />
+                      </div>
+                    </div>
+
+                    {pushStatus.permission === "denied" && (
+                      <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400 text-xs font-semibold flex items-center gap-2.5">
+                        <AlertTriangle className="w-5 h-5 shrink-0" />
+                        <span>Notifications are blocked in your browser settings. Please click the padlock or tune icon in your address bar to allow notifications.</span>
+                      </div>
+                    )}
+
+                    <div className={`pt-4 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
+                      isDark ? "border-white/10" : "border-zinc-100"
+                    }`}>
+                      <div className="flex items-center gap-4 text-xs font-medium text-zinc-400">
+                        <div className="flex items-center gap-1.5">
+                          <Laptop className="w-4 h-4 text-zinc-400" />
+                          <span>Windows / macOS / Linux</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Smartphone className="w-4 h-4 text-zinc-400" />
+                          <span>Android / iOS 16.4+ PWA</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!pushStatus.isSubscribed || isTestingPush}
+                        onClick={handleTestPush}
+                        className={`rounded-full px-4 text-xs font-bold transition-all shadow-sm ${
+                          pushStatus.isSubscribed
+                            ? `${activeAccent.bg} text-white hover:opacity-90`
+                            : "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed"
+                        }`}
+                      >
+                        {isTestingPush ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                            Dispatching...
+                          </>
+                        ) : (
+                          <>
+                            <Bell className="w-3.5 h-3.5 mr-1.5" />
+                            Send Test Notification
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${
+                    isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"
+                  }`}>
                     <div>
-                      <h3 className="text-lg font-bold text-white">Event & Community Notifications</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Event &amp; Community Notifications</h3>
+                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
                         Control when and how you receive updates from community organizers and attendees.
                       </p>
                     </div>

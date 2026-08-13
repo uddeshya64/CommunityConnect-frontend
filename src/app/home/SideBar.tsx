@@ -201,11 +201,18 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar placeholder spacer */}
+      <motion.div
+        animate={{ width: collapsed ? 88 : 256 }}
+        transition={{ type: "spring", stiffness: 320, damping: 32 }}
+        className="hidden md:block shrink-0 h-screen"
+      />
+
+      {/* Desktop sidebar - fixed to viewport */}
       <motion.aside
         animate={{ width: collapsed ? 88 : 256 }}
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
-        className={`hidden md:flex md:flex-col shrink-0 h-screen sticky top-0 px-4 py-6 border-r ${isDark ? "border-white/5 bg-zinc-950/80 text-white" : "border-zinc-200/70 bg-white/70 text-zinc-900"} backdrop-blur-xl overflow-hidden transition-colors duration-300`}
+        className={`hidden md:flex md:flex-col fixed top-0 left-0 bottom-0 z-30 px-4 py-6 border-r ${isDark ? "border-white/5 bg-zinc-950/80 text-white" : "border-zinc-200/70 bg-white/70 text-zinc-900"} backdrop-blur-xl overflow-hidden transition-colors duration-300`}
       >
         {renderSidebarContent(collapsed)}
       </motion.aside>
@@ -284,27 +291,31 @@ export default function Sidebar() {
                 onClick={(e) => e.stopPropagation()}
                 className={`w-full max-w-sm ${isDark ? "bg-zinc-900 border border-white/10 text-white" : "bg-white text-zinc-900"} rounded-3xl shadow-2xl p-6`}
               >
-                <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${
+                  isDark ? "bg-rose-500/10 text-rose-400" : "bg-rose-50 text-rose-600"
+                }`}>
                   <AlertTriangle className="w-6 h-6" />
                 </div>
 
                 <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} mb-2`}>Log out?</h2>
                 <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium mb-6`}>
-                  Are you sure you want to log out of your account? You'll need to sign in again to continue.
+                  Are you sure you want to log out of your account? You&apos;ll need to sign in again to continue.
                 </p>
 
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowLogoutConfirm(false)}
                     disabled={isLoggingOut}
-                    className="flex-1 rounded-xl py-3 text-sm font-semibold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 transition-colors disabled:opacity-60"
+                    className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-60 cursor-pointer ${
+                      isDark ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                    }`}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleConfirmLogout}
                     disabled={isLoggingOut}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-60"
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-60 cursor-pointer"
                   >
                     {isLoggingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : "Log out"}
                   </button>

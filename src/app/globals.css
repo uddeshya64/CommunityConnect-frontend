@@ -44,14 +44,14 @@ html.no-animations *::after {
 
 ::selection {
   background-color: rgba(var(--accent-rgb), 0.25);
+  color: inherit;
 }
 
 /* =========================================================
-   GLOBAL THEME & FONT COLOR ADAPTATION ENGINE
-   Ensures ALL pages & font colors adapt attractively
+   GLOBAL THEME & DESIGN TOKENS ENGINE
    ========================================================= */
 
-/* --- BASE ROOT & BODY THEME STYLES --- */
+/* --- DARK THEME TOKENS --- */
 html.dark,
 html[data-theme="dark"] {
   --bg-page: #09090b;
@@ -59,23 +59,106 @@ html[data-theme="dark"] {
   --text-main: #f4f4f5;
   --text-muted: #a1a1aa;
   --border-theme: rgba(255, 255, 255, 0.08);
+
+  /* Shadcn standard design tokens */
+  --background: #09090b;
+  --foreground: #f4f4f5;
+  --card: #18181b;
+  --card-foreground: #f4f4f5;
+  --popover: #18181b;
+  --popover-foreground: #f4f4f5;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #27272a;
+  --secondary-foreground: #f4f4f5;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #f4f4f5;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: var(--accent-hex);
+
   color-scheme: dark;
 }
 
+/* --- LIGHT THEME TOKENS --- */
 html.light,
 html[data-theme="light"] {
   --bg-page: #f8fafc;
-  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-card: rgba(255, 255, 255, 0.92);
   --text-main: #0f172a;
   --text-muted: #475569;
   --border-theme: rgba(0, 0, 0, 0.08);
+
+  /* Shadcn standard design tokens */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.12);
+  --ring: var(--accent-hex);
+
   color-scheme: light;
+}
+
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 body {
   background-color: var(--bg-page) !important;
   color: var(--text-main) !important;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html.dark ::-webkit-scrollbar-track,
+html[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #09090b;
+}
+
+html.light ::-webkit-scrollbar-track,
+html[data-theme="light"] ::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+html.dark ::-webkit-scrollbar-thumb,
+html[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+
+html.light ::-webkit-scrollbar-thumb,
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-hex) !important;
 }
 
 /* =========================================================
@@ -93,13 +176,17 @@ html.light .bg-zinc-900 {
 html.light .bg-zinc-900\/40,
 html.light .bg-zinc-900\/50,
 html.light .bg-zinc-900\/60,
+html.light .bg-zinc-900\/70,
 html.light .bg-zinc-900\/80,
 html.light .bg-zinc-950\/40,
+html.light .bg-zinc-950\/50,
 html.light .bg-zinc-950\/60,
-html.light .bg-zinc-950\/80,
 html.light .bg-zinc-950\/70,
-html.light .bg-zinc-900\/70 {
-  background-color: rgba(255, 255, 255, 0.9) !important;
+html.light .bg-zinc-950\/80,
+html.light .bg-black\/40,
+html.light .bg-black\/50,
+html.light .bg-black\/60 {
+  background-color: rgba(255, 255, 255, 0.92) !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
   box-shadow: 0 4px 25px -2px rgba(0, 0, 0, 0.06);
 }
@@ -111,8 +198,8 @@ html.light h2.text-white,
 html.light h3.text-white,
 html.light h4.text-white,
 html.light p.text-white,
-html.light span.text-white:not([class*="bg-"]),
-html.light div.text-white:not([class*="bg-"]),
+html.light span.text-white:not([class*="bg-"]):not([class*="from-"]):not([class*="to-"]),
+html.light div.text-white:not([class*="bg-"]):not([class*="from-"]):not([class*="to-"]),
 html.light .text-zinc-100,
 html.light .text-zinc-200,
 html.light .text-zinc-300 {
@@ -127,18 +214,27 @@ html.light .text-zinc-500 {
 /* 4. Borders & Dividers in Light Mode */
 html.light .border-white\/5,
 html.light .border-white\/10,
-html.light .border-white\/20 {
+html.light .border-white\/15,
+html.light .border-white\/20,
+html.light .border-zinc-800,
+html.light .border-zinc-700 {
   border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 /* 5. Inputs, Selects & Textareas in Light Mode */
+html.light input.bg-zinc-900,
 html.light input.bg-zinc-900\/80,
 html.light input.bg-zinc-950,
+html.light input.bg-zinc-950\/50,
 html.light input.bg-zinc-950\/80,
+html.light input.bg-black\/50,
 html.light select.bg-zinc-950,
+html.light select.bg-zinc-900,
 html.light select.bg-zinc-900\/80,
+html.light textarea.bg-zinc-900,
 html.light textarea.bg-zinc-900\/80,
-html.light textarea.bg-zinc-950 {
+html.light textarea.bg-zinc-950,
+html.light textarea.bg-zinc-950\/50 {
   background-color: #ffffff !important;
   color: #0f172a !important;
   border-color: rgba(0, 0, 0, 0.15) !important;
@@ -187,8 +283,8 @@ html.dark h2.text-zinc-900,
 html.dark h3.text-zinc-900,
 html.dark h4.text-zinc-900,
 html.dark p.text-zinc-900,
-html.dark span.text-zinc-900:not([class*="bg-"]),
-html.dark div.text-zinc-900:not([class*="bg-"]),
+html.dark span.text-zinc-900:not([class*="bg-"]):not([class*="from-"]):not([class*="to-"]),
+html.dark div.text-zinc-900:not([class*="bg-"]):not([class*="from-"]):not([class*="to-"]),
 html.dark .text-zinc-800,
 html.dark .text-zinc-700,
 html.dark .text-slate-900,
@@ -209,6 +305,7 @@ html.dark .border-zinc-100,
 html.dark .border-zinc-200,
 html.dark .border-zinc-300,
 html.dark .border-zinc-200\/50,
+html.dark .border-zinc-200\/60,
 html.dark .border-zinc-200\/70,
 html.dark .border-slate-100,
 html.dark .border-slate-200 {

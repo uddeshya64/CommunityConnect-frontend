@@ -32,8 +32,10 @@ import {
   useVerifyRegister,
 } from "@/hooks/authHooks";
 import { useToast } from "@/components/providers/ToastProvider";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 export default function RegisterPage() {
+  const { isDark, activeAccent } = useAppearance();
   const router = useRouter();
   const { success: showSuccess, error: showError } = useToast();
 
@@ -145,6 +147,10 @@ export default function RegisterPage() {
         result.refreshToken
       );
 
+      // Reset notification prompt for new user registration
+      localStorage.removeItem("notification_prompt_completed");
+      localStorage.removeItem("notification_popup_count");
+
       showSuccess("Account registered successfully! Welcome to CommunityConnect.");
 
       // Check return URL
@@ -166,7 +172,9 @@ export default function RegisterPage() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white">
+      <div className={`min-h-screen w-full flex flex-col lg:flex-row transition-colors duration-300 ${
+        isDark ? "bg-zinc-950 text-zinc-100" : "bg-white text-zinc-900"
+      }`}>
 
         {/* =====================================================
             LEFT SIDE - FORM
@@ -180,9 +188,11 @@ export default function RegisterPage() {
 
             <Link
               href="/"
-              className="flex items-center gap-2 font-extrabold text-xl mb-12 text-zinc-900 w-fit hover:opacity-80 transition-opacity"
+              className={`flex items-center gap-2 font-extrabold text-xl mb-12 w-fit hover:opacity-80 transition-opacity ${
+                isDark ? "text-white" : "text-zinc-900"
+              }`}
             >
-              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-600 to-violet-600 shadow-sm" />
+              <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${activeAccent.gradient} shadow-sm`} />
 
               CommunityConnect
             </Link>
@@ -190,7 +200,9 @@ export default function RegisterPage() {
             {/* SERVER ERROR */}
 
             {serverError && (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 font-medium text-sm">
+              <div className={`p-4 rounded-xl border font-medium text-sm ${
+                isDark ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-red-50 border-red-100 text-red-600"
+              }`}>
                 {serverError}
               </div>
             )}
@@ -205,11 +217,15 @@ export default function RegisterPage() {
                 {/* HEADING */}
 
                 <div className="space-y-2">
-                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
+                  <h1 className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
+                    isDark ? "text-white" : "text-zinc-900"
+                  }`}>
                     Create an account
                   </h1>
 
-                  <p className="text-lg text-zinc-500 font-medium">
+                  <p className={`text-lg font-medium ${
+                    isDark ? "text-zinc-400" : "text-zinc-500"
+                  }`}>
                     Join the community to discover amazing events.
                   </p>
                 </div>
@@ -222,7 +238,9 @@ export default function RegisterPage() {
                   type="button"
                   variant="outline"
                   onClick={handleGoogleLogin}
-                  className="w-full rounded-xl py-6 bg-white border-zinc-200 hover:bg-zinc-50 text-zinc-900 font-semibold text-base transition-all"
+                  className={`w-full rounded-xl py-6 font-semibold text-base transition-all ${
+                    isDark ? "bg-zinc-900 border-white/10 text-zinc-200 hover:bg-zinc-800" : "bg-white border-zinc-200 hover:bg-zinc-50 text-zinc-900"
+                  }`}
                 >
                   {/* GOOGLE ICON */}
 
@@ -262,11 +280,11 @@ export default function RegisterPage() {
                 <div className="relative my-6">
 
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-zinc-200" />
+                    <div className={`w-full border-t ${isDark ? "border-white/10" : "border-zinc-200"}`} />
                   </div>
 
                   <div className="relative flex justify-center text-sm">
-                    <span className="bg-white px-4 text-zinc-500 font-medium">
+                    <span className={`px-4 font-medium ${isDark ? "bg-zinc-950 text-zinc-400" : "bg-white text-zinc-500"}`}>
                       OR
                     </span>
                   </div>
@@ -290,7 +308,7 @@ export default function RegisterPage() {
 
                     <Label
                       htmlFor="name"
-                      className="font-semibold text-zinc-900"
+                      className={`font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}
                     >
                       Full Name
                     </Label>
@@ -300,7 +318,9 @@ export default function RegisterPage() {
                       placeholder="John Doe"
                       {...form.register("name")}
                       disabled={isSendingOtp}
-                      className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base"
+                      className={`rounded-xl px-4 py-6 transition-all text-base ${
+                        isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                      }`}
                     />
 
                     {form.formState.errors.name && (
@@ -320,7 +340,7 @@ export default function RegisterPage() {
 
                     <Label
                       htmlFor="email"
-                      className="font-semibold text-zinc-900"
+                      className={`font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}
                     >
                       Email Address
                     </Label>
@@ -331,7 +351,9 @@ export default function RegisterPage() {
                       placeholder="m@example.com"
                       {...form.register("email")}
                       disabled={isSendingOtp}
-                      className="rounded-xl px-4 py-6 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base"
+                      className={`rounded-xl px-4 py-6 transition-all text-base ${
+                        isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                      }`}
                     />
 
                     {form.formState.errors.email && (
@@ -351,7 +373,7 @@ export default function RegisterPage() {
 
                     <Label
                       htmlFor="password"
-                      className="font-semibold text-zinc-900"
+                      className={`font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}
                     >
                       Password
                     </Label>
@@ -369,7 +391,9 @@ export default function RegisterPage() {
                           "password"
                         )}
                         disabled={isSendingOtp}
-                        className="rounded-xl px-4 py-6 pr-12 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all text-base"
+                        className={`rounded-xl px-4 py-6 pr-12 transition-all text-base ${
+                          isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                        }`}
                       />
 
                       <button
@@ -407,7 +431,7 @@ export default function RegisterPage() {
                   <Button
                     type="submit"
                     disabled={isSendingOtp}
-                    className="w-full rounded-xl mt-4 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]"
+                    className={`w-full rounded-xl mt-4 py-6 ${activeAccent.bg} hover:opacity-90 text-white font-semibold text-lg shadow-md ${activeAccent.shadow} transition-all hover:scale-[1.02]`}
                   >
                     {isSendingOtp ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -428,7 +452,7 @@ export default function RegisterPage() {
 
                   <Link
                     href="/login"
-                    className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline underline-offset-4"
+                    className={`font-bold ${activeAccent.text} hover:underline underline-offset-4`}
                   >
                     Sign in
                   </Link>
@@ -446,7 +470,7 @@ export default function RegisterPage() {
 
                 {/* ICON */}
 
-                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6">
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 ${activeAccent.badgeBg} ${activeAccent.text}`}>
                   <MailCheck className="w-8 h-8" />
                 </div>
 
@@ -454,13 +478,17 @@ export default function RegisterPage() {
 
                 <div className="space-y-2">
 
-                  <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
+                  <h1 className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
+                    isDark ? "text-white" : "text-zinc-900"
+                  }`}>
                     Check your email
                   </h1>
 
-                  <p className="text-lg text-zinc-500 font-medium">
+                  <p className={`text-lg font-medium ${
+                    isDark ? "text-zinc-400" : "text-zinc-500"
+                  }`}>
                     We sent a 6-digit verification code to{" "}
-                    <span className="text-zinc-900 font-bold">
+                    <span className={`font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>
                       {form.getValues("email")}
                     </span>
                     .
@@ -481,7 +509,7 @@ export default function RegisterPage() {
 
                     <Label
                       htmlFor="otp"
-                      className="font-semibold text-zinc-900"
+                      className={`font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}
                     >
                       Verification Code
                     </Label>
@@ -501,7 +529,9 @@ export default function RegisterPage() {
                         )
                       }
                       disabled={isVerifying}
-                      className="rounded-xl text-center tracking-[0.5em] text-2xl font-bold px-4 py-8 bg-zinc-50 border-zinc-200 focus-visible:ring-indigo-600 focus-visible:border-indigo-600 transition-all"
+                      className={`rounded-xl text-center tracking-[0.5em] text-2xl font-bold px-4 py-8 transition-all ${
+                        isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                      }`}
                     />
 
                   </div>
@@ -511,7 +541,7 @@ export default function RegisterPage() {
                   <Button
                     type="submit"
                     disabled={isVerifying}
-                    className="w-full rounded-xl py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-lg shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02]"
+                    className={`w-full rounded-xl py-6 ${activeAccent.bg} hover:opacity-90 text-white font-semibold text-lg shadow-md ${activeAccent.shadow} transition-all hover:scale-[1.02]`}
                   >
                     {isVerifying ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -529,7 +559,7 @@ export default function RegisterPage() {
                       setOtp("");
                       setServerError("");
                     }}
-                    className="w-full text-center text-sm font-semibold text-zinc-500 hover:text-zinc-900 transition-colors"
+                    className="w-full text-center text-sm font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
                   >
                     Wrong email address? Go back
                   </button>

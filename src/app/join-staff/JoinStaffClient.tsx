@@ -7,6 +7,7 @@ import { ShieldCheck, XCircle, Loader2, ArrowRight, Shield, Mail, LogIn, UserPlu
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/axios";
 import Link from "next/link";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 interface StaffInviteDetails {
   emailInvited: string;
@@ -16,6 +17,7 @@ interface StaffInviteDetails {
 }
 
 export default function JoinStaffClient() {
+  const { isDark, activeAccent } = useAppearance();
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token");
@@ -37,7 +39,6 @@ export default function JoinStaffClient() {
       }
 
       try {
-        // Check auth state on mount
         const authToken = localStorage.getItem("accessToken");
         if (authToken) {
           setIsLoggedIn(true);
@@ -55,7 +56,6 @@ export default function JoinStaffClient() {
           setCurrentUserEmail(null);
         }
 
-        // Fetch invite verification details publicly from backend
         const response = await api.get(`/staff/verify-invite/${token}`);
         const data = response.data.data || response.data;
         setInviteDetails(data);
@@ -68,8 +68,7 @@ export default function JoinStaffClient() {
     };
 
     verifyTokenAndAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token]);
 
   const returnUrl = `/join-staff?token=${token}`;
 
@@ -107,7 +106,7 @@ export default function JoinStaffClient() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center relative z-10">
-        <Loader2 className="w-12 h-12 animate-spin text-indigo-500 mb-6" />
+        <Loader2 className={`w-12 h-12 animate-spin ${activeAccent.text} mb-6`} />
         <p className="text-zinc-400 font-bold uppercase tracking-[0.2em] text-sm">Verifying Invitation...</p>
       </div>
     );
@@ -120,15 +119,19 @@ export default function JoinStaffClient() {
           <motion.div
             key="error"
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-zinc-900/60 border border-red-500/20 rounded-[2.5rem] p-10 md:p-12 text-center backdrop-blur-xl shadow-2xl shadow-red-900/10"
+            className={`border rounded-[2.5rem] p-10 md:p-12 text-center backdrop-blur-xl shadow-2xl ${
+              isDark ? "bg-zinc-900/60 border-red-500/20 shadow-red-900/10 text-white" : "bg-white border-red-200 shadow-xl text-zinc-900"
+            }`}
           >
             <div className="w-20 h-20 mx-auto bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20">
               <XCircle className="w-10 h-10 text-red-500" />
             </div>
             <h1 className="text-3xl font-black mb-4">Invitation Invalid</h1>
-            <p className="text-zinc-400 font-medium mb-10 leading-relaxed">{error}</p>
+            <p className={`font-medium mb-10 leading-relaxed ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>{error}</p>
             <Link href="/home" className="block w-full">
-              <Button className="w-full h-14 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-lg transition-all">
+              <Button className={`w-full h-14 rounded-2xl font-bold text-lg transition-all ${
+                isDark ? "bg-zinc-800 hover:bg-zinc-700 text-white" : "bg-zinc-900 hover:bg-zinc-800 text-white"
+              }`}>
                 Return to Home
               </Button>
             </Link>
@@ -137,7 +140,9 @@ export default function JoinStaffClient() {
           <motion.div
             key="success"
             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-zinc-900/60 border border-emerald-500/20 rounded-[2.5rem] p-10 md:p-12 text-center backdrop-blur-xl shadow-2xl shadow-emerald-900/10"
+            className={`border rounded-[2.5rem] p-10 md:p-12 text-center backdrop-blur-xl shadow-2xl ${
+              isDark ? "bg-zinc-900/60 border-emerald-500/20 shadow-emerald-900/10 text-white" : "bg-white border-emerald-200 shadow-xl text-zinc-900"
+            }`}
           >
             <motion.div
               initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
@@ -145,44 +150,52 @@ export default function JoinStaffClient() {
             >
               <CheckCircle2 className="w-12 h-12 text-emerald-500" />
             </motion.div>
-            <h1 className="text-3xl md:text-4xl font-black mb-4 tracking-tight">Access Granted!</h1>
-            <p className="text-zinc-400 font-medium mb-10 text-lg">
-              You have successfully joined as <span className="text-white font-bold">{inviteDetails?.roleName}</span> for the event.
+            <h1 className="text-3xl md:text-4xl font-black mb-4 tracking-tight">Staff Invite Accepted!</h1>
+            <p className={`font-medium mb-10 text-lg ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
+              You are now an official <span className={`font-bold ${activeAccent.text}`}>{inviteDetails?.roleName}</span> for <span className={`font-bold ${isDark ? "text-white" : "text-zinc-950"}`}>{inviteDetails?.eventName}</span>.
             </p>
             <div className="flex justify-center mb-6">
-              <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+              <Loader2 className={`w-6 h-6 animate-spin ${activeAccent.text}`} />
             </div>
-            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Redirecting to event dashboard...</p>
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Redirecting to event dashboard...</p>
           </motion.div>
         ) : inviteDetails && (
           <motion.div
             key="invite"
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-zinc-900/60 border border-white/5 rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl shadow-2xl relative overflow-hidden group"
+            className={`border rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl shadow-2xl relative overflow-hidden group ${
+              isDark ? "bg-zinc-900/60 border-white/10 text-white" : "bg-white border-zinc-200 text-zinc-900 shadow-xl"
+            }`}
           >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-bl-[100px] -z-10 group-hover:scale-110 transition-transform duration-700" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-bl-[100px] -z-10 group-hover:scale-110 transition-transform duration-700" />
             <div className="mb-10 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-indigo-500/10 text-indigo-400 mb-6 border border-indigo-500/20 shadow-inner">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-500 mb-6 border border-amber-500/20 shadow-inner">
                 <Shield className="w-8 h-8" />
               </div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-4">Staff Invitation</h1>
-              <p className="text-zinc-400 font-medium text-lg leading-relaxed">
-                You have been invited to join the staff of <span className="text-white font-bold">{inviteDetails.eventName}</span> as a <span className="text-indigo-300 font-bold">{inviteDetails.roleName}</span>.
+              <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-4">Event Staff Invitation</h1>
+              <p className={`font-medium text-lg leading-relaxed ${isDark ? "text-zinc-300" : "text-zinc-600"}`}>
+                You have been invited to join the staff as <span className="text-amber-500 font-bold">{inviteDetails.roleName}</span> for the event <span className={`font-bold ${activeAccent.text}`}>{inviteDetails.eventName}</span>.
               </p>
             </div>
-            <div className="bg-black/40 border border-white/5 rounded-2xl p-5 mb-10 flex flex-col gap-3">
+            <div className={`border rounded-2xl p-5 mb-10 flex flex-col gap-3 ${
+              isDark ? "bg-black/40 border-white/5" : "bg-zinc-50 border-zinc-200"
+            }`}>
               <div className="flex items-center gap-3 text-sm">
-                <Mail className="w-5 h-5 text-zinc-500" />
-                <span className="text-zinc-400 font-medium">Invited Email:</span>
-                <span className="text-white font-bold truncate">{inviteDetails.emailInvited}</span>
+                <Mail className="w-5 h-5 text-zinc-400" />
+                <span className={`font-medium ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>Invited Email:</span>
+                <span className={`font-bold truncate ${isDark ? "text-white" : "text-zinc-900"}`}>{inviteDetails.emailInvited}</span>
               </div>
               {isLoggedIn && currentUserEmail && (
-                <div className={`flex items-start gap-3 p-3 rounded-xl border ${currentUserEmail.toLowerCase() === inviteDetails.emailInvited.toLowerCase() ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                <div className={`flex items-start gap-3 p-3 rounded-xl border ${
+                  currentUserEmail.toLowerCase() === inviteDetails.emailInvited.toLowerCase() 
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
+                    : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+                }`}>
                   <ShieldCheck className="w-5 h-5 shrink-0" />
                   <p className="text-xs font-bold leading-relaxed">
                     {currentUserEmail.toLowerCase() === inviteDetails.emailInvited.toLowerCase()
                       ? "Secure Match: You are logged in with the correct email address."
-                      : `Warning: You are logged in as ${currentUserEmail}. This invite requires you to log in with ${inviteDetails.emailInvited}.`}
+                      : `Warning: You are logged in as ${currentUserEmail}. This invite was sent to ${inviteDetails.emailInvited}.`}
                   </p>
                 </div>
               )}
@@ -192,20 +205,20 @@ export default function JoinStaffClient() {
                 <>
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 mb-2">
                     <div className="flex items-start gap-3">
-                      <LogIn className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+                      <LogIn className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
                       <div>
-                        <p className="text-amber-300 font-bold text-sm leading-relaxed">
-                          You need to sign in or create an account to accept this invitation.
+                        <p className="text-amber-700 dark:text-amber-300 font-bold text-sm leading-relaxed">
+                          You need to sign in or create an account to accept this role.
                         </p>
-                        <p className="text-amber-400/70 text-xs mt-1 font-medium">
-                          You'll be redirected right back here after registering.
+                        <p className="text-amber-600/80 dark:text-amber-400/70 text-xs mt-1 font-medium">
+                          You&apos;ll be brought right back here after signing in.
                         </p>
                       </div>
                     </div>
                   </div>
                   <Button
                     onClick={() => handleRedirectToAuth("login")}
-                    className="w-full h-16 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-lg shadow-xl shadow-indigo-900/20 transition-all hover:scale-[1.02] flex items-center justify-center"
+                    className={`w-full h-16 rounded-2xl ${activeAccent.bg} text-white font-bold text-lg shadow-xl ${activeAccent.shadow} transition-all hover:scale-[1.02] flex items-center justify-center`}
                   >
                     <LogIn className="w-5 h-5 mr-2" />
                     Sign In to Accept
@@ -213,25 +226,29 @@ export default function JoinStaffClient() {
                   <Button
                     onClick={() => handleRedirectToAuth("register")}
                     variant="outline"
-                    className="w-full h-14 rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-base transition-all hover:scale-[1.02] flex items-center justify-center"
+                    className={`w-full h-14 rounded-2xl font-bold text-base transition-all hover:scale-[1.02] flex items-center justify-center ${
+                      isDark ? "border-white/10 bg-white/5 hover:bg-white/10 text-white" : "border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-900"
+                    }`}
                   >
                     <UserPlus className="w-5 h-5 mr-2" />
-                    Create Account & Join
+                    Create Account &amp; Join
                   </Button>
                 </>
               ) : (
                 <Button
                   onClick={handleAcceptInvite}
                   disabled={isAccepting || (currentUserEmail !== null && currentUserEmail.toLowerCase() !== inviteDetails.emailInvited.toLowerCase())}
-                  className="w-full h-16 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-lg shadow-xl shadow-indigo-900/20 transition-all hover:scale-[1.02] flex items-center justify-center"
+                  className={`w-full h-16 rounded-2xl ${activeAccent.bg} text-white font-bold text-lg shadow-xl ${activeAccent.shadow} transition-all hover:scale-[1.02] flex items-center justify-center`}
                 >
-                  {isAccepting ? <Loader2 className="w-6 h-6 animate-spin" /> : "Accept Invitation"}
+                  {isAccepting ? <Loader2 className="w-6 h-6 animate-spin" /> : "Accept Staff Role"}
                   {!isAccepting && <ArrowRight className="w-5 h-5 ml-2" />}
                 </Button>
               )}
               <Link href="/home" className="block w-full">
-                <Button variant="ghost" className="w-full h-14 rounded-2xl text-zinc-400 hover:text-white hover:bg-white/5 font-bold transition-all">
-                  Decline & Return Home
+                <Button variant="ghost" className={`w-full h-14 rounded-2xl font-bold transition-all ${
+                  isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100"
+                }`}>
+                  Decline &amp; Return Home
                 </Button>
               </Link>
             </div>

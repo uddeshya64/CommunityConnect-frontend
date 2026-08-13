@@ -109,10 +109,20 @@ export default function OAuthSuccessContent() {
     );
 
     // ============================================
-    // REDIRECT TO HOME
+    // REDIRECT TO SAVED URL OR HOME
     // ============================================
 
-    router.replace("/home");
+    const redirectUrl =
+      sessionStorage.getItem("redirectUrl") ||
+      localStorage.getItem("returnUrl");
+
+    if (redirectUrl) {
+      sessionStorage.removeItem("redirectUrl");
+      localStorage.removeItem("returnUrl");
+      router.replace(redirectUrl);
+    } else {
+      router.replace("/home");
+    }
 
   }, [
     searchParams,
