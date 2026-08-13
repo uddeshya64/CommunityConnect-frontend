@@ -970,13 +970,11 @@ export default function HomeContent() {
 
                                 {/* LOCATION */}
 
-                                <div className="flex items-center text-sm font-medium text-zinc-500 gap-3">
-
-                                  <MapPin className={`w-4 h-4 ${activeAccent.text}`} />
-
-                                  {event.location ||
-                                    "TBA"}
-
+                                <div className="flex items-center text-sm font-medium text-zinc-500 gap-3 min-w-0 w-full">
+                                  <MapPin className={`w-4 h-4 ${activeAccent.text} shrink-0`} />
+                                  <span className="truncate flex-1 min-w-0" title={event.location || "TBA"}>
+                                    {event.location || "TBA"}
+                                  </span>
                                 </div>
 
                               </div>

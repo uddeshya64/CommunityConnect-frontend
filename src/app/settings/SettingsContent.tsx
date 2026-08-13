@@ -535,7 +535,57 @@ export default function SettingsContent() {
   }
 
   return (
-    <div className={`h-screen flex flex-col ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 relative transition-colors duration-300 overflow-hidden`}>
+    <div className={`lg:h-screen min-h-screen flex flex-col ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 relative transition-colors duration-300 lg:overflow-hidden ${!isDark ? "cc-light-settings" : ""}`}>
+      <style>{`
+        .cc-light-settings .bg-zinc-900\\/40 {
+          background-color: #ffffff !important;
+          border-color: #e4e4e7 !important;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+        }
+        .cc-light-settings .border-white\\/5 {
+          border-color: #e4e4e7 !important;
+        }
+        .cc-light-settings h1,
+        .cc-light-settings h2,
+        .cc-light-settings h3,
+        .cc-light-settings h4,
+        .cc-light-settings label,
+        .cc-light-settings .text-white:not(button):not(a):not(.bg-gradient-to-r *):not(.bg-indigo-600 *):not(.bg-indigo-650 *) {
+          color: #09090b !important;
+        }
+        .cc-light-settings p.text-zinc-400,
+        .cc-light-settings span.text-zinc-400 {
+          color: #71717a !important;
+        }
+        .cc-light-settings .bg-zinc-950\\/60,
+        .cc-light-settings input,
+        .cc-light-settings select {
+          background-color: #ffffff !important;
+          color: #09090b !important;
+          border-color: #e4e4e7 !important;
+        }
+        .cc-light-settings .border-white\\/10 {
+          border-color: #e4e4e7 !important;
+        }
+        .cc-light-settings .bg-white\\/5 {
+          background-color: #f4f4f5 !important;
+          border-color: #e4e4e7 !important;
+          color: #09090b !important;
+        }
+        .cc-light-settings .bg-rose-955\\/10,
+        .cc-light-settings .bg-rose-950\\/10 {
+          background-color: #fef2f2 !important;
+          border-color: #fecaca !important;
+        }
+        .cc-light-settings .bg-zinc-900\\/60 {
+          background-color: #ffffff !important;
+          border-color: #e4e4e7 !important;
+        }
+        .cc-light-settings .bg-zinc-900 {
+          background-color: #ffffff !important;
+          border-color: #e4e4e7 !important;
+        }
+      `}</style>
       {/* Dynamic Ambient Background Glow */}
       <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-indigo-900/20 via-zinc-950 to-zinc-950" : "from-indigo-200/40 via-zinc-50 to-zinc-50"} pointer-events-none`} />
       <div className="fixed -top-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -594,19 +644,21 @@ export default function SettingsContent() {
               variant="outline"
               size="sm"
               onClick={resetToDefaults}
-              className={`rounded-full ${isDark ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white" : "border-zinc-200 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900"} font-medium text-xs px-3.5`}
+              className={`rounded-full ${isDark ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white" : "border-zinc-200 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900"} font-medium text-xs px-3 sm:px-3.5 h-9 w-9 sm:w-auto flex items-center justify-center`}
+              title="Reset Defaults"
             >
-              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-              Reset Defaults
+              <RefreshCw className="w-3.5 h-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Reset Defaults</span>
             </Button>
 
             <Link href="/profile/edit">
               <Button
                 size="sm"
-                className={`rounded-full bg-gradient-to-r ${activeAccent.gradient} hover:opacity-95 text-white font-semibold text-xs px-4 shadow-lg ${activeAccent.shadow} transition-all hover:scale-105`}
+                className={`rounded-full bg-gradient-to-r ${activeAccent.gradient} hover:opacity-95 text-white font-semibold text-xs px-3 sm:px-4 h-9 w-9 sm:w-auto flex items-center justify-center shadow-lg ${activeAccent.shadow} transition-all hover:scale-105`}
+                title="Edit Profile"
               >
-                <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                Edit Profile
+                <Pencil className="w-3.5 h-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">Edit Profile</span>
               </Button>
             </Link>
           </div>
@@ -637,7 +689,7 @@ export default function SettingsContent() {
       </AnimatePresence>
 
       {/* Main Settings Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 relative z-10 w-full flex-1 min-h-0 flex flex-col overflow-hidden">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 relative z-10 w-full flex-1 min-h-0 flex flex-col lg:overflow-hidden">
         {/* Search Bar & Page Overview */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -670,10 +722,10 @@ export default function SettingsContent() {
         </div>
 
         {/* Layout Grid: Sidebar Tabs + Content Area */}
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 flex-1 min-h-0 overflow-hidden pb-6">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 flex-1 min-h-0 lg:overflow-hidden pb-6">
           {/* Sidebar / Mobile Tabs */}
           <div className="lg:col-span-3 shrink-0 lg:h-full lg:overflow-y-auto lg:no-scrollbar">
-            <div className="sticky top-24 space-y-1">
+            <div className={`sticky top-16 lg:top-24 space-y-1 z-20 pb-2 pt-1 -mx-4 px-4 ${isDark ? "bg-zinc-950/80" : "bg-zinc-50/80"} backdrop-blur-md border-b border-zinc-200/50 dark:border-white/5 lg:border-b-0 lg:backdrop-blur-none lg:bg-transparent lg:pb-0 lg:pt-0 lg:-mx-0 lg:px-0`}>
               {/* Mobile Horizontal Scrollable Tabs */}
               <div className="flex lg:hidden overflow-x-auto pb-2 gap-2 no-scrollbar">
                 {filteredTabs.map((tab) => {
@@ -782,7 +834,7 @@ export default function SettingsContent() {
           </div>
 
           {/* Settings Content Area */}
-          <div className="lg:col-span-9 flex-1 min-h-0 lg:h-full lg:overflow-y-auto overflow-y-auto pr-2 pb-12">
+          <div className="lg:col-span-9 flex-1 min-h-0 lg:h-full lg:overflow-y-auto pr-2 pb-12">
             {isProfileLoading ? (
               <div className="space-y-6">
                 {/* Skeleton Card 1 */}
