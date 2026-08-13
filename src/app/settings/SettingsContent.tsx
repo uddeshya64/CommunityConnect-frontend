@@ -483,7 +483,7 @@ export default function SettingsContent() {
               >
                 <SettingsIcon className="w-4 h-4" />
               </div>
-              <h1 className={`text-base font-extrabold ${isDark ? "text-white" : "text-zinc-900"} tracking-tight`}>
+              <h1 className={`text-base font-extrabold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"} tracking-tight`}>
                 Settings
               </h1>
             </div>
@@ -561,16 +561,16 @@ export default function SettingsContent() {
         {/* Search Bar & Page Overview */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
               Account Settings
             </h2>
-            <p className="text-sm text-zinc-400 mt-1">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
               Customize your notifications, security, themes, and community preferences.
             </p>
           </div>
 
           <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600 dark:text-zinc-400" />
             <Input
               id="settings-search-input"
               value={searchQuery}
@@ -628,7 +628,7 @@ export default function SettingsContent() {
                       className={`group relative flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-left transition-all ${
                         isActive
                           ? "text-white font-bold"
-                          : "text-zinc-400 hover:text-white hover:bg-white/5 font-medium"
+                          : "text-zinc-600 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                     >
                       {isActive && (
@@ -642,14 +642,14 @@ export default function SettingsContent() {
                         className={`relative z-10 w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
                           isActive
                             ? `${activeAccent.bg} text-white shadow-md ${activeAccent.shadow || "shadow-indigo-500/20"}`
-                            : `${isDark ? "bg-zinc-800/80 text-zinc-400 group-hover:bg-zinc-800 group-hover:text-white" : "bg-zinc-100 text-zinc-500 group-hover:bg-zinc-200 group-hover:text-zinc-900"}`
+                            : `${isDark ? "bg-zinc-800/80 text-zinc-400 group-hover:bg-zinc-800 group-hover:text-white" : "bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200 group-hover:text-zinc-900"}`
                         }`}
                       >
                         <Icon className="w-4.5 h-4.5" />
                       </div>
                       <div className="relative z-10 flex-1">
                         <div className={`text-sm leading-none ${isActive ? `${activeAccent.text} font-bold` : isDark ? "text-white" : "text-zinc-900"}`}>{tab.label}</div>
-                        <div className={`text-[11px] ${isDark ? "text-zinc-500" : "text-zinc-400"} mt-1 line-clamp-1`}>
+                        <div className={`text-[11px] ${isDark ? "text-zinc-600 dark:text-zinc-500" : "text-zinc-600"} mt-1 line-clamp-1`}>
                           {tab.description}
                         </div>
                       </div>
@@ -657,7 +657,7 @@ export default function SettingsContent() {
                         className={`relative z-10 w-4 h-4 transition-transform ${
                           isActive
                             ? `${activeAccent.text} translate-x-0.5`
-                            : "text-zinc-600 group-hover:text-zinc-400"
+                            : "text-zinc-600 group-hover:text-zinc-600 dark:text-zinc-400"
                         }`}
                       />
                     </button>
@@ -691,7 +691,7 @@ export default function SettingsContent() {
                       <div className="text-sm font-bold text-white truncate">
                         {profile?.name || "Community Connect Member"}
                       </div>
-                      <div className="text-xs text-zinc-500 truncate">
+                      <div className="text-xs text-zinc-600 dark:text-zinc-500 truncate">
                         {profile?.email || "user@communityconnect.io"}
                       </div>
                     </div>
@@ -786,18 +786,18 @@ export default function SettingsContent() {
 
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-bold text-white">
+                            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
                               {profile?.name || "Community Connect Member"}
                             </h3>
                             <span className={`px-2.5 py-0.5 rounded-full ${activeAccent.badgeBg} border border-white/10 ${activeAccent.badgeText} text-xs font-semibold`}>
                               Pro Member
                             </span>
                           </div>
-                          <p className="text-sm text-zinc-400 mt-1">
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                             {profile?.profession || "Community Member & Event Enthusiast"}
                           </p>
                           {profile?.location && (
-                            <div className="flex items-center gap-1.5 text-xs text-zinc-500 mt-2">
+                            <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-500 mt-2">
                               <MapPin className="w-3.5 h-3.5" />
                               <span>{profile.location}</span>
                             </div>
@@ -819,8 +819,8 @@ export default function SettingsContent() {
                   {/* Card 2: Email & Verification */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Email Address</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Email Address</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Your verified email address is used for event notifications, sign-ins, and account recovery.
                       </p>
                     </div>
@@ -846,8 +846,8 @@ export default function SettingsContent() {
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
-                        <h3 className="text-lg font-bold text-white">Password & Authentication</h3>
-                        <p className="text-sm text-zinc-400 mt-1">
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Password & Authentication</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                           Protect your account by using a strong, unique password.
                         </p>
                       </div>
@@ -862,7 +862,7 @@ export default function SettingsContent() {
                       </Button>
                     </div>
 
-                    <div className="border-t border-white/5 pt-4 flex items-center justify-between text-xs text-zinc-400">
+                    <div className="border-t border-white/5 pt-4 flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
                       <span>Last changed: 30 days ago</span>
                       <span className="text-emerald-400 font-semibold">Security Level: High</span>
                     </div>
@@ -875,7 +875,7 @@ export default function SettingsContent() {
                         <AlertTriangle className="w-5 h-5" />
                         Danger Zone
                       </h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Export your account data or permanently delete your account and all associated events.
                       </p>
                     </div>
@@ -914,8 +914,8 @@ export default function SettingsContent() {
                 >
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Event & Community Notifications</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Event & Community Notifications</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Control when and how you receive updates from community organizers and attendees.
                       </p>
                     </div>
@@ -927,7 +927,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-emailReminders" className="text-sm font-bold text-white cursor-pointer">
                             Event Reminders
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Receive reminders 24 hours before events you are attending start.
                           </p>
                         </div>
@@ -945,7 +945,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-communityUpdates" className="text-sm font-bold text-white cursor-pointer">
                             Community & Organizer Updates
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Get alerted immediately when an organizer modifies an event date, time, or location.
                           </p>
                         </div>
@@ -963,7 +963,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-teamInvites" className="text-sm font-bold text-white cursor-pointer">
                             Team & Staff Join Requests
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Receive alerts when someone invites you to join their event staff or team.
                           </p>
                         </div>
@@ -981,7 +981,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-weeklyDigest" className="text-sm font-bold text-white cursor-pointer">
                             Weekly Community Digest
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             A curated newsletter of top trending events and networking opportunities near you.
                           </p>
                         </div>
@@ -998,8 +998,8 @@ export default function SettingsContent() {
                   {/* UI Feedback & Audio Card */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Interface Audio & Micro-feedback</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Interface Audio & Micro-feedback</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Enhance your user experience with subtle audio cues and tactile animations.
                       </p>
                     </div>
@@ -1017,7 +1017,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-soundEffects" className="text-sm font-bold text-white cursor-pointer">
                             UI Sound Effects
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Play subtle audio feedback when saving changes and clicking toggles.
                           </p>
                         </div>
@@ -1068,8 +1068,8 @@ export default function SettingsContent() {
                   {/* Theme Mode Selector */}
                   <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
                     <div>
-                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Color Mode</h3>
-                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                      <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Color Mode</h3>
+                      <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
                         Select your preferred interface theme for CommunityConnect.
                       </p>
                     </div>
@@ -1089,7 +1089,7 @@ export default function SettingsContent() {
                           <Moon className="w-6 h-6" />
                         </div>
                         <span className={`text-sm font-bold ${settings.theme === "dark" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Dark Mode</span>
-                        <span className="text-xs text-zinc-500 mt-0.5">Sleek Obsidian</span>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Sleek Obsidian</span>
                         {settings.theme === "dark" && (
                           <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
                             <CheckCircle2 className="w-5 h-5" />
@@ -1111,7 +1111,7 @@ export default function SettingsContent() {
                           <Sun className="w-6 h-6" />
                         </div>
                         <span className={`text-sm font-bold ${settings.theme === "light" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Light Mode</span>
-                        <span className="text-xs text-zinc-500 mt-0.5">Clean Crisp</span>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Clean Crisp</span>
                         {settings.theme === "light" && (
                           <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
                             <CheckCircle2 className="w-5 h-5" />
@@ -1133,7 +1133,7 @@ export default function SettingsContent() {
                           <Monitor className="w-6 h-6" />
                         </div>
                         <span className={`text-sm font-bold ${settings.theme === "system" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>System</span>
-                        <span className="text-xs text-zinc-500 mt-0.5">Auto-sync OS</span>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Auto-sync OS</span>
                         {settings.theme === "system" && (
                           <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
                             <CheckCircle2 className="w-5 h-5" />
@@ -1146,8 +1146,8 @@ export default function SettingsContent() {
                   {/* Accent Color Picker */}
                   <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
                     <div>
-                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Accent Color Palette</h3>
-                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                      <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Accent Color Palette</h3>
+                      <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
                         Choose an accent color to personalize highlights and buttons across your experience.
                       </p>
                     </div>
@@ -1182,8 +1182,8 @@ export default function SettingsContent() {
                   {/* Interface Density & Animations */}
                   <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
                     <div>
-                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Interface Dynamics</h3>
-                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                      <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Interface Dynamics</h3>
+                      <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
                         Adjust layout density and subtle animations for optimal performance.
                       </p>
                     </div>
@@ -1194,7 +1194,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-compactMode" className={`text-sm font-bold cursor-pointer ${settings.compactMode ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
                             Compact Grid Mode
                           </Label>
-                          <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                          <p className={`text-xs ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"}`}>
                             Reduce card padding and spacing to show more events per view.
                           </p>
                         </div>
@@ -1211,7 +1211,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-smoothAnimations" className={`text-sm font-bold cursor-pointer ${settings.smoothAnimations ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
                             Smooth Micro-Animations
                           </Label>
-                          <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                          <p className={`text-xs ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"}`}>
                             Enable fluid hover transitions and framer-motion layout animations.
                           </p>
                         </div>
@@ -1239,8 +1239,8 @@ export default function SettingsContent() {
                 >
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Profile Visibility</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Profile Visibility</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Control who can view your full profile and professional skills.
                       </p>
                     </div>
@@ -1265,7 +1265,7 @@ export default function SettingsContent() {
                           )}
                         </div>
                         <div className="text-sm font-bold text-white">Public</div>
-                        <p className="text-xs text-zinc-400 mt-1">
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Anyone on the web can discover your profile card.
                         </p>
                       </button>
@@ -1289,7 +1289,7 @@ export default function SettingsContent() {
                           )}
                         </div>
                         <div className="text-sm font-bold text-white">Community Only</div>
-                        <p className="text-xs text-zinc-400 mt-1">
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Visible only to logged-in CommunityConnect members.
                         </p>
                       </button>
@@ -1313,7 +1313,7 @@ export default function SettingsContent() {
                           )}
                         </div>
                         <div className="text-sm font-bold text-white">Private</div>
-                        <p className="text-xs text-zinc-400 mt-1">
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Only event organizers of your events can view details.
                         </p>
                       </button>
@@ -1323,8 +1323,8 @@ export default function SettingsContent() {
                   {/* Profile Field Permissions */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Contact & Location Privacy</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Contact & Location Privacy</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Choose whether your personal email or location is displayed to attendees.
                       </p>
                     </div>
@@ -1335,7 +1335,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-showEmailOnProfile" className="text-sm font-bold text-white cursor-pointer">
                             Show Email Address on Profile
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Allow event organizers and attendees to contact you via email directly.
                           </p>
                         </div>
@@ -1352,7 +1352,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-showLocationOnProfile" className="text-sm font-bold text-white cursor-pointer">
                             Show City / Location on Profile
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Display your city so local community organizers can discover your skills.
                           </p>
                         </div>
@@ -1381,8 +1381,8 @@ export default function SettingsContent() {
                   {/* Preferred Locations */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Preferred Event Locations</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Preferred Event Locations</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Add cities or regions so we can automatically show events near you.
                       </p>
                     </div>
@@ -1441,7 +1441,7 @@ export default function SettingsContent() {
                           </div>
                         ))}
                         {(settings.preferredCities || []).length === 0 && (
-                          <span className="text-sm text-zinc-500 italic">No preferred locations added yet.</span>
+                          <span className="text-sm text-zinc-600 dark:text-zinc-500 italic">No preferred locations added yet.</span>
                         )}
                       </div>
                       
@@ -1475,8 +1475,8 @@ export default function SettingsContent() {
                   {/* Favorite Event Categories */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Favorite Event Categories</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Favorite Event Categories</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Select tags to highlight relevant community meetups on your discover feed.
                       </p>
                     </div>
@@ -1511,8 +1511,8 @@ export default function SettingsContent() {
                   {/* Search Preferences */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Saved Search Preferences</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Saved Search Preferences</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Add keywords or tags to quickly access specific events you care about.
                       </p>
                     </div>
@@ -1568,7 +1568,7 @@ export default function SettingsContent() {
                           </div>
                         ))}
                         {(settings.searchPreferences || []).length === 0 && (
-                          <span className="text-sm text-zinc-500 italic">No search preferences added yet.</span>
+                          <span className="text-sm text-zinc-600 dark:text-zinc-500 italic">No search preferences added yet.</span>
                         )}
                       </div>
                     </div>
@@ -1577,8 +1577,8 @@ export default function SettingsContent() {
                   {/* Calendar Format */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Calendar Export Preference</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Calendar Export Preference</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Choose which calendar application opens when you export an event.
                       </p>
                     </div>
@@ -1605,7 +1605,7 @@ export default function SettingsContent() {
                           }`}
                         >
                           <div className="text-sm font-bold text-white">{item.label}</div>
-                          <div className="text-xs text-zinc-400 mt-1">{item.desc}</div>
+                          <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{item.desc}</div>
                         </button>
                       ))}
                     </div>
@@ -1627,11 +1627,11 @@ export default function SettingsContent() {
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                           <ShieldCheck className={`w-5 h-5 ${activeAccent.text}`} />
                           Two-Factor Authentication (2FA)
                         </h3>
-                        <p className="text-sm text-zinc-400 mt-1">
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                           Add an extra layer of security to your account with an authenticator app.
                         </p>
                       </div>
@@ -1676,8 +1676,8 @@ export default function SettingsContent() {
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
-                        <h3 className="text-lg font-bold text-white">Active Browser Sessions</h3>
-                        <p className="text-sm text-zinc-400 mt-1">
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Active Browser Sessions</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                           Manage and revoke access from devices currently signed into your account.
                         </p>
                       </div>
@@ -1729,7 +1729,7 @@ export default function SettingsContent() {
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-xs text-zinc-500 mt-0.5">
+                                <div className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">
                                   {sess.location} • IP {sess.ip} • {sess.lastActive}
                                 </div>
                               </div>
@@ -1759,7 +1759,7 @@ export default function SettingsContent() {
                               className={`text-xs ${
                                 sess.isCurrent
                                   ? "text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                                  : "text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10"
+                                  : "text-zinc-600 hover:text-rose-400 hover:bg-rose-500/10"
                               } rounded-xl gap-1.5`}
                             >
                               {sess.isCurrent ? (
@@ -1819,8 +1819,8 @@ export default function SettingsContent() {
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Change Password</h3>
-                  <p className="text-xs text-zinc-400">
+                  <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Change Password</h3>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
                     Enter your current and new password below.
                   </p>
                 </div>
@@ -1857,7 +1857,7 @@ export default function SettingsContent() {
                   {newPassword && (
                     <div className="mt-2 space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-zinc-400">Password strength:</span>
+                        <span className="text-zinc-600 dark:text-zinc-400">Password strength:</span>
                         <span className="font-semibold text-white">
                           {getPasswordStrength(newPassword).label}
                         </span>
@@ -1943,8 +1943,8 @@ export default function SettingsContent() {
                 <AlertTriangle className="w-6 h-6" />
               </div>
 
-              <h3 className="text-xl font-extrabold text-white">Delete Account?</h3>
-              <p className="text-sm text-zinc-400 mt-2">
+              <h3 className="text-xl font-extrabold text-zinc-900 dark:text-white">Delete Account?</h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
                 This action is permanent and cannot be undone. All your profile data, RSVP badges, and event history will be removed.
               </p>
 
@@ -2034,8 +2034,8 @@ export default function SettingsContent() {
                     <QrCode className="w-6 h-6" />
                   </div>
 
-                  <h3 className="text-xl font-bold text-white">Setup Authenticator App</h3>
-                  <p className="text-sm text-zinc-400 mt-1">
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Setup Authenticator App</h3>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                     Scan this QR code with any Authenticator app (Google Authenticator, Authy, 1Password) to link <span className="text-white font-semibold">{profile?.email || "user@communityconnect.io"}</span>.
                   </p>
 
@@ -2068,7 +2068,7 @@ export default function SettingsContent() {
 
                   <div className="bg-zinc-950/80 border border-white/5 rounded-2xl p-3 mb-4 flex items-center justify-between gap-2">
                     <div className="text-left">
-                      <div className="text-[10px] uppercase font-bold text-zinc-500">Secret Key</div>
+                      <div className="text-[10px] uppercase font-bold text-zinc-600 dark:text-zinc-500">Secret Key</div>
                       <div className="font-mono text-xs text-zinc-200 font-bold tracking-wider">
                         {user2FASecret.replace(/(.{4})/g, "$1 ").trim()}
                       </div>
@@ -2153,8 +2153,8 @@ export default function SettingsContent() {
                     <ShieldCheck className="w-6 h-6" />
                   </div>
 
-                  <h3 className="text-xl font-bold text-white">2FA Activated Successfully!</h3>
-                  <p className="text-sm text-zinc-400 mt-2">
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">2FA Activated Successfully!</h3>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
                     Save these emergency recovery codes in a secure place (like 1Password). Each code can be used once if you lose your authenticator app.
                   </p>
 
@@ -2208,8 +2208,8 @@ export default function SettingsContent() {
                     <ShieldCheck className="w-6 h-6" />
                   </div>
 
-                  <h3 className="text-xl font-bold text-white">2FA is Enabled</h3>
-                  <p className="text-sm text-zinc-400 mt-2">
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">2FA is Enabled</h3>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
                     Your account is currently protected by an Authenticator app. You can view your emergency backup codes or turn off 2FA protection.
                   </p>
 

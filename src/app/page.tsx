@@ -52,7 +52,7 @@ export default function Home() {
           </span>
         </h1>
         
-        <p className={`text-base sm:text-lg md:text-xl ${isDark ? "text-zinc-400" : "text-zinc-500"} max-w-2xl font-medium px-2`}>
+        <p className={`text-base sm:text-lg md:text-xl ${isDark ? "text-zinc-400" : "text-zinc-600"} max-w-2xl font-medium px-2`}>
           Discover, register, and manage your next hackathon, workshop, or local tech meetup all in one beautiful place.
         </p>
         

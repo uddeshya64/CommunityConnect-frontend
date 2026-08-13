@@ -287,7 +287,7 @@ export default function PublicProfilePage() {
 
         <div className="text-center space-y-2">
           <h2 className="text-xl font-semibold text-zinc-200">Oops!</h2>
-          <p className="text-zinc-400">{error || "Profile not found."}</p>
+          <p className="text-zinc-600 dark:text-zinc-400">{error || "Profile not found."}</p>
         </div>
 
         <Link href="/home">
@@ -433,7 +433,7 @@ export default function PublicProfilePage() {
               <div className="flex-1 text-center md:text-left space-y-5 w-full">
                 <div>
                   <div className="flex flex-col md:flex-row items-center gap-3 mb-2">
-                    <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+                    <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
                       {profile.name || "Community Member"}
                     </h1>
 
@@ -451,7 +451,7 @@ export default function PublicProfilePage() {
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${
                         profile.profession
                           ? "bg-white/5 border-white/5 text-zinc-300"
-                          : "bg-transparent border-dashed border-zinc-700 text-zinc-500"
+                          : "bg-transparent border-dashed border-zinc-700 text-zinc-600"
                       }`}
                     >
                       <Briefcase
@@ -466,7 +466,7 @@ export default function PublicProfilePage() {
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${
                         profile.location
                           ? "bg-white/5 border-white/5 text-zinc-300"
-                          : "bg-transparent border-dashed border-zinc-700 text-zinc-500"
+                          : "bg-transparent border-dashed border-zinc-700 text-zinc-600"
                       }`}
                     >
                       <MapPin
@@ -482,7 +482,7 @@ export default function PublicProfilePage() {
                 {/* BIO */}
                 <p
                   className={`text-base leading-relaxed max-w-3xl ${
-                    profile.bio ? "text-zinc-400" : "text-zinc-600 italic"
+                    profile.bio ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600 italic"
                   }`}
                 >
                   {profile.bio || "This user hasn't added a bio yet."}
@@ -506,7 +506,7 @@ export default function PublicProfilePage() {
               <p className="text-2xl font-bold text-white">
                 {profile._count?.events_created || 0}
               </p>
-              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-500 uppercase tracking-wider">
                 Events Created
               </p>
             </div>
@@ -517,7 +517,7 @@ export default function PublicProfilePage() {
               <p className="text-2xl font-bold text-white">
                 {profile._count?.teams_led || 0}
               </p>
-              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-500 uppercase tracking-wider">
                 Teams Led
               </p>
             </div>
@@ -528,7 +528,7 @@ export default function PublicProfilePage() {
               <p className="text-2xl font-bold text-white">
                 {profile._count?.mentor_assignments || 0}
               </p>
-              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-500 uppercase tracking-wider">
                 Mentorships
               </p>
             </div>
@@ -539,7 +539,7 @@ export default function PublicProfilePage() {
               <p className="text-2xl font-bold text-white">
                 {profile._count?.submissions || 0}
               </p>
-              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-500 uppercase tracking-wider">
                 Submissions
               </p>
             </div>
@@ -557,8 +557,8 @@ export default function PublicProfilePage() {
             {/* EVENTS HEADER */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-white">Events Created</h2>
-                <p className="text-sm text-zinc-500 mt-1">
+                <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Events Created</h2>
+                <p className="text-sm text-zinc-600 dark:text-zinc-500 mt-1">
                   Events organized by {profile.name}
                 </p>
               </div>
@@ -594,12 +594,12 @@ export default function PublicProfilePage() {
 
                         {/* EVENT INFORMATION */}
                         <div className="p-5">
-                          <h3 className="text-lg font-bold text-white group-hover:text-indigo-400 transition-colors">
+                          <h3 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-indigo-400 transition-colors">
                             {event.title}
                           </h3>
 
                           {/* DATE */}
-                          <div className="flex items-center gap-2 mt-3 text-sm text-zinc-400">
+                          <div className="flex items-center gap-2 mt-3 text-sm text-zinc-600 dark:text-zinc-400">
                             <Calendar className="w-4 h-4 text-indigo-400" />
                             {new Date(event.start_date).toLocaleDateString(
                               "en-US",
@@ -613,7 +613,7 @@ export default function PublicProfilePage() {
 
                           {/* LOCATION */}
                           {event.location && (
-                            <div className="flex items-center gap-2 mt-2 text-sm text-zinc-400">
+                            <div className="flex items-center gap-2 mt-2 text-sm text-zinc-600 dark:text-zinc-400">
                               <MapPin className="w-4 h-4 text-rose-400" />
                               {event.location}
                             </div>
@@ -649,7 +649,7 @@ export default function PublicProfilePage() {
               /* NO EVENTS */
               <div className="py-12 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-2xl">
                 <CalendarDays className="w-10 h-10 text-zinc-600 mb-3" />
-                <p className="text-zinc-500">No events created yet.</p>
+                <p className="text-zinc-600 dark:text-zinc-500">No events created yet.</p>
               </div>
             )}
           </motion.div>
@@ -686,7 +686,7 @@ export default function PublicProfilePage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-10 text-zinc-500 border-2 border-dashed border-white/5 rounded-2xl">
+                  <div className="flex flex-col items-center justify-center py-10 text-zinc-600 dark:text-zinc-500 border-2 border-dashed border-white/5 rounded-2xl">
                     <Briefcase className="w-8 h-8 mb-3 opacity-50" />
                     <p className="text-sm">No skills listed yet.</p>
                   </div>
@@ -716,14 +716,14 @@ export default function PublicProfilePage() {
                       <Mail
                         className={`w-5 h-5 ${
                           profile.email
-                            ? "text-zinc-400 group-hover:text-indigo-400"
+                            ? "text-zinc-600 dark:text-zinc-400 group-hover:text-indigo-400"
                             : "text-zinc-600"
                         }`}
                       />
                     </div>
 
                     <div className="overflow-hidden">
-                      <p className="text-xs text-zinc-500 mb-1">Email Address</p>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-500 mb-1">Email Address</p>
                       {profile.email ? (
                         <p className="text-sm font-medium text-zinc-200 truncate">
                           {profile.email}
@@ -742,14 +742,14 @@ export default function PublicProfilePage() {
                       <Phone
                         className={`w-5 h-5 ${
                           profile.phone
-                            ? "text-zinc-400 group-hover:text-emerald-400"
+                            ? "text-zinc-600 dark:text-zinc-400 group-hover:text-emerald-400"
                             : "text-zinc-600"
                         }`}
                       />
                     </div>
 
                     <div>
-                      <p className="text-xs text-zinc-500 mb-1">Phone Number</p>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-500 mb-1">Phone Number</p>
                       {profile.phone ? (
                         <p className="text-sm font-medium text-zinc-200">
                           {profile.phone}
@@ -785,7 +785,7 @@ export default function PublicProfilePage() {
                       className="group flex items-center justify-between p-3.5 rounded-2xl bg-white/5 hover:bg-[#0077B5]/10 border border-white/5 hover:border-[#0077B5]/20 transition-all"
                     >
                       <div className="flex items-center gap-3">
-                        <Linkedin className="w-5 h-5 text-zinc-400 group-hover:text-[#0077B5]" />
+                        <Linkedin className="w-5 h-5 text-zinc-600 dark:text-zinc-400 group-hover:text-[#0077B5]" />
                         <span className="text-sm font-medium text-zinc-300 group-hover:text-white">
                           LinkedIn
                         </span>
@@ -812,7 +812,7 @@ export default function PublicProfilePage() {
                       className="group flex items-center justify-between p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all"
                     >
                       <div className="flex items-center gap-3">
-                        <Github className="w-5 h-5 text-zinc-400 group-hover:text-white" />
+                        <Github className="w-5 h-5 text-zinc-600 dark:text-zinc-400 group-hover:text-white" />
                         <span className="text-sm font-medium text-zinc-300 group-hover:text-white">
                           GitHub
                         </span>
@@ -833,7 +833,7 @@ export default function PublicProfilePage() {
 
                 {/* MEMBER SINCE */}
                 {profile.created_at && (
-                  <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-center gap-2 text-zinc-500 text-xs font-medium uppercase tracking-wider">
+                  <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-center gap-2 text-zinc-600 dark:text-zinc-500 text-xs font-medium uppercase tracking-wider">
                     <Calendar className="w-4 h-4" />
                     Joined{" "}
                     {new Date(profile.created_at).toLocaleDateString("en-US", {

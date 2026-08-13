@@ -647,7 +647,7 @@ export default function HomeContent() {
 
             </h1>
 
-            <p className={`text-base md:text-lg ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium max-w-2xl`}>
+            <p className={`text-base md:text-lg ${isDark ? "text-zinc-400" : "text-zinc-600"} font-medium max-w-2xl`}>
               Ready to explore? Discover,
               register, and manage your
               next tech meetup all in one
@@ -1004,28 +1004,28 @@ export default function HomeContent() {
               <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${activeAccent.gradient}`}></div>
               CommunityConnect
             </div>
-            <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} max-w-xs leading-relaxed`}>
+            <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-600"} max-w-xs leading-relaxed`}>
               The modern platform for discovering, hosting, and managing local tech events, hackathons, and meetups.
             </p>
           </div>
           <div>
             <h3 className={`font-semibold mb-4 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>Resources</h3>
             <ul className="space-y-3">
-              <li><Link href="/discover" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}>Discover Events</Link></li>
-              <li><Link href="/events/create" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}>Host an Event</Link></li>
+              <li><Link href="/discover" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors`}>Discover Events</Link></li>
+              <li><Link href="/events/create" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors`}>Host an Event</Link></li>
             </ul>
           </div>
           <div>
             <h3 className={`font-semibold mb-4 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>Legal</h3>
             <ul className="space-y-3">
-              <li><Link href="/policy" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}>Privacy Policy</Link></li>
-              <li><Link href="/terms" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}>Terms of Service</Link></li>
+              <li><Link href="/policy" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors`}>Privacy Policy</Link></li>
+              <li><Link href="/terms" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors`}>Terms of Service</Link></li>
             </ul>
           </div>
         </div>
         
         <div className={`pt-8 border-t ${isDark ? "border-white/10" : "border-zinc-200"} flex flex-col sm:flex-row items-center justify-between gap-4`}>
-          <p className={`text-sm ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+          <p className={`text-sm ${isDark ? "text-zinc-500" : "text-zinc-600"}`}>
             &copy; {new Date().getFullYear()} CommunityConnect. All rights reserved.
           </p>
           <div className="flex items-center gap-4">

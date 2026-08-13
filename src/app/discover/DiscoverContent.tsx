@@ -373,7 +373,7 @@ export default function DiscoverContent() {
               className={`pl-10 rounded-2xl h-11 text-sm font-medium ${
                 isDark
                   ? "bg-zinc-900/80 border-white/10 text-white placeholder:text-zinc-500"
-                  : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                  : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-600"
               } shadow-sm`}
             />
           </div>

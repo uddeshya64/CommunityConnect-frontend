@@ -384,7 +384,7 @@ export default function MyProfilePage() {
                         )}
 
                         {/* Name */}
-                        <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+                        <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
                             {profile?.name ||
                                 "Unnamed User"}
                         </h1>
@@ -410,7 +410,7 @@ export default function MyProfilePage() {
 
                         {/* Bio */}
                         {profile?.bio && (
-                            <p className={`mt-6 ${isDark ? "text-zinc-400" : "text-zinc-700"} font-medium text-base leading-relaxed max-w-lg`}>
+                            <p className={`mt-6 ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-700"} font-medium text-base leading-relaxed max-w-lg`}>
                                 {profile.bio}
                             </p>
                         )}
@@ -446,7 +446,7 @@ export default function MyProfilePage() {
                                         </div>
 
                                         <div>
-                                            <p className="text-xs text-zinc-500 font-medium">
+                                            <p className="text-xs text-zinc-600 dark:text-zinc-500 font-medium">
                                                 Email
                                             </p>
 
@@ -464,7 +464,7 @@ export default function MyProfilePage() {
                                         </div>
 
                                         <div>
-                                            <p className="text-xs text-zinc-500 font-medium">
+                                            <p className="text-xs text-zinc-600 dark:text-zinc-500 font-medium">
                                                 Phone
                                             </p>
 
@@ -477,7 +477,7 @@ export default function MyProfilePage() {
 
                                 {!profile?.email &&
                                     !profile?.phone && (
-                                        <p className="text-sm text-zinc-500 font-medium col-span-2">
+                                        <p className="text-sm text-zinc-600 dark:text-zinc-500 font-medium col-span-2">
                                             No contact info
                                             added yet.
                                         </p>
@@ -542,7 +542,7 @@ export default function MyProfilePage() {
 
                                 {!profile?.linkedin &&
                                     !profile?.github && (
-                                        <p className="text-sm text-zinc-500 font-medium">
+                                        <p className="text-sm text-zinc-600 dark:text-zinc-500 font-medium">
                                             No social links
                                             added yet.
                                         </p>
@@ -585,7 +585,7 @@ export default function MyProfilePage() {
                                     )}
                                 </div>
                             ) : (
-                                <p className="text-sm text-zinc-500 font-medium">
+                                <p className="text-sm text-zinc-600 dark:text-zinc-500 font-medium">
                                     No skills added yet.{" "}
                                     <Link
                                         href="/profile/edit"
