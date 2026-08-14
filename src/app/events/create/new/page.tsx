@@ -617,7 +617,7 @@ function CreateEventPageInner() {
                   type="button"
                   onClick={() => updateCustomField(field.id, { value: opt })}
                   className={`px-2.5 py-1 rounded border font-bold text-xs transition-all ${
-                    field.value === opt ? "bg-indigo-600 text-white border-indigo-600 shadow-xs" : "bg-white text-zinc-500 border-zinc-200"
+                    field.value === opt ? "bg-indigo-600 text-white border-indigo-600 shadow-xs" : "bg-white text-zinc-600 border-zinc-200"
                   }`}
                 >
                   {opt}

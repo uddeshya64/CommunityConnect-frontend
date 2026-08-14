@@ -132,7 +132,7 @@ export default function Sidebar() {
                   } ${
                     isActive
                       ? `${activeAccent.text} font-bold`
-                      : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"}`
+                      : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"}`
                   }`}
                 >
                   {isActive && (
@@ -175,7 +175,7 @@ export default function Sidebar() {
             } ${
               pathname === "/settings"
                 ? `${activeAccent.text} font-bold ${isDark ? "bg-white/10" : "bg-indigo-50"} ${activeAccent.border}`
-                : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"}`
+                : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"}`
             }`}
           >
             <Settings className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
@@ -195,6 +195,7 @@ export default function Sidebar() {
           <LogOut className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
           {!isCollapsed && "Log out"}
         </button>
+      
       </div>
     </div>
   );
@@ -298,7 +299,7 @@ export default function Sidebar() {
                 </div>
 
                 <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} mb-2`}>Log out?</h2>
-                <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium mb-6`}>
+                <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-600"} font-medium mb-6`}>
                   Are you sure you want to log out of your account? You&apos;ll need to sign in again to continue.
                 </p>
 

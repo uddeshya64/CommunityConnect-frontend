@@ -80,8 +80,9 @@ interface UserSettings {
   allowDirectMessages: "everyone" | "attendees" | "nobody";
 
   // Event Preferences
-  defaultCity: string;
+  preferredCities: string[];
   favoriteCategories: string[];
+  searchPreferences: string[];
   calendarFormat: "google" | "ical" | "outlook";
 
   // Security
@@ -105,8 +106,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   showEmailOnProfile: false,
   showLocationOnProfile: true,
   allowDirectMessages: "attendees",
-  defaultCity: "San Francisco, CA",
+  preferredCities: [],
   favoriteCategories: ["Technical Conferences", "Hackathons and Competitions"],
+  searchPreferences: [],
   calendarFormat: "google",
   twoFactorEnabled: false,
 };
@@ -131,7 +133,6 @@ const TABS: TabItem[] = [
   { key: "account", label: "Account & Profile", icon: User, description: "Manage profile snapshot, email, and account actions" },
   { key: "notifications", label: "Notifications", icon: Bell, description: "Configure alerts, digests, and audio feedback" },
   { key: "appearance", label: "Appearance", icon: Palette, description: "Customize themes, accent colors, and UI density" },
-  { key: "privacy", label: "Privacy & Visibility", icon: Shield, description: "Control who sees your profile and information" },
   { key: "preferences", label: "Event Preferences", icon: Sliders, description: "Set location defaults and favorite categories" },
   { key: "security", label: "Sessions & Security", icon: Lock, description: "Manage 2FA, passwords, and active devices" },
 ];
@@ -186,6 +187,8 @@ export default function SettingsContent() {
   const [activeTab, setActiveTab] = useState<TabKey>("account");
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchPrefInput, setSearchPrefInput] = useState("");
+  const [cityInput, setCityInput] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -284,38 +287,7 @@ export default function SettingsContent() {
   };
 
   // Active Browser Sessions State
-  const [activeSessions, setActiveSessions] = useState([
-    {
-      id: "sess-1",
-      device: "Windows",
-      browser: "Chrome",
-      location: "Current Device",
-      ip: "192.168.1.100",
-      lastActive: "Active now",
-      isCurrent: true,
-      icon: Laptop,
-    },
-    {
-      id: "sess-2",
-      device: "iOS",
-      browser: "Safari",
-      location: "San Francisco, CA",
-      ip: "172.16.0.45",
-      lastActive: "Last active 2 days ago",
-      isCurrent: false,
-      icon: Smartphone,
-    },
-    {
-      id: "sess-3",
-      device: "macOS",
-      browser: "Firefox",
-      location: "New York, NY",
-      ip: "10.0.0.12",
-      lastActive: "Last active 5 days ago",
-      isCurrent: false,
-      icon: Laptop,
-    },
-  ]);
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
 
   // Load Settings from localStorage & Fetch Profile/Settings from backend API
   useEffect(() => {
@@ -333,25 +305,36 @@ export default function SettingsContent() {
     // 2. Fetch User Profile and Settings from Backend API
     const fetchUserData = async () => {
       try {
-        const [profileData, backendSettings] = await Promise.all([
+        const [profileData, backendSettings, sessionsData] = await Promise.all([
           profileService.getMyProfile().catch(() => null),
           profileService.getMySettings().catch(() => null),
+          profileService.getActiveSessions().catch(() => []),
         ]);
         if (profileData) setProfile(profileData);
         if (backendSettings && typeof backendSettings === "object" && Object.keys(backendSettings).length > 0) {
           const merged = { ...DEFAULT_SETTINGS, ...backendSettings };
           setSettings(merged);
-          localStorage.setItem("cc_user_settings", JSON.stringify(merged));
-          localStorage.setItem("cc_2fa_enabled", merged.twoFactorEnabled ? "true" : "false");
+          // localStorage.setItem("cc_user_settings", JSON.stringify(merged));
+          // localStorage.setItem("cc_2fa_enabled", merged.twoFactorEnabled ? "true" : "false");
           if (merged.twoFactorSecret) {
             setUser2FASecret(merged.twoFactorSecret);
-            localStorage.setItem("cc_2fa_secret", merged.twoFactorSecret);
+            // localStorage.setItem("cc_2fa_secret", merged.twoFactorSecret);
           }
           if (merged.twoFactorBackupCodes && Array.isArray(merged.twoFactorBackupCodes)) {
             setUserBackupCodes(merged.twoFactorBackupCodes);
-            localStorage.setItem("cc_2fa_backup_codes", JSON.stringify(merged.twoFactorBackupCodes));
+            // localStorage.setItem("cc_2fa_backup_codes", JSON.stringify(merged.twoFactorBackupCodes));
           }
         }
+        
+        if (sessionsData && Array.isArray(sessionsData)) {
+          const mapped = sessionsData.map((s: any) => ({
+            ...s,
+            icon: s.device === "Mobile" ? Smartphone : (s.device === "Tablet" ? Smartphone : Laptop),
+            location: s.isCurrent ? "Current Device" : "Recent Location"
+          }));
+          setActiveSessions(mapped);
+        }
+        
       } finally {
         setIsProfileLoading(false);
       }
@@ -394,9 +377,9 @@ export default function SettingsContent() {
     const updated = { ...settings, [key]: value };
     setSettings(updated);
 
-    localStorage.setItem("cc_user_settings", JSON.stringify(updated));
+    // localStorage.setItem("cc_user_settings", JSON.stringify(updated));
     if (key === "twoFactorEnabled") {
-      localStorage.setItem("cc_2fa_enabled", value ? "true" : "false");
+      // localStorage.setItem("cc_2fa_enabled", value ? "true" : "false");
     }
     if (typeof window !== "undefined") {
       window.dispatchEvent(
@@ -423,7 +406,7 @@ export default function SettingsContent() {
 
   const resetToDefaults = () => {
     setSettings(DEFAULT_SETTINGS);
-    localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
+    // localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: DEFAULT_SETTINGS })
@@ -613,7 +596,7 @@ export default function SettingsContent() {
               >
                 <SettingsIcon className="w-4 h-4" />
               </div>
-              <h1 className={`text-base font-extrabold ${isDark ? "text-white" : "text-zinc-900"} tracking-tight`}>
+              <h1 className={`text-base font-extrabold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"} tracking-tight`}>
                 Settings
               </h1>
             </div>
@@ -693,16 +676,16 @@ export default function SettingsContent() {
         {/* Search Bar & Page Overview */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
               Account Settings
             </h2>
-            <p className="text-sm text-zinc-400 mt-1">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
               Customize your notifications, security, themes, and community preferences.
             </p>
           </div>
 
           <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600 dark:text-zinc-400" />
             <Input
               id="settings-search-input"
               value={searchQuery}
@@ -760,7 +743,7 @@ export default function SettingsContent() {
                       className={`group relative flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-left transition-all ${
                         isActive
                           ? "text-white font-bold"
-                          : "text-zinc-400 hover:text-white hover:bg-white/5 font-medium"
+                          : "text-zinc-600 hover:text-white hover:bg-white/5 font-medium"
                       }`}
                     >
                       {isActive && (
@@ -774,14 +757,14 @@ export default function SettingsContent() {
                         className={`relative z-10 w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
                           isActive
                             ? `${activeAccent.bg} text-white shadow-md ${activeAccent.shadow || "shadow-indigo-500/20"}`
-                            : `${isDark ? "bg-zinc-800/80 text-zinc-400 group-hover:bg-zinc-800 group-hover:text-white" : "bg-zinc-100 text-zinc-500 group-hover:bg-zinc-200 group-hover:text-zinc-900"}`
+                            : `${isDark ? "bg-zinc-800/80 text-zinc-400 group-hover:bg-zinc-800 group-hover:text-white" : "bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200 group-hover:text-zinc-900"}`
                         }`}
                       >
                         <Icon className="w-4.5 h-4.5" />
                       </div>
                       <div className="relative z-10 flex-1">
                         <div className={`text-sm leading-none ${isActive ? `${activeAccent.text} font-bold` : isDark ? "text-white" : "text-zinc-900"}`}>{tab.label}</div>
-                        <div className={`text-[11px] ${isDark ? "text-zinc-500" : "text-zinc-400"} mt-1 line-clamp-1`}>
+                        <div className={`text-[11px] ${isDark ? "text-zinc-600 dark:text-zinc-500" : "text-zinc-600"} mt-1 line-clamp-1`}>
                           {tab.description}
                         </div>
                       </div>
@@ -789,7 +772,7 @@ export default function SettingsContent() {
                         className={`relative z-10 w-4 h-4 transition-transform ${
                           isActive
                             ? `${activeAccent.text} translate-x-0.5`
-                            : "text-zinc-600 group-hover:text-zinc-400"
+                            : "text-zinc-600 group-hover:text-zinc-600 dark:text-zinc-400"
                         }`}
                       />
                     </button>
@@ -823,7 +806,7 @@ export default function SettingsContent() {
                       <div className="text-sm font-bold text-white truncate">
                         {profile?.name || "Community Connect Member"}
                       </div>
-                      <div className="text-xs text-zinc-500 truncate">
+                      <div className="text-xs text-zinc-600 dark:text-zinc-500 truncate">
                         {profile?.email || "user@communityconnect.io"}
                       </div>
                     </div>
@@ -918,18 +901,18 @@ export default function SettingsContent() {
 
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-bold text-white">
+                            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
                               {profile?.name || "Community Connect Member"}
                             </h3>
                             <span className={`px-2.5 py-0.5 rounded-full ${activeAccent.badgeBg} border border-white/10 ${activeAccent.badgeText} text-xs font-semibold`}>
                               Pro Member
                             </span>
                           </div>
-                          <p className="text-sm text-zinc-400 mt-1">
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                             {profile?.profession || "Community Member & Event Enthusiast"}
                           </p>
                           {profile?.location && (
-                            <div className="flex items-center gap-1.5 text-xs text-zinc-500 mt-2">
+                            <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-500 mt-2">
                               <MapPin className="w-3.5 h-3.5" />
                               <span>{profile.location}</span>
                             </div>
@@ -951,8 +934,8 @@ export default function SettingsContent() {
                   {/* Card 2: Email & Verification */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Email Address</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Email Address</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Your verified email address is used for event notifications, sign-ins, and account recovery.
                       </p>
                     </div>
@@ -978,8 +961,8 @@ export default function SettingsContent() {
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
-                        <h3 className="text-lg font-bold text-white">Password & Authentication</h3>
-                        <p className="text-sm text-zinc-400 mt-1">
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Password & Authentication</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                           Protect your account by using a strong, unique password.
                         </p>
                       </div>
@@ -994,7 +977,7 @@ export default function SettingsContent() {
                       </Button>
                     </div>
 
-                    <div className="border-t border-white/5 pt-4 flex items-center justify-between text-xs text-zinc-400">
+                    <div className="border-t border-white/5 pt-4 flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
                       <span>Last changed: 30 days ago</span>
                       <span className="text-emerald-400 font-semibold">Security Level: High</span>
                     </div>
@@ -1007,7 +990,7 @@ export default function SettingsContent() {
                         <AlertTriangle className="w-5 h-5" />
                         Danger Zone
                       </h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Export your account data or permanently delete your account and all associated events.
                       </p>
                     </div>
@@ -1159,7 +1142,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-emailReminders" className="text-sm font-bold text-white cursor-pointer">
                             Event Reminders
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Receive reminders 24 hours before events you are attending start.
                           </p>
                         </div>
@@ -1177,7 +1160,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-communityUpdates" className="text-sm font-bold text-white cursor-pointer">
                             Community & Organizer Updates
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Get alerted immediately when an organizer modifies an event date, time, or location.
                           </p>
                         </div>
@@ -1195,7 +1178,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-teamInvites" className="text-sm font-bold text-white cursor-pointer">
                             Team & Staff Join Requests
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Receive alerts when someone invites you to join their event staff or team.
                           </p>
                         </div>
@@ -1213,7 +1196,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-weeklyDigest" className="text-sm font-bold text-white cursor-pointer">
                             Weekly Community Digest
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             A curated newsletter of top trending events and networking opportunities near you.
                           </p>
                         </div>
@@ -1230,8 +1213,8 @@ export default function SettingsContent() {
                   {/* UI Feedback & Audio Card */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Interface Audio & Micro-feedback</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Interface Audio & Micro-feedback</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Enhance your user experience with subtle audio cues and tactile animations.
                       </p>
                     </div>
@@ -1249,7 +1232,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-soundEffects" className="text-sm font-bold text-white cursor-pointer">
                             UI Sound Effects
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Play subtle audio feedback when saving changes and clicking toggles.
                           </p>
                         </div>
@@ -1300,8 +1283,8 @@ export default function SettingsContent() {
                   {/* Theme Mode Selector */}
                   <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
                     <div>
-                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Color Mode</h3>
-                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                      <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Color Mode</h3>
+                      <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
                         Select your preferred interface theme for CommunityConnect.
                       </p>
                     </div>
@@ -1321,7 +1304,7 @@ export default function SettingsContent() {
                           <Moon className="w-6 h-6" />
                         </div>
                         <span className={`text-sm font-bold ${settings.theme === "dark" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Dark Mode</span>
-                        <span className="text-xs text-zinc-500 mt-0.5">Sleek Obsidian</span>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Sleek Obsidian</span>
                         {settings.theme === "dark" && (
                           <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
                             <CheckCircle2 className="w-5 h-5" />
@@ -1343,7 +1326,7 @@ export default function SettingsContent() {
                           <Sun className="w-6 h-6" />
                         </div>
                         <span className={`text-sm font-bold ${settings.theme === "light" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Light Mode</span>
-                        <span className="text-xs text-zinc-500 mt-0.5">Clean Crisp</span>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Clean Crisp</span>
                         {settings.theme === "light" && (
                           <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
                             <CheckCircle2 className="w-5 h-5" />
@@ -1365,7 +1348,7 @@ export default function SettingsContent() {
                           <Monitor className="w-6 h-6" />
                         </div>
                         <span className={`text-sm font-bold ${settings.theme === "system" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>System</span>
-                        <span className="text-xs text-zinc-500 mt-0.5">Auto-sync OS</span>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Auto-sync OS</span>
                         {settings.theme === "system" && (
                           <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
                             <CheckCircle2 className="w-5 h-5" />
@@ -1378,8 +1361,8 @@ export default function SettingsContent() {
                   {/* Accent Color Picker */}
                   <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
                     <div>
-                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Accent Color Palette</h3>
-                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                      <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Accent Color Palette</h3>
+                      <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
                         Choose an accent color to personalize highlights and buttons across your experience.
                       </p>
                     </div>
@@ -1414,8 +1397,8 @@ export default function SettingsContent() {
                   {/* Interface Density & Animations */}
                   <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
                     <div>
-                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Interface Dynamics</h3>
-                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                      <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Interface Dynamics</h3>
+                      <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
                         Adjust layout density and subtle animations for optimal performance.
                       </p>
                     </div>
@@ -1426,7 +1409,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-compactMode" className={`text-sm font-bold cursor-pointer ${settings.compactMode ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
                             Compact Grid Mode
                           </Label>
-                          <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                          <p className={`text-xs ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"}`}>
                             Reduce card padding and spacing to show more events per view.
                           </p>
                         </div>
@@ -1443,7 +1426,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-smoothAnimations" className={`text-sm font-bold cursor-pointer ${settings.smoothAnimations ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
                             Smooth Micro-Animations
                           </Label>
-                          <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                          <p className={`text-xs ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"}`}>
                             Enable fluid hover transitions and framer-motion layout animations.
                           </p>
                         </div>
@@ -1471,8 +1454,8 @@ export default function SettingsContent() {
                 >
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Profile Visibility</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Profile Visibility</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Control who can view your full profile and professional skills.
                       </p>
                     </div>
@@ -1497,7 +1480,7 @@ export default function SettingsContent() {
                           )}
                         </div>
                         <div className="text-sm font-bold text-white">Public</div>
-                        <p className="text-xs text-zinc-400 mt-1">
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Anyone on the web can discover your profile card.
                         </p>
                       </button>
@@ -1521,7 +1504,7 @@ export default function SettingsContent() {
                           )}
                         </div>
                         <div className="text-sm font-bold text-white">Community Only</div>
-                        <p className="text-xs text-zinc-400 mt-1">
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Visible only to logged-in CommunityConnect members.
                         </p>
                       </button>
@@ -1545,7 +1528,7 @@ export default function SettingsContent() {
                           )}
                         </div>
                         <div className="text-sm font-bold text-white">Private</div>
-                        <p className="text-xs text-zinc-400 mt-1">
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Only event organizers of your events can view details.
                         </p>
                       </button>
@@ -1555,8 +1538,8 @@ export default function SettingsContent() {
                   {/* Profile Field Permissions */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Contact & Location Privacy</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Contact & Location Privacy</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Choose whether your personal email or location is displayed to attendees.
                       </p>
                     </div>
@@ -1567,7 +1550,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-showEmailOnProfile" className="text-sm font-bold text-white cursor-pointer">
                             Show Email Address on Profile
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Allow event organizers and attendees to contact you via email directly.
                           </p>
                         </div>
@@ -1584,7 +1567,7 @@ export default function SettingsContent() {
                           <Label htmlFor="toggle-showLocationOnProfile" className="text-sm font-bold text-white cursor-pointer">
                             Show City / Location on Profile
                           </Label>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
                             Display your city so local community organizers can discover your skills.
                           </p>
                         </div>
@@ -1610,57 +1593,105 @@ export default function SettingsContent() {
                   transition={{ duration: 0.2 }}
                   className="space-y-6"
                 >
-                  {/* Default Location */}
+                  {/* Preferred Locations */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Default Event Location</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
-                        Set your primary region so we can automatically show events near you.
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Preferred Event Locations</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                        Add cities or regions so we can automatically show events near you.
                       </p>
                     </div>
 
-                    <div className="max-w-md space-y-2">
-                      <Label htmlFor="input-defaultCity" className="text-xs font-semibold text-zinc-300">
-                        Primary City / Region
-                      </Label>
-                      <div className="relative">
-                        <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-                        <Input
-                          id="input-defaultCity"
-                          value={settings.defaultCity}
-                          onChange={(e) => updateSetting("defaultCity", e.target.value)}
-                          placeholder="e.g. San Francisco, CA or London, UK"
-                          className="pl-10 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
-                        />
+                    <div className="max-w-md space-y-4">
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                          <Input
+                            value={cityInput}
+                            onChange={(e) => setCityInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && cityInput.trim() !== '') {
+                                e.preventDefault();
+                                const newCities = [...(settings.preferredCities || []), cityInput.trim()];
+                                updateSetting("preferredCities", newCities);
+                                setCityInput("");
+                              }
+                            }}
+                            placeholder="e.g. San Francisco, CA or London, UK"
+                            className="pl-10 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
+                          />
+                        </div>
+                        <Button 
+                          type="button" 
+                          onClick={() => {
+                            if (cityInput.trim() !== '') {
+                              const newCities = [...(settings.preferredCities || []), cityInput.trim()];
+                              updateSetting("preferredCities", newCities);
+                              setCityInput("");
+                            }
+                          }}
+                          className={`rounded-2xl px-6 ${activeAccent.bg} hover:opacity-90 transition-opacity`}
+                        >
+                          Add
+                        </Button>
                       </div>
-                    </div>
 
-                    {/* Quick city suggestions */}
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {["San Francisco, CA", "New York, NY", "London, UK", "Tokyo, JP", "Remote / Online"].map(
-                        (city) => (
-                          <button
-                            key={city}
-                            type="button"
-                            onClick={() => updateSetting("defaultCity", city)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                              settings.defaultCity === city
-                                ? `${activeAccent.badgeBg} ${activeAccent.border} ${activeAccent.text}`
-                                : "bg-zinc-800/60 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800"
-                            }`}
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {(settings.preferredCities || []).map((city, idx) => (
+                          <div 
+                            key={idx} 
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeAccent.badgeBg} ${activeAccent.border} ${activeAccent.text}`}
                           >
-                            {city}
-                          </button>
-                        )
-                      )}
+                            <span>{city}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newCities = (settings.preferredCities || []).filter((_, i) => i !== idx);
+                                updateSetting("preferredCities", newCities);
+                              }}
+                              className="opacity-70 hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        {(settings.preferredCities || []).length === 0 && (
+                          <span className="text-sm text-zinc-600 dark:text-zinc-500 italic">No preferred locations added yet.</span>
+                        )}
+                      </div>
+                      
+                      {/* Quick city suggestions */}
+                      <div className="pt-2">
+                        <Label className="text-xs font-semibold text-zinc-500 mb-2 block">
+                          Quick Suggestions
+                        </Label>
+                        <div className="flex flex-wrap gap-2">
+                          {["Jaipur", "Delhi", "Pune", "Bangalore"].map(
+                            (city) => (
+                              <button
+                                key={city}
+                                type="button"
+                                onClick={() => {
+                                  if (!(settings.preferredCities || []).includes(city)) {
+                                    updateSetting("preferredCities", [...(settings.preferredCities || []), city]);
+                                  }
+                                }}
+                                className="px-3 py-1.5 rounded-full text-xs font-medium border bg-zinc-800/60 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                              >
+                                + {city}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Favorite Event Categories */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Favorite Event Categories</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Favorite Event Categories</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Select tags to highlight relevant community meetups on your discover feed.
                       </p>
                     </div>
@@ -1692,11 +1723,77 @@ export default function SettingsContent() {
                     </div>
                   </div>
 
+                  {/* Search Preferences */}
+                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Saved Search Preferences</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                        Add keywords or tags to quickly access specific events you care about.
+                      </p>
+                    </div>
+
+                    <div className="max-w-md space-y-4">
+                      <div className="flex gap-2">
+                        <Input
+                          value={searchPrefInput}
+                          onChange={(e) => setSearchPrefInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && searchPrefInput.trim() !== '') {
+                              e.preventDefault();
+                              const newPrefs = [...(settings.searchPreferences || []), searchPrefInput.trim()];
+                              updateSetting("searchPreferences", newPrefs);
+                              setSearchPrefInput("");
+                            }
+                          }}
+                          placeholder="e.g. Hackathon, Machine Learning"
+                          className="bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
+                        />
+                        <Button 
+                          type="button" 
+                          onClick={() => {
+                            if (searchPrefInput.trim() !== '') {
+                              const newPrefs = [...(settings.searchPreferences || []), searchPrefInput.trim()];
+                              updateSetting("searchPreferences", newPrefs);
+                              setSearchPrefInput("");
+                            }
+                          }}
+                          className={`rounded-2xl px-6 ${activeAccent.bg} hover:opacity-90 transition-opacity`}
+                        >
+                          Add
+                        </Button>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {(settings.searchPreferences || []).map((pref, idx) => (
+                          <div 
+                            key={idx} 
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/60 border border-white/5 rounded-full text-xs font-medium text-zinc-300"
+                          >
+                            <span>{pref}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newPrefs = (settings.searchPreferences || []).filter((_, i) => i !== idx);
+                                updateSetting("searchPreferences", newPrefs);
+                              }}
+                              className="text-zinc-500 hover:text-white transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        {(settings.searchPreferences || []).length === 0 && (
+                          <span className="text-sm text-zinc-600 dark:text-zinc-500 italic">No search preferences added yet.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Calendar Format */}
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Calendar Export Preference</h3>
-                      <p className="text-sm text-zinc-400 mt-1">
+                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Calendar Export Preference</h3>
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                         Choose which calendar application opens when you export an event.
                       </p>
                     </div>
@@ -1723,7 +1820,7 @@ export default function SettingsContent() {
                           }`}
                         >
                           <div className="text-sm font-bold text-white">{item.label}</div>
-                          <div className="text-xs text-zinc-400 mt-1">{item.desc}</div>
+                          <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{item.desc}</div>
                         </button>
                       ))}
                     </div>
@@ -1745,11 +1842,11 @@ export default function SettingsContent() {
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                           <ShieldCheck className={`w-5 h-5 ${activeAccent.text}`} />
                           Two-Factor Authentication (2FA)
                         </h3>
-                        <p className="text-sm text-zinc-400 mt-1">
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                           Add an extra layer of security to your account with an authenticator app.
                         </p>
                       </div>
@@ -1794,8 +1891,8 @@ export default function SettingsContent() {
                   <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
-                        <h3 className="text-lg font-bold text-white">Active Browser Sessions</h3>
-                        <p className="text-sm text-zinc-400 mt-1">
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Active Browser Sessions</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                           Manage and revoke access from devices currently signed into your account.
                         </p>
                       </div>
@@ -1807,14 +1904,14 @@ export default function SettingsContent() {
                           try {
                             setActiveSessions((prev) => prev.filter((s) => s.isCurrent));
                             await profileService.logoutAllDevices();
-                            showToast("All other browser sessions have been revoked and logged out.");
+                            showToast("All other browser sessions have been logged out.");
                           } catch {
-                            showToast("Failed to revoke sessions.");
+                            showToast("Failed to log out sessions.");
                           }
                         }}
                         className="rounded-2xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white text-xs font-semibold disabled:opacity-50"
                       >
-                        Revoke All Other Sessions
+                        Log Out All Other Sessions
                       </Button>
                     </div>
 
@@ -1847,7 +1944,7 @@ export default function SettingsContent() {
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-xs text-zinc-500 mt-0.5">
+                                <div className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">
                                   {sess.location} • IP {sess.ip} • {sess.lastActive}
                                 </div>
                               </div>
@@ -1856,7 +1953,7 @@ export default function SettingsContent() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
+                              onClick={async () => {
                                 if (sess.isCurrent) {
                                   showToast("Logging out of current device...");
                                   setTimeout(() => {
@@ -1865,23 +1962,31 @@ export default function SettingsContent() {
                                     router.push("/login");
                                   }, 800);
                                 } else {
-                                  setActiveSessions((prev) => prev.filter((s) => s.id !== sess.id));
-                                  showToast(`Session (${sess.device} • ${sess.browser}) revoked and logged out successfully.`);
+                                  try {
+                                    await profileService.revokeSession(sess.id);
+                                    setActiveSessions((prev) => prev.filter((s) => s.id !== sess.id));
+                                    showToast(`Session (${sess.device} • ${sess.browser}) revoked and logged out successfully.`);
+                                  } catch (error: any) {
+                                    showToast(`Failed to revoke session: ${error.message || 'Unknown error'}`);
+                                  }
                                 }
                               }}
                               className={`text-xs ${
                                 sess.isCurrent
                                   ? "text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                                  : "text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10"
+                                  : "text-zinc-600 hover:text-rose-400 hover:bg-rose-500/10"
                               } rounded-xl gap-1.5`}
                             >
                               {sess.isCurrent ? (
                                 <>
                                   <LogOut className="w-3.5 h-3.5" />
-                                  Log Out Device
+                                  Log Out Current Device
                                 </>
                               ) : (
-                                "Revoke"
+                                <>
+                                  <LogOut className="w-3.5 h-3.5" />
+                                  Log Out Device
+                                </>
                               )}
                             </Button>
                           </div>
@@ -1890,28 +1995,8 @@ export default function SettingsContent() {
                     </div>
                   </div>
 
-                  {/* Recent Login Activity */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Activity className={`w-5 h-5 ${activeAccent.text}`} />
-                      Security Audit Log
-                    </h3>
-
-                    <div className="space-y-2 text-xs text-zinc-400">
-                      <div className="flex items-center justify-between py-2 border-b border-white/5">
-                        <span>Successful sign-in (Windows / Chrome)</span>
-                        <span className="text-zinc-500">Just now</span>
-                      </div>
-                      <div className="flex items-center justify-between py-2 border-b border-white/5">
-                        <span>Profile details updated</span>
-                        <span className="text-zinc-500">Yesterday</span>
-                      </div>
-                      <div className="flex items-center justify-between py-2">
-                        <span>Password verified</span>
-                        <span className="text-zinc-500">3 days ago</span>
-                      </div>
-                    </div>
-                  </div>
+                 
+                
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1949,8 +2034,8 @@ export default function SettingsContent() {
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Change Password</h3>
-                  <p className="text-xs text-zinc-400">
+                  <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Change Password</h3>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
                     Enter your current and new password below.
                   </p>
                 </div>
@@ -1987,7 +2072,7 @@ export default function SettingsContent() {
                   {newPassword && (
                     <div className="mt-2 space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-zinc-400">Password strength:</span>
+                        <span className="text-zinc-600 dark:text-zinc-400">Password strength:</span>
                         <span className="font-semibold text-white">
                           {getPasswordStrength(newPassword).label}
                         </span>
@@ -2073,8 +2158,8 @@ export default function SettingsContent() {
                 <AlertTriangle className="w-6 h-6" />
               </div>
 
-              <h3 className="text-xl font-extrabold text-white">Delete Account?</h3>
-              <p className="text-sm text-zinc-400 mt-2">
+              <h3 className="text-xl font-extrabold text-zinc-900 dark:text-white">Delete Account?</h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
                 This action is permanent and cannot be undone. All your profile data, RSVP badges, and event history will be removed.
               </p>
 
@@ -2164,8 +2249,8 @@ export default function SettingsContent() {
                     <QrCode className="w-6 h-6" />
                   </div>
 
-                  <h3 className="text-xl font-bold text-white">Setup Authenticator App</h3>
-                  <p className="text-sm text-zinc-400 mt-1">
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Setup Authenticator App</h3>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                     Scan this QR code with any Authenticator app (Google Authenticator, Authy, 1Password) to link <span className="text-white font-semibold">{profile?.email || "user@communityconnect.io"}</span>.
                   </p>
 
@@ -2198,7 +2283,7 @@ export default function SettingsContent() {
 
                   <div className="bg-zinc-950/80 border border-white/5 rounded-2xl p-3 mb-4 flex items-center justify-between gap-2">
                     <div className="text-left">
-                      <div className="text-[10px] uppercase font-bold text-zinc-500">Secret Key</div>
+                      <div className="text-[10px] uppercase font-bold text-zinc-600 dark:text-zinc-500">Secret Key</div>
                       <div className="font-mono text-xs text-zinc-200 font-bold tracking-wider">
                         {user2FASecret.replace(/(.{4})/g, "$1 ").trim()}
                       </div>
@@ -2254,9 +2339,9 @@ export default function SettingsContent() {
                         updateSetting("twoFactorEnabled", true);
                         updateSetting("twoFactorSecret", user2FASecret);
                         updateSetting("twoFactorBackupCodes", userBackupCodes);
-                        localStorage.setItem("cc_2fa_secret", user2FASecret);
-                        localStorage.setItem("cc_2fa_backup_codes", JSON.stringify(userBackupCodes));
-                        localStorage.setItem("cc_2fa_enabled", "true");
+                        // localStorage.setItem("cc_2fa_secret", user2FASecret);
+                        // localStorage.setItem("cc_2fa_backup_codes", JSON.stringify(userBackupCodes));
+                        // localStorage.setItem("cc_2fa_enabled", "true");
                         showToast("Two-Factor Authentication verified and enabled!");
                       } catch {
                         setIsVerifying2FA(false);
@@ -2283,8 +2368,8 @@ export default function SettingsContent() {
                     <ShieldCheck className="w-6 h-6" />
                   </div>
 
-                  <h3 className="text-xl font-bold text-white">2FA Activated Successfully!</h3>
-                  <p className="text-sm text-zinc-400 mt-2">
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">2FA Activated Successfully!</h3>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
                     Save these emergency recovery codes in a secure place (like 1Password). Each code can be used once if you lose your authenticator app.
                   </p>
 
@@ -2338,8 +2423,8 @@ export default function SettingsContent() {
                     <ShieldCheck className="w-6 h-6" />
                   </div>
 
-                  <h3 className="text-xl font-bold text-white">2FA is Enabled</h3>
-                  <p className="text-sm text-zinc-400 mt-2">
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">2FA is Enabled</h3>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
                     Your account is currently protected by an Authenticator app. You can view your emergency backup codes or turn off 2FA protection.
                   </p>
 

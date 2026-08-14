@@ -1,9 +1,15 @@
+"use client";
+
 import { Suspense } from "react";
+import Link from "next/link";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 import HomeContent from "./HomeContent";
 
 function HomeLoading() {
+  const { isDark, activeAccent } = useAppearance();
+
   return (
-    <div className="min-h-screen bg-zinc-50 overflow-hidden relative">
+    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-white" : "bg-zinc-50"} overflow-hidden relative`}>
       {/* Ambient Background Glow (Optional, matches your profile page) */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/5 via-zinc-50 to-zinc-50 pointer-events-none" />
 
@@ -59,6 +65,7 @@ function HomeLoading() {
         </div>
         
       </main>
+    
     </div>
   );
 }

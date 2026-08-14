@@ -73,7 +73,7 @@ export default function JoinStaffClient() {
   const returnUrl = `/join-staff?token=${token}`;
 
   const handleRedirectToAuth = (page: "login" | "register") => {
-    localStorage.setItem("returnUrl", returnUrl);
+    // localStorage.setItem("returnUrl", returnUrl);
     router.push(`/${page}`);
   };
 

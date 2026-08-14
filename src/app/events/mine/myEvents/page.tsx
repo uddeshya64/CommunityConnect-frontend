@@ -49,7 +49,7 @@ export default function MyEventsPage() {
       try {
         const profile = await getMyProfile();
         setUserId(profile.id);
-        localStorage.setItem("cc_user_id", String(profile.id));
+        // localStorage.setItem("cc_user_id", String(profile.id));
       } catch (err) {
         // no-op — if profile fails to load, we just won't be able to filter to "mine" yet
       }
@@ -95,7 +95,7 @@ export default function MyEventsPage() {
           bannerUrl: evt.banner_url || evt.bannerUrl || evt.banner || null,
         }));
         setEvents(formattedEvents);
-        localStorage.setItem("cc_my_events", JSON.stringify(formattedEvents));
+        // localStorage.setItem("cc_my_events", JSON.stringify(formattedEvents));
       } catch (error) {
         console.error("Failed to fetch events:", error);
       } finally {

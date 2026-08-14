@@ -1225,7 +1225,7 @@ export default function EventDetailsPage() {
                             key={filter}
                             onClick={() => setCheckInFilter(filter)}
                             type="button"
-                            className={`flex-1 md:flex-none px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${checkInFilter === filter ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"}`}
+                            className={`flex-1 md:flex-none px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${checkInFilter === filter ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"}`}
                           >
                             {filter}
                           </button>

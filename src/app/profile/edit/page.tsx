@@ -117,7 +117,7 @@ export default function EditProfilePage() {
 
         const data = await profileService.getMyProfile();
         const profileData = data as any;
-        localStorage.setItem("cc_user_profile", JSON.stringify(profileData));
+        // localStorage.setItem("cc_user_profile", JSON.stringify(profileData));
 
         const existingSkills = Array.isArray(profileData.skills)
           ? profileData.skills
@@ -295,7 +295,7 @@ export default function EditProfilePage() {
       };
 
       await profileService.updateMyProfile(payload);
-      localStorage.setItem("profile_completed", "true");
+      // localStorage.setItem("profile_completed", "true");
       setSuccessMsg("Profile updated successfully!");
       showSuccess("Profile updated successfully!");
 
@@ -488,7 +488,7 @@ export default function EditProfilePage() {
 
                 {/* Basic Info Inputs */}
                 <div className="flex-1 w-full space-y-6">
-                  <h2 className={`text-lg font-bold ${isDark ? "text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
+                  <h2 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
                     <User className={`w-5 h-5 ${isDark ? "text-indigo-400" : "text-zinc-900"}`} />
                     Basic Information
                   </h2>
@@ -544,7 +544,7 @@ export default function EditProfilePage() {
               transition={{ duration: 0.4, delay: 0.1 }}
               className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border space-y-6`}
             >
-              <h2 className={`text-lg font-bold ${isDark ? "text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
+              <h2 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
                 <Briefcase className={`w-5 h-5 ${isDark ? "text-indigo-400" : "text-zinc-900"}`} />
                 Professional Details
               </h2>
@@ -633,7 +633,7 @@ export default function EditProfilePage() {
                 <div className="flex justify-end">
                   <span
                     className={`text-xs ${
-                      bioValue.length >= 300 ? "text-red-400 font-bold" : "text-zinc-500"
+                      bioValue.length >= 300 ? "text-red-400 font-bold" : "text-zinc-600"
                     }`}
                   >
                     {bioValue.length}/300
@@ -649,7 +649,7 @@ export default function EditProfilePage() {
               transition={{ duration: 0.4, delay: 0.2 }}
               className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border space-y-6`}
             >
-              <h2 className={`text-lg font-bold ${isDark ? "text-white border-white/5" : "text-zinc-900 border-zinc-200"} border-b pb-3`}>
+              <h2 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white border-white/5" : "text-zinc-900 border-zinc-200"} border-b pb-3`}>
                 Skills & Expertise
               </h2>
 
@@ -675,7 +675,7 @@ export default function EditProfilePage() {
 
               <div className="min-h-[60px] bg-zinc-950/30 rounded-xl border border-dashed border-white/10 p-4 flex flex-wrap gap-2 items-center">
                 {skills.length === 0 ? (
-                  <p className="text-sm text-zinc-500 italic w-full text-center">
+                  <p className="text-sm text-zinc-600 dark:text-zinc-500 italic w-full text-center">
                     No skills added yet. Add some above!
                   </p>
                 ) : (
@@ -707,7 +707,7 @@ export default function EditProfilePage() {
               transition={{ duration: 0.4, delay: 0.3 }}
               className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border space-y-6`}
             >
-              <h2 className={`text-lg font-bold ${isDark ? "text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
+              <h2 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
                 <LinkIcon className={`w-5 h-5 ${isDark ? "text-indigo-400" : "text-zinc-900"}`} />
                 Links & Socials
               </h2>

@@ -52,23 +52,24 @@ export default function Home() {
           </span>
         </h1>
         
-        <p className={`text-base sm:text-lg md:text-xl ${isDark ? "text-zinc-400" : "text-zinc-500"} max-w-2xl font-medium px-2`}>
+        <p className={`text-base sm:text-lg md:text-xl ${isDark ? "text-zinc-400" : "text-zinc-600"} max-w-2xl font-medium px-2`}>
           Discover, register, and manage your next hackathon, workshop, or local tech meetup all in one beautiful place.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-6 sm:pt-8 w-full sm:w-auto px-4 sm:px-0">
-          <Link href="/events" className="w-full sm:w-auto">
+          <Link href="/login" className="w-full sm:w-auto">
             <Button size="lg" className={`w-full rounded-full ${activeAccent.bg} text-white hover:opacity-90 shadow-md ${activeAccent.shadow} px-8 py-5 sm:py-6 text-base sm:text-lg font-semibold transition-all hover:scale-105`}>
               Explore Events
             </Button>
           </Link>
-          <Link href="/register" className="w-full sm:w-auto">
+          <Link href="/login" className="w-full sm:w-auto">
             <Button variant="outline" size="lg" className={`w-full rounded-full px-8 py-5 sm:py-6 text-base sm:text-lg font-semibold ${isDark ? "border-white/10 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-200" : "border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"} shadow-sm transition-all hover:scale-105`}>
               Host an Event
             </Button>
           </Link>
         </div>
       </main>
+
     </div>
     </PageTransition>
   );

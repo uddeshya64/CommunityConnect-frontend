@@ -98,38 +98,19 @@ function LoginContent() {
       setServerError("");
       const result = await login(data.email, data.password);
 
-      const settings = (result as any).user_settings || (() => {
-        try {
-          const stored = localStorage.getItem("cc_user_settings");
-          return stored ? JSON.parse(stored) : {};
-        } catch {
-          return {};
-        }
-      })();
+      const settings = (result as any).user_settings || {};
 
-      const is2FAEnabled =
-        settings.twoFactorEnabled === true ||
-        localStorage.getItem("cc_2fa_enabled") === "true";
+      const is2FAEnabled = Boolean(settings.twoFactorEnabled);
 
       if (is2FAEnabled) {
-        const secret =
-          settings.twoFactorSecret ||
-          localStorage.getItem("cc_2fa_secret") ||
-          "JBSWY3DPEHPK3PXP";
-
-        let backupCodes = settings.twoFactorBackupCodes;
-        if (!backupCodes) {
-          try {
-            const storedCodes = localStorage.getItem("cc_2fa_backup_codes");
-            if (storedCodes) backupCodes = JSON.parse(storedCodes);
-          } catch {
-            // Ignore parse error
-          }
-        }
+        const secret = settings.twoFactorSecret || "JBSWY3DPEHPK3PXP";
+        const backupCodes = Array.isArray(settings.twoFactorBackupCodes) 
+          ? settings.twoFactorBackupCodes 
+          : [];
 
         setPending2FAData({
           secret,
-          backupCodes: Array.isArray(backupCodes) ? backupCodes : [],
+          backupCodes,
         });
 
         setPendingTokens({

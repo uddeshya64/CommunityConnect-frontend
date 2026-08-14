@@ -51,11 +51,13 @@ interface AppEvent {
 
 interface UserPreferences {
   favoriteCategories: string[];
-  defaultCity: string;
+  preferredCities: string[];
+  defaultCity?: string;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   favoriteCategories: ["Technical Conferences", "Hackathons and Competitions"],
+  preferredCities: [],
   defaultCity: "Global",
 };
 
@@ -130,7 +132,7 @@ export default function DiscoverContent() {
               Array.isArray(parsed.favoriteCategories) && parsed.favoriteCategories.length > 0
                 ? parsed.favoriteCategories
                 : DEFAULT_PREFERENCES.favoriteCategories,
-            defaultCity: parsed.defaultCity || DEFAULT_PREFERENCES.defaultCity,
+            preferredCities: Array.isArray(parsed.preferredCities) ? parsed.preferredCities : DEFAULT_PREFERENCES.preferredCities,
           });
         }
       } catch { }
@@ -159,6 +161,7 @@ export default function DiscoverContent() {
             Array.isArray(setts.favoriteCategories) && setts.favoriteCategories.length > 0
               ? setts.favoriteCategories
               : DEFAULT_PREFERENCES.favoriteCategories;
+          const newCities = Array.isArray((setts as any).preferredCities) ? (setts as any).preferredCities : DEFAULT_PREFERENCES.preferredCities;
           const newCity =
             setts.defaultCity ||
             (profile.status === "fulfilled" ? profile.value?.location : null) ||
@@ -166,14 +169,10 @@ export default function DiscoverContent() {
 
           setPreferences({
             favoriteCategories: newFavs,
+            preferredCities: newCities,
             defaultCity: newCity,
           });
-          if (!cityInput) setCityInput(newCity);
-
-          localStorage.setItem(
-            "cc_user_settings",
-            JSON.stringify({ ...setts, favoriteCategories: newFavs, defaultCity: newCity })
-          );
+          if (!cityInput && newCity) setCityInput(newCity);
         }
       } catch (err) {
         console.warn("Discover: Using cached preferences", err);
@@ -241,11 +240,11 @@ export default function DiscoverContent() {
 
   // 5. Smart Multi-Dimensional Scoring Engine (Skills Match + Category Match + Location Match)
   const scoredEvents = useMemo(() => {
-    const effectiveCity = userProfileLocation || preferences.defaultCity;
-    const userCityParts = effectiveCity
-      .toLowerCase()
-      .split(/[\s,]+/)
-      .filter((p) => p.length > 2);
+    const effectiveCity = userProfileLocation || preferences.defaultCity || "";
+    const userCityParts = [
+      ...(preferences.preferredCities || []).flatMap(city => city.toLowerCase().split(/[\s,]+/)),
+      ...effectiveCity.toLowerCase().split(/[\s,]+/)
+    ].filter((p) => p.length > 2);
 
     return events.map((event) => {
       // A. Category Matching
@@ -503,8 +502,9 @@ export default function DiscoverContent() {
 
   return (
     <div
-      className={`min-h-screen ${isDark ? "bg-zinc-950 text-white" : "bg-zinc-50 text-zinc-900"
-        } flex flex-col md:flex-row relative`}
+      className={`min-h-screen ${
+        isDark ? "bg-zinc-950 text-white" : "bg-zinc-50 text-zinc-900"
+      } flex flex-col md:flex-row relative`}
     >
       {/* Background Ambient Glow */}
       <div
@@ -546,10 +546,11 @@ export default function DiscoverContent() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by title, tag, topic, or city..."
-              className={`pl-10 rounded-2xl h-11 text-sm font-medium ${isDark
+              className={`pl-10 rounded-2xl h-11 text-sm font-medium ${
+                isDark
                   ? "bg-zinc-900/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-700"
                   : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-300"
-                } shadow-xs`}
+              } shadow-xs`}
             />
           </div>
         </div>
@@ -660,6 +661,7 @@ export default function DiscoverContent() {
                 <span>{isCustomizerOpen ? "Close Controls" : "Customize Filters"}</span>
                 {isCustomizerOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </Button>
+            </div>
             </div>
           </div>
 
