@@ -15,6 +15,7 @@ import {
   Tag,
   Users,
   Settings as SettingsIcon,
+<<<<<<< HEAD
   Zap,
   Code2,
   Plus,
@@ -24,6 +25,9 @@ import {
   Loader2,
   Check,
   CheckCircle2,
+=======
+  Bookmark
+>>>>>>> origin/Anjali/dev
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { eventService } from "@/services/event.service";
 import { profileService } from "@/services/profile.service";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
 import NotificationPromptPopup from "@/components/NotificationPromptPopup";
@@ -46,7 +51,11 @@ interface AppEvent {
   description?: string;
   mode?: string;
   keywords?: string;
+<<<<<<< HEAD
   tags?: string[];
+=======
+  is_saved?: boolean;
+>>>>>>> origin/Anjali/dev
 }
 
 interface UserPreferences {
@@ -212,7 +221,11 @@ export default function DiscoverContent() {
           description: evt.description || "",
           mode: evt.mode || "in-person",
           keywords: evt.custom_fields?.keywords || evt.keywords || "",
+<<<<<<< HEAD
           tags: Array.isArray(evt.tags) ? evt.tags : [],
+=======
+          is_saved: evt.is_saved || false,
+>>>>>>> origin/Anjali/dev
         }));
 
         setEvents(mapped);
@@ -227,6 +240,7 @@ export default function DiscoverContent() {
     fetchEvents();
   }, []);
 
+<<<<<<< HEAD
   // 3. Dynamic Categories extracted from live events + standard categories
   const dynamicCategories = useMemo(() => {
     const cats = new Set<string>(STANDARD_CATEGORIES_POOL);
@@ -239,6 +253,29 @@ export default function DiscoverContent() {
   }, [events]);
 
   // 5. Smart Multi-Dimensional Scoring Engine (Skills Match + Category Match + Location Match)
+=======
+  const handleToggleSave = async (e: React.MouseEvent, eventId: string, currentSavedState: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Optimistic UI update
+    setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, is_saved: !currentSavedState } : ev));
+
+    try {
+      if (currentSavedState) {
+        await eventService.unsaveEvent(eventId);
+      } else {
+        await eventService.saveEvent(eventId);
+      }
+    } catch (err) {
+      console.error("Failed to toggle save event:", err);
+      // Revert on failure
+      setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, is_saved: currentSavedState } : ev));
+    }
+  };
+
+  // Calculate preference matches for events
+>>>>>>> origin/Anjali/dev
   const scoredEvents = useMemo(() => {
     const effectiveCity = userProfileLocation || preferences.defaultCity || "";
     const userCityParts = [
@@ -504,6 +541,7 @@ export default function DiscoverContent() {
     <div
       className={`min-h-screen ${
         isDark ? "bg-zinc-950 text-white" : "bg-zinc-50 text-zinc-900"
+<<<<<<< HEAD
       } flex flex-col md:flex-row relative`}
     >
       {/* Background Ambient Glow */}
@@ -519,6 +557,22 @@ export default function DiscoverContent() {
 
       {/* Main Discover Content */}
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 w-full min-w-0 overflow-x-hidden">
+=======
+      }`}
+    >
+      <AppLayout>
+        {/* Background Ambient Glow */}
+        <div
+          className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${
+            isDark
+              ? "from-indigo-900/20 via-zinc-950 to-zinc-950"
+              : "from-indigo-200/40 via-zinc-50 to-zinc-50"
+          } pointer-events-none`}
+        />
+
+        {/* Main Discover Content */}
+        <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 w-full">
+>>>>>>> origin/Anjali/dev
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
@@ -1064,6 +1118,7 @@ export default function DiscoverContent() {
                           {event.category || "Tech Event"}
                         </div>
 
+<<<<<<< HEAD
                         {/* Recommendation Match Badge - Top Right */}
                         <div className="absolute top-4 right-4 z-10">
                           {event.matchScore >= 4 ? (
@@ -1073,6 +1128,13 @@ export default function DiscoverContent() {
                           ) : event.isSkillMatch ? (
                             <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${activeAccent.badgeBg} ${activeAccent.text} border border-current/20 backdrop-blur-md shadow-xs flex items-center gap-1`}>
                               <Zap className="w-3 h-3" /> Skill Match
+=======
+                        {/* Preference Match & Save Badge - Top Right */}
+                        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                          {event.matchScore === 3 ? (
+                            <span className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg flex items-center gap-1">
+                              ★ Perfect Match
+>>>>>>> origin/Anjali/dev
                             </span>
                           ) : event.isCategoryMatch ? (
                             <span
@@ -1090,12 +1152,36 @@ export default function DiscoverContent() {
 
                       {/* EVENT DETAILS */}
                       <div className="p-5 flex-1 flex flex-col">
+<<<<<<< HEAD
                         <h3
                           className={`text-xl font-bold ${isDark ? "text-white" : "text-zinc-900"
                             } mb-3 group-hover:${activeAccent.text} transition-colors line-clamp-2 leading-tight`}
                         >
                           {event.title}
                         </h3>
+=======
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <h3
+                            className={`text-xl font-bold ${
+                              isDark ? "text-white" : "text-zinc-900"
+                            } group-hover:${activeAccent.text} transition-colors line-clamp-2`}
+                          >
+                            {event.title}
+                          </h3>
+                          <button
+                            onClick={(e) => handleToggleSave(e, event.id, !!event.is_saved)}
+                            className={`p-2 shrink-0 rounded-full transition-all ${
+                              event.is_saved
+                                ? `bg-gradient-to-r ${activeAccent.gradient} text-white shadow-md`
+                                : isDark
+                                ? "bg-zinc-800/80 text-zinc-400 hover:text-white hover:bg-zinc-700"
+                                : "bg-zinc-100 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200"
+                            }`}
+                          >
+                            <Bookmark className={`w-4 h-4 ${event.is_saved ? "fill-current" : ""}`} />
+                          </button>
+                        </div>
+>>>>>>> origin/Anjali/dev
 
                         {/* Interactive Session Tag Bubbles */}
                         {cardTags.length > 0 && (
@@ -1172,7 +1258,11 @@ export default function DiscoverContent() {
 
       {/* Prompts */}
       <ProfilePromptPopup />
+<<<<<<< HEAD
       <NotificationPromptPopup />
+=======
+      </AppLayout>
+>>>>>>> origin/Anjali/dev
     </div>
   );
 }

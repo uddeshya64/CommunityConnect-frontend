@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { notificationService, NotificationItem } from "@/services/notification.service";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
@@ -360,6 +361,7 @@ function NotificationsPageContent() {
 
         </main>
       </div>
+      </AppLayout>
     </div>
   );
 }

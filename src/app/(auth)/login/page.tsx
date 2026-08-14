@@ -100,7 +100,12 @@ function LoginContent() {
 
       const settings = (result as any).user_settings || {};
 
-      const is2FAEnabled = Boolean(settings.twoFactorEnabled);
+      let is2FAEnabled = false;
+      if (typeof settings.twoFactorEnabled === "boolean") {
+        is2FAEnabled = settings.twoFactorEnabled;
+      } else {
+        is2FAEnabled = localStorage.getItem("cc_2fa_enabled") === "true";
+      }
 
       if (is2FAEnabled) {
         const secret = settings.twoFactorSecret || "JBSWY3DPEHPK3PXP";

@@ -20,6 +20,7 @@ import { eventService } from "@/services/event.service";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
 import NotificationPromptPopup from "@/components/NotificationPromptPopup";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { useMyProfile } from "@/hooks/profileHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
@@ -572,33 +573,9 @@ export default function HomeContent() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative flex flex-col md:flex-row transition-colors duration-300`}>
-
-      {/* ============================================
-          SIDEBAR
-      ============================================ */}
-
-      <Sidebar />
-
-      {/* ============================================
-          PROFILE AVATAR
-      ============================================ */}
-
-      <ProfileAvatar
-        profile={{
-          id: userId,
-          name:
-            userName ||
-            "Community Member",
-          avatarUrl,
-        }}
-      />
-
-      {/* ============================================
-          MAIN CONTENT
-      ============================================ */}
-
-      <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
+    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} transition-colors duration-300`}>
+      <AppLayout>
+        <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
 
         {/* ============================================
             BACKGROUND EFFECTS
@@ -994,7 +971,6 @@ export default function HomeContent() {
             )}
 
         </main>
-  
       {/* Footer */}
       <footer className={`relative z-10 mt-32 pt-16 pb-8 px-4 sm:px-6 w-full border-t ${isDark ? "bg-zinc-950/80 border-white/10" : "bg-zinc-100/50 border-zinc-200"}`}>
         <div className="max-w-6xl mx-auto">
@@ -1035,7 +1011,7 @@ export default function HomeContent() {
         </div>
       </footer>
       </div>
-
+    </AppLayout>
     </div>
   );
 }

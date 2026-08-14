@@ -132,6 +132,7 @@ export default function SelectTemplatePage() {
           </div>
         )}
       </main>
+      </AppLayout>
     </div>
   );
 }

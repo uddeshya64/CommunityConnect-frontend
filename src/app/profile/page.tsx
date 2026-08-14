@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { profileService } from "@/services/profile.service";
 import { Profile } from "@/types/profile.types";
 import PageTransition from "@/components/layout/PageTransition";
+import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
@@ -267,18 +268,27 @@ export default function MyProfilePage() {
     return (
         <PageTransition>
             <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative overflow-hidden transition-colors duration-300`}>
-                {/* Background */}
-                <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
+                <AppLayout>
+                    <div className="flex-1 pb-24 relative overflow-hidden">
+                        {/* Background */}
+                        <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
 
-                {/* Top Nav */}
-                <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/60 border-white/5" : "bg-white/70 border-zinc-200"}`}>
-                    <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
-                        <Link
-                            href="/home"
-                            className={`flex items-center gap-2 text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-950"} transition-colors`}
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Back
+                <main className="max-w-3xl mx-auto px-6 pt-6 pb-20 relative z-10">
+                    {/* Header Action Bar: Back button + Profile controls */}
+                    <div className="flex items-center justify-between gap-4 mb-6">
+                        <Link href="/home">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={`rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all hover:scale-105 shadow-sm gap-2 ${
+                                    isDark
+                                        ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
+                                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                                }`}
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                <span>Back</span>
+                            </Button>
                         </Link>
 
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -304,9 +314,6 @@ export default function MyProfilePage() {
                             </Link>
                         </div>
                     </div>
-                </nav>
-
-                <main className="max-w-3xl mx-auto px-6 pt-10 pb-20 relative z-10">
                     {/* HERO */}
                     <motion.div
                         initial={{
@@ -630,6 +637,8 @@ export default function MyProfilePage() {
                         )}
                     </div>
                 </main>
+                    </div>
+                </AppLayout>
             </div>
         </PageTransition>
     );

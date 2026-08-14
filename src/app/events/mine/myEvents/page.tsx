@@ -7,6 +7,7 @@ import { MapPin, Calendar, CalendarPlus, Compass, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { eventService } from "@/services/event.service";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { useMyProfile } from "@/hooks/profileHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
@@ -112,10 +113,9 @@ export default function MyEventsPage() {
   }, [events, userId]);
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative flex flex-col md:flex-row transition-colors duration-300`}>
-      <Sidebar />
-
-      <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
+    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} transition-colors duration-300`}>
+      <AppLayout>
+        <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
         <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[150px] pointer-events-none" />
         <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-rose-500/10 blur-[150px] pointer-events-none" />
 
@@ -228,6 +228,7 @@ export default function MyEventsPage() {
           )}
         </main>
       </div>
+      </AppLayout>
     </div>
   );
 }

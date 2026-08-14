@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { verify2FACode, generateUniqueSecretKey, generateUniqueBackupCodes } from "@/lib/totp";
 import { EVENT_TEMPLATES } from "@/lib/eventTemplates";
+import AppLayout from "@/components/layout/AppLayout";
 import {
   Settings as SettingsIcon,
   User,
@@ -2453,6 +2454,8 @@ export default function SettingsContent() {
           </motion.div>
         )}
       </AnimatePresence>
+        </div>
+      </AppLayout>
     </div>
   );
 }
