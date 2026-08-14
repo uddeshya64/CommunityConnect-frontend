@@ -8,6 +8,7 @@ import {
   Home,
   Compass,
   CalendarDays,
+  CalendarCheck,
   Bookmark,
   Bell,
   PlusCircle,
@@ -35,17 +36,37 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/home", icon: Home },
   { label: "Discover", href: "/discover", icon: Compass },
   { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
-  { label: "Saved", href: "/saved", icon: Bookmark, disabled: true },
-  { label: "Notifications", href: "/notifications", icon: Bell },
+  { label: "Agenda", href: "/agenda", icon: CalendarCheck },
+  { label: "Saved", href: "/events/saved", icon: Bookmark },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  collapsed?: boolean;
+  setCollapsed?: React.Dispatch<React.SetStateAction<boolean>>;
+  mobileOpen?: boolean;
+  setMobileOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export default function Sidebar({
+  collapsed: propCollapsed,
+  setCollapsed: propSetCollapsed,
+  mobileOpen: propMobileOpen,
+  setMobileOpen: propSetMobileOpen,
+}: SidebarProps = {}) {
   const { isDark, activeAccent } = useAppearance();
   const pathname = usePathname();
   const router = useRouter();
   const [userName, setUserName] = useState("");
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  
+  const [internalMobileOpen, setInternalMobileOpen] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+
+  const mobileOpen = propMobileOpen ?? internalMobileOpen;
+  const setMobileOpen = propSetMobileOpen ?? setInternalMobileOpen;
+
+  const collapsed = propCollapsed ?? internalCollapsed;
+  const setCollapsed = propSetCollapsed ?? setInternalCollapsed;
+
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const { getMyProfile } = useMyProfile();
@@ -132,13 +153,13 @@ export default function Sidebar() {
                   } ${
                     isActive
                       ? `${activeAccent.text} font-bold`
-                      : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"}`
+                      : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"}`
                   }`}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="sidebar-active-pill"
-                      className={`absolute inset-0 rounded-full ${isDark ? "bg-white/10" : "bg-indigo-50"} ${activeAccent.border} shadow-sm`}
+                      className={`absolute inset-0 rounded-full ${isDark ? "bg-white/10" : activeAccent.badgeBg} ${activeAccent.border} shadow-sm`}
                       transition={{ type: "spring", stiffness: 350, damping: 30 }}
                     />
                   )}
@@ -174,8 +195,8 @@ export default function Sidebar() {
               isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
             } ${
               pathname === "/settings"
-                ? `${activeAccent.text} font-bold ${isDark ? "bg-white/10" : "bg-indigo-50"} ${activeAccent.border}`
-                : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"}`
+                ? `${activeAccent.text} font-bold ${isDark ? "bg-white/10" : activeAccent.badgeBg} ${activeAccent.border}`
+                : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"}`
             }`}
           >
             <Settings className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
@@ -195,6 +216,7 @@ export default function Sidebar() {
           <LogOut className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
           {!isCollapsed && "Log out"}
         </button>
+      
       </div>
     </div>
   );
@@ -216,31 +238,6 @@ export default function Sidebar() {
       >
         {renderSidebarContent(collapsed)}
       </motion.aside>
-
-      {/* Mobile top bar trigger */}
-      <div className={`md:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-16 ${isDark ? "bg-zinc-950/80 border-white/5 text-white" : "bg-white/70 border-zinc-200/50 text-zinc-900"} backdrop-blur-xl border-b transition-colors duration-300`}>
-        {/* Left: Hamburger menu */}
-        <button
-          onClick={() => setMobileOpen(true)}
-          className={`w-9 h-9 rounded-full flex items-center justify-center ${isDark ? "text-zinc-400 hover:bg-white/5" : "text-zinc-600 hover:bg-zinc-100"} transition-colors relative z-10`}
-          title="Open menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-
-        {/* Center: Centered Logo */}
-        <div className="absolute inset-x-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
-          <Link href="/home" className={`flex items-center gap-2 font-extrabold text-lg ${isDark ? "text-white" : "text-zinc-900"} pointer-events-auto`}>
-            <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center`}>
-              <span className="text-white text-[10px] font-black">CC</span>
-            </div>
-            Circle
-          </Link>
-        </div>
-
-        {/* Right: Placeholder to keep space clear for the fixed floating profile avatar */}
-        <div className="w-9 h-9 shrink-0" />
-      </div>
 
       {/* Mobile drawer — always renders expanded, regardless of desktop collapsed state */}
       <AnimatePresence>
@@ -298,7 +295,7 @@ export default function Sidebar() {
                 </div>
 
                 <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} mb-2`}>Log out?</h2>
-                <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium mb-6`}>
+                <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-600"} font-medium mb-6`}>
                   Are you sure you want to log out of your account? You&apos;ll need to sign in again to continue.
                 </p>
 

@@ -7,6 +7,7 @@ import { MapPin, Calendar, CalendarPlus, Compass, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { eventService } from "@/services/event.service";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { useMyProfile } from "@/hooks/profileHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
@@ -40,9 +41,17 @@ export default function MyEventsPage() {
   const { getMyProfile } = useMyProfile();
 
   useEffect(() => {
-    const cachedUserId = localStorage.getItem("cc_user_id");
-    if (cachedUserId) {
-      setUserId(Number(cachedUserId));
+    const cachedProfile = localStorage.getItem("cc_user_profile");
+    if (cachedProfile) {
+      try {
+        const prof = JSON.parse(cachedProfile);
+        if (prof?.id) setUserId(Number(prof.id));
+      } catch (e) {}
+    } else {
+      const cachedUserId = localStorage.getItem("cc_user_id");
+      if (cachedUserId) {
+        setUserId(Number(cachedUserId));
+      }
     }
 
     const fetchProfile = async () => {
@@ -50,9 +59,7 @@ export default function MyEventsPage() {
         const profile = await getMyProfile();
         setUserId(profile.id);
         localStorage.setItem("cc_user_id", String(profile.id));
-      } catch (err) {
-        // no-op — if profile fails to load, we just won't be able to filter to "mine" yet
-      }
+      } catch (err) {}
     };
     fetchProfile();
   }, []);
@@ -95,7 +102,7 @@ export default function MyEventsPage() {
           bannerUrl: evt.banner_url || evt.bannerUrl || evt.banner || null,
         }));
         setEvents(formattedEvents);
-        localStorage.setItem("cc_my_events", JSON.stringify(formattedEvents));
+        // localStorage.setItem("cc_my_events", JSON.stringify(formattedEvents));
       } catch (error) {
         console.error("Failed to fetch events:", error);
       } finally {
@@ -112,10 +119,9 @@ export default function MyEventsPage() {
   }, [events, userId]);
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative flex flex-col md:flex-row transition-colors duration-300`}>
-      <Sidebar />
-
-      <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
+    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} transition-colors duration-300`}>
+      <AppLayout>
+        <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
         <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[150px] pointer-events-none" />
         <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-rose-500/10 blur-[150px] pointer-events-none" />
 
@@ -177,13 +183,20 @@ export default function MyEventsPage() {
           )}
 
           {!isLoading && myEvents.length > 0 && (
-            <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
               {myEvents.map((event, index) => {
                 const gradients = ["from-blue-500 to-cyan-400", "from-indigo-500 to-purple-600", "from-rose-500 to-orange-400", "from-emerald-400 to-teal-500"];
                 const randomGradient = gradients[index % gradients.length];
 
                 return (
-                  <motion.div key={event.id} variants={itemVariants}>
+                  <motion.div
+                    key={event.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                  >
                     <Link href={`/events/${event.id}`}>
                       <div className={`group ${isDark ? "bg-zinc-900/60 border-white/10 hover:border-white/20" : "bg-white border-zinc-200 hover:border-zinc-300"} rounded-3xl p-3 border transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 cursor-pointer relative overflow-hidden h-full flex flex-col`}>
                         <div
@@ -228,6 +241,7 @@ export default function MyEventsPage() {
           )}
         </main>
       </div>
+      </AppLayout>
     </div>
   );
 }

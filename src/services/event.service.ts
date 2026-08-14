@@ -77,5 +77,25 @@ export const eventService = {
   submitRegistrationForm: async (registrationId: number | string, formResponses: Record<string, any>) => {
     const response = await api.post(`/registrations/${registrationId}/form`, { formResponses });
     return response.data;
+  },
+
+  // Save an event
+  saveEvent: async (eventId: string | number) => {
+    const response = await api.post(`/events/${eventId}/save`);
+    return response.data;
+  },
+
+  // Unsave an event
+  unsaveEvent: async (eventId: string | number) => {
+    const response = await api.delete(`/events/${eventId}/save`);
+    return response.data;
+  },
+
+  // Get saved events
+  getSavedEvents: async (params?: { page?: number; limit?: number }) => {
+    const limit = params?.limit || 100;
+    const page = params?.page || 1;
+    const response = await api.get(`/events/saved?page=${page}&limit=${limit}`);
+    return response.data;
   }
 };

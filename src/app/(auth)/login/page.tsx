@@ -98,38 +98,24 @@ function LoginContent() {
       setServerError("");
       const result = await login(data.email, data.password);
 
-      const settings = (result as any).user_settings || (() => {
-        try {
-          const stored = localStorage.getItem("cc_user_settings");
-          return stored ? JSON.parse(stored) : {};
-        } catch {
-          return {};
-        }
-      })();
+      const settings = (result as any).user_settings || {};
 
-      const is2FAEnabled =
-        settings.twoFactorEnabled === true ||
-        localStorage.getItem("cc_2fa_enabled") === "true";
+      let is2FAEnabled = false;
+      if (typeof settings.twoFactorEnabled === "boolean") {
+        is2FAEnabled = settings.twoFactorEnabled;
+      } else {
+        is2FAEnabled = localStorage.getItem("cc_2fa_enabled") === "true";
+      }
 
       if (is2FAEnabled) {
-        const secret =
-          settings.twoFactorSecret ||
-          localStorage.getItem("cc_2fa_secret") ||
-          "JBSWY3DPEHPK3PXP";
-
-        let backupCodes = settings.twoFactorBackupCodes;
-        if (!backupCodes) {
-          try {
-            const storedCodes = localStorage.getItem("cc_2fa_backup_codes");
-            if (storedCodes) backupCodes = JSON.parse(storedCodes);
-          } catch {
-            // Ignore parse error
-          }
-        }
+        const secret = settings.twoFactorSecret || "JBSWY3DPEHPK3PXP";
+        const backupCodes = Array.isArray(settings.twoFactorBackupCodes) 
+          ? settings.twoFactorBackupCodes 
+          : [];
 
         setPending2FAData({
           secret,
-          backupCodes: Array.isArray(backupCodes) ? backupCodes : [],
+          backupCodes,
         });
 
         setPendingTokens({
@@ -385,7 +371,7 @@ function LoginContent() {
                         onClick={() =>
                           setShowLoginPassword(!showLoginPassword)
                         }
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
                       >
                         {showLoginPassword ? (
                           <EyeOff className="h-5 w-5" />

@@ -24,6 +24,7 @@ import {
   Loader2,
   Check,
   CheckCircle2,
+  Bookmark
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { eventService } from "@/services/event.service";
 import { profileService } from "@/services/profile.service";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
 import NotificationPromptPopup from "@/components/NotificationPromptPopup";
@@ -47,15 +49,18 @@ interface AppEvent {
   mode?: string;
   keywords?: string;
   tags?: string[];
+  is_saved?: boolean;
 }
 
 interface UserPreferences {
   favoriteCategories: string[];
-  defaultCity: string;
+  preferredCities: string[];
+  defaultCity?: string;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   favoriteCategories: ["Technical Conferences", "Hackathons and Competitions"],
+  preferredCities: [],
   defaultCity: "Global",
 };
 
@@ -130,7 +135,7 @@ export default function DiscoverContent() {
               Array.isArray(parsed.favoriteCategories) && parsed.favoriteCategories.length > 0
                 ? parsed.favoriteCategories
                 : DEFAULT_PREFERENCES.favoriteCategories,
-            defaultCity: parsed.defaultCity || DEFAULT_PREFERENCES.defaultCity,
+            preferredCities: Array.isArray(parsed.preferredCities) ? parsed.preferredCities : DEFAULT_PREFERENCES.preferredCities,
           });
         }
       } catch { }
@@ -159,6 +164,7 @@ export default function DiscoverContent() {
             Array.isArray(setts.favoriteCategories) && setts.favoriteCategories.length > 0
               ? setts.favoriteCategories
               : DEFAULT_PREFERENCES.favoriteCategories;
+          const newCities = Array.isArray((setts as any).preferredCities) ? (setts as any).preferredCities : DEFAULT_PREFERENCES.preferredCities;
           const newCity =
             setts.defaultCity ||
             (profile.status === "fulfilled" ? profile.value?.location : null) ||
@@ -166,14 +172,10 @@ export default function DiscoverContent() {
 
           setPreferences({
             favoriteCategories: newFavs,
+            preferredCities: newCities,
             defaultCity: newCity,
           });
-          if (!cityInput) setCityInput(newCity);
-
-          localStorage.setItem(
-            "cc_user_settings",
-            JSON.stringify({ ...setts, favoriteCategories: newFavs, defaultCity: newCity })
-          );
+          if (!cityInput && newCity) setCityInput(newCity);
         }
       } catch (err) {
         console.warn("Discover: Using cached preferences", err);
@@ -214,6 +216,7 @@ export default function DiscoverContent() {
           mode: evt.mode || "in-person",
           keywords: evt.custom_fields?.keywords || evt.keywords || "",
           tags: Array.isArray(evt.tags) ? evt.tags : [],
+          is_saved: evt.is_saved || false,
         }));
 
         setEvents(mapped);
@@ -239,13 +242,31 @@ export default function DiscoverContent() {
     return Array.from(cats);
   }, [events]);
 
-  // 5. Smart Multi-Dimensional Scoring Engine (Skills Match + Category Match + Location Match)
+  const handleToggleSave = async (e: React.MouseEvent, eventId: string, currentSavedState: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Optimistic UI update
+    setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, is_saved: !currentSavedState } : ev));
+
+    try {
+      if (currentSavedState) {
+        await eventService.unsaveEvent(eventId);
+      } else {
+        await eventService.saveEvent(eventId);
+      }
+    } catch (err) {
+      console.error("Failed to toggle save event:", err);
+      // Revert on failure
+      setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, is_saved: currentSavedState } : ev));
+    }
+  };
   const scoredEvents = useMemo(() => {
-    const effectiveCity = userProfileLocation || preferences.defaultCity;
-    const userCityParts = effectiveCity
-      .toLowerCase()
-      .split(/[\s,]+/)
-      .filter((p) => p.length > 2);
+    const effectiveCity = userProfileLocation || preferences.defaultCity || "";
+    const userCityParts = [
+      ...(preferences.preferredCities || []).flatMap(city => city.toLowerCase().split(/[\s,]+/)),
+      ...effectiveCity.toLowerCase().split(/[\s,]+/)
+    ].filter((p) => p.length > 2);
 
     return events.map((event) => {
       // A. Category Matching
@@ -500,25 +521,25 @@ export default function DiscoverContent() {
       </div>
     );
   }
-
   return (
     <div
-      className={`min-h-screen ${isDark ? "bg-zinc-950 text-white" : "bg-zinc-50 text-zinc-900"
-        } flex flex-col md:flex-row relative`}
+      className={`min-h-screen ${
+        isDark ? "bg-zinc-950 text-white" : "bg-zinc-50 text-zinc-900"
+      } transition-colors duration-300 relative`}
     >
-      {/* Background Ambient Glow */}
-      <div
-        className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark
-            ? "from-indigo-950/30 via-zinc-950 to-zinc-950"
-            : "from-indigo-100/40 via-zinc-50 to-zinc-50"
-          } pointer-events-none`}
-      />
+      <AppLayout>
+        <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
+          {/* Background Ambient Glow */}
+          <div
+            className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${
+              isDark
+                ? "from-indigo-950/30 via-zinc-950 to-zinc-950"
+                : "from-indigo-100/40 via-zinc-50 to-zinc-50"
+            } pointer-events-none`}
+          />
 
-      {/* Navigation Sidebar */}
-      <Sidebar />
-
-      {/* Main Discover Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 w-full min-w-0 overflow-x-hidden">
+          {/* Main Discover Content */}
+          <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 w-full min-w-0 overflow-x-hidden">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
@@ -546,10 +567,11 @@ export default function DiscoverContent() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by title, tag, topic, or city..."
-              className={`pl-10 rounded-2xl h-11 text-sm font-medium ${isDark
+              className={`pl-10 rounded-2xl h-11 text-sm font-medium ${
+                isDark
                   ? "bg-zinc-900/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-700"
                   : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-300"
-                } shadow-xs`}
+              } shadow-xs`}
             />
           </div>
         </div>
@@ -1033,7 +1055,14 @@ export default function DiscoverContent() {
               const cardTags = extractCardTags(event);
 
               return (
-                <motion.div key={event.id}>
+                <motion.div
+                  key={event.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                >
                   <Link href={`/events/${event.id}`}>
                     <div
                       className={`group ${isDark
@@ -1088,12 +1117,27 @@ export default function DiscoverContent() {
 
                       {/* EVENT DETAILS */}
                       <div className="p-5 flex-1 flex flex-col">
-                        <h3
-                          className={`text-xl font-bold ${isDark ? "text-white" : "text-zinc-900"
-                            } mb-3 group-hover:${activeAccent.text} transition-colors line-clamp-2 leading-tight`}
-                        >
-                          {event.title}
-                        </h3>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <h3
+                            className={`text-xl font-bold ${
+                              isDark ? "text-white" : "text-zinc-900"
+                            } group-hover:${activeAccent.text} transition-colors line-clamp-2`}
+                          >
+                            {event.title}
+                          </h3>
+                          <button
+                            onClick={(e) => handleToggleSave(e, event.id, !!event.is_saved)}
+                            className={`p-2 shrink-0 rounded-full transition-all ${
+                              event.is_saved
+                                ? `bg-gradient-to-r ${activeAccent.gradient} text-white shadow-md`
+                                : isDark
+                                ? "bg-zinc-800/80 text-zinc-400 hover:text-white hover:bg-zinc-700"
+                                : "bg-zinc-100 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200"
+                            }`}
+                          >
+                            <Bookmark className={`w-4 h-4 ${event.is_saved ? "fill-current" : ""}`} />
+                          </button>
+                        </div>
 
                         {/* Interactive Session Tag Bubbles */}
                         {cardTags.length > 0 && (
@@ -1171,6 +1215,8 @@ export default function DiscoverContent() {
       {/* Prompts */}
       <ProfilePromptPopup />
       <NotificationPromptPopup />
+        </div>
+      </AppLayout>
     </div>
   );
 }

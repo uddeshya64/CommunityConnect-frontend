@@ -26,10 +26,11 @@ export interface UserSettings {
   showEmailOnProfile: boolean;
   showLocationOnProfile: boolean;
   allowDirectMessages: "everyone" | "attendees" | "nobody";
-  defaultCity: string;
+  preferredCities: string[];
   favoriteCategories: string[];
   calendarFormat: "google" | "ical" | "outlook";
   twoFactorEnabled: boolean;
+  searchPreferences: string[];
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -47,10 +48,11 @@ export const DEFAULT_SETTINGS: UserSettings = {
   showEmailOnProfile: false,
   showLocationOnProfile: true,
   allowDirectMessages: "attendees",
-  defaultCity: "San Francisco, CA",
+  preferredCities: [],
   favoriteCategories: ["Tech & AI", "Meetups", "Workshops"],
   calendarFormat: "google",
   twoFactorEnabled: false,
+  searchPreferences: [],
 };
 
 export interface AccentColorConfig {
@@ -215,7 +217,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
         if (remote && Object.keys(remote).length > 0) {
           setSettings((prev) => {
             const merged = { ...prev, ...remote };
-            localStorage.setItem("cc_user_settings", JSON.stringify(merged));
+            // localStorage.setItem("cc_user_settings", JSON.stringify(merged));
             return merged;
           });
         }
@@ -262,12 +264,12 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       ACCENT_COLORS_CONFIG[0];
 
     const lightTextMap: Record<string, string> = {
-      indigo: "text-indigo-600",
-      violet: "text-violet-600",
-      emerald: "text-emerald-700",
-      rose: "text-rose-600",
-      cyan: "text-cyan-700",
-      amber: "text-amber-700",
+      indigo: "text-indigo-700",
+      violet: "text-violet-700",
+      emerald: "text-emerald-800",
+      rose: "text-rose-700",
+      cyan: "text-cyan-800",
+      amber: "text-amber-800",
     };
 
     const darkTextMap: Record<string, string> = {
@@ -341,7 +343,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     setSettings(updated);
 
     if (typeof window !== "undefined") {
-      localStorage.setItem("cc_user_settings", JSON.stringify(updated));
+      // localStorage.setItem("cc_user_settings", JSON.stringify(updated));
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: updated })
       );
@@ -354,7 +356,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const resetToDefaults = () => {
     setSettings(DEFAULT_SETTINGS);
     if (typeof window !== "undefined") {
-      localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
+      // localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: DEFAULT_SETTINGS })
       );

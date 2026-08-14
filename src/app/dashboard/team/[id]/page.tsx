@@ -9,20 +9,43 @@ import {
   Activity, Calendar, Clock, Plus, AlertTriangle,
   MapPin, Share2, ExternalLink, Download, CreditCard,
   Receipt, Mail, Copy, CheckCircle2, UserCircle2,
-  CalendarPlus, ShieldCheck, Printer, Bell, Compass, Laptop, MonitorSmartphone, Building2
+  CalendarPlus, ShieldCheck, Printer, Bell, Compass, Laptop, MonitorSmartphone, Building2,
+  Sparkles, Tag, User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/axios";
 import Navbar from "@/components/NavBar";
+import PersonalizeAgendaModal from "@/components/agenda/PersonalizeAgendaModal";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
+import AppLayout from "@/components/layout/AppLayout";
 
 export default function TeamParticipantDashboard() {
+  const handleDownloadICS = async () => {
+    try {
+      const res = await api.get("/agenda/export/ics", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/calendar" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "my-personal-agenda.ics");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Download ICS error:", err);
+    }
+  };
+
   const { id } = useParams();
   const router = useRouter();
+  const { isDark, activeAccent } = useAppearance();
 
   // Data States
   const [teamData, setTeamData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAgendaModal, setShowAgendaModal] = useState(false);
+  const [isCalendarConnected, setIsCalendarConnected] = useState(false);
+  const [personalAgenda, setPersonalAgenda] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // UI Action States
@@ -92,8 +115,25 @@ export default function TeamParticipantDashboard() {
     }
   };
 
+  const fetchAgendaStatus = async () => {
+    try {
+      const res = await api.get("/agenda");
+      if (res.data) {
+        if (res.data.isCalendarConnected) {
+          setIsCalendarConnected(true);
+        }
+        const allItems = res.data.data || [];
+        const accepted = allItems.filter((i: any) => i.status === "ACCEPTED");
+        setPersonalAgenda(accepted);
+      }
+    } catch (err) {
+      console.warn("Could not fetch agenda status:", err);
+    }
+  };
+
   useEffect(() => {
     if (id) fetchDashboardData();
+    fetchAgendaStatus();
   }, [id]);
 
   // --- API HANDLERS MATCHING YOUR VALIDATION & ROUTES ---
@@ -380,19 +420,19 @@ export default function TeamParticipantDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-50 font-sans selection:bg-indigo-500/30">
-      <Navbar theme="dark" />
+    <AppLayout>
+      <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 transition-colors duration-300`}>
 
-      {/* Main Container - pt-32 prevents Navbar overlap */}
-      <main className="max-w-[1400px] mx-auto px-6 md:px-10 pt-32 pb-24 grid grid-cols-1 xl:grid-cols-12 gap-8">
+        {/* Main Container */}
+        <main className="max-w-[1400px] mx-auto px-6 md:px-10 pt-8 pb-24 grid grid-cols-1 xl:grid-cols-12 gap-8">
 
-        {/* =========================================================
-            LEFT COLUMN: TEAM IDENTITY & ROSTER (LUMA / BENTO STYLE)
-            ========================================================= */}
-        <div className="xl:col-span-8 space-y-8">
+          {/* =========================================================
+              LEFT COLUMN: TEAM IDENTITY & ROSTER (LUMA / BENTO STYLE)
+              ========================================================= */}
+          <div className="xl:col-span-8 space-y-8">
 
-          {/* 1. UNIFIED HERO & ENTRY PASS CARD */}
-          <section className="relative overflow-hidden bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl group space-y-8">
+            {/* 1. UNIFIED HERO & ENTRY PASS CARD */}
+            <section className={`relative overflow-hidden ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200/80 shadow-sm text-zinc-900"} border rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl group space-y-8`}>
             {eventBannerUrl ? (
               <div className="absolute inset-0 z-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -461,34 +501,34 @@ export default function TeamParticipantDashboard() {
               </div>
 
               {/* DUAL START DATE & END DATE SECTION */}
-              <div className="bg-black/40 rounded-3xl p-6 border border-white/5 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/5 pb-4">
-                  <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-indigo-400" /> Event Schedule & Dates
+              <div className={`rounded-3xl p-6 border space-y-4 ${isDark ? "bg-black/40 border-white/10 text-white" : "bg-zinc-100/70 border-zinc-200 text-zinc-900"}`}>
+                <div className={`flex flex-wrap items-center justify-between gap-4 border-b pb-4 ${isDark ? "border-white/10" : "border-zinc-200"}`}>
+                  <h4 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>
+                    <Calendar className={`w-4 h-4 ${activeAccent.text}`} /> Event Schedule & Dates
                   </h4>
-                  <Button onClick={handleAddToGoogleCalendar} variant="outline" className="h-10 px-4 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold text-xs">
-                    <CalendarPlus className="w-4 h-4 mr-2 text-indigo-400" /> Add to Google Calendar
+                  <Button onClick={handleAddToGoogleCalendar} variant="outline" className={`h-10 px-4 rounded-xl font-bold text-xs ${isDark ? "border-white/10 bg-white/5 hover:bg-white/10 text-white" : "border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-900 shadow-xs"}`}>
+                    <CalendarPlus className={`w-4 h-4 mr-2 ${activeAccent.text}`} /> Add to Google Calendar
                   </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-zinc-900/60 rounded-2xl border border-white/5 flex items-center gap-4">
+                  <div className={`p-4 rounded-2xl border flex items-center gap-4 ${isDark ? "bg-zinc-900/60 border-white/10 text-white" : "bg-white border-zinc-200 text-zinc-900 shadow-xs"}`}>
                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold shrink-0 border border-indigo-500/20">
                       <Calendar className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 truncate">
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Start Date & Time</p>
-                      <p className="text-sm font-extrabold text-white truncate">{formattedStartDate}</p>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>Start Date & Time</p>
+                      <p className={`text-sm font-extrabold truncate ${isDark ? "text-white" : "text-zinc-950"}`}>{formattedStartDate}</p>
                     </div>
                   </div>
 
-                  <div className="p-4 bg-zinc-900/60 rounded-2xl border border-white/5 flex items-center gap-4">
+                  <div className={`p-4 rounded-2xl border flex items-center gap-4 ${isDark ? "bg-zinc-900/60 border-white/10 text-white" : "bg-white border-zinc-200 text-zinc-900 shadow-xs"}`}>
                     <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold shrink-0 border border-purple-500/20">
                       <Clock className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 truncate">
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">End Date & Time</p>
-                      <p className="text-sm font-extrabold text-white truncate">{formattedEndDate}</p>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>End Date & Time</p>
+                      <p className={`text-sm font-extrabold truncate ${isDark ? "text-white" : "text-zinc-950"}`}>{formattedEndDate}</p>
                     </div>
                   </div>
                 </div>
@@ -716,13 +756,125 @@ export default function TeamParticipantDashboard() {
             }
           `}</style>
 
-          <div className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 shadow-2xl">
-            <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-indigo-400" /> Event Agenda & Schedule
-            </h4>
+          <div className={`rounded-[2.5rem] p-8 border shadow-2xl ${isDark ? "bg-zinc-900/40 border-white/10 text-white" : "bg-white border-zinc-200 text-zinc-900 shadow-lg"}`}>
+            <div className={`flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b ${isDark ? "border-white/10" : "border-zinc-200"}`}>
+              <h4 className={`text-sm font-bold uppercase tracking-widest flex items-center gap-2 ${isDark ? "text-zinc-300" : "text-zinc-700"}`}>
+                <Calendar className={`w-4 h-4 ${activeAccent.text}`} /> Event Agenda & Schedule
+              </h4>
 
-            {teamData?.event?.timelines && teamData.event.timelines.length > 0 ? (
-              <motion.div 
+              <div className="flex flex-wrap items-center gap-2">
+                {!isCalendarConnected ? (
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api"}/auth/google/calendar?token=${typeof window !== "undefined" ? localStorage.getItem("accessToken") || "" : ""}&returnUrl=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-extrabold text-xs shadow-md transition-all hover:scale-[1.02]"
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-zinc-950" />
+                    Connect Google Calendar
+                  </a>
+                ) : (
+                  <button
+                    disabled
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 font-extrabold text-xs border border-emerald-500/30 cursor-not-allowed opacity-90"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    Google Calendar Connected
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setShowAgendaModal(true)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r ${activeAccent.gradient} text-white font-extrabold text-xs shadow-md transition-all hover:scale-[1.02]`}
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  Personalize My Agenda
+                </button>
+              </div>
+            </div>
+
+            {personalAgenda.length > 0 ? (
+              <div className="space-y-6">
+                {personalAgenda.map((agenda: any) => {
+                  const t = agenda.timeline;
+                  const matchPercentage = Math.round((agenda.match_score || 0.8) * 100);
+                  const startTimeStr = t.start_time ? new Date(t.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+                  const dateStr = t.start_time ? new Date(t.start_time).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
+
+                  return (
+                    <div
+                      key={agenda.id}
+                      className="p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-indigo-500/5 to-zinc-900 border border-emerald-500/30 shadow-lg space-y-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-zinc-950 shadow-sm">
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            Approved Choice
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                            <Sparkles className="w-3 h-3 text-amber-400" />
+                            {matchPercentage}% Match
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-xs font-extrabold text-indigo-400">
+                          <Clock className="w-4 h-4" />
+                          <span>{dateStr} • {startTimeStr}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-base font-extrabold text-white">{t.title}</h4>
+                        {t.description && (
+                          <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{t.description}</p>
+                        )}
+                      </div>
+
+                      {agenda.matchedSkillTags && agenda.matchedSkillTags.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          {agenda.matchedSkillTags.map((tag: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                            >
+                              <Tag className="w-2.5 h-2.5 text-indigo-400" />
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/5 text-xs text-zinc-400 font-medium">
+                        <div className="flex flex-wrap items-center gap-4">
+                          {t.speaker_name && (
+                            <div className="flex items-center gap-1">
+                              <User className="w-3.5 h-3.5 text-purple-400" />
+                              <span>{t.speaker_name}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                            <span>{t.location || teamData?.event?.location || "Online"}</span>
+                          </div>
+                        </div>
+
+                        {agenda.googleCalendarLink && (
+                          <a
+                            href={agenda.googleCalendarLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-bold text-xs border border-indigo-500/30 transition-colors"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Add to Google Cal
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : teamData?.event?.timelines && teamData.event.timelines.length > 0 ? (
+              <motion.div
                 initial="hidden"
                 animate="show"
                 variants={{
@@ -754,8 +906,8 @@ export default function TeamParticipantDashboard() {
                     const day = d.getDate();
 
                     return (
-                      <motion.div 
-                        key={dateStr} 
+                      <motion.div
+                        key={dateStr}
                         variants={{
                           hidden: { opacity: 0, y: 15 },
                           show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 15 } }
@@ -873,7 +1025,7 @@ export default function TeamParticipantDashboard() {
                                       {timeline.location && <span>At: {timeline.location}</span>}
                                     </p>
                                   )}
-                                  
+
                                   {/* Click expansion indicator */}
                                   {!isExpanded && timeline.description && (
                                     <p className="text-[10px] font-bold opacity-60 mt-1.5 flex items-center gap-1">
@@ -915,7 +1067,19 @@ export default function TeamParticipantDashboard() {
             )}
           </div>
         </div>
-      </main>
+            {teamData?.event?.id && (
+        <PersonalizeAgendaModal
+          eventId={teamData.event.id}
+          eventTitle={teamData.event.title || "Event"}
+          isOpen={showAgendaModal}
+          onClose={() => {
+            setShowAgendaModal(false);
+            fetchAgendaStatus();
+          }}
+          onSaved={() => fetchAgendaStatus()}
+        />
+      )}
+    </main>
 
       {/* =========================================================
           CUSTOM REMOVE MEMBER CONFIRMATION MODAL
@@ -1270,13 +1434,13 @@ export default function TeamParticipantDashboard() {
             exit={{ opacity: 0, y: -20, x: 20 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
             className={`fixed top-6 right-6 z-[60] max-w-md w-full p-5 rounded-2xl border shadow-2xl backdrop-blur-xl flex items-start gap-4 ${toast.type === "error"
-                ? "bg-red-950/80 border-red-500/30 shadow-red-900/20"
-                : "bg-emerald-950/80 border-emerald-500/30 shadow-emerald-900/20"
+              ? "bg-red-950/80 border-red-500/30 shadow-red-900/20"
+              : "bg-emerald-950/80 border-emerald-500/30 shadow-emerald-900/20"
               }`}
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${toast.type === "error"
-                ? "bg-red-500/20 text-red-400"
-                : "bg-emerald-500/20 text-emerald-400"
+              ? "bg-red-500/20 text-red-400"
+              : "bg-emerald-500/20 text-emerald-400"
               }`}>
               {toast.type === "error" ? <AlertTriangle className="w-5 h-5" /> : <Check className="w-5 h-5" />}
             </div>
@@ -1298,6 +1462,7 @@ export default function TeamParticipantDashboard() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
