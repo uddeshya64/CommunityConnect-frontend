@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
-  HelpCircle, Copy, Tag, Sparkles
+  HelpCircle, Copy, Tag, Sparkles, Bookmark
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ import { api } from "@/lib/axios";
 import { Html5Qrcode } from "html5-qrcode";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
 import { useToast } from "@/components/providers/ToastProvider";
+import AppLayout from "@/components/layout/AppLayout";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 interface EventDetails {
   id: string;
@@ -42,6 +44,7 @@ interface EventDetails {
   timelines?: any[];
   tags?: string[];
   registeredCount: number;
+  is_saved?: boolean;
 }
 
 interface EventTheme {
@@ -66,16 +69,16 @@ const getEventTheme = (type: string): EventTheme => {
   if (t.includes("hack") || t.includes("code") || t.includes("compet") || t.includes("technical") || t.includes("conference") || t.includes("tech") || t.includes("developer")) {
     return {
       bg: "bg-zinc-50 text-zinc-900",
-      cardBg: "bg-white border-zinc-200 hover:border-indigo-500/30 shadow-indigo-500/5 text-zinc-850",
+      cardBg: "bg-white border-zinc-200 hover:border-indigo-500/30 shadow-indigo-500/5 text-zinc-800",
       accent: "text-indigo-600",
-      accentBg: "bg-indigo-50 border-indigo-150 text-indigo-705",
-      button: "bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-200 disabled:text-zinc-455 disabled:border-zinc-200 text-white shadow-indigo-600/20",
+      accentBg: "bg-indigo-50 border-indigo-100 text-indigo-700",
+      button: "bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-indigo-600/20",
       textMuted: "text-zinc-500",
       textHeading: "text-zinc-900",
-      badge: "bg-indigo-50 border-indigo-200 text-indigo-705",
+      badge: "bg-indigo-50 border-indigo-200 text-indigo-700",
       pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: "border-zinc-150",
-      agendaDefault: "bg-indigo-50/60 border-indigo-100/50 text-indigo-905",
+      divider: "border-zinc-200",
+      agendaDefault: "bg-indigo-50/60 border-indigo-100/50 text-indigo-900",
       isDark: false,
       gradOverlay: "from-indigo-100/20 via-zinc-50 to-zinc-50",
       gimmicks: (
@@ -96,14 +99,14 @@ const getEventTheme = (type: string): EventTheme => {
   } else if (t.includes("wed") || t.includes("person") || t.includes("marry") || t.includes("marriage")) {
     return {
       bg: "bg-rose-50/15 text-zinc-900",
-      cardBg: "bg-white/80 backdrop-blur-md border-rose-100 hover:border-rose-350 shadow-rose-550/5 text-zinc-850",
+      cardBg: "bg-white/80 backdrop-blur-md border-rose-100 hover:border-rose-300 shadow-rose-500/5 text-zinc-800",
       accent: "text-rose-600",
-      accentBg: "bg-rose-50 border-rose-150 text-rose-705",
-      button: "bg-rose-600 hover:bg-rose-705 disabled:bg-zinc-205 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-rose-600/20",
-      textMuted: "text-zinc-550",
+      accentBg: "bg-rose-50 border-rose-100 text-rose-700",
+      button: "bg-rose-600 hover:bg-rose-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-rose-600/20",
+      textMuted: "text-zinc-600",
       textHeading: "text-rose-950 font-serif",
-      badge: "bg-rose-50 border-rose-200 text-rose-705",
-      pill: "bg-amber-50 border-amber-250 text-amber-800",
+      badge: "bg-rose-50 border-rose-200 text-rose-700",
+      pill: "bg-amber-50 border-amber-200 text-amber-800",
       divider: "border-rose-100",
       agendaDefault: "bg-rose-50/60 border-rose-100/50 text-rose-900",
       isDark: false,
@@ -128,14 +131,14 @@ const getEventTheme = (type: string): EventTheme => {
   } else if (t.includes("sport") || t.includes("recreat") || t.includes("run") || t.includes("game") || t.includes("athle")) {
     return {
       bg: "bg-emerald-50/15 text-zinc-900",
-      cardBg: "bg-white border-emerald-200/80 shadow-emerald-500/5 text-zinc-850",
-      accent: "text-emerald-650",
-      accentBg: "bg-emerald-50 border-emerald-150 text-emerald-705",
+      cardBg: "bg-white border-emerald-200/80 shadow-emerald-500/5 text-zinc-800",
+      accent: "text-emerald-600",
+      accentBg: "bg-emerald-50 border-emerald-100 text-emerald-700",
       button: "bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-emerald-600/20",
-      textMuted: "text-zinc-550",
+      textMuted: "text-zinc-600",
       textHeading: "text-zinc-900",
-      badge: "bg-emerald-50 border-emerald-200 text-emerald-705",
-      pill: "bg-zinc-50 border-zinc-200 text-zinc-750",
+      badge: "bg-emerald-50 border-emerald-200 text-emerald-700",
+      pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
       divider: "border-emerald-100",
       agendaDefault: "bg-emerald-50/60 border-emerald-100/50 text-emerald-900",
       isDark: false,
@@ -151,15 +154,15 @@ const getEventTheme = (type: string): EventTheme => {
   } else if (t.includes("corporat") || t.includes("govern") || t.includes("civic") || t.includes("business") || t.includes("office")) {
     return {
       bg: "bg-slate-50/50 text-slate-900",
-      cardBg: "bg-white border-slate-200/80 shadow-slate-500/5 text-zinc-850",
-      accent: "text-slate-650",
-      accentBg: "bg-slate-55 border-slate-150 text-slate-705",
-      button: "bg-slate-700 hover:bg-slate-800 disabled:bg-zinc-250 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-slate-650/20",
-      textMuted: "text-zinc-550",
-      textHeading: "text-slate-955 font-semibold",
-      badge: "bg-slate-50 border-slate-200 text-slate-705",
+      cardBg: "bg-white border-slate-200/80 shadow-slate-500/5 text-zinc-800",
+      accent: "text-slate-600",
+      accentBg: "bg-slate-50 border-slate-100 text-slate-700",
+      button: "bg-slate-700 hover:bg-slate-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-slate-600/20",
+      textMuted: "text-zinc-600",
+      textHeading: "text-slate-900 font-semibold",
+      badge: "bg-slate-50 border-slate-200 text-slate-700",
       pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: "border-slate-150",
+      divider: "border-slate-100",
       agendaDefault: "bg-slate-50/60 border-slate-100/50 text-slate-900",
       isDark: false,
       gradOverlay: "from-slate-100/20 via-zinc-50 to-zinc-50",
@@ -172,15 +175,15 @@ const getEventTheme = (type: string): EventTheme => {
   } else if (t.includes("academ") || t.includes("train") || t.includes("study") || t.includes("course") || t.includes("commun") || t.includes("nonprofit") || t.includes("charity")) {
     return {
       bg: "bg-teal-50/10 text-zinc-900",
-      cardBg: "bg-white border-teal-200/80 shadow-teal-500/5 text-zinc-850",
-      accent: "text-teal-650",
-      accentBg: "bg-teal-50 border-teal-150 text-teal-705",
-      button: "bg-teal-600 hover:bg-teal-750 disabled:bg-zinc-250 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-teal-650/20",
-      textMuted: "text-zinc-550",
+      cardBg: "bg-white border-teal-200/80 shadow-teal-500/5 text-zinc-800",
+      accent: "text-teal-600",
+      accentBg: "bg-teal-50 border-teal-100 text-teal-700",
+      button: "bg-teal-600 hover:bg-teal-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-teal-600/20",
+      textMuted: "text-zinc-600",
       textHeading: "text-zinc-900",
-      badge: "bg-teal-50 border-teal-200 text-teal-705",
-      pill: "bg-zinc-50 border-zinc-200 text-zinc-750",
-      divider: "border-zinc-150",
+      badge: "bg-teal-50 border-teal-200 text-teal-700",
+      pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
+      divider: "border-zinc-200",
       agendaDefault: "bg-teal-50/60 border-teal-100/50 text-teal-900",
       isDark: false,
       gradOverlay: "from-teal-100/20 via-zinc-50 to-zinc-50",
@@ -194,15 +197,15 @@ const getEventTheme = (type: string): EventTheme => {
   } else {
     return {
       bg: "bg-zinc-50 text-zinc-900",
-      cardBg: "bg-white border-zinc-250/80 hover:border-amber-500/30 shadow-amber-550/5 text-zinc-850",
+      cardBg: "bg-white border-zinc-200/80 hover:border-amber-500/30 shadow-amber-500/5 text-zinc-800",
       accent: "text-amber-600",
-      accentBg: "bg-amber-50 border-amber-150 text-amber-705",
-      button: "bg-amber-600 hover:bg-amber-700 disabled:bg-zinc-250 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-amber-600/20",
-      textMuted: "text-zinc-555",
+      accentBg: "bg-amber-50 border-amber-100 text-amber-700",
+      button: "bg-amber-600 hover:bg-amber-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-amber-600/20",
+      textMuted: "text-zinc-600",
       textHeading: "text-zinc-900",
-      badge: "bg-amber-50 border-amber-200 text-amber-705",
-      pill: "bg-zinc-50 border-zinc-200 text-zinc-750",
-      divider: "border-zinc-150",
+      badge: "bg-amber-50 border-amber-200 text-amber-700",
+      pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
+      divider: "border-zinc-200",
       agendaDefault: "bg-amber-50/60 border-amber-100/50 text-amber-900",
       isDark: false,
       gradOverlay: "from-amber-100/20 via-zinc-50 to-zinc-50",
@@ -220,6 +223,7 @@ export default function EventDetailsPage() {
   const router = useRouter();
   const eventId = params.eventId as string;
   const { success: showSuccess, error: showError } = useToast();
+  const { isDark, activeAccent } = useAppearance();
 
   const [event, setEvent] = useState<EventDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -234,6 +238,23 @@ export default function EventDetailsPage() {
       navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleToggleSave = async () => {
+    if (!event) return;
+    const currentState = !!event.is_saved;
+    setEvent(prev => prev ? { ...prev, is_saved: !currentState } : prev);
+    try {
+      if (currentState) {
+        await eventService.unsaveEvent(event.id);
+      } else {
+        await eventService.saveEvent(event.id);
+      }
+    } catch (err) {
+      console.error("Failed to toggle save:", err);
+      setEvent(prev => prev ? { ...prev, is_saved: currentState } : prev);
+      showError("Failed to update saved status.");
     }
   };
 
@@ -496,7 +517,8 @@ export default function EventDetailsPage() {
           organizerId: rawEvent.organizerId || rawEvent.hostId || rawEvent.userId,
           organizerName: rawEvent.organizer?.name || rawEvent.creator?.name,
           timelines: rawEvent.timelines || [],
-          registeredCount: rCount
+          registeredCount: rCount,
+          is_saved: rawEvent.user_context?.is_saved || false
         });
 
         setTimelinesList(rawEvent.timelines || []);
@@ -1056,20 +1078,21 @@ export default function EventDetailsPage() {
   // ==========================================
   if (isStaff && viewMode === "DASHBOARD") {
     return (
-      <div className="min-h-screen bg-zinc-100 flex flex-col md:flex-row">
+      <AppLayout>
+        <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} flex flex-col md:flex-row transition-colors duration-300`}>
 
         {/* Sidebar spacer placeholder */}
         <div className="hidden md:block w-64 h-screen shrink-0" />
 
         {/* Sidebar - fixed to viewport on desktop, sticky top bar on mobile */}
-        <div className="w-full md:w-64 bg-zinc-950 text-zinc-400 flex flex-col p-3 md:p-4 sticky top-0 md:fixed md:top-0 md:left-0 md:h-screen md:z-30 shrink-0 overflow-hidden border-b border-white/5 md:border-b-0 md:border-r">
+        <div className={`w-full md:w-64 ${isDark ? "bg-zinc-900/90 text-zinc-400 border-white/5" : "bg-white text-zinc-600 border-zinc-200 shadow-sm"} flex flex-col p-3 md:p-4 sticky top-0 md:fixed md:top-16 md:left-0 md:h-[calc(100vh-4rem)] md:z-30 shrink-0 overflow-hidden border-b md:border-b-0 md:border-r`}>
           <div className="mb-2 md:mb-8 p-2 md:p-4 flex md:flex-col justify-between items-center md:items-start gap-4">
             <div className="min-w-0">
-              <Link href="/home" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-xs md:text-sm font-semibold mb-1 md:mb-6">
+              <Link href="/home" className={`flex items-center gap-2 ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors text-xs md:text-sm font-semibold mb-1 md:mb-6`}>
                 <ArrowLeft className="w-4 h-4" /> Back
               </Link>
-              <h2 className="text-white font-bold text-sm md:text-lg leading-tight line-clamp-1 md:line-clamp-2">{event.title}</h2>
-              <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-widest mt-1 hidden md:block">Organizer Dashboard</p>
+              <h2 className={`${isDark ? "text-white" : "text-zinc-900"} font-bold text-sm md:text-lg leading-tight line-clamp-1 md:line-clamp-2`}>{event.title}</h2>
+              <p className={`text-[10px] font-semibold ${activeAccent.text} uppercase tracking-widest mt-1 hidden md:block`}>Organizer Dashboard</p>
             </div>
 
             {/* On mobile, place Scan QR and Preview Event actions in a compact row */}
@@ -1081,7 +1104,7 @@ export default function EventDetailsPage() {
                     setIsQrScanning(true);
                   }}
                   size="sm"
-                  className="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs"
+                  className={`rounded-lg ${activeAccent.bg} hover:opacity-90 text-white font-bold text-xs`}
                 >
                   <QrCode className="w-4 h-4" />
                 </Button>
@@ -1098,12 +1121,12 @@ export default function EventDetailsPage() {
 
           {/* Navigation links: horizontal scroll on mobile, vertical list on desktop */}
           <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-y-auto no-scrollbar pb-2 md:pb-0 flex-1 min-w-0">
-            <button onClick={() => setActiveTab("OVERVIEW")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "OVERVIEW" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+            <button onClick={() => setActiveTab("OVERVIEW")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "OVERVIEW" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
               <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" /> Overview
             </button>
 
             {hasPermission("MANAGE_ATTENDEES") && (
-              <button onClick={() => setActiveTab("PARTICIPANTS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "PARTICIPANTS" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+              <button onClick={() => setActiveTab("PARTICIPANTS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "PARTICIPANTS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
                 <List className="w-4 h-4 md:w-5 md:h-5" /> Participants
               </button>
             )}
@@ -1116,36 +1139,36 @@ export default function EventDetailsPage() {
                   setIsQrScanning(true);
                 }}
                 type="button"
-                className="hidden md:flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all hover:bg-zinc-900 hover:text-white"
+                className={`hidden md:flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}
               >
                 <QrCode className="w-5 h-5" /> Scan Ticket QR
               </button>
             )}
 
-            <button onClick={() => setActiveTab("EDIT")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "EDIT" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+            <button onClick={() => setActiveTab("EDIT")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "EDIT" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
               <Pencil className="w-4 h-4 md:w-5 md:h-5" /> Edit Details
             </button>
 
             {hasPermission("MANAGE_EVENT") && (
-              <button onClick={() => setActiveTab("AGENDA")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "AGENDA" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+              <button onClick={() => setActiveTab("AGENDA")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "AGENDA" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
                 <Calendar className="w-4 h-4 md:w-5 md:h-5" /> Event Agenda
               </button>
             )}
 
             {hasPermission("MANAGE_STAFF") && (
-              <button onClick={() => setActiveTab("STAFF")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "STAFF" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+              <button onClick={() => setActiveTab("STAFF")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "STAFF" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
                 <Shield className="w-4 h-4 md:w-5 md:h-5" /> Staff & Roles
               </button>
             )}
 
             {isOwner && (
-              <button onClick={() => setActiveTab("ORGANIZER_SETTINGS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "ORGANIZER_SETTINGS" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+              <button onClick={() => setActiveTab("ORGANIZER_SETTINGS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "ORGANIZER_SETTINGS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
                 <Building2 className="w-4 h-4 md:w-5 md:h-5" /> Org Settings
               </button>
             )}
 
             {isOwner && (
-              <button onClick={() => setActiveTab("SETTINGS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "SETTINGS" ? "bg-indigo-600/10 text-indigo-400 font-bold" : "hover:bg-zinc-900 hover:text-white"}`}>
+              <button onClick={() => setActiveTab("SETTINGS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "SETTINGS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
                 <Settings className="w-4 h-4 md:w-5 md:h-5" /> Settings
               </button>
             )}
@@ -1169,22 +1192,22 @@ export default function EventDetailsPage() {
                 {/* 1. OVERVIEW TAB */}
                 {activeTab === "OVERVIEW" && (
                   <div className="animate-in fade-in duration-500">
-                    <h1 className="text-3xl font-extrabold text-zinc-900 mb-8">Dashboard Overview</h1>
+                    <h1 className={`text-3xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} mb-8`}>Dashboard Overview</h1>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                      <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm">
-                        <Users className="w-8 h-8 text-indigo-500 mb-4" />
+                      <div className={`${isDark ? "bg-zinc-900/60 border-white/10 text-zinc-100" : "bg-white border-zinc-200 text-zinc-900 shadow-sm"} p-6 rounded-3xl border`}>
+                        <Users className={`w-8 h-8 ${activeAccent.text} mb-4`} />
                         <p className="text-sm font-bold text-zinc-400 uppercase">Registrations</p>
-                        <p className="text-4xl font-black text-zinc-900 mt-1">{overviewStats?.total_registrations || 0} <span className="text-lg text-zinc-400">/ {event.capacity || '∞'}</span></p>
+                        <p className={`text-4xl font-black ${isDark ? "text-white" : "text-zinc-900"} mt-1`}>{overviewStats?.total_registrations || 0} <span className="text-lg text-zinc-400">/ {event.capacity || '∞'}</span></p>
                       </div>
-                      <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm">
+                      <div className={`${isDark ? "bg-zinc-900/60 border-white/10 text-zinc-100" : "bg-white border-zinc-200 text-zinc-900 shadow-sm"} p-6 rounded-3xl border`}>
                         <Ticket className="w-8 h-8 text-emerald-500 mb-4" />
                         <p className="text-sm font-bold text-zinc-400 uppercase">Revenue</p>
-                        <p className="text-4xl font-black text-zinc-900 mt-1">₹{overviewStats?.revenue || 0}</p>
+                        <p className={`text-4xl font-black ${isDark ? "text-white" : "text-zinc-900"} mt-1`}>₹{overviewStats?.revenue || 0}</p>
                       </div>
-                      <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm">
+                      <div className={`${isDark ? "bg-zinc-900/60 border-white/10 text-zinc-100" : "bg-white border-zinc-200 text-zinc-900 shadow-sm"} p-6 rounded-3xl border`}>
                         <UserPlus className="w-8 h-8 text-amber-500 mb-4" />
                         <p className="text-sm font-bold text-zinc-400 uppercase">Teams Created</p>
-                        <p className="text-4xl font-black text-zinc-900 mt-1">{overviewStats?.teams_count || 0}</p>
+                        <p className={`text-4xl font-black ${isDark ? "text-white" : "text-zinc-900"} mt-1`}>{overviewStats?.teams_count || 0}</p>
                       </div>
                     </div>
                   </div>
@@ -1225,7 +1248,7 @@ export default function EventDetailsPage() {
                             key={filter}
                             onClick={() => setCheckInFilter(filter)}
                             type="button"
-                            className={`flex-1 md:flex-none px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${checkInFilter === filter ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"}`}
+                            className={`flex-1 md:flex-none px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${checkInFilter === filter ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"}`}
                           >
                             {filter}
                           </button>
@@ -2242,7 +2265,8 @@ export default function EventDetailsPage() {
           )}
         </AnimatePresence>
 
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
@@ -2250,7 +2274,9 @@ export default function EventDetailsPage() {
   // VIEW 2: PUBLIC / ATTENDEE PREVIEW VIEW
   // ==========================================
   return (
-    <div className={`min-h-screen pb-20 relative select-none transition-colors duration-500 w-full min-w-0 overflow-x-hidden ${theme.bg}`}>
+    <div className={`min-h-screen transition-colors duration-500 w-full min-w-0 overflow-x-hidden ${theme.bg}`}>
+      <AppLayout>
+        <div className="flex-1 pb-20 relative select-none min-w-0">
       
       {/* BACKGROUND EFFECTS */}
       <div className={`absolute top-0 left-0 w-full h-[60vh] bg-gradient-to-b ${theme.gradOverlay} pointer-events-none z-0`} />
@@ -2272,6 +2298,21 @@ export default function EventDetailsPage() {
           </Button>
         </Link>
         <div className="flex gap-2">
+          <Button 
+            onClick={handleToggleSave}
+            variant="ghost" 
+            className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-4 ${
+              event?.is_saved 
+                ? theme.isDark ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/20" : "bg-indigo-50 text-indigo-600 border border-indigo-200" 
+                : theme.isDark 
+                  ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white" 
+                  : "bg-white/80 hover:bg-white border border-zinc-200/80 text-zinc-650 hover:text-zinc-950"
+            }`}
+          >
+            <Bookmark className={`w-4 h-4 mr-2 ${event?.is_saved ? "fill-current" : ""}`} /> 
+            {event?.is_saved ? "Saved" : "Save Event"}
+          </Button>
+
           <Button 
             onClick={() => setIsShareModalOpen(true)}
             variant="ghost" 
@@ -2838,6 +2879,8 @@ export default function EventDetailsPage() {
           </button>
         </div>
       )}
+        </div>
+      </AppLayout>
     </div>
   );
 }

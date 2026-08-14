@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { notificationService, NotificationItem } from "@/services/notification.service";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
@@ -116,18 +117,17 @@ function NotificationsPageContent() {
   };
 
   return (
-    <div className={`min-h-screen relative flex flex-col md:flex-row transition-colors duration-300 ${
+    <div className={`min-h-screen relative transition-colors duration-300 ${
       isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"
     }`}>
-      <Sidebar />
+      <AppLayout>
+        <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
+          {/* BACKGROUND GLOWS */}
+          <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[150px] pointer-events-none" />
+          <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-rose-500/10 blur-[150px] pointer-events-none" />
 
-      {/* BACKGROUND GLOWS */}
-      <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[150px] pointer-events-none" />
-      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-rose-500/10 blur-[150px] pointer-events-none" />
-
-      {/* MAIN CONTENT */}
-      <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-12 relative z-10">
+          {/* MAIN CONTENT */}
+          <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-12 relative z-10">
           
           {/* HEADER */}
           <div className="mb-10 flex items-center justify-between">
@@ -360,6 +360,7 @@ function NotificationsPageContent() {
 
         </main>
       </div>
+      </AppLayout>
     </div>
   );
 }

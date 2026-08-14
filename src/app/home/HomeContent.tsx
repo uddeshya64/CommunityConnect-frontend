@@ -20,6 +20,7 @@ import { eventService } from "@/services/event.service";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
 import NotificationPromptPopup from "@/components/NotificationPromptPopup";
 import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { useMyProfile } from "@/hooks/profileHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
@@ -32,6 +33,7 @@ interface AppEvent {
   title: string;
   category?: string;
   date: string;
+  endDate?: string | null;
   location: string;
   attendees?: number;
   createdBy?: number | string;
@@ -234,10 +236,10 @@ export default function HomeContent() {
     // ============================================
 
     if (name) {
-      localStorage.setItem(
-        "userName",
-        name
-      );
+      // localStorage.setItem(
+      //   "userName",
+      //   name
+      // );
     }
 
     // ============================================
@@ -245,10 +247,10 @@ export default function HomeContent() {
     // ============================================
 
     if (email) {
-      localStorage.setItem(
-        "userEmail",
-        email
-      );
+      // localStorage.setItem(
+      //   "userEmail",
+      //   email
+      // );
     }
 
     // ============================================
@@ -297,10 +299,6 @@ export default function HomeContent() {
   // ============================================
 
   useEffect(() => {
-    if (!authReady) {
-      return;
-    }
-
     const cachedProfile = localStorage.getItem("cc_user_profile");
     if (cachedProfile) {
       try {
@@ -309,6 +307,12 @@ export default function HomeContent() {
         setUserId(profile.id);
         setAvatarUrl(profile.avatar_url || null);
       } catch (e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) {
+      return;
     }
 
     const fetchProfile =
@@ -341,7 +345,7 @@ export default function HomeContent() {
               null
           );
 
-          localStorage.setItem("cc_user_profile", JSON.stringify(profile));
+          // localStorage.setItem("cc_user_profile", JSON.stringify(profile));
         } catch (err) {
           console.error(
             "Failed to fetch profile:",
@@ -490,6 +494,10 @@ export default function HomeContent() {
                     evt.date ||
                     new Date().toISOString(),
 
+                  endDate:
+                    evt.end_date ||
+                    null,
+
                   location:
                     evt.location ||
                     evt.mode ||
@@ -514,7 +522,7 @@ export default function HomeContent() {
           setEvents(
             formattedEvents
           );
-          localStorage.setItem("cc_home_events", JSON.stringify(formattedEvents));
+          // localStorage.setItem("cc_home_events", JSON.stringify(formattedEvents));
         } catch (error) {
           console.error(
             "Failed to fetch events:",
@@ -530,30 +538,27 @@ export default function HomeContent() {
 
   // ============================================
   // STEP 4:
-  // HIDE EVENTS CREATED BY CURRENT USER
+  // HIDE EVENTS CREATED BY CURRENT USER & CONCLUDED EVENTS
   // ============================================
 
   const visibleEvents =
     useMemo(() => {
-      console.log(
-        "FILTERING — userId:",
-        userId,
-        typeof userId
-      );
+      const now = Date.now();
 
-      if (
-        userId === undefined
-      ) {
-        return events;
-      }
+      return events.filter((event) => {
+        // 1. Hide events created by current user
+        if (userId !== undefined && String(event.createdBy) === String(userId)) {
+          return false;
+        }
 
-      return events.filter(
-        (event) =>
-          String(
-            event.createdBy
-          ) !==
-          String(userId)
-      );
+        // 2. Hide concluded events (events whose end date/time has passed)
+        const eventEndTime = event.endDate ? new Date(event.endDate).getTime() : new Date(event.date).getTime();
+        if (!isNaN(eventEndTime) && eventEndTime < now) {
+          return false;
+        }
+
+        return true;
+      });
     }, [
       events,
       userId,
@@ -572,33 +577,9 @@ export default function HomeContent() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} relative flex flex-col md:flex-row transition-colors duration-300`}>
-
-      {/* ============================================
-          SIDEBAR
-      ============================================ */}
-
-      <Sidebar />
-
-      {/* ============================================
-          PROFILE AVATAR
-      ============================================ */}
-
-      <ProfileAvatar
-        profile={{
-          id: userId,
-          name:
-            userName ||
-            "Community Member",
-          avatarUrl,
-        }}
-      />
-
-      {/* ============================================
-          MAIN CONTENT
-      ============================================ */}
-
-      <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
+    <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} transition-colors duration-300`}>
+      <AppLayout>
+        <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
 
         {/* ============================================
             BACKGROUND EFFECTS
@@ -649,7 +630,7 @@ export default function HomeContent() {
 
             </h1>
 
-            <p className={`text-base md:text-lg ${isDark ? "text-zinc-400" : "text-zinc-500"} font-medium max-w-2xl`}>
+            <p className={`text-base md:text-lg ${isDark ? "text-zinc-400" : "text-zinc-600"} font-medium max-w-2xl`}>
               Ready to explore? Discover,
               register, and manage your
               next tech meetup all in one
@@ -875,11 +856,9 @@ export default function HomeContent() {
           {!isLoading &&
             visibleEvents.length > 0 && (
               <motion.div
-                variants={
-                  containerVariants
-                }
-                initial="hidden"
-                animate="show"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4"
               >
 
@@ -905,9 +884,11 @@ export default function HomeContent() {
                     return (
                       <motion.div
                         key={event.id}
-                        variants={
-                          itemVariants
-                        }
+                        layout
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
                       >
 
                         <Link
@@ -994,9 +975,47 @@ export default function HomeContent() {
             )}
 
         </main>
-
+      {/* Footer */}
+      <footer className={`relative z-10 mt-32 pt-16 pb-8 px-4 sm:px-6 w-full border-t ${isDark ? "bg-zinc-950/80 border-white/10" : "bg-zinc-100/50 border-zinc-200"}`}>
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8 mb-12">
+          <div className="md:col-span-2 space-y-4">
+            <div className={`text-xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-zinc-900"} flex items-center gap-2`}>
+              <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${activeAccent.gradient}`}></div>
+              CommunityConnect
+            </div>
+            <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-600"} max-w-xs leading-relaxed`}>
+              The modern platform for discovering, hosting, and managing local tech events, hackathons, and meetups.
+            </p>
+          </div>
+          <div>
+            <h3 className={`font-semibold mb-4 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>Resources</h3>
+            <ul className="space-y-3">
+              <li><Link href="/discover" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors`}>Discover Events</Link></li>
+              <li><Link href="/events/create" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors`}>Host an Event</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className={`font-semibold mb-4 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>Legal</h3>
+            <ul className="space-y-3">
+              <li><Link href="/policy" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors`}>Privacy Policy</Link></li>
+              <li><Link href="/terms" className={`text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors`}>Terms of Service</Link></li>
+            </ul>
+          </div>
+        </div>
+        
+        <div className={`pt-8 border-t ${isDark ? "border-white/10" : "border-zinc-200"} flex flex-col sm:flex-row items-center justify-between gap-4`}>
+          <p className={`text-sm ${isDark ? "text-zinc-500" : "text-zinc-600"}`}>
+            &copy; {new Date().getFullYear()} CommunityConnect. All rights reserved.
+          </p>
+          <div className="flex items-center gap-4">
+            
+          </div>
+        </div>
+        </div>
+      </footer>
       </div>
-
+    </AppLayout>
     </div>
   );
 }
