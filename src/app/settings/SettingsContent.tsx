@@ -519,57 +519,7 @@ export default function SettingsContent() {
   }
 
   return (
-    <div className={`lg:h-screen min-h-screen flex flex-col ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 relative transition-colors duration-300 lg:overflow-hidden ${!isDark ? "cc-light-settings" : ""}`}>
-      <style>{`
-        .cc-light-settings .bg-zinc-900\\/40 {
-          background-color: #ffffff !important;
-          border-color: #e4e4e7 !important;
-          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
-        }
-        .cc-light-settings .border-white\\/5 {
-          border-color: #e4e4e7 !important;
-        }
-        .cc-light-settings h1,
-        .cc-light-settings h2,
-        .cc-light-settings h3,
-        .cc-light-settings h4,
-        .cc-light-settings label,
-        .cc-light-settings .text-white:not(button):not(a):not(.bg-gradient-to-r *):not(.bg-indigo-600 *):not(.bg-indigo-650 *) {
-          color: #09090b !important;
-        }
-        .cc-light-settings p.text-zinc-400,
-        .cc-light-settings span.text-zinc-400 {
-          color: #71717a !important;
-        }
-        .cc-light-settings .bg-zinc-950\\/60,
-        .cc-light-settings input,
-        .cc-light-settings select {
-          background-color: #ffffff !important;
-          color: #09090b !important;
-          border-color: #e4e4e7 !important;
-        }
-        .cc-light-settings .border-white\\/10 {
-          border-color: #e4e4e7 !important;
-        }
-        .cc-light-settings .bg-white\\/5 {
-          background-color: #f4f4f5 !important;
-          border-color: #e4e4e7 !important;
-          color: #09090b !important;
-        }
-        .cc-light-settings .bg-rose-955\\/10,
-        .cc-light-settings .bg-rose-950\\/10 {
-          background-color: #fef2f2 !important;
-          border-color: #fecaca !important;
-        }
-        .cc-light-settings .bg-zinc-900\\/60 {
-          background-color: #ffffff !important;
-          border-color: #e4e4e7 !important;
-        }
-        .cc-light-settings .bg-zinc-900 {
-          background-color: #ffffff !important;
-          border-color: #e4e4e7 !important;
-        }
-      `}</style>
+    <div className={`lg:h-screen min-h-screen flex flex-col ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 relative transition-colors duration-300 lg:overflow-hidden`}>
       {/* Dynamic Ambient Background Glow */}
       <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-indigo-900/20 via-zinc-950 to-zinc-950" : "from-indigo-200/40 via-zinc-50 to-zinc-50"} pointer-events-none`} />
       <div className="fixed -top-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />

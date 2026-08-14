@@ -8,6 +8,7 @@ import {
   Home,
   Compass,
   CalendarDays,
+  CalendarCheck,
   Bookmark,
   Bell,
   PlusCircle,
@@ -35,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/home", icon: Home },
   { label: "Discover", href: "/discover", icon: Compass },
   { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
+  { label: "Agenda", href: "/agenda", icon: CalendarCheck },
   { label: "Saved", href: "/events/saved", icon: Bookmark },
 ];
 
@@ -157,7 +159,7 @@ export default function Sidebar({
                   {isActive && (
                     <motion.div
                       layoutId="sidebar-active-pill"
-                      className={`absolute inset-0 rounded-full ${isDark ? "bg-white/10" : "bg-indigo-50"} ${activeAccent.border} shadow-sm`}
+                      className={`absolute inset-0 rounded-full ${isDark ? "bg-white/10" : activeAccent.badgeBg} ${activeAccent.border} shadow-sm`}
                       transition={{ type: "spring", stiffness: 350, damping: 30 }}
                     />
                   )}
@@ -193,7 +195,7 @@ export default function Sidebar({
               isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
             } ${
               pathname === "/settings"
-                ? `${activeAccent.text} font-bold ${isDark ? "bg-white/10" : "bg-indigo-50"} ${activeAccent.border}`
+                ? `${activeAccent.text} font-bold ${isDark ? "bg-white/10" : activeAccent.badgeBg} ${activeAccent.border}`
                 : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"}`
             }`}
           >

@@ -525,22 +525,21 @@ export default function DiscoverContent() {
     <div
       className={`min-h-screen ${
         isDark ? "bg-zinc-950 text-white" : "bg-zinc-50 text-zinc-900"
-      } flex flex-col md:flex-row relative`}
+      } transition-colors duration-300 relative`}
     >
-      {/* Background Ambient Glow */}
-      <div
-        className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${
-          isDark
-            ? "from-indigo-950/30 via-zinc-950 to-zinc-950"
-            : "from-indigo-100/40 via-zinc-50 to-zinc-50"
-        } pointer-events-none`}
-      />
+      <AppLayout>
+        <div className="flex-1 relative overflow-hidden pb-20 min-w-0">
+          {/* Background Ambient Glow */}
+          <div
+            className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${
+              isDark
+                ? "from-indigo-950/30 via-zinc-950 to-zinc-950"
+                : "from-indigo-100/40 via-zinc-50 to-zinc-50"
+            } pointer-events-none`}
+          />
 
-      {/* Navigation Sidebar */}
-      <Sidebar />
-
-      {/* Main Discover Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 w-full min-w-0 overflow-x-hidden">
+          {/* Main Discover Content */}
+          <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 w-full min-w-0 overflow-x-hidden">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
@@ -1056,7 +1055,14 @@ export default function DiscoverContent() {
               const cardTags = extractCardTags(event);
 
               return (
-                <motion.div key={event.id}>
+                <motion.div
+                  key={event.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                >
                   <Link href={`/events/${event.id}`}>
                     <div
                       className={`group ${isDark
@@ -1209,6 +1215,8 @@ export default function DiscoverContent() {
       {/* Prompts */}
       <ProfilePromptPopup />
       <NotificationPromptPopup />
+        </div>
+      </AppLayout>
     </div>
   );
 }

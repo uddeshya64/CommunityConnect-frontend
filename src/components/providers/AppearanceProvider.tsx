@@ -264,12 +264,12 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       ACCENT_COLORS_CONFIG[0];
 
     const lightTextMap: Record<string, string> = {
-      indigo: "text-indigo-600",
-      violet: "text-violet-600",
-      emerald: "text-emerald-700",
-      rose: "text-rose-600",
-      cyan: "text-cyan-700",
-      amber: "text-amber-700",
+      indigo: "text-indigo-700",
+      violet: "text-violet-700",
+      emerald: "text-emerald-800",
+      rose: "text-rose-700",
+      cyan: "text-cyan-800",
+      amber: "text-amber-800",
     };
 
     const darkTextMap: Record<string, string> = {

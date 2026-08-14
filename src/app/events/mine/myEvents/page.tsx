@@ -41,19 +41,25 @@ export default function MyEventsPage() {
   const { getMyProfile } = useMyProfile();
 
   useEffect(() => {
-    const cachedUserId = localStorage.getItem("cc_user_id");
-    if (cachedUserId) {
-      setUserId(Number(cachedUserId));
+    const cachedProfile = localStorage.getItem("cc_user_profile");
+    if (cachedProfile) {
+      try {
+        const prof = JSON.parse(cachedProfile);
+        if (prof?.id) setUserId(Number(prof.id));
+      } catch (e) {}
+    } else {
+      const cachedUserId = localStorage.getItem("cc_user_id");
+      if (cachedUserId) {
+        setUserId(Number(cachedUserId));
+      }
     }
 
     const fetchProfile = async () => {
       try {
         const profile = await getMyProfile();
         setUserId(profile.id);
-        // localStorage.setItem("cc_user_id", String(profile.id));
-      } catch (err) {
-        // no-op — if profile fails to load, we just won't be able to filter to "mine" yet
-      }
+        localStorage.setItem("cc_user_id", String(profile.id));
+      } catch (err) {}
     };
     fetchProfile();
   }, []);
@@ -177,13 +183,20 @@ export default function MyEventsPage() {
           )}
 
           {!isLoading && myEvents.length > 0 && (
-            <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
               {myEvents.map((event, index) => {
                 const gradients = ["from-blue-500 to-cyan-400", "from-indigo-500 to-purple-600", "from-rose-500 to-orange-400", "from-emerald-400 to-teal-500"];
                 const randomGradient = gradients[index % gradients.length];
 
                 return (
-                  <motion.div key={event.id} variants={itemVariants}>
+                  <motion.div
+                    key={event.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                  >
                     <Link href={`/events/${event.id}`}>
                       <div className={`group ${isDark ? "bg-zinc-900/60 border-white/10 hover:border-white/20" : "bg-white border-zinc-200 hover:border-zinc-300"} rounded-3xl p-3 border transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/10 cursor-pointer relative overflow-hidden h-full flex flex-col`}>
                         <div

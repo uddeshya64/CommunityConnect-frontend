@@ -371,7 +371,7 @@ function LoginContent() {
                         onClick={() =>
                           setShowLoginPassword(!showLoginPassword)
                         }
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
                       >
                         {showLoginPassword ? (
                           <EyeOff className="h-5 w-5" />

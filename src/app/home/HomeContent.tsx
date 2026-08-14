@@ -33,6 +33,7 @@ interface AppEvent {
   title: string;
   category?: string;
   date: string;
+  endDate?: string | null;
   location: string;
   attendees?: number;
   createdBy?: number | string;
@@ -298,10 +299,6 @@ export default function HomeContent() {
   // ============================================
 
   useEffect(() => {
-    if (!authReady) {
-      return;
-    }
-
     const cachedProfile = localStorage.getItem("cc_user_profile");
     if (cachedProfile) {
       try {
@@ -310,6 +307,12 @@ export default function HomeContent() {
         setUserId(profile.id);
         setAvatarUrl(profile.avatar_url || null);
       } catch (e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) {
+      return;
     }
 
     const fetchProfile =
@@ -491,6 +494,10 @@ export default function HomeContent() {
                     evt.date ||
                     new Date().toISOString(),
 
+                  endDate:
+                    evt.end_date ||
+                    null,
+
                   location:
                     evt.location ||
                     evt.mode ||
@@ -531,30 +538,27 @@ export default function HomeContent() {
 
   // ============================================
   // STEP 4:
-  // HIDE EVENTS CREATED BY CURRENT USER
+  // HIDE EVENTS CREATED BY CURRENT USER & CONCLUDED EVENTS
   // ============================================
 
   const visibleEvents =
     useMemo(() => {
-      console.log(
-        "FILTERING — userId:",
-        userId,
-        typeof userId
-      );
+      const now = Date.now();
 
-      if (
-        userId === undefined
-      ) {
-        return events;
-      }
+      return events.filter((event) => {
+        // 1. Hide events created by current user
+        if (userId !== undefined && String(event.createdBy) === String(userId)) {
+          return false;
+        }
 
-      return events.filter(
-        (event) =>
-          String(
-            event.createdBy
-          ) !==
-          String(userId)
-      );
+        // 2. Hide concluded events (events whose end date/time has passed)
+        const eventEndTime = event.endDate ? new Date(event.endDate).getTime() : new Date(event.date).getTime();
+        if (!isNaN(eventEndTime) && eventEndTime < now) {
+          return false;
+        }
+
+        return true;
+      });
     }, [
       events,
       userId,
@@ -852,11 +856,9 @@ export default function HomeContent() {
           {!isLoading &&
             visibleEvents.length > 0 && (
               <motion.div
-                variants={
-                  containerVariants
-                }
-                initial="hidden"
-                animate="show"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4"
               >
 
@@ -882,9 +884,11 @@ export default function HomeContent() {
                     return (
                       <motion.div
                         key={event.id}
-                        variants={
-                          itemVariants
-                        }
+                        layout
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
                       >
 
                         <Link
