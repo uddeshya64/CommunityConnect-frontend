@@ -2454,8 +2454,6 @@ export default function SettingsContent() {
           </motion.div>
         )}
       </AnimatePresence>
-        </div>
-      </AppLayout>
     </div>
   );
 }

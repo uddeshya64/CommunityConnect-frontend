@@ -361,7 +361,6 @@ function NotificationsPageContent() {
 
         </main>
       </div>
-      </AppLayout>
     </div>
   );
 }
