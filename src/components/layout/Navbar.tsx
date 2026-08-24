@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Menu, User } from "lucide-react";
-import { useMyProfile } from "@/hooks/profileHooks";
+import { useUser } from "@/components/providers/UserProvider";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { notificationService } from "@/services/notification.service";
 
@@ -16,31 +16,12 @@ interface NavbarProps {
 export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProps) {
   const { isDark, activeAccent } = useAppearance();
   const pathname = usePathname();
-  const { getMyProfile } = useMyProfile();
-
-  const [profile, setProfile] = useState<{
-    id?: number;
-    name?: string;
-    avatarUrl?: string | null;
-  }>({});
+  const { profile } = useUser();
   const [hasNotifications, setHasNotifications] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    const fetchData = async () => {
-      try {
-        const data = await getMyProfile();
-        if (isMounted && data) {
-          setProfile({
-            id: data.id,
-            name: data.name,
-            avatarUrl: (data as any).avatar_url || (data as any).avatarUrl || null,
-          });
-        }
-      } catch (err) {
-        // Guest mode fallback
-      }
-
+    const fetchNotifications = async () => {
       try {
         const notifs = await notificationService.getNotifications();
         if (isMounted && Array.isArray(notifs)) {
@@ -51,7 +32,7 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
       }
     };
 
-    fetchData();
+    fetchNotifications();
     return () => {
       isMounted = false;
     };
@@ -64,7 +45,8 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
     return name.slice(0, 2).toUpperCase();
   };
 
-  const profileHref = profile.id ? `/profile/${profile.id}` : "/settings";
+  const avatarUrl = profile?.avatar_url || (profile as any)?.avatarUrl || null;
+  const profileHref = profile?.id ? `/profile/${profile.id}` : "/profile";
   const isNotificationsActive = pathname === "/notifications";
 
   return (
@@ -164,17 +146,17 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
               } shadow-md transition-all hover:scale-105 bg-gradient-to-br ${
                 activeAccent.gradient
               } flex items-center justify-center shrink-0`}
-              title={profile.name || "Profile"}
+              title={profile?.name || "Profile"}
             >
-              {profile.avatarUrl ? (
+              {avatarUrl ? (
                 <img
-                  src={profile.avatarUrl}
-                  alt={profile.name || "Profile"}
+                  src={avatarUrl}
+                  alt={profile?.name || "Profile"}
                   className="w-full h-full object-cover"
                 />
               ) : (
                 <span className="text-white font-bold text-xs sm:text-sm">
-                  {getInitials(profile.name)}
+                  {getInitials(profile?.name)}
                 </span>
               )}
             </div>

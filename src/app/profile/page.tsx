@@ -24,36 +24,39 @@ import { Profile } from "@/types/profile.types";
 import PageTransition from "@/components/layout/PageTransition";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import { useUser } from "@/components/providers/UserProvider";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
 export default function MyProfilePage() {
     const { isDark, activeAccent } = useAppearance();
-    const [profile, setProfile] = useState<Profile | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const { profile: userProfile, setProfileData, isLoading: isUserLoading } = useUser();
+    const [profile, setProfile] = useState<Profile | null>(userProfile);
+    const [isLoading, setIsLoading] = useState(!userProfile && isUserLoading);
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState("");
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Sync from user context if available
+    useEffect(() => {
+        if (userProfile) {
+            setProfile(userProfile);
+            setIsLoading(false);
+        }
+    }, [userProfile]);
+
     // Fetch profile
     useEffect(() => {
-        const cached = localStorage.getItem("cc_user_profile");
-        if (cached) {
-            try {
-                setProfile(JSON.parse(cached));
-                setIsLoading(false);
-            } catch (e) {}
-        }
-
         const fetchProfile = async () => {
             try {
                 const data = await profileService.getMyProfile();
                 setProfile(data);
-                // localStorage.setItem("cc_user_profile", JSON.stringify(data));
-                // localStorage.setItem("profile_completed", "true");
+                if (data) {
+                    setProfileData(data);
+                }
             } catch (err: any) {
-                if (!cached) {
+                if (!userProfile) {
                     setError(
                         err.response?.data?.error ||
                         "Failed to load profile."
@@ -65,7 +68,7 @@ export default function MyProfilePage() {
         };
 
         fetchProfile();
-    }, []);
+    }, [userProfile, setProfileData]);
 
     // Open file selector
     const handleUploadClick = () => {
@@ -148,6 +151,9 @@ export default function MyProfilePage() {
                 await profileService.getMyProfile();
 
             setProfile(updatedProfile);
+            if (updatedProfile) {
+                setProfileData(updatedProfile);
+            }
 
             console.log(
                 "Profile updated successfully:",
