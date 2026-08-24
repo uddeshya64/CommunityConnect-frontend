@@ -313,22 +313,28 @@ export default function HomeContent() {
           let rawEvents: any[] =
             [];
 
-          // ============================================
-          // RESPONSE FORMAT 1
-          // ============================================
-
           if (
             Array.isArray(response)
           ) {
             rawEvents =
               response;
-          }
-
-          // ============================================
-          // RESPONSE FORMAT 2
-          // ============================================
-
-          else if (
+          } else if (
+            response?.data?.events &&
+            Array.isArray(
+              response.data.events
+            )
+          ) {
+            rawEvents =
+              response.data.events;
+          } else if (
+            response?.data?.data &&
+            Array.isArray(
+              response.data.data
+            )
+          ) {
+            rawEvents =
+              response.data.data;
+          } else if (
             response &&
             Array.isArray(
               response.data
@@ -336,13 +342,7 @@ export default function HomeContent() {
           ) {
             rawEvents =
               response.data;
-          }
-
-          // ============================================
-          // RESPONSE FORMAT 3
-          // ============================================
-
-          else if (
+          } else if (
             response &&
             Array.isArray(
               response.events
@@ -350,43 +350,10 @@ export default function HomeContent() {
           ) {
             rawEvents =
               response.events;
-          }
-
-          // ============================================
-          // RESPONSE FORMAT 4
-          // ============================================
-
-          else if (
-            response?.data &&
-            Array.isArray(
-              response.data.data
-            )
-          ) {
-            rawEvents =
-              response.data.data;
-          }
-
-          // ============================================
-          // RESPONSE FORMAT 5
-          // ============================================
-
-          else if (
-            response?.data &&
-            Array.isArray(
-              response.data.events
-            )
-          ) {
-            rawEvents =
-              response.data.events;
-          }
-
-          // ============================================
-          // INVALID RESPONSE
-          // ============================================
-
-          else {
+          } else {
             console.error(
-              "🚨 Could not find events array in response"
+              "🚨 Could not find events array in response",
+              response
             );
           }
 
@@ -405,9 +372,10 @@ export default function HomeContent() {
                     ),
 
                   title:
-                    evt.title,
+                    evt.title || "Untitled Event",
 
                   category:
+                    evt.type?.name ||
                     evt.type ||
                     evt.category ||
                     "Meetup",
@@ -431,7 +399,7 @@ export default function HomeContent() {
                     0,
 
                   createdBy:
-                    evt.created_by,
+                    evt.created_by ?? evt.createdBy,
 
                   bannerUrl:
                     evt.banner_url ||
@@ -461,30 +429,14 @@ export default function HomeContent() {
 
   // ============================================
   // STEP 4:
-  // HIDE EVENTS CREATED BY CURRENT USER & CONCLUDED EVENTS
+  // SHOW FEED EVENTS
   // ============================================
 
   const visibleEvents =
     useMemo(() => {
-      const now = Date.now();
-
-      return events.filter((event) => {
-        // 1. Hide events created by current user
-        if (userId !== undefined && String(event.createdBy) === String(userId)) {
-          return false;
-        }
-
-        // 2. Hide concluded events (events whose end date/time has passed)
-        const eventEndTime = event.endDate ? new Date(event.endDate).getTime() : new Date(event.date).getTime();
-        if (!isNaN(eventEndTime) && eventEndTime < now) {
-          return false;
-        }
-
-        return true;
-      });
+      return events;
     }, [
       events,
-      userId,
     ]);
 
   // ============================================
