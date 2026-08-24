@@ -21,8 +21,8 @@ import ProfilePromptPopup from "@/components/ProfilePromptPopup";
 import NotificationPromptPopup from "@/components/NotificationPromptPopup";
 import Sidebar from "@/app/home/SideBar";
 import AppLayout from "@/components/layout/AppLayout";
-import { useMyProfile } from "@/hooks/profileHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import { useUser } from "@/components/providers/UserProvider";
 
 // ============================================
 // TYPES
@@ -109,7 +109,7 @@ function ProfileAvatar({
 }) {
   const href = profile.id
     ? `/profile/${profile.id}`
-    : "#";
+    : "/profile";
 
   return (
     <Link
@@ -156,26 +156,18 @@ export default function HomeContent() {
   const [isLoading, setIsLoading] =
     useState(true);
 
-  const [userName, setUserName] =
-    useState("");
-
-  const [userId, setUserId] =
-    useState<number | undefined>(undefined);
-
-  const [avatarUrl, setAvatarUrl] =
-    useState<string | null | undefined>(
-      undefined
-    );
-
   const [authReady, setAuthReady] =
     useState(false);
 
   // ============================================
-  // PROFILE HOOK
+  // USER PROFILE FROM CONTEXT
   // ============================================
 
-  const { getMyProfile } =
-    useMyProfile();
+  const { profile: userProfile } = useUser();
+
+  const userName = userProfile?.name || "there";
+  const userId = userProfile?.id;
+  const avatarUrl = userProfile?.avatar_url || null;
 
   // ============================================
   // STEP 1:
@@ -294,75 +286,6 @@ export default function HomeContent() {
   ]);
 
   // ============================================
-  // STEP 2:
-  // FETCH LOGGED-IN USER PROFILE
-  // ============================================
-
-  useEffect(() => {
-    const cachedProfile = localStorage.getItem("cc_user_profile");
-    if (cachedProfile) {
-      try {
-        const profile = JSON.parse(cachedProfile);
-        setUserName(profile.name || "there");
-        setUserId(profile.id);
-        setAvatarUrl(profile.avatar_url || null);
-      } catch (e) {}
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!authReady) {
-      return;
-    }
-
-    const fetchProfile =
-      async () => {
-        try {
-          const accessToken =
-            localStorage.getItem(
-              "accessToken"
-            );
-
-          if (!accessToken) {
-            setUserName("there");
-            return;
-          }
-
-          const profile =
-            await getMyProfile();
-
-          setUserName(
-            profile.name ||
-              "there"
-          );
-
-          setUserId(
-            profile.id
-          );
-
-          setAvatarUrl(
-            profile.avatar_url ||
-              null
-          );
-
-          // localStorage.setItem("cc_user_profile", JSON.stringify(profile));
-        } catch (err) {
-          console.error(
-            "Failed to fetch profile:",
-            err
-          );
-
-          setUserName("there");
-        }
-      };
-
-    fetchProfile();
-  }, [
-    authReady,
-    getMyProfile,
-  ]);
-
-  // ============================================
   // STEP 3:
   // FETCH EVENTS
   // ============================================
@@ -390,22 +313,28 @@ export default function HomeContent() {
           let rawEvents: any[] =
             [];
 
-          // ============================================
-          // RESPONSE FORMAT 1
-          // ============================================
-
           if (
             Array.isArray(response)
           ) {
             rawEvents =
               response;
-          }
-
-          // ============================================
-          // RESPONSE FORMAT 2
-          // ============================================
-
-          else if (
+          } else if (
+            response?.data?.events &&
+            Array.isArray(
+              response.data.events
+            )
+          ) {
+            rawEvents =
+              response.data.events;
+          } else if (
+            response?.data?.data &&
+            Array.isArray(
+              response.data.data
+            )
+          ) {
+            rawEvents =
+              response.data.data;
+          } else if (
             response &&
             Array.isArray(
               response.data
@@ -413,13 +342,7 @@ export default function HomeContent() {
           ) {
             rawEvents =
               response.data;
-          }
-
-          // ============================================
-          // RESPONSE FORMAT 3
-          // ============================================
-
-          else if (
+          } else if (
             response &&
             Array.isArray(
               response.events
@@ -427,43 +350,10 @@ export default function HomeContent() {
           ) {
             rawEvents =
               response.events;
-          }
-
-          // ============================================
-          // RESPONSE FORMAT 4
-          // ============================================
-
-          else if (
-            response?.data &&
-            Array.isArray(
-              response.data.data
-            )
-          ) {
-            rawEvents =
-              response.data.data;
-          }
-
-          // ============================================
-          // RESPONSE FORMAT 5
-          // ============================================
-
-          else if (
-            response?.data &&
-            Array.isArray(
-              response.data.events
-            )
-          ) {
-            rawEvents =
-              response.data.events;
-          }
-
-          // ============================================
-          // INVALID RESPONSE
-          // ============================================
-
-          else {
+          } else {
             console.error(
-              "🚨 Could not find events array in response"
+              "🚨 Could not find events array in response",
+              response
             );
           }
 
@@ -482,9 +372,10 @@ export default function HomeContent() {
                     ),
 
                   title:
-                    evt.title,
+                    evt.title || "Untitled Event",
 
                   category:
+                    evt.type?.name ||
                     evt.type ||
                     evt.category ||
                     "Meetup",
@@ -508,7 +399,7 @@ export default function HomeContent() {
                     0,
 
                   createdBy:
-                    evt.created_by,
+                    evt.created_by ?? evt.createdBy,
 
                   bannerUrl:
                     evt.banner_url ||
@@ -538,30 +429,14 @@ export default function HomeContent() {
 
   // ============================================
   // STEP 4:
-  // HIDE EVENTS CREATED BY CURRENT USER & CONCLUDED EVENTS
+  // SHOW FEED EVENTS
   // ============================================
 
   const visibleEvents =
     useMemo(() => {
-      const now = Date.now();
-
-      return events.filter((event) => {
-        // 1. Hide events created by current user
-        if (userId !== undefined && String(event.createdBy) === String(userId)) {
-          return false;
-        }
-
-        // 2. Hide concluded events (events whose end date/time has passed)
-        const eventEndTime = event.endDate ? new Date(event.endDate).getTime() : new Date(event.date).getTime();
-        if (!isNaN(eventEndTime) && eventEndTime < now) {
-          return false;
-        }
-
-        return true;
-      });
+      return events;
     }, [
       events,
-      userId,
     ]);
 
   // ============================================

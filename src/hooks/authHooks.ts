@@ -177,9 +177,11 @@ export function useLogout() {
         }
       );
 
-      // Clear stored tokens regardless of response shape
+      // Clear stored tokens and profile cache
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
+      localStorage.removeItem("cc_user_profile");
+      localStorage.removeItem("cc_user_id");
 
       return data;
     } catch (err: any) {

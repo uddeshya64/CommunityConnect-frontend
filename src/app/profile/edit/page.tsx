@@ -38,6 +38,7 @@ import {
 import PageTransition from "@/components/layout/PageTransition";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useToast } from "@/components/providers/ToastProvider";
+import { useUser } from "@/components/providers/UserProvider";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
@@ -46,9 +47,10 @@ type EditProfileFormValues = UpdateProfileFormValues;
 export default function EditProfilePage() {
   const { isDark, activeAccent } = useAppearance();
   const { success: showSuccess, error: showError } = useToast();
+  const { profile: userProfile, setProfileData, isLoading: isUserLoading } = useUser();
   const router = useRouter();
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!userProfile && isUserLoading);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -58,7 +60,7 @@ export default function EditProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Skills state
-  const [skills, setSkills] = useState<string[]>([]);
+  const [skills, setSkills] = useState<string[]>(userProfile?.skills || []);
   const [skillInput, setSkillInput] = useState("");
 
   // Form
@@ -66,15 +68,15 @@ export default function EditProfilePage() {
     resolver: zodResolver(UpdateProfileSchema) as any,
 
     defaultValues: {
-      name: "",
-      phone: "",
-      profession: "",
-      bio: "",
-      location: "",
-      linkedin: "",
-      github: "",
-      avatar_url: "",
-      skills: [],
+      name: userProfile?.name || "",
+      phone: userProfile?.phone || "",
+      profession: userProfile?.profession || "",
+      bio: userProfile?.bio || "",
+      location: userProfile?.location || "",
+      linkedin: userProfile?.linkedin || "",
+      github: userProfile?.github || "",
+      avatar_url: userProfile?.avatar_url || "",
+      skills: userProfile?.skills || [],
     },
   });
 
@@ -83,41 +85,37 @@ export default function EditProfilePage() {
   const bioValue = form.watch("bio") || "";
 
   /**
-   * Fetch existing profile
+   * Sync form with userProfile or fetch fresh
    */
   useEffect(() => {
-    const cachedProfile = localStorage.getItem("cc_user_profile");
-    if (cachedProfile) {
-      try {
-        const profileData = JSON.parse(cachedProfile) as any;
-        const existingSkills = Array.isArray(profileData.skills)
-          ? profileData.skills
-          : [];
-        form.reset({
-          name: profileData.name || "",
-          phone: profileData.phone || "",
-          profession: profileData.profession || "",
-          bio: profileData.bio || "",
-          location: profileData.location || "",
-          linkedin: profileData.linkedin || "",
-          github: profileData.github || "",
-          avatar_url: profileData.avatar_url || "",
-          skills: existingSkills,
-        });
-        setSkills(existingSkills);
-        setIsLoading(false);
-      } catch (e) {}
+    if (userProfile) {
+      const existingSkills = Array.isArray(userProfile.skills) ? userProfile.skills : [];
+      form.reset({
+        name: userProfile.name || "",
+        phone: userProfile.phone || "",
+        profession: userProfile.profession || "",
+        bio: userProfile.bio || "",
+        location: userProfile.location || "",
+        linkedin: userProfile.linkedin || "",
+        github: userProfile.github || "",
+        avatar_url: userProfile.avatar_url || "",
+        skills: existingSkills,
+      });
+      setSkills(existingSkills);
+      setIsLoading(false);
     }
 
     const fetchProfile = async () => {
       try {
-        if (!cachedProfile) {
+        if (!userProfile) {
           setIsLoading(true);
         }
 
         const data = await profileService.getMyProfile();
         const profileData = data as any;
-        // localStorage.setItem("cc_user_profile", JSON.stringify(profileData));
+        if (profileData) {
+          setProfileData(profileData);
+        }
 
         const existingSkills = Array.isArray(profileData.skills)
           ? profileData.skills
@@ -138,7 +136,7 @@ export default function EditProfilePage() {
         setSkills(existingSkills);
       } catch (error) {
         console.error("Failed to fetch profile:", error);
-        if (!cachedProfile) {
+        if (!userProfile) {
           setServerError(
             "Unable to load your profile. You can still create your profile."
           );
@@ -149,7 +147,7 @@ export default function EditProfilePage() {
     };
 
     fetchProfile();
-  }, [form]);
+  }, [form, userProfile, setProfileData]);
 
   /**
    * Add skill
@@ -294,8 +292,10 @@ export default function EditProfilePage() {
         skills,
       };
 
-      await profileService.updateMyProfile(payload);
-      // localStorage.setItem("profile_completed", "true");
+      const updated = await profileService.updateMyProfile(payload);
+      if (updated) {
+        setProfileData(updated);
+      }
       setSuccessMsg("Profile updated successfully!");
       showSuccess("Profile updated successfully!");
 
