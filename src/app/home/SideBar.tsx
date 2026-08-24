@@ -21,7 +21,7 @@ import {
   Loader2,
   AlertTriangle,
 } from "lucide-react";
-import { useMyProfile } from "@/hooks/profileHooks";
+import { useUser } from "@/components/providers/UserProvider";
 import { useLogout } from "@/hooks/authHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
@@ -56,7 +56,6 @@ export default function Sidebar({
   const { isDark, activeAccent } = useAppearance();
   const pathname = usePathname();
   const router = useRouter();
-  const [userName, setUserName] = useState("");
   
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
@@ -69,27 +68,19 @@ export default function Sidebar({
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const { getMyProfile } = useMyProfile();
+  const { profile, clearProfile } = useUser();
   const { logout, isLoading: isLoggingOut } = useLogout();
 
-  useEffect(() => {
-    const fetchName = async () => {
-      try {
-        const profile = await getMyProfile();
-        setUserName(profile.name || "there");
-      } catch {
-        setUserName("there");
-      }
-    };
-    fetchName();
-  }, []);
+  const userName = profile?.name || "there";
 
   const handleConfirmLogout = async () => {
     try {
       await logout();
+      clearProfile();
     } catch {
       // Tokens are cleared inside the hook on success; still redirect
       // even on failure so the user isn't stuck.
+      clearProfile();
     } finally {
       setShowLogoutConfirm(false);
       router.push("/login");

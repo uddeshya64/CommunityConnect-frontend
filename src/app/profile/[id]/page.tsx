@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import AppLayout from "@/components/layout/AppLayout";
 import { useProfileById, MyProfile } from "@/hooks/profileHooks";
+import { useUser } from "@/components/providers/UserProvider";
 import PageTransition from "@/components/layout/PageTransition";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
@@ -74,13 +75,19 @@ export default function PublicProfilePage() {
   const searchParams = useSearchParams();
 
   const profileId = params.id as string;
+  const { profile: userProfile } = useUser();
 
   // ==============================
   // STATES
   // ==============================
 
-  const [profile, setProfile] = useState<ExtendedProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<ExtendedProfile | null>(() => {
+    if (profileId === "me" && userProfile) {
+      return userProfile as unknown as ExtendedProfile;
+    }
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState(profileId === "me" ? !userProfile : true);
   const [error, setError] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
@@ -121,26 +128,20 @@ export default function PublicProfilePage() {
   useEffect(() => {
     if (!profileId) return;
 
-    const cached = localStorage.getItem("cc_user_profile");
-    if (profileId === "me" && cached) {
-      try {
-        setProfile(JSON.parse(cached));
-        setIsLoading(false);
-      } catch (e) {}
+    if (profileId === "me" && userProfile) {
+      setProfile(userProfile as unknown as ExtendedProfile);
+      setIsLoading(false);
     }
 
     const fetchProfile = async () => {
       try {
-        if (profileId !== "me" || !cached) {
+        if (profileId !== "me" || !userProfile) {
           setIsLoading(true);
         }
         setError("");
 
         const data = await getProfileById(profileId);
         setProfile(data);
-        if (profileId === "me") {
-          // localStorage.setItem("cc_user_profile", JSON.stringify(data));
-        }
       } catch (err: any) {
         if (!profile) {
           setError(err.message || "Profile not found.");
@@ -151,7 +152,7 @@ export default function PublicProfilePage() {
     };
 
     fetchProfile();
-  }, [profileId]);
+  }, [profileId, userProfile]);
 
   // ==============================
   // PROFILE IMAGE UPLOAD

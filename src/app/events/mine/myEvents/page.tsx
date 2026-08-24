@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { eventService } from "@/services/event.service";
 import Sidebar from "@/app/home/SideBar";
 import AppLayout from "@/components/layout/AppLayout";
-import { useMyProfile } from "@/hooks/profileHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import { useUser } from "@/components/providers/UserProvider";
 
 interface AppEvent {
   id: string;
@@ -34,35 +34,10 @@ const itemVariants = {
 
 export default function MyEventsPage() {
   const { isDark, activeAccent } = useAppearance();
+  const { profile } = useUser();
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<number | undefined>(undefined);
-
-  const { getMyProfile } = useMyProfile();
-
-  useEffect(() => {
-    const cachedProfile = localStorage.getItem("cc_user_profile");
-    if (cachedProfile) {
-      try {
-        const prof = JSON.parse(cachedProfile);
-        if (prof?.id) setUserId(Number(prof.id));
-      } catch (e) {}
-    } else {
-      const cachedUserId = localStorage.getItem("cc_user_id");
-      if (cachedUserId) {
-        setUserId(Number(cachedUserId));
-      }
-    }
-
-    const fetchProfile = async () => {
-      try {
-        const profile = await getMyProfile();
-        setUserId(profile.id);
-        localStorage.setItem("cc_user_id", String(profile.id));
-      } catch (err) {}
-    };
-    fetchProfile();
-  }, []);
+  const userId = profile?.id;
 
   useEffect(() => {
     const cachedEvents = localStorage.getItem("cc_my_events");

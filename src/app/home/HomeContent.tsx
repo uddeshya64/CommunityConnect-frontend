@@ -21,8 +21,8 @@ import ProfilePromptPopup from "@/components/ProfilePromptPopup";
 import NotificationPromptPopup from "@/components/NotificationPromptPopup";
 import Sidebar from "@/app/home/SideBar";
 import AppLayout from "@/components/layout/AppLayout";
-import { useMyProfile } from "@/hooks/profileHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import { useUser } from "@/components/providers/UserProvider";
 
 // ============================================
 // TYPES
@@ -109,7 +109,7 @@ function ProfileAvatar({
 }) {
   const href = profile.id
     ? `/profile/${profile.id}`
-    : "#";
+    : "/profile";
 
   return (
     <Link
@@ -156,26 +156,18 @@ export default function HomeContent() {
   const [isLoading, setIsLoading] =
     useState(true);
 
-  const [userName, setUserName] =
-    useState("");
-
-  const [userId, setUserId] =
-    useState<number | undefined>(undefined);
-
-  const [avatarUrl, setAvatarUrl] =
-    useState<string | null | undefined>(
-      undefined
-    );
-
   const [authReady, setAuthReady] =
     useState(false);
 
   // ============================================
-  // PROFILE HOOK
+  // USER PROFILE FROM CONTEXT
   // ============================================
 
-  const { getMyProfile } =
-    useMyProfile();
+  const { profile: userProfile } = useUser();
+
+  const userName = userProfile?.name || "there";
+  const userId = userProfile?.id;
+  const avatarUrl = userProfile?.avatar_url || null;
 
   // ============================================
   // STEP 1:
@@ -291,75 +283,6 @@ export default function HomeContent() {
   }, [
     searchParams,
     router,
-  ]);
-
-  // ============================================
-  // STEP 2:
-  // FETCH LOGGED-IN USER PROFILE
-  // ============================================
-
-  useEffect(() => {
-    const cachedProfile = localStorage.getItem("cc_user_profile");
-    if (cachedProfile) {
-      try {
-        const profile = JSON.parse(cachedProfile);
-        setUserName(profile.name || "there");
-        setUserId(profile.id);
-        setAvatarUrl(profile.avatar_url || null);
-      } catch (e) {}
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!authReady) {
-      return;
-    }
-
-    const fetchProfile =
-      async () => {
-        try {
-          const accessToken =
-            localStorage.getItem(
-              "accessToken"
-            );
-
-          if (!accessToken) {
-            setUserName("there");
-            return;
-          }
-
-          const profile =
-            await getMyProfile();
-
-          setUserName(
-            profile.name ||
-              "there"
-          );
-
-          setUserId(
-            profile.id
-          );
-
-          setAvatarUrl(
-            profile.avatar_url ||
-              null
-          );
-
-          // localStorage.setItem("cc_user_profile", JSON.stringify(profile));
-        } catch (err) {
-          console.error(
-            "Failed to fetch profile:",
-            err
-          );
-
-          setUserName("there");
-        }
-      };
-
-    fetchProfile();
-  }, [
-    authReady,
-    getMyProfile,
   ]);
 
   // ============================================
