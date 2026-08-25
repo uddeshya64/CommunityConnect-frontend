@@ -182,6 +182,11 @@ export function useLogout() {
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("cc_user_profile");
       localStorage.removeItem("cc_user_id");
+      localStorage.removeItem("cc_user_settings");
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("cc_auth_changed"));
+      }
 
       return data;
     } catch (err: any) {

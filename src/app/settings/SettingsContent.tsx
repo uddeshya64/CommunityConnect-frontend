@@ -315,15 +315,12 @@ export default function SettingsContent() {
         if (backendSettings && typeof backendSettings === "object" && Object.keys(backendSettings).length > 0) {
           const merged = { ...DEFAULT_SETTINGS, ...backendSettings };
           setSettings(merged);
-          // localStorage.setItem("cc_user_settings", JSON.stringify(merged));
-          // localStorage.setItem("cc_2fa_enabled", merged.twoFactorEnabled ? "true" : "false");
+          localStorage.setItem("cc_user_settings", JSON.stringify(merged));
           if (merged.twoFactorSecret) {
             setUser2FASecret(merged.twoFactorSecret);
-            // localStorage.setItem("cc_2fa_secret", merged.twoFactorSecret);
           }
           if (merged.twoFactorBackupCodes && Array.isArray(merged.twoFactorBackupCodes)) {
             setUserBackupCodes(merged.twoFactorBackupCodes);
-            // localStorage.setItem("cc_2fa_backup_codes", JSON.stringify(merged.twoFactorBackupCodes));
           }
         }
         
@@ -378,10 +375,7 @@ export default function SettingsContent() {
     const updated = { ...settings, [key]: value };
     setSettings(updated);
 
-    // localStorage.setItem("cc_user_settings", JSON.stringify(updated));
-    if (key === "twoFactorEnabled") {
-      // localStorage.setItem("cc_2fa_enabled", value ? "true" : "false");
-    }
+    localStorage.setItem("cc_user_settings", JSON.stringify(updated));
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: updated })
@@ -407,7 +401,7 @@ export default function SettingsContent() {
 
   const resetToDefaults = () => {
     setSettings(DEFAULT_SETTINGS);
-    // localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
+    localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: DEFAULT_SETTINGS })
