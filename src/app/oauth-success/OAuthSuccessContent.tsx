@@ -14,6 +14,7 @@ export default function OAuthSuccessContent() {
     const email = searchParams.get("email");
 
     if (accessToken) {
+      localStorage.removeItem("cc_user_settings");
       localStorage.setItem("accessToken", accessToken);
     }
     if (refreshToken) {
@@ -24,6 +25,10 @@ export default function OAuthSuccessContent() {
     }
     if (email) {
       localStorage.setItem("userEmail", email);
+    }
+
+    if (accessToken && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("cc_auth_changed"));
     }
 
     const storedAccessToken = accessToken || localStorage.getItem("accessToken");

@@ -50,6 +50,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchProfile();
+
+    if (typeof window === "undefined") return;
+
+    const handleAuthChange = () => {
+      setIsLoading(true);
+      fetchProfile();
+    };
+
+    window.addEventListener("cc_auth_changed", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+
+    return () => {
+      window.removeEventListener("cc_auth_changed", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+    };
   }, [fetchProfile]);
 
   const clearProfile = useCallback(() => {

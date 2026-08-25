@@ -137,6 +137,7 @@ export default function RegisterPage() {
       );
 
       // Save authentication tokens
+      localStorage.removeItem("cc_user_settings");
       localStorage.setItem(
         "accessToken",
         result.accessToken
@@ -146,6 +147,10 @@ export default function RegisterPage() {
         "refreshToken",
         result.refreshToken
       );
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("cc_auth_changed"));
+      }
 
       // Reset notification prompt for new user registration
       localStorage.removeItem("notification_prompt_completed");

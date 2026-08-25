@@ -206,6 +206,7 @@ export default function HomeContent() {
     // ============================================
 
     if (accessToken) {
+      localStorage.removeItem("cc_user_settings");
       localStorage.setItem(
         "accessToken",
         accessToken
@@ -221,6 +222,10 @@ export default function HomeContent() {
         "refreshToken",
         refreshToken
       );
+    }
+
+    if (accessToken && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("cc_auth_changed"));
     }
 
     // ============================================
