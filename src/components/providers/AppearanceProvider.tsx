@@ -212,12 +212,15 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     const fetchRemoteSettings = async () => {
       try {
         const token = localStorage.getItem("accessToken");
-        if (!token) return;
+        if (!token) {
+          setSettings(DEFAULT_SETTINGS);
+          return;
+        }
         const remote = await profileService.getMySettings();
         if (remote && Object.keys(remote).length > 0) {
           setSettings((prev) => {
             const merged = { ...prev, ...remote };
-            // localStorage.setItem("cc_user_settings", JSON.stringify(merged));
+            localStorage.setItem("cc_user_settings", JSON.stringify(merged));
             return merged;
           });
         }
@@ -226,6 +229,10 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       }
     };
     fetchRemoteSettings();
+
+    const handleAuthChanged = () => {
+      fetchRemoteSettings();
+    };
 
     // Listen for custom settings update events (e.g. from Settings page)
     const handleSettingsUpdated = (e: Event) => {
@@ -244,9 +251,11 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    window.addEventListener("cc_auth_changed", handleAuthChanged);
     window.addEventListener("cc_settings_updated", handleSettingsUpdated);
     window.addEventListener("storage", handleSettingsUpdated);
     return () => {
+      window.removeEventListener("cc_auth_changed", handleAuthChanged);
       window.removeEventListener("cc_settings_updated", handleSettingsUpdated);
       window.removeEventListener("storage", handleSettingsUpdated);
     };
@@ -343,7 +352,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     setSettings(updated);
 
     if (typeof window !== "undefined") {
-      // localStorage.setItem("cc_user_settings", JSON.stringify(updated));
+      localStorage.setItem("cc_user_settings", JSON.stringify(updated));
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: updated })
       );
@@ -356,7 +365,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const resetToDefaults = () => {
     setSettings(DEFAULT_SETTINGS);
     if (typeof window !== "undefined") {
-      // localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
+      localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: DEFAULT_SETTINGS })
       );

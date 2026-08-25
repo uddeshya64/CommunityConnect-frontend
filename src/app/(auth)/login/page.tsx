@@ -128,8 +128,14 @@ function LoginContent() {
         return;
       }
 
+      localStorage.removeItem("cc_user_settings");
       localStorage.setItem("accessToken", result.accessToken);
       localStorage.setItem("refreshToken", result.refreshToken);
+      
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("cc_auth_changed"));
+      }
+
       showSuccess("Signed in successfully!");
 
       const targetUrl = localStorage.getItem("returnUrl") || redirectParam;
@@ -175,8 +181,14 @@ function LoginContent() {
         return;
       }
 
+      localStorage.removeItem("cc_user_settings");
       localStorage.setItem("accessToken", pendingTokens.accessToken);
       localStorage.setItem("refreshToken", pendingTokens.refreshToken);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("cc_auth_changed"));
+      }
+
       setSuccessMessage("2FA verification successful! Welcome back.");
       showSuccess("2FA verification successful! Welcome back.");
       setTimeout(() => {
