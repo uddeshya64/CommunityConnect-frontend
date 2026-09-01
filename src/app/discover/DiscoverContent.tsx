@@ -947,7 +947,7 @@ export default function DiscoverContent() {
                 }`}
             >
               <Zap className="w-4 h-4" />
-              <span>Skill Matches ({scoredEvents.filter((e) => e.isSkillMatch).length})</span>
+              <span>Skill Matches</span>
             </button>
           )}
 
@@ -963,7 +963,7 @@ export default function DiscoverContent() {
               }`}
           >
             <Filter className="w-4 h-4" />
-            <span>All Events ({events.length})</span>
+            <span>All Events</span>
           </button>
 
           {/* Dynamic Live Categories Pills */}
@@ -1025,7 +1025,7 @@ export default function DiscoverContent() {
                 onClick={() => setActiveFilter("all")}
                 className={`rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold`}
               >
-                View All Events ({events.length})
+                View All Events
               </Button>
               <Button
                 onClick={() => setIsCustomizerOpen(true)}

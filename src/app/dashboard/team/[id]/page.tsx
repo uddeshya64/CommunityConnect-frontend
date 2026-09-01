@@ -293,7 +293,7 @@ export default function TeamParticipantDashboard() {
   const eventDetails = teamData?.event || {};
   const eventTitle = eventDetails.title || "CommunityConnect Event";
   const eventStartDate = eventDetails.start_date || eventDetails.date;
-  const eventEndDate = eventDetails.end_date || eventStartDate;
+  const eventEndDate = eventDetails.end_date || eventDetails.endDate || null;
   const eventMode = eventDetails.mode || "offline";
   const eventLocation = eventDetails.location || (eventMode === "online" ? "Online Event" : "Location TBA");
   const eventBannerUrl = eventDetails.banner_url || eventDetails.bannerUrl || eventDetails.banner;
@@ -318,19 +318,63 @@ export default function TeamParticipantDashboard() {
   };
 
   const formattedStartDate = formatFullDateTime(eventStartDate);
-  const formattedEndDate = formatFullDateTime(eventEndDate);
+  const formattedEndDate = formatFullDateTime(eventEndDate || eventStartDate);
 
   // Countdown Helper
-  const getCountdown = (startDateIso?: string) => {
+  const getCountdown = (startDateIso?: string, endDateIso?: string | null) => {
     if (!startDateIso) return null;
-    const diff = new Date(startDateIso).getTime() - currentTime.getTime();
-    if (diff <= 0) return { isLive: true, label: "Live Now" };
+    const startMs = new Date(startDateIso).getTime();
+    if (isNaN(startMs)) return null;
 
+    const currentMs = currentTime.getTime();
+
+    let endMs = endDateIso ? new Date(endDateIso).getTime() : NaN;
+
+    // If end_date is missing, invalid, or before start_date, fallback to last timeline session or start + 2 hours
+    if (isNaN(endMs) || endMs <= startMs) {
+      const timelines = eventDetails.timelines;
+      if (Array.isArray(timelines) && timelines.length > 0) {
+        const lastTimeline = timelines[timelines.length - 1];
+        const lastTime = lastTimeline.end_time || lastTimeline.start_time;
+        if (lastTime) {
+          const tMs = new Date(lastTime).getTime();
+          if (!isNaN(tMs) && tMs > startMs) {
+            endMs = tMs;
+          }
+        }
+      }
+    }
+
+    if (isNaN(endMs) || endMs <= startMs) {
+      endMs = startMs + 2 * 60 * 60 * 1000;
+    }
+
+    // 1. Event Concluded (current time is past the event end time)
+    if (currentMs >= endMs) {
+      return {
+        isConcluded: true,
+        isLive: false,
+        label: "Event Concluded"
+      };
+    }
+
+    // 2. Live Now (current time is between start and end time)
+    if (currentMs >= startMs && currentMs < endMs) {
+      return {
+        isConcluded: false,
+        isLive: true,
+        label: "Live Now"
+      };
+    }
+
+    // 3. Starts in future
+    const diff = startMs - currentMs;
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
     const minutes = Math.floor((diff / (1000 * 60)) % 60);
     const seconds = Math.floor((diff / 1000) % 60);
     return {
+      isConcluded: false,
       isLive: false,
       days,
       hours,
@@ -340,7 +384,7 @@ export default function TeamParticipantDashboard() {
     };
   };
 
-  const countdown = getCountdown(eventStartDate);
+  const countdown = getCountdown(eventStartDate, eventEndDate);
 
   // Directions & Calendar Helpers
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(eventLocation)}`;
@@ -451,7 +495,13 @@ export default function TeamParticipantDashboard() {
                     {isSolo ? "Individual Registration" : "Official Registration"}
                   </span>
                   {countdown && (
-                    <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] border backdrop-blur-md flex items-center gap-2 ${countdown.isLive ? 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                    <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] border backdrop-blur-md flex items-center gap-2 ${
+                      countdown.isConcluded
+                        ? 'bg-zinc-800/80 text-zinc-400 border-zinc-700'
+                        : countdown.isLive
+                        ? 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse'
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    }`}>
                       <Clock className="w-3.5 h-3.5" />
                       {countdown.label}
                     </span>

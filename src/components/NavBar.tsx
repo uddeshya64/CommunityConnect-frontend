@@ -34,16 +34,14 @@ export default function Navbar({ theme }: { theme?: "light" | "dark" }) {
           initial={{ y: -100 }}
           animate={{ y: 0 }}
           exit={{ y: -100 }}
-          className={`fixed top-0 w-full z-[100] transition-all duration-300 px-6 py-4 ${
-            isDark ? "bg-zinc-950/80 border-white/5" : "bg-white/80 border-zinc-200"
-          } backdrop-blur-md border-b`}
+          className={`fixed top-0 w-full z-[100] transition-all duration-300 px-6 py-4 ${isDark ? "bg-zinc-950/80 border-white/5" : "bg-white/80 border-zinc-200"
+            } backdrop-blur-md border-b`}
         >
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <Link
               href="/home"
-              className={`flex items-center gap-2 font-black text-2xl tracking-tighter ${
-                isDark ? "text-white" : "text-zinc-900"
-              }`}
+              className={`flex items-center gap-2 font-black text-2xl tracking-tighter ${isDark ? "text-white" : "text-zinc-900"
+                }`}
             >
               <div
                 className={`w-8 h-8 ${activeAccent.bg} rounded-lg flex items-center justify-center text-white shadow-md`}
@@ -71,22 +69,20 @@ export default function Navbar({ theme }: { theme?: "light" | "dark" }) {
               />
               <Link href="/settings" title="Settings">
                 <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full cursor-pointer transition-all hover:scale-105 ${
-                    isDark
+                  className={`flex items-center justify-center w-8 h-8 rounded-full cursor-pointer transition-all hover:scale-105 ${isDark
                       ? "bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
                       : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900"
-                  }`}
+                    }`}
                 >
                   <Settings className="w-4 h-4" />
                 </div>
               </Link>
               <Link href="/profile/me">
                 <div
-                  className={`flex items-center gap-2 px-3 py-1 rounded-full cursor-pointer transition-all hover:scale-105 ${
-                    isDark
+                  className={`flex items-center gap-2 px-3 py-1 rounded-full cursor-pointer transition-all hover:scale-105 ${isDark
                       ? "bg-white/5 text-zinc-300 hover:bg-white/10"
                       : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                  }`}
+                    }`}
                 >
                   <UserIcon className="w-4 h-4" />
                   <span className="text-sm font-bold">Profile</span>

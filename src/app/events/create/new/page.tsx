@@ -41,6 +41,8 @@ import {
 
 
 
+import AppLayout from "@/components/layout/AppLayout";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
 interface EventFormData {
@@ -664,7 +666,8 @@ function CreateEventPageInner() {
   };
 
   return (
-    <div className="h-screen w-screen bg-zinc-50 flex flex-col relative overflow-hidden font-sans select-none">
+    <AppLayout>
+      <div className="min-h-[calc(100vh-4rem)] flex-1 bg-zinc-50 flex flex-col relative overflow-hidden font-sans select-none">
       
       {/* Minimal moving ambient background animations */}
       <motion.div
@@ -1385,6 +1388,7 @@ function CreateEventPageInner() {
         </div>
       </main>
     </div>
+    </AppLayout>
   );
 }
 
