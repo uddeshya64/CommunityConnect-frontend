@@ -165,14 +165,14 @@ const ToggleSwitch = ({
     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-zinc-950 ${
       checked 
         ? activeBg 
-        : "bg-zinc-250 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+        : "bg-zinc-300 hover:bg-zinc-400 dark:bg-zinc-700 dark:hover:bg-zinc-600"
     } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
   >
     <motion.span
       initial={false}
       animate={{ x: checked ? 20 : 0 }}
       transition={{ type: "spring", stiffness: 600, damping: 30 }}
-      className="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.15)] ring-0"
+      className="pointer-events-none inline-block h-5 w-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.15)] ring-0 bg-zinc-800 dark:bg-white"
     />
   </button>
 );
