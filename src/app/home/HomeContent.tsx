@@ -437,12 +437,30 @@ export default function HomeContent() {
   // SHOW FEED EVENTS
   // ============================================
 
-  const visibleEvents =
-    useMemo(() => {
-      return events;
-    }, [
-      events,
-    ]);
+  const visibleEvents = useMemo(() => {
+    const now = new Date();
+    return events.filter((evt) => {
+      // 1. Exclude events hosted by the current user
+      if (userId !== undefined && evt.createdBy !== undefined && evt.createdBy !== null) {
+        if (String(evt.createdBy) === String(userId)) {
+          return false;
+        }
+      }
+
+      // 2. Exclude concluded events
+      if (evt.endDate) {
+        const end = new Date(evt.endDate);
+        if (!isNaN(end.getTime())) return end >= now;
+      }
+      if (evt.date) {
+        const start = new Date(evt.date);
+        if (!isNaN(start.getTime())) {
+          return start.getTime() + 24 * 60 * 60 * 1000 >= now.getTime();
+        }
+      }
+      return true;
+    });
+  }, [events, userId]);
 
   // ============================================
   // RENDER

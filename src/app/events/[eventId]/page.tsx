@@ -22,6 +22,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
 import { useToast } from "@/components/providers/ToastProvider";
 import AppLayout from "@/components/layout/AppLayout";
+import Navbar from "@/components/layout/Navbar";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 interface EventDetails {
@@ -1078,14 +1079,12 @@ export default function EventDetailsPage() {
   // ==========================================
   if (isStaff && viewMode === "DASHBOARD") {
     return (
-      <AppLayout>
-        <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} flex flex-col md:flex-row transition-colors duration-300`}>
-
+      <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} flex flex-col md:flex-row transition-colors duration-300 relative`}>
         {/* Sidebar spacer placeholder */}
         <div className="hidden md:block w-64 h-screen shrink-0" />
 
-        {/* Sidebar - fixed to viewport on desktop, sticky top bar on mobile */}
-        <div className={`w-full md:w-64 ${isDark ? "bg-zinc-900/90 text-zinc-400 border-white/5" : "bg-white text-zinc-600 border-zinc-200 shadow-sm"} flex flex-col p-3 md:p-4 sticky top-0 md:fixed md:top-16 md:left-0 md:h-[calc(100vh-4rem)] md:z-30 shrink-0 overflow-hidden border-b md:border-b-0 md:border-r`}>
+        {/* Sidebar - fixed to full viewport height on desktop from top-0 */}
+        <aside className={`w-full md:w-64 ${isDark ? "bg-zinc-950/90 text-zinc-400 border-white/10" : "bg-white text-zinc-600 border-zinc-200 shadow-sm"} flex flex-col p-3 md:p-4 sticky top-0 md:fixed md:top-0 md:left-0 md:bottom-0 md:h-screen md:z-30 shrink-0 overflow-hidden no-scrollbar border-b md:border-b-0 md:border-r`}>
           <div className="mb-2 md:mb-8 p-2 md:p-4 flex md:flex-col justify-between items-center md:items-start gap-4">
             <div className="min-w-0">
               <Link href="/home" className={`flex items-center gap-2 ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors text-xs md:text-sm font-semibold mb-1 md:mb-6`}>
@@ -1179,10 +1178,12 @@ export default function EventDetailsPage() {
               <Eye className="w-4 h-4 mr-2" /> Preview Event
             </Button>
           </div>
-        </div>
+        </aside>
 
-        {/* Dashboard Content Area */}
-        <div className="flex-1 p-6 md:p-12 overflow-y-auto">
+        {/* Right Content Area with Navbar on top */}
+        <div className="flex-1 flex flex-col min-w-0 relative">
+          <Navbar />
+          <div className="flex-1 p-6 md:p-12 overflow-y-auto min-w-0">
           <div className="max-w-4xl mx-auto">
 
             {isFetchingTab ? (
@@ -2266,7 +2267,7 @@ export default function EventDetailsPage() {
         </AnimatePresence>
 
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
@@ -2418,7 +2419,7 @@ export default function EventDetailsPage() {
         <div className="lg:col-span-7 space-y-6 lg:space-y-8">
           
           {/* Card Block 1: About this event */}
-          <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
+          <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 max-w-full overflow-hidden ${theme.cardBg}`}>
             <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
               <Building2 className={`w-5 h-5 ${theme.accent}`} /> About this Event
             </h2>
@@ -2625,7 +2626,7 @@ export default function EventDetailsPage() {
                                   
                                   {isExpanded && timeline.description && (
                                     <div
-                                      className="text-[11px] font-semibold opacity-95 pt-2 mt-2 border-t border-current/10 prose prose-sm max-w-none prose-current leading-relaxed"
+                                      className="text-[11px] font-semibold opacity-95 pt-2 mt-2 border-t border-current/10 prose prose-sm max-w-none prose-current leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] overflow-hidden"
                                       dangerouslySetInnerHTML={{ __html: timeline.description }}
                                     />
                                   )}

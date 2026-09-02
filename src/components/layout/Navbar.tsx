@@ -51,11 +51,10 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
 
   return (
     <header
-      className={`sticky top-0 z-40 w-full h-16 border-b backdrop-blur-xl transition-all duration-300 ${
-        isDark
-          ? "bg-zinc-950/80 border-white/10 text-white"
-          : "bg-white/80 border-zinc-200/70 text-zinc-900"
-      }`}
+      className={`sticky top-0 z-40 w-full h-16 border-b backdrop-blur-xl transition-all duration-300 ${isDark
+        ? "bg-zinc-950/80 border-white/10 text-white"
+        : "bg-white/80 border-zinc-200/70 text-zinc-900"
+        }`}
     >
       <div className="h-full px-4 sm:px-6 flex items-center justify-between gap-4">
         {/* LEFT SECTION */}
@@ -64,11 +63,10 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
           {onToggleMobile && (
             <button
               onClick={onToggleMobile}
-              className={`md:hidden p-2 rounded-xl flex items-center justify-center transition-colors ${
-                isDark
-                  ? "text-zinc-300 hover:text-white hover:bg-white/10"
-                  : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-              }`}
+              className={`md:hidden p-2 rounded-xl flex items-center justify-center transition-colors ${isDark
+                ? "text-zinc-300 hover:text-white hover:bg-white/10"
+                : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+                }`}
               title="Open menu"
             >
               <Menu className="w-5 h-5" />
@@ -96,15 +94,9 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
               href="/home"
               className="flex items-center gap-2.5 group transition-opacity hover:opacity-90"
             >
-              <div
-                className={`w-8.5 h-8.5 rounded-xl bg-gradient-to-br ${activeAccent.gradient} shadow-sm flex items-center justify-center transition-transform group-hover:scale-105`}
-              >
-                <span className="text-white text-xs font-black">CC</span>
-              </div>
               <span
-                className={`font-black text-xl tracking-tight ${
-                  isDark ? "text-white" : "text-zinc-900"
-                }`}
+                className={`font-black text-xl tracking-tight ${isDark ? "text-white" : "text-zinc-900"
+                  }`}
               >
                 Community<span className={activeAccent.text}>Connect 360</span>
               </span>
@@ -137,13 +129,11 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
           {/* Profile Icon / Avatar */}
           <Link href={profileHref}>
             <div
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 ${
-                isDark
-                  ? "border-zinc-700 hover:border-white"
-                  : "border-white hover:border-indigo-400"
-              } shadow-md transition-all hover:scale-105 bg-gradient-to-br ${
-                activeAccent.gradient
-              } flex items-center justify-center shrink-0`}
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 ${isDark
+                ? "border-zinc-700 hover:border-white"
+                : "border-white hover:border-indigo-400"
+                } shadow-md transition-all hover:scale-105 bg-gradient-to-br ${activeAccent.gradient
+                } flex items-center justify-center shrink-0`}
               title={profile?.name || "Profile"}
             >
               {avatarUrl ? (
