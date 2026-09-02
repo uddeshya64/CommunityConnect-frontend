@@ -131,9 +131,7 @@ export default function InviteClient() {
             <h1 className="text-3xl font-black mb-4">Invitation Invalid</h1>
             <p className={`font-medium mb-10 leading-relaxed ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>{error}</p>
             <Link href="/home" className="block w-full">
-              <Button className={`w-full h-14 rounded-2xl font-bold text-lg transition-all ${
-                isDark ? "bg-zinc-800 hover:bg-zinc-700 text-white" : "bg-zinc-900 hover:bg-zinc-800 text-white"
-              }`}>
+              <Button className={`w-full h-14 rounded-2xl font-bold text-lg transition-all ${activeAccent.bg} hover:opacity-90 text-white`}>
                 Return to Home
               </Button>
             </Link>

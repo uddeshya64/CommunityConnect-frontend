@@ -636,7 +636,7 @@ export default function SettingsContent() {
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-zinc-900 border border-white/10 text-white px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl"
+            className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 ${isDark ? "bg-zinc-900 border border-white/10 text-white" : "bg-white border border-zinc-200 text-zinc-900"} px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl`}
           >
             <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
@@ -644,7 +644,7 @@ export default function SettingsContent() {
             <span className="text-sm font-semibold">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-zinc-400 hover:text-white ml-2"
+              className={`${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} ml-2`}
             >
               <X className="w-4 h-4" />
             </button>

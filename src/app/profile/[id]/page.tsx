@@ -441,12 +441,7 @@ export default function PublicProfilePage() {
                       {profile.name || "Community Member"}
                     </h1>
 
-                    {isPro && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-400 uppercase tracking-wider">
-                        <Star className="w-3 h-3 fill-amber-400" />
-                        Pro Member
-                      </span>
-                    )}
+                   x
                   </div>
 
                   {/* PROFESSION & LOCATION */}

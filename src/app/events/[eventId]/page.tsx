@@ -1813,7 +1813,7 @@ export default function EventDetailsPage() {
                             <Button
                               onClick={() => handleUpgradeSubscription("ENTERPRISE")}
                               type="button"
-                              className="rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold px-4 py-2"
+                              className={`rounded-xl ${activeAccent.bg} hover:opacity-90 text-white text-xs font-bold px-4 py-2`}
                             >
                               Upgrade to Enterprise
                             </Button>
@@ -2094,7 +2094,7 @@ export default function EventDetailsPage() {
                         type="button"
                         onClick={() => handleAddTag(tagInput)}
                         disabled={!tagInput.trim()}
-                        className="rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-xs px-4 shrink-0"
+                        className={`rounded-xl ${activeAccent.bg} hover:opacity-90 text-white font-bold text-xs px-4 shrink-0`}
                       >
                         Add Tag
                       </Button>
@@ -2181,15 +2181,15 @@ export default function EventDetailsPage() {
               initial={{ opacity: 0, y: 50, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 50, scale: 0.9 }}
-              className="fixed bottom-8 right-8 z-50 bg-zinc-950 text-white p-6 rounded-3xl shadow-2xl border border-zinc-800 flex items-center gap-4 max-w-md"
+              className={`fixed bottom-8 right-8 z-50 ${isDark ? "bg-zinc-950 text-white border-zinc-800" : "bg-white text-zinc-900 border-zinc-200"} p-6 rounded-3xl shadow-2xl border flex items-center gap-4 max-w-md`}
             >
               <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <div>
                 <p className="text-xs font-black text-emerald-400 uppercase tracking-widest">Check-In Successful</p>
-                <h4 className="text-lg font-black text-white mt-0.5">Welcome, {welcomeAttendee}! 👋</h4>
-                <p className="text-xs font-medium text-zinc-400 mt-0.5">Attendance status updated seamlessly.</p>
+                <h4 className={`text-lg font-black ${isDark ? "text-white" : "text-zinc-900"} mt-0.5`}>Welcome, {welcomeAttendee}! 👋</h4>
+                <p className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"} mt-0.5`}>Attendance status updated seamlessly.</p>
               </div>
             </motion.div>
           )}
@@ -2783,17 +2783,15 @@ export default function EventDetailsPage() {
             {/* ACTION CTA CHECKS */}
             {isRegistered ? (
               <div className="space-y-3">
-                <div className={`p-4.5 rounded-2xl flex items-start gap-3 border ${
-                  theme.isDark ? "bg-emerald-950/20 border-emerald-900 text-emerald-400" : "bg-emerald-50 border-emerald-150 text-emerald-955"
-                }`}>
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                <div className={`p-4.5 rounded-2xl flex items-start gap-3 border ${activeAccent.badgeBg} ${activeAccent.border} ${activeAccent.text}`}>
+                  <CheckCircle2 className={`w-5 h-5 ${activeAccent.text} shrink-0 mt-0.5`} />
                   <div>
                     <p className="font-extrabold text-xs">You are registered!</p>
                     <p className="opacity-80 text-[10px] font-semibold mt-0.5">Your ticket check details are confirmed.</p>
                   </div>
                 </div>
                 <Link href={`/dashboard/team/${userDashboardId}`} className="block">
-                  <Button className="w-full rounded-2xl py-6 bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-sm shadow-xl transition-all">
+                  <Button className={`w-full rounded-2xl py-6 ${activeAccent.bg} hover:opacity-90 text-white font-bold text-sm shadow-xl ${activeAccent.shadow} transition-all`}>
                     Go to Participant Dashboard
                   </Button>
                 </Link>
@@ -2850,7 +2848,7 @@ export default function EventDetailsPage() {
                 <Button 
                   onClick={handleCopyLink}
                   size="sm" 
-                  className="rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-[10px] shrink-0"
+                  className={`rounded-lg ${activeAccent.bg} hover:opacity-90 text-white font-bold text-[10px] shrink-0`}
                 >
                   {copied ? "Copied!" : "Copy Link"}
                 </Button>

@@ -666,7 +666,7 @@ export default function EditProfilePage() {
                   type="button"
                   onClick={handleAddSkill}
                   disabled={!skillInput.trim() || isSaving}
-                  className={`w-full sm:w-auto rounded-xl ${isDark ? "bg-white text-zinc-950 hover:bg-zinc-200" : "bg-zinc-900 text-white hover:bg-black"} transition-all font-semibold`}
+                  className={`w-full sm:w-auto rounded-xl ${activeAccent.bg} hover:opacity-90 text-white transition-all font-semibold`}
                 >
                   <Plus className="w-4 h-4 mr-1" />
                   Add Skill

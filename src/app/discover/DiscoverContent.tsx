@@ -1103,12 +1103,12 @@ export default function DiscoverContent() {
                             </span>
                           ) : event.isCategoryMatch ? (
                             <span
-                              className={`px-3 py-1.5 rounded-full text-xs font-bold bg-zinc-900/80 text-white border border-white/10 backdrop-blur-md shadow-xs flex items-center gap-1`}
+                              className={`px-3 py-1.5 rounded-full text-xs font-bold ${isDark ? "bg-zinc-900/80 text-white border border-white/10" : "bg-white text-zinc-700 border border-zinc-200"} backdrop-blur-md shadow-xs flex items-center gap-1`}
                             >
                               🏷️ Category Match
                             </span>
                           ) : event.isCityMatch ? (
-                            <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-zinc-900/80 text-white border border-white/10 backdrop-blur-md shadow-xs flex items-center gap-1">
+                            <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${isDark ? "bg-zinc-900/80 text-white border border-white/10" : "bg-white text-zinc-700 border border-zinc-200"} backdrop-blur-md shadow-xs flex items-center gap-1`}>
                               📍 Location Match
                             </span>
                           ) : null}

@@ -188,7 +188,10 @@ export default function Sidebar({
         </Link>
         <button
           title={isCollapsed ? "Log out" : undefined}
-          className={`flex items-center rounded-full text-sm font-semibold text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors ${isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
+          className={`flex items-center rounded-full text-sm font-semibold transition-colors ${isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
+            } ${isDark
+              ? "text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 hover:text-rose-300"
+              : "text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700"
             }`}
           onClick={() => {
             setMobileOpen(false);

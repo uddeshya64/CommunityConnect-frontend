@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
 import { useMyProfile } from "@/hooks/profileHooks";
 import { useToast } from "@/components/providers/ToastProvider";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 // Add Razorpay to the Window object for TypeScript
 declare global {
@@ -48,6 +49,7 @@ export default function EventRegistrationPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.eventId as string;
+  const { activeAccent } = useAppearance();
   const { success: showSuccess, error: showError } = useToast();
 
   const [event, setEvent] = useState<any>(null);
@@ -330,7 +332,7 @@ export default function EventRegistrationPage() {
             </p>
           </div>
           <Link href={`/events/${eventId}`} className="block">
-            <Button className="w-full rounded-2xl py-6 bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-sm shadow-xl transition-all">
+            <Button className={`w-full rounded-2xl py-6 ${activeAccent.bg} hover:opacity-90 text-white font-bold text-sm shadow-xl ${activeAccent.shadow} transition-all`}>
               Back to Event Details
             </Button>
           </Link>
