@@ -42,6 +42,7 @@ interface AppEvent {
   title: string;
   category: string;
   date: string;
+  endDate?: string | null;
   location: string;
   attendees: number;
   bannerUrl?: string | null;
@@ -50,6 +51,7 @@ interface AppEvent {
   keywords?: string;
   tags?: string[];
   is_saved?: boolean;
+  rawEvent?: any;
 }
 
 interface UserPreferences {
@@ -208,7 +210,8 @@ export default function DiscoverContent() {
           id: String(evt.id || evt._id || Math.random()),
           title: evt.title || "Untitled Event",
           category: evt.type || evt.category || "General Event",
-          date: evt.start_date || evt.date || new Date().toISOString(),
+          date: evt.start_date || evt.startDate || evt.date || "",
+          endDate: evt.end_date || evt.endDate || null,
           location: evt.location || evt.mode || "TBA",
           attendees: evt.capacity || evt.attendees || 0,
           bannerUrl: evt.banner_url || evt.bannerUrl || evt.banner || null,
@@ -217,6 +220,7 @@ export default function DiscoverContent() {
           keywords: evt.custom_fields?.keywords || evt.keywords || "",
           tags: Array.isArray(evt.tags) ? evt.tags : [],
           is_saved: evt.is_saved || false,
+          rawEvent: evt,
         }));
 
         setEvents(mapped);
@@ -339,19 +343,21 @@ export default function DiscoverContent() {
     const now = new Date();
     return scoredEvents
       .filter((evt) => {
-        // Show ONLY events going to happen in the future (upcoming events)
-        const startDateIso = (evt as any).start_date || (evt as any).startDate || (evt as any).date;
-        const endDateIso = (evt as any).end_date || (evt as any).endDate;
+        // Filter out concluded events and show ONLY events going to happen in the future
+        const startDateIso = evt.date || (evt as any).start_date || (evt as any).startDate;
+        const endDateIso = evt.endDate || (evt as any).end_date || (evt as any).endDate;
+
+        if (endDateIso) {
+          const end = new Date(endDateIso);
+          if (!isNaN(end.getTime()) && end < now) {
+            return false; // Exclude concluded events
+          }
+        }
 
         if (startDateIso) {
           const start = new Date(startDateIso);
           if (!isNaN(start.getTime()) && start <= now) {
-            return false; // Exclude past and ongoing events
-          }
-        } else if (endDateIso) {
-          const end = new Date(endDateIso);
-          if (!isNaN(end.getTime()) && end <= now) {
-            return false;
+            return false; // Exclude past or ongoing events
           }
         }
 
