@@ -318,15 +318,15 @@ function NotificationsPageContent() {
                     </div>
 
                     {/* Actions panel */}
-                    <div className="flex gap-2 shrink-0 w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0 justify-end">
+                    <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0 justify-end">
                       <Button
                         variant="outline"
                         onClick={() => handleAction(item, 'decline')}
                         disabled={processingId !== null}
-                        className={`rounded-full px-5 font-bold transition-colors ${
+                        className={`rounded-full px-5 h-10 font-bold transition-all shadow-xs ${
                           isDark
-                            ? "border-white/10 bg-zinc-800/80 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                            : "border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                            ? "border-zinc-700 bg-zinc-800 text-white hover:bg-zinc-700 hover:text-white"
+                            : "border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 hover:text-black"
                         }`}
                       >
                         {processingId === `${item.id}_decline` ? (
@@ -341,7 +341,7 @@ function NotificationsPageContent() {
                       <Button
                         onClick={() => handleAction(item, 'accept')}
                         disabled={processingId !== null}
-                        className={`rounded-full ${activeAccent.bg} text-white hover:opacity-90 shadow-sm ${activeAccent.shadow} px-5 font-bold transition-all`}
+                        className={`rounded-full ${activeAccent.bg} text-white hover:opacity-95 shadow-md ${activeAccent.shadow} px-6 h-10 font-bold transition-all hover:scale-105`}
                       >
                         {processingId === `${item.id}_accept` ? (
                           <Loader2 className="w-4 h-4 animate-spin" />

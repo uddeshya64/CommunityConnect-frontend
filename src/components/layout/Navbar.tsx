@@ -117,21 +117,19 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
           {/* Notification Bell */}
           <Link href="/notifications">
             <div
-              className={`relative p-2.5 rounded-full transition-all ${
+              className={`relative p-2.5 rounded-full border transition-all ${
                 isNotificationsActive
-                  ? `${activeAccent.text} ${isDark ? "bg-white/10" : "bg-indigo-50"} ${activeAccent.border}`
-                  : `${
-                      isDark
-                        ? "text-zinc-300 hover:text-white hover:bg-white/10"
-                        : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-                    }`
+                  ? `${activeAccent.text} ${isDark ? "bg-white/10 border-white/20" : "bg-indigo-50 border-indigo-200"}`
+                  : isDark
+                    ? "text-zinc-200 border-white/10 bg-white/5 hover:text-white hover:bg-white/15"
+                    : "text-zinc-700 border-zinc-200 bg-zinc-100 hover:text-zinc-950 hover:bg-zinc-200"
               }`}
               title="Notifications"
             >
               <Bell className="w-5 h-5" strokeWidth={2.2} />
               {/* Notification dot indicator: only rendered if there are unread/pending notifications */}
               {hasNotifications && (
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950" />
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950" />
               )}
             </div>
           </Link>

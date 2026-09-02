@@ -534,7 +534,7 @@ export default function EventRegistrationPage() {
 
                 <div className="space-y-5">
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold text-zinc-650 uppercase tracking-wider">
+                    <Label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
                       Team Name *
                     </Label>
                     <Input
@@ -546,9 +546,9 @@ export default function EventRegistrationPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center border-b border-zinc-155 pb-2">
-                      <Label className="text-xs font-bold text-zinc-650 uppercase tracking-wider">Team Member Emails</Label>
-                      <span className="text-xs font-black text-indigo-755 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">
+                    <div className="flex justify-between items-center border-b border-zinc-200 pb-2">
+                      <Label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Team Member Emails</Label>
+                      <span className="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">
                         {members.length} / {event.max_team_size} Members
                       </span>
                     </div>
@@ -566,7 +566,7 @@ export default function EventRegistrationPage() {
                             className="h-11 rounded-xl bg-white border-zinc-200 text-xs font-semibold flex-1 px-4"
                           />
                           {index >= event.min_team_size && (
-                            <Button variant="ghost" onClick={() => removeMember(index)} className="w-10 h-10 p-0 rounded-xl text-red-500 hover:text-red-750 hover:bg-red-50 shrink-0">
+                            <Button variant="ghost" onClick={() => removeMember(index)} className="w-10 h-10 p-0 rounded-xl text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0">
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           )}
@@ -575,7 +575,7 @@ export default function EventRegistrationPage() {
                     </div>
 
                     {members.length < event.max_team_size && (
-                      <Button variant="outline" onClick={addMember} className="w-full h-11 border-dashed border-zinc-300 text-zinc-550 hover:text-indigo-650 hover:border-indigo-200 hover:bg-indigo-50 rounded-xl text-xs font-bold transition-all">
+                      <Button variant="outline" onClick={addMember} className="w-full h-11 border-dashed border-zinc-300 text-zinc-600 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 rounded-xl text-xs font-bold transition-all">
                         <Plus className="w-4 h-4 mr-1.5" /> Add Another Member
                       </Button>
                     )}
@@ -636,7 +636,7 @@ export default function EventRegistrationPage() {
                       if (field.type === "textarea") {
                         return (
                           <div key={key} className="space-y-2">
-                            <Label className="text-xs font-bold text-zinc-650 uppercase tracking-wider">
+                            <Label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
                               {field.label} {field.required && "*"}
                             </Label>
                             <textarea
@@ -652,7 +652,7 @@ export default function EventRegistrationPage() {
                       if (field.type === "select") {
                         return (
                           <div key={key} className="space-y-2">
-                            <Label className="text-xs font-bold text-zinc-655 uppercase tracking-wider">
+                            <Label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
                               {field.label} {field.required && "*"}
                             </Label>
                             <select
@@ -674,7 +674,7 @@ export default function EventRegistrationPage() {
                       if (field.type === "checkbox" || field.type === "boolean") {
                         return (
                           <div key={key} className="space-y-2.5">
-                            <Label className="text-xs font-bold text-zinc-655 uppercase tracking-wider">
+                            <Label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
                               {field.label} {field.required && "*"}
                             </Label>
                             <div className="flex gap-3 max-w-[240px]">

@@ -145,12 +145,15 @@ const ToggleSwitch = ({
   id,
   disabled = false,
   activeBg = "bg-indigo-600",
+  style,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   id: string;
   disabled?: boolean;
   activeBg?: string;
+  
+  style?: React.CSSProperties;
 }) => (
   <button
     id={id}
@@ -158,6 +161,7 @@ const ToggleSwitch = ({
     role="switch"
     aria-checked={checked}
     disabled={disabled}
+    style={style}
     onClick={(e) => {
       e.stopPropagation();
       onChange(!checked);
@@ -630,13 +634,13 @@ export default function SettingsContent() {
           </div>
 
           <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600 dark:text-zinc-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
             <Input
               id="settings-search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search settings..."
-              className="pl-10 pr-9 bg-zinc-900/80 border-white/10 text-white placeholder:text-zinc-500 rounded-full h-11 text-sm focus:ring-2 focus:ring-white/20"
+              className={`pl-10 pr-9 ${isDark ? "bg-zinc-900/80 text-white border-white/10 placeholder:text-zinc-500 focus:ring-white/20" : "bg-white text-zinc-900 border-zinc-200 placeholder:text-zinc-400 focus:ring-zinc-400"} rounded-full h-11 text-sm focus:ring-2`}
             />
             {searchQuery && (
               <button
@@ -726,13 +730,13 @@ export default function SettingsContent() {
               </div>
 
               {/* Quick Profile Summary Badge in Sidebar */}
-              <div className="hidden lg:block mt-4 p-4 rounded-3xl bg-zinc-100/60 border border-zinc-200 backdrop-blur-xl">
+              <div className={`hidden lg:block mt-4 p-4 rounded-3xl ${isDark ? "bg-zinc-900/60 border border-white/5" : "bg-zinc-100/90 border border-zinc-200"} backdrop-blur-xl`}>
                 {isProfileLoading ? (
                   <div className="flex items-center gap-3 animate-pulse">
-                    <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0" />
+                    <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-700 shrink-0" />
                     <div className="space-y-2 flex-1">
-                      <div className="h-4 bg-zinc-200 rounded w-2/3" />
-                      <div className="h-3 bg-zinc-200 rounded w-full" />
+                      <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-2/3" />
+                      <div className="h-3 bg-zinc-200 dark:bg-zinc-700 rounded w-full" />
                     </div>
                   </div>
                 ) : (
@@ -748,10 +752,10 @@ export default function SettingsContent() {
                         : "CC"}
                     </div>
                     <div className="overflow-hidden">
-                      <div className="text-sm font-bold text-white truncate">
+                      <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"} truncate`}>
                         {profile?.name || "Community Connect Member"}
                       </div>
-                      <div className="text-xs text-zinc-600 dark:text-zinc-500 truncate">
+                      <div className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"} truncate`}>
                         {profile?.email || "user@communityconnect.io"}
                       </div>
                     </div>
@@ -849,9 +853,9 @@ export default function SettingsContent() {
                             <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
                               {profile?.name || "Community Connect Member"}
                             </h3>
-                            <span className={`px-2.5 py-0.5 rounded-full ${activeAccent.badgeBg} border border-white/10 ${activeAccent.badgeText} text-xs font-semibold`}>
+                            {/* <span className={`px-2.5 py-0.5 rounded-full ${activeAccent.badgeBg} border border-white/10 ${activeAccent.badgeText} text-xs font-semibold`}>
                               Pro Member
-                            </span>
+                            </span> */}
                           </div>
                           <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                             {profile?.profession || "Community Member & Event Enthusiast"}
@@ -1003,7 +1007,7 @@ export default function SettingsContent() {
 
                       <div className="flex items-center gap-3 shrink-0">
                         {isPushLoading && <Loader2 className={`w-5 h-5 animate-spin ${activeAccent.text}`} />}
-                        <ToggleSwitch
+                        <ToggleSwitch 
                           id="toggle-systemPush"
                           checked={pushStatus.isSubscribed}
                           disabled={isPushLoading || pushStatus.permission === "denied" || !pushStatus.supported}
@@ -1289,7 +1293,7 @@ export default function SettingsContent() {
                             : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
                         }`}
                       >
-                        <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-zinc-300 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <div className={`w-12 h-12 rounded-2xl ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
                           <Monitor className="w-6 h-6" />
                         </div>
                         <span className={`text-sm font-bold ${settings.theme === "system" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>System</span>
@@ -1412,8 +1416,8 @@ export default function SettingsContent() {
                         onClick={() => updateSetting("profileVisibility", "public")}
                         className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
                           settings.profileVisibility === "public"
-                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg ${activeAccent.shadow}`
-                            : "border-white/5 bg-zinc-950/40 hover:border-white/20"
+                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-white"} shadow-lg ${activeAccent.shadow}`
+                            : isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"
                         }`}
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -1421,10 +1425,10 @@ export default function SettingsContent() {
                           {settings.profileVisibility === "public" ? (
                             <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
                           ) : (
-                            <Circle className="w-5 h-5 text-zinc-600" />
+                            <Circle className="w-5 h-5 text-zinc-400" />
                           )}
                         </div>
-                        <div className="text-sm font-bold text-white">Public</div>
+                        <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Public</div>
                         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Anyone on the web can discover your profile card.
                         </p>
@@ -1436,8 +1440,8 @@ export default function SettingsContent() {
                         onClick={() => updateSetting("profileVisibility", "community")}
                         className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
                           settings.profileVisibility === "community"
-                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg ${activeAccent.shadow}`
-                            : "border-white/5 bg-zinc-950/40 hover:border-white/20"
+                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-white"} shadow-lg ${activeAccent.shadow}`
+                            : isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"
                         }`}
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -1445,10 +1449,10 @@ export default function SettingsContent() {
                           {settings.profileVisibility === "community" ? (
                             <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
                           ) : (
-                            <Circle className="w-5 h-5 text-zinc-600" />
+                            <Circle className="w-5 h-5 text-zinc-400" />
                           )}
                         </div>
-                        <div className="text-sm font-bold text-white">Community Only</div>
+                        <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Community Only</div>
                         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Visible only to logged-in CommunityConnect members.
                         </p>
@@ -1460,8 +1464,8 @@ export default function SettingsContent() {
                         onClick={() => updateSetting("profileVisibility", "private")}
                         className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
                           settings.profileVisibility === "private"
-                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg ${activeAccent.shadow}`
-                            : "border-white/5 bg-zinc-950/40 hover:border-white/20"
+                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-white"} shadow-lg ${activeAccent.shadow}`
+                            : isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"
                         }`}
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -1469,10 +1473,10 @@ export default function SettingsContent() {
                           {settings.profileVisibility === "private" ? (
                             <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
                           ) : (
-                            <Circle className="w-5 h-5 text-zinc-600" />
+                            <Circle className="w-5 h-5 text-zinc-400" />
                           )}
                         </div>
-                        <div className="text-sm font-bold text-white">Private</div>
+                        <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Private</div>
                         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Only event organizers of your events can view details.
                         </p>
@@ -1492,7 +1496,7 @@ export default function SettingsContent() {
                     <div className="space-y-5 divide-y divide-white/5">
                       <div className="pt-5 first:pt-0 flex items-center justify-between gap-4">
                         <div className="space-y-0.5">
-                          <Label htmlFor="toggle-showEmailOnProfile" className="text-sm font-bold text-white cursor-pointer">
+                          <Label htmlFor="toggle-showEmailOnProfile" className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"} cursor-pointer`}>
                             Show Email Address on Profile
                           </Label>
                           <p className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -1509,7 +1513,7 @@ export default function SettingsContent() {
 
                       <div className="pt-5 flex items-center justify-between gap-4">
                         <div className="space-y-0.5">
-                          <Label htmlFor="toggle-showLocationOnProfile" className="text-sm font-bold text-white cursor-pointer">
+                          <Label htmlFor="toggle-showLocationOnProfile" className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"} cursor-pointer`}>
                             Show City / Location on Profile
                           </Label>
                           <p className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -1621,7 +1625,11 @@ export default function SettingsContent() {
                                     updateSetting("preferredCities", [...(settings.preferredCities || []), city]);
                                   }
                                 }}
-                                className="px-3 py-1.5 rounded-full text-xs font-medium border bg-zinc-800/60 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                  isDark
+                                    ? "bg-zinc-800/60 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                                    : "bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+                                }`}
                               >
                                 + {city}
                               </button>
@@ -1712,7 +1720,11 @@ export default function SettingsContent() {
                         {(settings.searchPreferences || []).map((pref, idx) => (
                           <div 
                             key={idx} 
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/60 border border-white/5 rounded-full text-xs font-medium text-zinc-300"
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
+                              isDark
+                                ? "bg-zinc-800/60 border-white/5 text-zinc-300"
+                                : "bg-zinc-100 border-zinc-200 text-zinc-700"
+                            }`}
                           >
                             <span>{pref}</span>
                             <button
@@ -1721,7 +1733,7 @@ export default function SettingsContent() {
                                 const newPrefs = (settings.searchPreferences || []).filter((_, i) => i !== idx);
                                 updateSetting("searchPreferences", newPrefs);
                               }}
-                              className="text-zinc-500 hover:text-white transition-colors"
+                              className={`${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -1746,8 +1758,8 @@ export default function SettingsContent() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       {[
                         { id: "google", label: "Google Calendar", desc: "Open in web browser" },
-                        { id: "ical", label: "Apple iCal (.ics)", desc: "Download .ics file" },
-                        { id: "outlook", label: "Microsoft Outlook", desc: "Open in Outlook app" },
+                        // { id: "ical", label: "Apple iCal (.ics)", desc: "Download .ics file" },
+                        // { id: "outlook", label: "Microsoft Outlook", desc: "Open in Outlook app" },
                       ].map((item) => (
                         <button
                           key={item.id}
@@ -1875,7 +1887,9 @@ export default function SettingsContent() {
                                 className={`w-10 h-10 rounded-xl ${
                                   sess.isCurrent
                                     ? `${activeAccent.badgeBg} ${activeAccent.badgeText}`
-                                    : "bg-zinc-800 text-zinc-400"
+                                    : isDark
+                                    ? "bg-zinc-800 text-zinc-400"
+                                    : "bg-zinc-100 text-zinc-600"
                                 } flex items-center justify-center shrink-0`}
                               >
                                 <IconComponent className="w-5 h-5" />
@@ -2022,7 +2036,7 @@ export default function SettingsContent() {
                           {getPasswordStrength(newPassword).label}
                         </span>
                       </div>
-                      <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                      <div className="w-full h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
                         <div
                           className={`h-full ${
                             getPasswordStrength(newPassword).color

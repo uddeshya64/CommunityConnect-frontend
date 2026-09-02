@@ -172,26 +172,36 @@ export interface AppearanceContextType {
 const AppearanceContext = createContext<AppearanceContextType | undefined>(undefined);
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<UserSettings>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("cc_user_settings");
-        if (stored) {
-          return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-        }
-      } catch (err) {
-        console.error("Failed to load appearance settings:", err);
-      }
-    }
-    return DEFAULT_SETTINGS;
-  });
+  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
 
-  const [systemPreferDark, setSystemPreferDark] = useState<boolean>(() => {
-    if (typeof window !== "undefined" && window.matchMedia) {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const [systemPreferDark, setSystemPreferDark] = useState<boolean>(true);
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  // Defer reading localStorage / matchMedia until after mount so the server
+  // render and the first client render are identical (avoids hydration mismatch).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const stored = localStorage.getItem("cc_user_settings");
+      if (stored) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
+      }
+    } catch (err) {
+      console.error("Failed to load appearance settings:", err);
     }
-    return true;
-  });
+
+    if (window.matchMedia) {
+      setSystemPreferDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
+    }
+  }, []);
 
   // Listen for OS system dark mode changes and register Service Worker for Push
   useEffect(() => {
@@ -262,10 +272,11 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isDark = useMemo(() => {
+    if (!mounted) return true;
     if (settings.theme === "dark") return true;
     if (settings.theme === "light") return false;
     return systemPreferDark;
-  }, [settings.theme, systemPreferDark]);
+  }, [settings.theme, systemPreferDark, mounted]);
 
   const activeAccent = useMemo(() => {
     const base =

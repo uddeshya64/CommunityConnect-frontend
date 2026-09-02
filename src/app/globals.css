@@ -188,8 +188,8 @@ html.light .bg-zinc-950\/80,
 html.light .bg-black\/40,
 html.light .bg-black\/50,
 html.light .bg-black\/60 {
-  background-color: rgba(255, 255, 255, 0.92) !important;
-  border-color: rgba(0, 0, 0, 0.08) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
   box-shadow: 0 4px 25px -2px rgba(0, 0, 0, 0.06);
 }
 
@@ -213,6 +213,10 @@ html.light .text-zinc-500 {
   color: #475569 !important;
 }
 
+html.light .text-zinc-600 {
+  color: #334155 !important;
+}
+
 /* 4. Borders & Dividers in Light Mode */
 html.light .border-white\/5,
 html.light .border-white\/10,
@@ -220,7 +224,7 @@ html.light .border-white\/15,
 html.light .border-white\/20,
 html.light .border-zinc-800,
 html.light .border-zinc-700 {
-  border-color: rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
 }
 
 /* 5. Inputs, Selects & Textareas in Light Mode */
@@ -239,12 +243,26 @@ html.light textarea.bg-zinc-950,
 html.light textarea.bg-zinc-950\/50 {
   background-color: #ffffff !important;
   color: #0f172a !important;
-  border-color: rgba(0, 0, 0, 0.15) !important;
+  border-color: rgba(0, 0, 0, 0.18) !important;
 }
 
 html.light input::placeholder,
 html.light textarea::placeholder {
   color: #94a3b8 !important;
+}
+
+/* 6. Outline/Ghost buttons in Light Mode ensure contrast */
+html.light button.border-white\/10,
+html.light button.border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  color: #0f172a !important;
+}
+html.light button.bg-white\/5 {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+html.light button.bg-white\/5:hover {
+  background-color: #e2e8f0 !important;
 }
 
 /* =========================================================
@@ -273,7 +291,7 @@ html.dark .bg-zinc-50\/90,
 html.dark .bg-zinc-100\/90,
 html.dark .bg-zinc-50\/80,
 html.dark .bg-zinc-100\/80 {
-  background-color: rgba(24, 24, 27, 0.92) !important;
+  background-color: rgba(24, 24, 27, 0.95) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
   color: #f4f4f5 !important;
 }
@@ -287,11 +305,18 @@ html.dark h4.text-zinc-900,
 html.dark p.text-zinc-900,
 html.dark span.text-zinc-900:not([class*="bg-"]):not([class*="from-"]):not([class*="to-"]),
 html.dark div.text-zinc-900:not([class*="bg-"]):not([class*="from-"]):not([class*="to-"]),
-html.dark .text-zinc-800,
-html.dark .text-zinc-700,
-html.dark .text-slate-900,
-html.dark .text-slate-800,
-html.dark .text-gray-900 {
+html.dark div.text-zinc-900:not([class*="bg-"]):not([class*="from-"]):not([class*="to-"]) {
+  color: #f4f4f5 !important;
+}
+
+/* Dark Mode High Contrast overrides */
+html.dark .text-zinc-950,
+html.dark .text-zinc-900,
+html.dark .text-zinc-800 {
+  color: #ffffff !important;
+}
+
+html.dark .text-zinc-700 {
   color: #f4f4f5 !important;
 }
 
@@ -299,6 +324,10 @@ html.dark .text-zinc-600,
 html.dark .text-zinc-500,
 html.dark .text-slate-600,
 html.dark .text-slate-500 {
+  color: #e4e4e7 !important;
+}
+
+html.dark .text-zinc-400 {
   color: #a1a1aa !important;
 }
 
@@ -331,5 +360,5 @@ html.dark textarea.bg-zinc-100 {
 
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #71717a !important;
+  color: #a1a1aa !important;
 }

@@ -2042,7 +2042,7 @@ export default function EventDetailsPage() {
                   </div>
 
                   {/* SESSION TAGS & CATEGORIES */}
-                  <div className="space-y-2.5 bg-zinc-50 border border-zinc-200/80 p-4 rounded-2xl">
+                  <div className="space-y-2.5 bg-zinc-50 border border-zinc-200 p-4 rounded-2xl">
                     <div className="flex items-center justify-between">
                       <Label className="font-bold text-zinc-700 text-sm flex items-center gap-1.5">
                         <Tag className="w-4 h-4 text-indigo-600" />
@@ -2131,7 +2131,7 @@ export default function EventDetailsPage() {
                               className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
                                 isSelected
                                   ? "bg-indigo-600 text-white border-indigo-600 opacity-40 cursor-not-allowed"
-                                  : "bg-white text-zinc-650 border-zinc-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50"
+                                  : "bg-white text-zinc-700 border-zinc-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50"
                               }`}
                             >
                               + {suggestion}
@@ -2289,8 +2289,8 @@ export default function EventDetailsPage() {
         <Link href="/home">
           <Button variant="ghost" className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-3 sm:px-4 ${
             theme.isDark 
-              ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white" 
-              : "bg-white/80 hover:bg-white border-zinc-200/80 text-zinc-650 hover:text-zinc-950"
+              ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-200 hover:text-white" 
+              : "bg-white/80 hover:bg-white border-zinc-200 text-zinc-700 hover:text-zinc-950"
           }`}>
             <ArrowLeft className="w-4 h-4 sm:mr-2" />
             <span className="hidden sm:inline">Back to Feed</span>
@@ -2305,8 +2305,8 @@ export default function EventDetailsPage() {
               event?.is_saved 
                 ? theme.isDark ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/20" : "bg-indigo-50 text-indigo-600 border border-indigo-200" 
                 : theme.isDark 
-                  ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white" 
-                  : "bg-white/80 hover:bg-white border border-zinc-200/80 text-zinc-650 hover:text-zinc-950"
+                  ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-200 hover:text-white" 
+                  : "bg-white/80 hover:bg-white border border-zinc-200 text-zinc-700 hover:text-zinc-950"
             }`}
           >
             <Bookmark className={`w-4 h-4 mr-2 ${event?.is_saved ? "fill-current" : ""}`} /> 
@@ -2318,8 +2318,8 @@ export default function EventDetailsPage() {
             variant="ghost" 
             className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-3 sm:px-4 ${
               theme.isDark 
-                ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white" 
-                : "bg-white/80 hover:bg-white border-zinc-200/80 text-zinc-650 hover:text-zinc-950"
+                ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-200 hover:text-white" 
+                : "bg-white/80 hover:bg-white border-zinc-200 text-zinc-700 hover:text-zinc-950"
             }`}
           >
             <Share2 className="w-4 h-4 sm:mr-2" />
@@ -2422,8 +2422,8 @@ export default function EventDetailsPage() {
             <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
               <Building2 className={`w-5 h-5 ${theme.accent}`} /> About this Event
             </h2>
-            <div className={`prose prose-base leading-relaxed font-medium whitespace-pre-wrap ${
-              theme.isDark ? "text-zinc-350 prose-invert" : "text-zinc-650"
+            <div className={`prose prose-base leading-relaxed font-medium whitespace-pre-wrap break-words ${
+              theme.isDark ? "text-zinc-300 prose-invert" : "text-zinc-700"
             }`}>
               {event.description.length > 600 && !isDescExpanded ? (
                 <>
@@ -2829,7 +2829,7 @@ export default function EventDetailsPage() {
               <button 
                 type="button"
                 onClick={() => setIsShareModalOpen(false)}
-                className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-650 p-1.5 hover:bg-zinc-50 rounded-full transition-all"
+                className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-900 p-1.5 hover:bg-zinc-100 rounded-full transition-all"
               >
                 <X className="w-5 h-5" />
               </button>
