@@ -256,22 +256,22 @@ export default function TeamParticipantDashboard() {
   const invites = teamData?.invites || [];
   const isLeader = teamData?.is_leader || false;
 
-  // Find current user's ticket code from roster
-  const getCurrentUserTicketCode = () => {
+  // Find current user's member object and ticket code from roster
+  const getCurrentUserMember = () => {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
       if (!token) return null;
       const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
       const currentUserId = payload.id || payload.userId || payload._id;
-      const currentUserMember = members.find((m: any) => Number(m.user_id) === Number(currentUserId));
-      return currentUserMember?.ticket_code || null;
+      return members.find((m: any) => Number(m.user_id) === Number(currentUserId)) || null;
     } catch (e) {
-      console.error("Error decoding token for check-in QR:", e);
+      console.error("Error decoding token for member info:", e);
       return null;
     }
   };
 
-  const userTicketCode = getCurrentUserTicketCode();
+  const currentUserMember = getCurrentUserMember();
+  const userTicketCode = currentUserMember?.ticket_code || null;
 
   // Use the pre-calculated capacity from your new backend logic
   const maxTeamSize = teamData?.event?.max_team_size || 5;
@@ -600,11 +600,11 @@ export default function TeamParticipantDashboard() {
                       <CheckCircle2 className="w-3 h-3" /> Entry Ticket Confirmed
                     </span>
                     <span className="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
-                      {isSolo ? "Individual Pass" : "Team Pass"}
+                      Entry Pass
                     </span>
                   </div>
                   <h3 className="text-2xl font-black text-white">
-                    {isSolo ? (members[0]?.user?.name || teamData?.name || "Participant") : teamData?.name}
+                    {currentUserMember?.user?.name || members[0]?.user?.name || "Participant"}
                   </h3>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
                     <Button onClick={() => setShowEntryPassModal(true)} variant="default" className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/20 transition-all">
@@ -625,9 +625,9 @@ export default function TeamParticipantDashboard() {
               <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-8">
                 <div>
                   <h3 className="text-2xl font-bold flex items-center gap-3">
-                    <Users className="w-6 h-6 text-indigo-400" /> Team Roster
+                    <Users className="w-6 h-6 text-indigo-400" /> {teamData?.name || "Team Members"}
                   </h3>
-                  <p className="text-zinc-500 mt-1 font-medium">Manage your squad for the event.</p>
+                  <p className="text-zinc-500 mt-1 font-medium">Manage members for your team.</p>
                 </div>
                 <div className="text-right flex flex-col items-end gap-2">
                   <div className="flex items-center gap-4">
@@ -693,14 +693,14 @@ export default function TeamParticipantDashboard() {
 
                 {/* --- RENDER PENDING INVITES (Blocked Slots) --- */}
                 {invites.map((invite: any, i: number) => (
-                  <div key={`invite-${i}`} className="flex items-center justify-between p-5 bg-zinc-900/30 rounded-[1.5rem] border border-dashed border-indigo-500/30 opacity-80 group/invite">
+                  <div key={`invite-${i}`} className="flex items-center justify-between p-5 bg-zinc-900/30 rounded-[1.5rem] border border-dashed border-amber-500/30 opacity-90 group/invite">
                     <div className="flex items-center gap-4 overflow-hidden">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-indigo-500/5 text-indigo-400/50 shrink-0">
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
                         <Clock className="w-6 h-6" />
                       </div>
                       <div className="truncate">
-                        <p className="font-bold text-lg text-zinc-300 truncate">{invite.email}</p>
-                        <p className="text-xs uppercase font-bold text-indigo-400 tracking-wider mt-0.5">Invite Pending...</p>
+                        <p className="font-bold text-lg text-zinc-200 truncate">{invite.email}</p>
+                        <p className="text-xs uppercase font-bold text-amber-400 tracking-wider mt-0.5">Invite Pending...</p>
                       </div>
                     </div>
                     {isLeader && (
@@ -776,7 +776,9 @@ export default function TeamParticipantDashboard() {
                   <div className="p-1.5 rounded-full bg-emerald-500/20 text-emerald-300">
                     <Check className="w-5 h-5" />
                   </div>
-                  <p className="font-bold text-sm tracking-wide">Team Capacity Reached. Your roster is locked and ready!</p>
+                  <p className="font-bold text-sm tracking-wide">
+                    {teamData?.name ? `${teamData.name} Capacity Reached.` : "Team Capacity Reached."} Your team is complete and ready!
+                  </p>
                 </motion.div>
               )}
 
@@ -1438,10 +1440,10 @@ export default function TeamParticipantDashboard() {
                 </div>
 
                 <h3 className="text-2xl font-black text-white mb-1">
-                  {isSolo ? (members[0]?.user?.name || teamData?.name || "Participant") : teamData?.name}
+                  {currentUserMember?.user?.name || members[0]?.user?.name || "Participant"}
                 </h3>
                 <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider">
-                  {isSolo ? "Individual Pass" : "Team Pass"}
+                  Entry Pass
                 </p>
               </div>
 
