@@ -65,23 +65,23 @@ interface EventTheme {
   gimmicks?: React.ReactNode;
 }
 
-const getEventTheme = (type: string): EventTheme => {
+const getEventTheme = (type: string, dark: boolean): EventTheme => {
   const t = (type || "").toLowerCase();
   if (t.includes("hack") || t.includes("code") || t.includes("compet") || t.includes("technical") || t.includes("conference") || t.includes("tech") || t.includes("developer")) {
     return {
-      bg: "bg-zinc-50 text-zinc-900",
-      cardBg: "bg-white border-zinc-200 hover:border-indigo-500/30 shadow-indigo-500/5 text-zinc-800",
-      accent: "text-indigo-600",
-      accentBg: "bg-indigo-50 border-indigo-100 text-indigo-700",
-      button: "bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-indigo-600/20",
-      textMuted: "text-zinc-500",
-      textHeading: "text-zinc-900",
-      badge: "bg-indigo-50 border-indigo-200 text-indigo-700",
-      pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: "border-zinc-200",
-      agendaDefault: "bg-indigo-50/60 border-indigo-100/50 text-indigo-900",
-      isDark: false,
-      gradOverlay: "from-indigo-100/20 via-zinc-50 to-zinc-50",
+      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900",
+      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white border-zinc-200 hover:border-indigo-500/30 shadow-indigo-500/5 text-zinc-800",
+      accent: dark ? "text-indigo-400" : "text-indigo-600",
+      accentBg: dark ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300" : "bg-indigo-50 border-indigo-100 text-indigo-700",
+      button: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20",
+      textMuted: dark ? "text-zinc-400" : "text-zinc-500",
+      textHeading: dark ? "text-zinc-100" : "text-zinc-900",
+      badge: dark ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-700",
+      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-700",
+      divider: dark ? "border-zinc-800" : "border-zinc-200",
+      agendaDefault: dark ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300" : "bg-indigo-50/60 border-indigo-100/50 text-indigo-900",
+      isDark: dark,
+      gradOverlay: dark ? "from-indigo-950/30 via-zinc-950 to-zinc-950" : "from-indigo-100/20 via-zinc-50 to-zinc-50",
       gimmicks: (
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-5 select-none z-0">
           <div className="absolute top-24 left-10 text-[10px] font-mono text-green-700 whitespace-pre">
@@ -99,19 +99,19 @@ const getEventTheme = (type: string): EventTheme => {
     };
   } else if (t.includes("wed") || t.includes("person") || t.includes("marry") || t.includes("marriage")) {
     return {
-      bg: "bg-rose-50/15 text-zinc-900",
-      cardBg: "bg-white/80 backdrop-blur-md border-rose-100 hover:border-rose-300 shadow-rose-500/5 text-zinc-800",
-      accent: "text-rose-600",
-      accentBg: "bg-rose-50 border-rose-100 text-rose-700",
-      button: "bg-rose-600 hover:bg-rose-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-rose-600/20",
-      textMuted: "text-zinc-600",
-      textHeading: "text-rose-950 font-serif",
-      badge: "bg-rose-50 border-rose-200 text-rose-700",
-      pill: "bg-amber-50 border-amber-200 text-amber-800",
-      divider: "border-rose-100",
-      agendaDefault: "bg-rose-50/60 border-rose-100/50 text-rose-900",
-      isDark: false,
-      gradOverlay: "from-rose-100/20 via-zinc-50 to-zinc-50",
+      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-rose-50/15 text-zinc-900",
+      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white/80 backdrop-blur-md border-rose-100 hover:border-rose-300 shadow-rose-500/5 text-zinc-800",
+      accent: dark ? "text-rose-400" : "text-rose-600",
+      accentBg: dark ? "bg-rose-500/10 border-rose-500/25 text-rose-300" : "bg-rose-50 border-rose-100 text-rose-700",
+      button: "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/20",
+      textMuted: dark ? "text-zinc-400" : "text-zinc-600",
+      textHeading: dark ? "text-zinc-100 font-serif" : "text-rose-950 font-serif",
+      badge: dark ? "bg-rose-500/10 border-rose-500/25 text-rose-300" : "bg-rose-50 border-rose-200 text-rose-700",
+      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-amber-50 border-amber-200 text-amber-800",
+      divider: dark ? "border-zinc-800" : "border-rose-100",
+      agendaDefault: dark ? "bg-rose-500/10 border-rose-500/25 text-rose-300" : "bg-rose-50/60 border-rose-100/50 text-rose-900",
+      isDark: dark,
+      gradOverlay: dark ? "from-rose-950/30 via-zinc-950 to-zinc-950" : "from-rose-100/20 via-zinc-50 to-zinc-50",
       gimmicks: (
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 select-none z-0">
           <svg className="absolute top-24 right-20 w-32 h-32 text-rose-300/40 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
@@ -131,19 +131,19 @@ const getEventTheme = (type: string): EventTheme => {
     };
   } else if (t.includes("sport") || t.includes("recreat") || t.includes("run") || t.includes("game") || t.includes("athle")) {
     return {
-      bg: "bg-emerald-50/15 text-zinc-900",
-      cardBg: "bg-white border-emerald-200/80 shadow-emerald-500/5 text-zinc-800",
-      accent: "text-emerald-600",
-      accentBg: "bg-emerald-50 border-emerald-100 text-emerald-700",
-      button: "bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-emerald-600/20",
-      textMuted: "text-zinc-600",
-      textHeading: "text-zinc-900",
-      badge: "bg-emerald-50 border-emerald-200 text-emerald-700",
-      pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: "border-emerald-100",
-      agendaDefault: "bg-emerald-50/60 border-emerald-100/50 text-emerald-900",
-      isDark: false,
-      gradOverlay: "from-emerald-100/20 via-zinc-50 to-zinc-50",
+      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-emerald-50/15 text-zinc-900",
+      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white border-emerald-200/80 shadow-emerald-500/5 text-zinc-800",
+      accent: dark ? "text-emerald-400" : "text-emerald-600",
+      accentBg: dark ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300" : "bg-emerald-50 border-emerald-100 text-emerald-700",
+      button: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20",
+      textMuted: dark ? "text-zinc-400" : "text-zinc-600",
+      textHeading: dark ? "text-zinc-100" : "text-zinc-900",
+      badge: dark ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700",
+      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-700",
+      divider: dark ? "border-zinc-800" : "border-emerald-100",
+      agendaDefault: dark ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300" : "bg-emerald-50/60 border-emerald-100/50 text-emerald-900",
+      isDark: dark,
+      gradOverlay: dark ? "from-emerald-950/30 via-zinc-950 to-zinc-950" : "from-emerald-100/20 via-zinc-50 to-zinc-50",
       gimmicks: (
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.03] select-none z-0">
           <div className="absolute w-[200%] h-[200%] top-[-50%] left-[-50%] border-[4px] border-emerald-700/20 rounded-full" />
@@ -154,19 +154,19 @@ const getEventTheme = (type: string): EventTheme => {
     };
   } else if (t.includes("corporat") || t.includes("govern") || t.includes("civic") || t.includes("business") || t.includes("office")) {
     return {
-      bg: "bg-slate-50/50 text-slate-900",
-      cardBg: "bg-white border-slate-200/80 shadow-slate-500/5 text-zinc-800",
-      accent: "text-slate-600",
-      accentBg: "bg-slate-50 border-slate-100 text-slate-700",
-      button: "bg-slate-700 hover:bg-slate-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-slate-600/20",
-      textMuted: "text-zinc-600",
-      textHeading: "text-slate-900 font-semibold",
-      badge: "bg-slate-50 border-slate-200 text-slate-700",
-      pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: "border-slate-100",
-      agendaDefault: "bg-slate-50/60 border-slate-100/50 text-slate-900",
-      isDark: false,
-      gradOverlay: "from-slate-100/20 via-zinc-50 to-zinc-50",
+      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-slate-50/50 text-slate-900",
+      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white border-slate-200/80 shadow-slate-500/5 text-zinc-800",
+      accent: dark ? "text-slate-300" : "text-slate-600",
+      accentBg: dark ? "bg-slate-500/10 border-slate-500/25 text-slate-300" : "bg-slate-50 border-slate-100 text-slate-700",
+      button: "bg-slate-700 hover:bg-slate-800 text-white shadow-slate-600/20",
+      textMuted: dark ? "text-zinc-400" : "text-zinc-600",
+      textHeading: dark ? "text-zinc-100 font-semibold" : "text-slate-900 font-semibold",
+      badge: dark ? "bg-slate-500/10 border-slate-500/25 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700",
+      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-700",
+      divider: dark ? "border-zinc-800" : "border-slate-100",
+      agendaDefault: dark ? "bg-slate-500/10 border-slate-500/25 text-slate-300" : "bg-slate-50/60 border-slate-100/50 text-slate-900",
+      isDark: dark,
+      gradOverlay: dark ? "from-slate-900/40 via-zinc-950 to-zinc-950" : "from-slate-100/20 via-zinc-50 to-zinc-50",
       gimmicks: (
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.02] select-none z-0">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] bg-[size:40px_40px]" />
@@ -175,19 +175,19 @@ const getEventTheme = (type: string): EventTheme => {
     };
   } else if (t.includes("academ") || t.includes("train") || t.includes("study") || t.includes("course") || t.includes("commun") || t.includes("nonprofit") || t.includes("charity")) {
     return {
-      bg: "bg-teal-50/10 text-zinc-900",
-      cardBg: "bg-white border-teal-200/80 shadow-teal-500/5 text-zinc-800",
-      accent: "text-teal-600",
-      accentBg: "bg-teal-50 border-teal-100 text-teal-700",
-      button: "bg-teal-600 hover:bg-teal-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-teal-600/20",
-      textMuted: "text-zinc-600",
-      textHeading: "text-zinc-900",
-      badge: "bg-teal-50 border-teal-200 text-teal-700",
-      pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: "border-zinc-200",
-      agendaDefault: "bg-teal-50/60 border-teal-100/50 text-teal-900",
-      isDark: false,
-      gradOverlay: "from-teal-100/20 via-zinc-50 to-zinc-50",
+      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-teal-50/10 text-zinc-900",
+      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white border-teal-200/80 shadow-teal-500/5 text-zinc-800",
+      accent: dark ? "text-teal-400" : "text-teal-600",
+      accentBg: dark ? "bg-teal-500/10 border-teal-500/25 text-teal-300" : "bg-teal-50 border-teal-100 text-teal-700",
+      button: "bg-teal-600 hover:bg-teal-700 text-white shadow-teal-600/20",
+      textMuted: dark ? "text-zinc-400" : "text-zinc-600",
+      textHeading: dark ? "text-zinc-100" : "text-zinc-900",
+      badge: dark ? "bg-teal-500/10 border-teal-500/25 text-teal-300" : "bg-teal-50 border-teal-200 text-teal-700",
+      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-700",
+      divider: dark ? "border-zinc-800" : "border-zinc-200",
+      agendaDefault: dark ? "bg-teal-500/10 border-teal-500/25 text-teal-300" : "bg-teal-50/60 border-teal-100/50 text-teal-900",
+      isDark: dark,
+      gradOverlay: dark ? "from-teal-950/30 via-zinc-950 to-zinc-950" : "from-teal-100/20 via-zinc-50 to-zinc-50",
       gimmicks: (
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-5 select-none z-0">
           <div className="absolute top-1/4 left-1/12 w-24 h-24 rounded-tr-full rounded-bl-full bg-teal-500/10" />
@@ -197,19 +197,19 @@ const getEventTheme = (type: string): EventTheme => {
     };
   } else {
     return {
-      bg: "bg-zinc-50 text-zinc-900",
-      cardBg: "bg-white border-zinc-200/80 hover:border-amber-500/30 shadow-amber-500/5 text-zinc-800",
-      accent: "text-amber-600",
-      accentBg: "bg-amber-50 border-amber-100 text-amber-700",
-      button: "bg-amber-600 hover:bg-amber-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:border-zinc-200 text-white shadow-amber-600/20",
-      textMuted: "text-zinc-600",
-      textHeading: "text-zinc-900",
-      badge: "bg-amber-50 border-amber-200 text-amber-700",
-      pill: "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: "border-zinc-200",
-      agendaDefault: "bg-amber-50/60 border-amber-100/50 text-amber-900",
-      isDark: false,
-      gradOverlay: "from-amber-100/20 via-zinc-50 to-zinc-50",
+      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900",
+      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white border-zinc-200/80 hover:border-amber-500/30 shadow-amber-500/5 text-zinc-800",
+      accent: dark ? "text-amber-400" : "text-amber-600",
+      accentBg: dark ? "bg-amber-500/10 border-amber-500/25 text-amber-300" : "bg-amber-50 border-amber-100 text-amber-700",
+      button: "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20",
+      textMuted: dark ? "text-zinc-400" : "text-zinc-600",
+      textHeading: dark ? "text-zinc-100" : "text-zinc-900",
+      badge: dark ? "bg-amber-500/10 border-amber-500/25 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-700",
+      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-700",
+      divider: dark ? "border-zinc-800" : "border-zinc-200",
+      agendaDefault: dark ? "bg-amber-500/10 border-amber-500/25 text-amber-300" : "bg-amber-50/60 border-amber-100/50 text-amber-900",
+      isDark: dark,
+      gradOverlay: dark ? "from-amber-950/30 via-zinc-950 to-zinc-950" : "from-amber-100/20 via-zinc-50 to-zinc-50",
       gimmicks: (
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.03] select-none z-0">
           <div className="absolute inset-0 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]" />
@@ -268,7 +268,7 @@ export default function EventDetailsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const theme = getEventTheme(event?.type || "");
+  const theme = getEventTheme(event?.type || "", isDark);
 
   const isStarted = event ? (currentTime >= new Date(event.startDate)) : false;
   const isConcluded = event ? (currentTime > new Date(event.endDate)) : false;

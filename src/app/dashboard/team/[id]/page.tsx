@@ -693,14 +693,14 @@ export default function TeamParticipantDashboard() {
 
                 {/* --- RENDER PENDING INVITES (Blocked Slots) --- */}
                 {invites.map((invite: any, i: number) => (
-                  <div key={`invite-${i}`} className="flex items-center justify-between p-5 bg-zinc-900/30 rounded-[1.5rem] border border-dashed border-amber-500/30 opacity-90 group/invite">
+                  <div key={`invite-${i}`} className={`flex items-center justify-between p-5 rounded-[1.5rem] border border-dashed opacity-80 group/invite transition-colors ${isDark ? "bg-zinc-900/60 border-indigo-500/30" : "bg-indigo-50/40 border-indigo-500/40"}`}>
                     <div className="flex items-center gap-4 overflow-hidden">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? "bg-indigo-500/10 text-indigo-400/70" : "bg-indigo-100 text-indigo-500"}`}>
                         <Clock className="w-6 h-6" />
                       </div>
                       <div className="truncate">
-                        <p className="font-bold text-lg text-zinc-200 truncate">{invite.email}</p>
-                        <p className="text-xs uppercase font-bold text-amber-400 tracking-wider mt-0.5">Invite Pending...</p>
+                        <p className={`font-bold text-lg truncate ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>{invite.email}</p>
+                        <p className={`text-xs uppercase font-bold ${activeAccent.text} tracking-wider mt-0.5`}>Invite Pending...</p>
                       </div>
                     </div>
                     {isLeader && (
@@ -726,14 +726,14 @@ export default function TeamParticipantDashboard() {
                       <motion.form
                         initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
                         onSubmit={handleInvite}
-                        className="absolute inset-0 flex items-center gap-2 p-3 bg-zinc-900 rounded-[1.5rem] border border-indigo-500/50 shadow-xl shadow-indigo-500/10 z-10"
+                        className={`absolute inset-0 flex items-center gap-2 p-3 rounded-[1.5rem] border border-indigo-500/50 shadow-xl shadow-indigo-500/10 z-10 ${isDark ? "bg-zinc-900" : "bg-white"}`}
                       >
                         <Input
                           type="email"
                           placeholder="Teammate's email..."
                           value={inviteEmail}
                           onChange={e => setInviteEmail(e.target.value)}
-                          className="h-full bg-black/50 border-none rounded-xl px-4 text-base focus-visible:ring-0 flex-1"
+                          className={`h-full border-none rounded-xl px-4 text-base focus-visible:ring-0 flex-1 ${isDark ? "bg-black/50" : "bg-zinc-100"}`}
                           autoFocus
                           required
                         />
@@ -748,16 +748,16 @@ export default function TeamParticipantDashboard() {
                       /* Default Empty Slot View */
                       <button
                         onClick={() => isLeader ? setActiveInviteSlot(i) : null}
-                        className={`w-full h-full flex items-center gap-4 p-5 bg-zinc-900/20 rounded-[1.5rem] border-2 border-dashed border-white/10 transition-all text-left ${isLeader ? 'hover:bg-indigo-500/5 hover:border-indigo-500/30 cursor-pointer' : 'opacity-50 cursor-default'}`}
+                        className={`w-full h-full flex items-center gap-4 p-5 rounded-[1.5rem] border-2 border-dashed transition-all text-left ${isDark ? "bg-zinc-900/40 border-white/10" : "bg-zinc-100/60 border-zinc-300"} ${isLeader ? 'hover:bg-indigo-500/5 hover:border-indigo-500/30 cursor-pointer' : 'opacity-50 cursor-default'}`}
                       >
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 transition-colors ${isLeader ? 'group-hover:bg-indigo-500/20 group-hover:text-indigo-400 text-zinc-600' : 'text-zinc-700'}`}>
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${isDark ? "bg-white/5 text-zinc-500" : "bg-zinc-200 text-zinc-600"} ${isLeader ? 'group-hover:bg-indigo-500/20 group-hover:text-indigo-400' : ''}`}>
                           {isLeader ? <Plus className="w-6 h-6" /> : <Users className="w-6 h-6" />}
                         </div>
                         <div>
-                          <p className={`font-bold text-lg transition-colors ${isLeader ? 'group-hover:text-indigo-300 text-zinc-500' : 'text-zinc-600'}`}>
+                          <p className={`font-bold text-lg transition-colors ${isDark ? "text-zinc-400" : "text-zinc-600"} ${isLeader ? 'group-hover:text-indigo-300' : ''}`}>
                             {isLeader ? "Invite Teammate" : "Empty Slot"}
                           </p>
-                          <p className="text-xs uppercase font-bold text-zinc-600 tracking-wider mt-0.5">
+                          <p className="text-xs uppercase font-bold text-zinc-500 tracking-wider mt-0.5">
                             {isLeader ? "Click to add via email" : "Waiting for invite"}
                           </p>
                         </div>

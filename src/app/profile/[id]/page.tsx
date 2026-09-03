@@ -441,7 +441,7 @@ export default function PublicProfilePage() {
                       {profile.name || "Community Member"}
                     </h1>
 
-                   x
+                 
                   </div>
 
                   {/* PROFESSION & LOCATION */}

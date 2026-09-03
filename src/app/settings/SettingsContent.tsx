@@ -618,10 +618,11 @@ export default function SettingsContent() {
             <Link href="/profile/edit">
               <Button
                 size="sm"
-                className={`rounded-full bg-gradient-to-r ${activeAccent.gradient} hover:opacity-95 text-white font-semibold text-xs px-3 sm:px-4 h-9 w-9 sm:w-auto flex items-center justify-center shadow-lg ${activeAccent.shadow} transition-all hover:scale-105`}
+                variant="outline"
+                className={`rounded-full ${isDark ? "border-white/15 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"} font-semibold text-xs px-3 sm:px-4 h-9 w-9 sm:w-auto flex items-center justify-center`}
                 title="Edit Profile"
               >
-                <Pencil className="w-3.5 h-3.5 sm:mr-1.5" />
+                <Pencil className={`w-3.5 h-3.5 sm:mr-1.5 ${activeAccent.text}`} />
                 <span className="hidden sm:inline">Edit Profile</span>
               </Button>
             </Link>
@@ -845,7 +846,7 @@ export default function SettingsContent() {
                     className="space-y-6"
                   >
                     {/* Card 1: Profile Snapshot Card */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl">
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                         <div className="flex items-center gap-5">
                           <div className="relative">
@@ -899,7 +900,7 @@ export default function SettingsContent() {
 
                         <div className="flex items-center gap-3">
                           <Link href="/profile/edit">
-                            <Button className="rounded-2xl bg-white text-zinc-900 hover:bg-zinc-100 font-semibold px-5 shadow-lg shadow-black/20">
+                            <Button className={`rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold px-5 shadow-lg ${activeAccent.shadow}`}>
                               <Pencil className="w-4 h-4 mr-2" />
                               Edit Details
                             </Button>
@@ -909,7 +910,7 @@ export default function SettingsContent() {
                     </div>
 
                     {/* Card 2: Email & Verification */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
                       <div>
                         <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Email Address</h3>
                         <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
@@ -924,7 +925,7 @@ export default function SettingsContent() {
                             id="settings-email-input"
                             readOnly
                             value={profile?.email || "user@communityconnect.io"}
-                            className="pl-10 bg-zinc-950/60 border-white/10 text-white rounded-2xl h-11 font-medium text-sm cursor-default"
+                            className={`pl-10 ${isDark ? "bg-zinc-950/60 border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"} rounded-2xl h-11 font-medium text-sm cursor-default`}
                           />
                         </div>
                         <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold shrink-0">
@@ -935,7 +936,7 @@ export default function SettingsContent() {
                     </div>
 
                     {/* Card 3: Password & Security */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                           <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Password & Authentication</h3>
@@ -947,14 +948,14 @@ export default function SettingsContent() {
                         <Button
                           variant="outline"
                           onClick={() => setShowPasswordModal(true)}
-                          className="rounded-2xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white font-semibold"
+                          className={`rounded-2xl border font-semibold ${isDark ? "border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"}`}
                         >
                           <Key className="w-4 h-4 mr-2" />
                           Change Password
                         </Button>
                       </div>
 
-                      <div className="border-t border-white/5 pt-4 flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
+                      <div className={`border-t ${isDark ? "border-white/5" : "border-zinc-200"} pt-4 flex items-center justify-between text-xs ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
                         <span>Last changed: 30 days ago</span>
                         <span className="text-emerald-400 font-semibold">Security Level: High</span>
                       </div>
@@ -976,7 +977,7 @@ export default function SettingsContent() {
                         <Button
                           variant="outline"
                           onClick={handleExportData}
-                          className="rounded-2xl border-white/10 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white font-semibold flex-1"
+                          className={`rounded-2xl border font-semibold flex-1 ${isDark ? "border-white/15 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"}`}
                         >
                           <Download className="w-4 h-4 mr-2" />
                           Export Account Data
@@ -1080,7 +1081,9 @@ export default function SettingsContent() {
                           onClick={handleTestPush}
                           className={`rounded-full px-4 text-xs font-bold transition-all shadow-sm ${pushStatus.isSubscribed
                               ? `${activeAccent.bg} text-white hover:opacity-90`
-                              : "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed"
+                              : isDark
+                                ? "bg-zinc-800 text-zinc-400 cursor-not-allowed"
+                                : "bg-zinc-100 text-zinc-500 cursor-not-allowed"
                             }`}
                         >
                           {isTestingPush ? (
