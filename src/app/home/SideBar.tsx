@@ -8,7 +8,6 @@ import {
   Home,
   Compass,
   CalendarDays,
-  CalendarCheck,
   Bookmark,
   Bell,
   PlusCircle,
@@ -36,7 +35,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Home", href: "/home", icon: Home },
   { label: "Discover", href: "/discover", icon: Compass },
   { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
-  { label: "Agenda", href: "/agenda", icon: CalendarCheck },
   { label: "Saved", href: "/events/saved", icon: Bookmark },
 ];
 
@@ -56,7 +54,7 @@ export default function Sidebar({
   const { isDark, activeAccent } = useAppearance();
   const pathname = usePathname();
   const router = useRouter();
-  
+
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
 
@@ -101,7 +99,6 @@ export default function Sidebar({
             <div className={`w-8 h-8 shrink-0 rounded-xl bg-gradient-to-br ${activeAccent.gradient} shadow-sm flex items-center justify-center`}>
               <span className="text-white text-xs font-black">CC</span>
             </div>
-            {!isCollapsed && <span>360</span>}
           </Link>
 
           {/* Collapse toggle — desktop only, hidden inside the mobile drawer copy */}
@@ -125,9 +122,8 @@ export default function Sidebar({
               return (
                 <div key={item.href} title={isCollapsed ? item.label : undefined}>
                   <div
-                    className={`relative flex items-center rounded-full text-sm font-semibold text-zinc-400 cursor-not-allowed opacity-60 ${
-                      isCollapsed ? "justify-center px-0 py-2.5 w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
-                    }`}
+                    className={`relative flex items-center rounded-full text-sm font-semibold text-zinc-400 cursor-not-allowed opacity-60 ${isCollapsed ? "justify-center px-0 py-2.5 w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
+                      }`}
                   >
                     <Icon className="w-4.5 h-4.5 relative z-10 shrink-0" strokeWidth={2.2} />
                     {!isCollapsed && <span className="relative z-10">{item.label}</span>}
@@ -139,13 +135,11 @@ export default function Sidebar({
             return (
               <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} title={isCollapsed ? item.label : undefined}>
                 <div
-                  className={`relative flex items-center rounded-full text-sm font-semibold transition-colors ${
-                    isCollapsed ? "justify-center px-0 py-2.5 w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
-                  } ${
-                    isActive
+                  className={`relative flex items-center rounded-full text-sm font-semibold transition-colors ${isCollapsed ? "justify-center px-0 py-2.5 w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
+                    } ${isActive
                       ? `${activeAccent.text} font-bold`
                       : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"}`
-                  }`}
+                    }`}
                 >
                   {isActive && (
                     <motion.div
@@ -164,9 +158,8 @@ export default function Sidebar({
 
         <Link href="/events/create" onClick={() => setMobileOpen(false)} title={isCollapsed ? "Create Event" : undefined}>
           <button
-            className={`mt-6 flex items-center justify-center gap-2 rounded-full ${activeAccent.bg} text-white hover:opacity-90 shadow-md ${activeAccent.shadow} text-sm font-semibold transition-all hover:scale-[1.02] ${
-              isCollapsed ? "w-11 h-11 mx-auto p-0" : "w-full px-4 py-3"
-            }`}
+            className={`mt-6 flex items-center justify-center gap-2 rounded-full ${activeAccent.bg} text-white hover:opacity-90 shadow-md ${activeAccent.shadow} text-sm font-semibold transition-all hover:scale-[1.02] ${isCollapsed ? "w-11 h-11 mx-auto p-0" : "w-full px-4 py-3"
+              }`}
           >
             <PlusCircle className="w-4 h-4 shrink-0" />
             {!isCollapsed && "Create Event"}
@@ -182,13 +175,11 @@ export default function Sidebar({
           title={isCollapsed ? "Settings" : undefined}
         >
           <div
-            className={`relative flex items-center rounded-full text-sm font-semibold transition-colors ${
-              isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
-            } ${
-              pathname === "/settings"
+            className={`relative flex items-center rounded-full text-sm font-semibold transition-colors ${isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
+              } ${pathname === "/settings"
                 ? `${activeAccent.text} font-bold ${isDark ? "bg-white/10" : activeAccent.badgeBg} ${activeAccent.border}`
                 : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"}`
-            }`}
+              }`}
           >
             <Settings className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
             {!isCollapsed && "Settings"}
@@ -196,9 +187,11 @@ export default function Sidebar({
         </Link>
         <button
           title={isCollapsed ? "Log out" : undefined}
-          className={`flex items-center rounded-full text-sm font-semibold text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors ${
-            isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
-          }`}
+          className={`flex items-center rounded-full text-sm font-semibold transition-colors ${isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
+            } ${isDark
+              ? "text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 hover:text-rose-300"
+              : "text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700"
+            }`}
           onClick={() => {
             setMobileOpen(false);
             setShowLogoutConfirm(true);
@@ -207,7 +200,7 @@ export default function Sidebar({
           <LogOut className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
           {!isCollapsed && "Log out"}
         </button>
-      
+
       </div>
     </div>
   );
@@ -279,9 +272,8 @@ export default function Sidebar({
                 onClick={(e) => e.stopPropagation()}
                 className={`w-full max-w-sm ${isDark ? "bg-zinc-900 border border-white/10 text-white" : "bg-white text-zinc-900"} rounded-3xl shadow-2xl p-6`}
               >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${
-                  isDark ? "bg-rose-500/10 text-rose-400" : "bg-rose-50 text-rose-600"
-                }`}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${isDark ? "bg-rose-500/10 text-rose-400" : "bg-rose-50 text-rose-600"
+                  }`}>
                   <AlertTriangle className="w-6 h-6" />
                 </div>
 
@@ -294,9 +286,8 @@ export default function Sidebar({
                   <button
                     onClick={() => setShowLogoutConfirm(false)}
                     disabled={isLoggingOut}
-                    className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-60 cursor-pointer ${
-                      isDark ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                    }`}
+                    className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-60 cursor-pointer ${isDark ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      }`}
                   >
                     Cancel
                   </button>

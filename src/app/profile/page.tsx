@@ -312,7 +312,7 @@ export default function MyProfilePage() {
                             <Link href="/profile/edit">
                                 <Button
                                     size="sm"
-                                    className={`rounded-full ${isDark ? "bg-white text-zinc-900 hover:bg-zinc-100" : "bg-zinc-900 text-white hover:bg-zinc-800"} font-semibold px-5 gap-2 transition-all hover:scale-105 shadow-lg`}
+                                    className={`rounded-full ${activeAccent.bg} hover:opacity-90 text-white font-semibold px-5 gap-2 transition-all hover:scale-105 shadow-lg ${activeAccent.shadow}`}
                                 >
                                     <Pencil className="w-3.5 h-3.5" />
                                     Edit Profile

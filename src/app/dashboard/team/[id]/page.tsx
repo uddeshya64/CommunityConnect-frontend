@@ -256,22 +256,22 @@ export default function TeamParticipantDashboard() {
   const invites = teamData?.invites || [];
   const isLeader = teamData?.is_leader || false;
 
-  // Find current user's ticket code from roster
-  const getCurrentUserTicketCode = () => {
+  // Find current user's member object and ticket code from roster
+  const getCurrentUserMember = () => {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
       if (!token) return null;
       const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
       const currentUserId = payload.id || payload.userId || payload._id;
-      const currentUserMember = members.find((m: any) => Number(m.user_id) === Number(currentUserId));
-      return currentUserMember?.ticket_code || null;
+      return members.find((m: any) => Number(m.user_id) === Number(currentUserId)) || null;
     } catch (e) {
-      console.error("Error decoding token for check-in QR:", e);
+      console.error("Error decoding token for member info:", e);
       return null;
     }
   };
 
-  const userTicketCode = getCurrentUserTicketCode();
+  const currentUserMember = getCurrentUserMember();
+  const userTicketCode = currentUserMember?.ticket_code || null;
 
   // Use the pre-calculated capacity from your new backend logic
   const maxTeamSize = teamData?.event?.max_team_size || 5;
@@ -293,7 +293,7 @@ export default function TeamParticipantDashboard() {
   const eventDetails = teamData?.event || {};
   const eventTitle = eventDetails.title || "CommunityConnect Event";
   const eventStartDate = eventDetails.start_date || eventDetails.date;
-  const eventEndDate = eventDetails.end_date || eventStartDate;
+  const eventEndDate = eventDetails.end_date || eventDetails.endDate || null;
   const eventMode = eventDetails.mode || "offline";
   const eventLocation = eventDetails.location || (eventMode === "online" ? "Online Event" : "Location TBA");
   const eventBannerUrl = eventDetails.banner_url || eventDetails.bannerUrl || eventDetails.banner;
@@ -318,19 +318,63 @@ export default function TeamParticipantDashboard() {
   };
 
   const formattedStartDate = formatFullDateTime(eventStartDate);
-  const formattedEndDate = formatFullDateTime(eventEndDate);
+  const formattedEndDate = formatFullDateTime(eventEndDate || eventStartDate);
 
   // Countdown Helper
-  const getCountdown = (startDateIso?: string) => {
+  const getCountdown = (startDateIso?: string, endDateIso?: string | null) => {
     if (!startDateIso) return null;
-    const diff = new Date(startDateIso).getTime() - currentTime.getTime();
-    if (diff <= 0) return { isLive: true, label: "Live Now" };
+    const startMs = new Date(startDateIso).getTime();
+    if (isNaN(startMs)) return null;
 
+    const currentMs = currentTime.getTime();
+
+    let endMs = endDateIso ? new Date(endDateIso).getTime() : NaN;
+
+    // If end_date is missing, invalid, or before start_date, fallback to last timeline session or start + 2 hours
+    if (isNaN(endMs) || endMs <= startMs) {
+      const timelines = eventDetails.timelines;
+      if (Array.isArray(timelines) && timelines.length > 0) {
+        const lastTimeline = timelines[timelines.length - 1];
+        const lastTime = lastTimeline.end_time || lastTimeline.start_time;
+        if (lastTime) {
+          const tMs = new Date(lastTime).getTime();
+          if (!isNaN(tMs) && tMs > startMs) {
+            endMs = tMs;
+          }
+        }
+      }
+    }
+
+    if (isNaN(endMs) || endMs <= startMs) {
+      endMs = startMs + 2 * 60 * 60 * 1000;
+    }
+
+    // 1. Event Concluded (current time is past the event end time)
+    if (currentMs >= endMs) {
+      return {
+        isConcluded: true,
+        isLive: false,
+        label: "Event Concluded"
+      };
+    }
+
+    // 2. Live Now (current time is between start and end time)
+    if (currentMs >= startMs && currentMs < endMs) {
+      return {
+        isConcluded: false,
+        isLive: true,
+        label: "Live Now"
+      };
+    }
+
+    // 3. Starts in future
+    const diff = startMs - currentMs;
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
     const minutes = Math.floor((diff / (1000 * 60)) % 60);
     const seconds = Math.floor((diff / 1000) % 60);
     return {
+      isConcluded: false,
       isLive: false,
       days,
       hours,
@@ -340,7 +384,7 @@ export default function TeamParticipantDashboard() {
     };
   };
 
-  const countdown = getCountdown(eventStartDate);
+  const countdown = getCountdown(eventStartDate, eventEndDate);
 
   // Directions & Calendar Helpers
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(eventLocation)}`;
@@ -451,7 +495,13 @@ export default function TeamParticipantDashboard() {
                     {isSolo ? "Individual Registration" : "Official Registration"}
                   </span>
                   {countdown && (
-                    <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] border backdrop-blur-md flex items-center gap-2 ${countdown.isLive ? 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                    <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[0.15em] border backdrop-blur-md flex items-center gap-2 ${
+                      countdown.isConcluded
+                        ? 'bg-zinc-800/80 text-zinc-400 border-zinc-700'
+                        : countdown.isLive
+                        ? 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse'
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    }`}>
                       <Clock className="w-3.5 h-3.5" />
                       {countdown.label}
                     </span>
@@ -550,11 +600,11 @@ export default function TeamParticipantDashboard() {
                       <CheckCircle2 className="w-3 h-3" /> Entry Ticket Confirmed
                     </span>
                     <span className="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
-                      {isSolo ? "Individual Pass" : "Team Pass"}
+                      Entry Pass
                     </span>
                   </div>
                   <h3 className="text-2xl font-black text-white">
-                    {isSolo ? (members[0]?.user?.name || teamData?.name || "Participant") : teamData?.name}
+                    {currentUserMember?.user?.name || members[0]?.user?.name || "Participant"}
                   </h3>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
                     <Button onClick={() => setShowEntryPassModal(true)} variant="default" className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/20 transition-all">
@@ -575,9 +625,9 @@ export default function TeamParticipantDashboard() {
               <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-8">
                 <div>
                   <h3 className="text-2xl font-bold flex items-center gap-3">
-                    <Users className="w-6 h-6 text-indigo-400" /> Team Roster
+                    <Users className="w-6 h-6 text-indigo-400" /> {teamData?.name || "Team Members"}
                   </h3>
-                  <p className="text-zinc-500 mt-1 font-medium">Manage your squad for the event.</p>
+                  <p className="text-zinc-500 mt-1 font-medium">Manage members for your team.</p>
                 </div>
                 <div className="text-right flex flex-col items-end gap-2">
                   <div className="flex items-center gap-4">
@@ -643,14 +693,14 @@ export default function TeamParticipantDashboard() {
 
                 {/* --- RENDER PENDING INVITES (Blocked Slots) --- */}
                 {invites.map((invite: any, i: number) => (
-                  <div key={`invite-${i}`} className="flex items-center justify-between p-5 bg-zinc-900/30 rounded-[1.5rem] border border-dashed border-indigo-500/30 opacity-80 group/invite">
+                  <div key={`invite-${i}`} className={`flex items-center justify-between p-5 rounded-[1.5rem] border border-dashed opacity-80 group/invite transition-colors ${isDark ? "bg-zinc-900/60 border-indigo-500/30" : "bg-indigo-50/40 border-indigo-500/40"}`}>
                     <div className="flex items-center gap-4 overflow-hidden">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-indigo-500/5 text-indigo-400/50 shrink-0">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? "bg-indigo-500/10 text-indigo-400/70" : "bg-indigo-100 text-indigo-500"}`}>
                         <Clock className="w-6 h-6" />
                       </div>
                       <div className="truncate">
-                        <p className="font-bold text-lg text-zinc-300 truncate">{invite.email}</p>
-                        <p className="text-xs uppercase font-bold text-indigo-400 tracking-wider mt-0.5">Invite Pending...</p>
+                        <p className={`font-bold text-lg truncate ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>{invite.email}</p>
+                        <p className={`text-xs uppercase font-bold ${activeAccent.text} tracking-wider mt-0.5`}>Invite Pending...</p>
                       </div>
                     </div>
                     {isLeader && (
@@ -676,14 +726,14 @@ export default function TeamParticipantDashboard() {
                       <motion.form
                         initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
                         onSubmit={handleInvite}
-                        className="absolute inset-0 flex items-center gap-2 p-3 bg-zinc-900 rounded-[1.5rem] border border-indigo-500/50 shadow-xl shadow-indigo-500/10 z-10"
+                        className={`absolute inset-0 flex items-center gap-2 p-3 rounded-[1.5rem] border border-indigo-500/50 shadow-xl shadow-indigo-500/10 z-10 ${isDark ? "bg-zinc-900" : "bg-white"}`}
                       >
                         <Input
                           type="email"
                           placeholder="Teammate's email..."
                           value={inviteEmail}
                           onChange={e => setInviteEmail(e.target.value)}
-                          className="h-full bg-black/50 border-none rounded-xl px-4 text-base focus-visible:ring-0 flex-1"
+                          className={`h-full border-none rounded-xl px-4 text-base focus-visible:ring-0 flex-1 ${isDark ? "bg-black/50" : "bg-zinc-100"}`}
                           autoFocus
                           required
                         />
@@ -698,16 +748,16 @@ export default function TeamParticipantDashboard() {
                       /* Default Empty Slot View */
                       <button
                         onClick={() => isLeader ? setActiveInviteSlot(i) : null}
-                        className={`w-full h-full flex items-center gap-4 p-5 bg-zinc-900/20 rounded-[1.5rem] border-2 border-dashed border-white/10 transition-all text-left ${isLeader ? 'hover:bg-indigo-500/5 hover:border-indigo-500/30 cursor-pointer' : 'opacity-50 cursor-default'}`}
+                        className={`w-full h-full flex items-center gap-4 p-5 rounded-[1.5rem] border-2 border-dashed transition-all text-left ${isDark ? "bg-zinc-900/40 border-white/10" : "bg-zinc-100/60 border-zinc-300"} ${isLeader ? 'hover:bg-indigo-500/5 hover:border-indigo-500/30 cursor-pointer' : 'opacity-50 cursor-default'}`}
                       >
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 transition-colors ${isLeader ? 'group-hover:bg-indigo-500/20 group-hover:text-indigo-400 text-zinc-600' : 'text-zinc-700'}`}>
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${isDark ? "bg-white/5 text-zinc-500" : "bg-zinc-200 text-zinc-600"} ${isLeader ? 'group-hover:bg-indigo-500/20 group-hover:text-indigo-400' : ''}`}>
                           {isLeader ? <Plus className="w-6 h-6" /> : <Users className="w-6 h-6" />}
                         </div>
                         <div>
-                          <p className={`font-bold text-lg transition-colors ${isLeader ? 'group-hover:text-indigo-300 text-zinc-500' : 'text-zinc-600'}`}>
+                          <p className={`font-bold text-lg transition-colors ${isDark ? "text-zinc-400" : "text-zinc-600"} ${isLeader ? 'group-hover:text-indigo-300' : ''}`}>
                             {isLeader ? "Invite Teammate" : "Empty Slot"}
                           </p>
-                          <p className="text-xs uppercase font-bold text-zinc-600 tracking-wider mt-0.5">
+                          <p className="text-xs uppercase font-bold text-zinc-500 tracking-wider mt-0.5">
                             {isLeader ? "Click to add via email" : "Waiting for invite"}
                           </p>
                         </div>
@@ -726,7 +776,9 @@ export default function TeamParticipantDashboard() {
                   <div className="p-1.5 rounded-full bg-emerald-500/20 text-emerald-300">
                     <Check className="w-5 h-5" />
                   </div>
-                  <p className="font-bold text-sm tracking-wide">Team Capacity Reached. Your roster is locked and ready!</p>
+                  <p className="font-bold text-sm tracking-wide">
+                    {teamData?.name ? `${teamData.name} Capacity Reached.` : "Team Capacity Reached."} Your team is complete and ready!
+                  </p>
                 </motion.div>
               )}
 
@@ -1388,10 +1440,10 @@ export default function TeamParticipantDashboard() {
                 </div>
 
                 <h3 className="text-2xl font-black text-white mb-1">
-                  {isSolo ? (members[0]?.user?.name || teamData?.name || "Participant") : teamData?.name}
+                  {currentUserMember?.user?.name || members[0]?.user?.name || "Participant"}
                 </h3>
                 <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider">
-                  {isSolo ? "Individual Pass" : "Team Pass"}
+                  Entry Pass
                 </p>
               </div>
 

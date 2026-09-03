@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search, ListPlus, Sparkles } from "lucide-react";
-import Sidebar from "@/app/home/SideBar";
+import AppLayout from "@/components/layout/AppLayout";
 import { EVENT_TEMPLATES, CUSTOM_TEMPLATE_ID } from "@/lib/eventTemplates";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
@@ -32,12 +32,11 @@ export default function SelectTemplatePage() {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col md:flex-row transition-colors duration-300 ${
+    <div className={`min-h-screen transition-colors duration-300 ${
       isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"
     }`}>
-      <Sidebar />
-
-      <main className="flex-1 px-4 sm:px-8 py-10 max-w-5xl mx-auto w-full">
+      <AppLayout>
+        <main className="flex-1 px-4 sm:px-8 py-10 max-w-5xl mx-auto w-full">
         <div className="mb-8">
           <h1 className={`text-3xl sm:text-4xl font-extrabold tracking-tight mb-2 ${
             isDark ? "text-white" : "text-zinc-900"
@@ -132,6 +131,7 @@ export default function SelectTemplatePage() {
           </div>
         )}
       </main>
+      </AppLayout>
     </div>
   );
 }

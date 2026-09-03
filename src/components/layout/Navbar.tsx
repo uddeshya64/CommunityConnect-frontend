@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Menu, User } from "lucide-react";
+import { Bell, Menu } from "lucide-react";
 import { useUser } from "@/components/providers/UserProvider";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { notificationService } from "@/services/notification.service";
@@ -22,6 +22,7 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
   useEffect(() => {
     let isMounted = true;
     const fetchNotifications = async () => {
+      if (!profile) return;
       try {
         const notifs = await notificationService.getNotifications();
         if (isMounted && Array.isArray(notifs)) {
@@ -36,7 +37,7 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
     return () => {
       isMounted = false;
     };
-  }, [pathname]);
+  }, [pathname, profile]);
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -51,11 +52,10 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
 
   return (
     <header
-      className={`sticky top-0 z-40 w-full h-16 border-b backdrop-blur-xl transition-all duration-300 ${
-        isDark
-          ? "bg-zinc-950/80 border-white/10 text-white"
-          : "bg-white/80 border-zinc-200/70 text-zinc-900"
-      }`}
+      className={`sticky top-0 z-40 w-full h-16 border-b backdrop-blur-xl transition-all duration-300 ${isDark
+        ? "bg-zinc-950/80 border-white/10 text-white"
+        : "bg-white/80 border-zinc-200/70 text-zinc-900"
+        }`}
     >
       <div className="h-full px-4 sm:px-6 flex items-center justify-between gap-4">
         {/* LEFT SECTION */}
@@ -64,11 +64,10 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
           {onToggleMobile && (
             <button
               onClick={onToggleMobile}
-              className={`md:hidden p-2 rounded-xl flex items-center justify-center transition-colors ${
-                isDark
-                  ? "text-zinc-300 hover:text-white hover:bg-white/10"
-                  : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-              }`}
+              className={`md:hidden p-2 rounded-xl flex items-center justify-center transition-colors ${isDark
+                ? "text-zinc-300 hover:text-white hover:bg-white/10"
+                : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+                }`}
               title="Open menu"
             >
               <Menu className="w-5 h-5" />
@@ -96,15 +95,9 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
               href="/home"
               className="flex items-center gap-2.5 group transition-opacity hover:opacity-90"
             >
-              <div
-                className={`w-8.5 h-8.5 rounded-xl bg-gradient-to-br ${activeAccent.gradient} shadow-sm flex items-center justify-center transition-transform group-hover:scale-105`}
-              >
-                <span className="text-white text-xs font-black">CC</span>
-              </div>
               <span
-                className={`font-black text-xl tracking-tight ${
-                  isDark ? "text-white" : "text-zinc-900"
-                }`}
+                className={`font-black text-xl tracking-tight ${isDark ? "text-white" : "text-zinc-900"
+                  }`}
               >
                 Community<span className={activeAccent.text}>Connect 360</span>
               </span>
@@ -117,21 +110,19 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
           {/* Notification Bell */}
           <Link href="/notifications">
             <div
-              className={`relative p-2.5 rounded-full transition-all ${
+              className={`relative p-2.5 rounded-full border transition-all ${
                 isNotificationsActive
-                  ? `${activeAccent.text} ${isDark ? "bg-white/10" : "bg-indigo-50"} ${activeAccent.border}`
-                  : `${
-                      isDark
-                        ? "text-zinc-300 hover:text-white hover:bg-white/10"
-                        : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-                    }`
+                  ? `${activeAccent.text} ${isDark ? "bg-white/10 border-white/20" : "bg-indigo-50 border-indigo-200"}`
+                  : isDark
+                    ? "text-zinc-200 border-white/10 bg-white/5 hover:text-white hover:bg-white/15"
+                    : "text-zinc-700 border-zinc-200 bg-zinc-100 hover:text-zinc-950 hover:bg-zinc-200"
               }`}
               title="Notifications"
             >
               <Bell className="w-5 h-5" strokeWidth={2.2} />
               {/* Notification dot indicator: only rendered if there are unread/pending notifications */}
               {hasNotifications && (
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950" />
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950" />
               )}
             </div>
           </Link>
@@ -139,13 +130,11 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
           {/* Profile Icon / Avatar */}
           <Link href={profileHref}>
             <div
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 ${
-                isDark
-                  ? "border-zinc-700 hover:border-white"
-                  : "border-white hover:border-indigo-400"
-              } shadow-md transition-all hover:scale-105 bg-gradient-to-br ${
-                activeAccent.gradient
-              } flex items-center justify-center shrink-0`}
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 ${isDark
+                ? "border-zinc-700 hover:border-white"
+                : "border-white hover:border-indigo-400"
+                } shadow-md transition-all hover:scale-105 bg-gradient-to-br ${activeAccent.gradient
+                } flex items-center justify-center shrink-0`}
               title={profile?.name || "Profile"}
             >
               {avatarUrl ? (

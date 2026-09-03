@@ -145,12 +145,15 @@ const ToggleSwitch = ({
   id,
   disabled = false,
   activeBg = "bg-indigo-600",
+  style,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   id: string;
   disabled?: boolean;
   activeBg?: string;
+  
+  style?: React.CSSProperties;
 }) => (
   <button
     id={id}
@@ -158,21 +161,21 @@ const ToggleSwitch = ({
     role="switch"
     aria-checked={checked}
     disabled={disabled}
+    style={style}
     onClick={(e) => {
       e.stopPropagation();
       onChange(!checked);
     }}
-    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-zinc-950 ${
-      checked 
-        ? activeBg 
-        : "bg-zinc-250 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-    } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-zinc-950 ${checked
+        ? activeBg
+        : "bg-zinc-300 hover:bg-zinc-400 dark:bg-zinc-700 dark:hover:bg-zinc-600"
+      } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
   >
     <motion.span
       initial={false}
       animate={{ x: checked ? 20 : 0 }}
       transition={{ type: "spring", stiffness: 600, damping: 30 }}
-      className="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.15)] ring-0"
+      className="pointer-events-none inline-block h-5 w-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.15)] ring-0 bg-zinc-800 dark:bg-white"
     />
   </button>
 );
@@ -323,7 +326,7 @@ export default function SettingsContent() {
             setUserBackupCodes(merged.twoFactorBackupCodes);
           }
         }
-        
+
         if (sessionsData && Array.isArray(sessionsData)) {
           const mapped = sessionsData.map((s: any) => ({
             ...s,
@@ -332,7 +335,7 @@ export default function SettingsContent() {
           }));
           setActiveSessions(mapped);
         }
-        
+
       } finally {
         setIsProfileLoading(false);
       }
@@ -407,27 +410,60 @@ export default function SettingsContent() {
         new CustomEvent("cc_settings_updated", { detail: DEFAULT_SETTINGS })
       );
     }
-    profileService.updateMySettings(DEFAULT_SETTINGS).catch(() => {});
+    profileService.updateMySettings(DEFAULT_SETTINGS).catch(() => { });
     showToast("Settings reset to default values.");
   };
 
   const handleExportData = () => {
-    const exportData = {
-      profile: profile || {
-        name: "CommunityConnect User",
-        email: "user@communityconnect.io",
-      },
-      settings,
-      exportedAt: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const p = (profile as any) || {};
+    const s = (settings as any) || {};
+    const exportDate = new Date().toISOString();
+
+    const rows = [
+      ["Category", "Field", "Value"],
+      ["Account Info", "User ID", p.id || ""],
+      ["Account Info", "Name", p.name || ""],
+      ["Account Info", "Email", p.email || ""],
+      ["Account Info", "Phone", p.phone || ""],
+      ["Account Info", "Location", p.location || ""],
+      ["Account Info", "Bio", p.bio || ""],
+      ["Account Info", "Organization", p.organization || ""],
+      ["Account Info", "Role", p.role || ""],
+      ["Account Info", "Skills", Array.isArray(p.skills) ? p.skills.join("; ") : (p.skills || "")],
+      ["Account Info", "Export Date", exportDate],
+      ["Settings", "Theme", s.theme || ""],
+      ["Settings", "Accent Color", s.accentColor || ""],
+      ["Settings", "Email Reminders", s.emailReminders ? "Enabled" : "Disabled"],
+      ["Settings", "Community Updates", s.communityUpdates ? "Enabled" : "Disabled"],
+      ["Settings", "Team Invites", s.teamInvites ? "Enabled" : "Disabled"],
+      ["Settings", "Weekly Digest", s.weeklyDigest ? "Enabled" : "Disabled"],
+      ["Settings", "Notification Frequency", s.notificationFrequency || ""],
+      ["Settings", "Profile Visibility", s.profileVisibility || ""],
+      ["Settings", "Show Email On Profile", s.showEmailOnProfile ? "Yes" : "No"],
+      ["Settings", "Show Location On Profile", s.showLocationOnProfile ? "Yes" : "No"],
+      ["Settings", "Calendar Format", s.calendarFormat || ""],
+      ["Settings", "Two Factor Enabled", s.twoFactorEnabled ? "Yes" : "No"],
+    ];
+
+    const csvContent = rows
+      .map((row) =>
+        row
+          .map((field) => {
+            const str = String(field ?? "").replace(/"/g, '""');
+            return `"${str}"`;
+          })
+          .join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `communityconnect-settings-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `communityconnect-account-data-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    showToast("Account data exported successfully!");
+    showToast("Account data exported as CSV successfully!");
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -582,10 +618,11 @@ export default function SettingsContent() {
             <Link href="/profile/edit">
               <Button
                 size="sm"
-                className={`rounded-full bg-gradient-to-r ${activeAccent.gradient} hover:opacity-95 text-white font-semibold text-xs px-3 sm:px-4 h-9 w-9 sm:w-auto flex items-center justify-center shadow-lg ${activeAccent.shadow} transition-all hover:scale-105`}
+                variant="outline"
+                className={`rounded-full ${isDark ? "border-white/15 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"} font-semibold text-xs px-3 sm:px-4 h-9 w-9 sm:w-auto flex items-center justify-center`}
                 title="Edit Profile"
               >
-                <Pencil className="w-3.5 h-3.5 sm:mr-1.5" />
+                <Pencil className={`w-3.5 h-3.5 sm:mr-1.5 ${activeAccent.text}`} />
                 <span className="hidden sm:inline">Edit Profile</span>
               </Button>
             </Link>
@@ -600,7 +637,7 @@ export default function SettingsContent() {
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-zinc-900 border border-white/10 text-white px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl"
+            className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 ${isDark ? "bg-zinc-900 border border-white/10 text-white" : "bg-white border border-zinc-200 text-zinc-900"} px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl`}
           >
             <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
@@ -608,7 +645,7 @@ export default function SettingsContent() {
             <span className="text-sm font-semibold">{toastMessage}</span>
             <button
               onClick={() => setToastMessage(null)}
-              className="text-zinc-400 hover:text-white ml-2"
+              className={`${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} ml-2`}
             >
               <X className="w-4 h-4" />
             </button>
@@ -630,13 +667,13 @@ export default function SettingsContent() {
           </div>
 
           <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600 dark:text-zinc-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
             <Input
               id="settings-search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search settings..."
-              className="pl-10 pr-9 bg-zinc-900/80 border-white/10 text-white placeholder:text-zinc-500 rounded-full h-11 text-sm focus:ring-2 focus:ring-white/20"
+              className={`pl-10 pr-9 ${isDark ? "bg-zinc-900/80 text-white border-white/10 placeholder:text-zinc-500 focus:ring-white/20" : "bg-white text-zinc-900 border-zinc-200 placeholder:text-zinc-400 focus:ring-zinc-400"} rounded-full h-11 text-sm focus:ring-2`}
             />
             {searchQuery && (
               <button
@@ -663,11 +700,10 @@ export default function SettingsContent() {
                     <button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
-                      className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-sm font-semibold shrink-0 transition-all ${
-                        isActive
+                      className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-sm font-semibold shrink-0 transition-all ${isActive
                           ? `bg-gradient-to-r ${activeAccent.gradient || "from-indigo-600 to-violet-600"} text-white shadow-lg ${activeAccent.shadow || "shadow-indigo-500/20"}`
                           : "bg-zinc-900/60 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-white/5"
-                      }`}
+                        }`}
                     >
                       <Icon className="w-4 h-4 shrink-0" />
                       <span>{tab.label}</span>
@@ -685,11 +721,10 @@ export default function SettingsContent() {
                     <button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
-                      className={`group relative flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-left transition-all ${
-                        isActive
+                      className={`group relative flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-left transition-all ${isActive
                           ? "text-white font-bold"
                           : "text-zinc-600 hover:text-white hover:bg-white/5 font-medium"
-                      }`}
+                        }`}
                     >
                       {isActive && (
                         <motion.div
@@ -699,11 +734,10 @@ export default function SettingsContent() {
                         />
                       )}
                       <div
-                        className={`relative z-10 w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
-                          isActive
+                        className={`relative z-10 w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isActive
                             ? `${activeAccent.bg} text-white shadow-md ${activeAccent.shadow || "shadow-indigo-500/20"}`
                             : `${isDark ? "bg-zinc-800/80 text-zinc-400 group-hover:bg-zinc-800 group-hover:text-white" : "bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200 group-hover:text-zinc-900"}`
-                        }`}
+                          }`}
                       >
                         <Icon className="w-4.5 h-4.5" />
                       </div>
@@ -714,11 +748,10 @@ export default function SettingsContent() {
                         </div>
                       </div>
                       <ChevronRight
-                        className={`relative z-10 w-4 h-4 transition-transform ${
-                          isActive
+                        className={`relative z-10 w-4 h-4 transition-transform ${isActive
                             ? `${activeAccent.text} translate-x-0.5`
                             : "text-zinc-600 group-hover:text-zinc-600 dark:text-zinc-400"
-                        }`}
+                          }`}
                       />
                     </button>
                   );
@@ -726,13 +759,13 @@ export default function SettingsContent() {
               </div>
 
               {/* Quick Profile Summary Badge in Sidebar */}
-              <div className="hidden lg:block mt-4 p-4 rounded-3xl bg-zinc-100/60 border border-zinc-200 backdrop-blur-xl">
+              <div className={`hidden lg:block mt-4 p-4 rounded-3xl ${isDark ? "bg-zinc-900/60 border border-white/5" : "bg-zinc-100/90 border border-zinc-200"} backdrop-blur-xl`}>
                 {isProfileLoading ? (
                   <div className="flex items-center gap-3 animate-pulse">
-                    <div className="w-10 h-10 rounded-full bg-zinc-200 shrink-0" />
+                    <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-700 shrink-0" />
                     <div className="space-y-2 flex-1">
-                      <div className="h-4 bg-zinc-200 rounded w-2/3" />
-                      <div className="h-3 bg-zinc-200 rounded w-full" />
+                      <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-2/3" />
+                      <div className="h-3 bg-zinc-200 dark:bg-zinc-700 rounded w-full" />
                     </div>
                   </div>
                 ) : (
@@ -740,18 +773,18 @@ export default function SettingsContent() {
                     <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center text-white font-extrabold text-sm shrink-0`}>
                       {profile?.name
                         ? profile.name
-                            .split(" ")
-                            .map((w) => w[0])
-                            .join("")
-                            .toUpperCase()
-                            .slice(0, 2)
+                          .split(" ")
+                          .map((w) => w[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)
                         : "CC"}
                     </div>
                     <div className="overflow-hidden">
-                      <div className="text-sm font-bold text-white truncate">
+                      <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"} truncate`}>
                         {profile?.name || "Community Connect Member"}
                       </div>
-                      <div className="text-xs text-zinc-600 dark:text-zinc-500 truncate">
+                      <div className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"} truncate`}>
                         {profile?.email || "user@communityconnect.io"}
                       </div>
                     </div>
@@ -802,56 +835,56 @@ export default function SettingsContent() {
               </div>
             ) : (
               <AnimatePresence mode="wait">
-              {/* TAB 1: ACCOUNT & PROFILE */}
-              {activeTab === "account" && (
-                <motion.div
-                  key="account"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-6"
-                >
-                  {/* Card 1: Profile Snapshot Card */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                      <div className="flex items-center gap-5">
-                        <div className="relative">
-                          {profile?.avatar_url ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img
-                              src={profile.avatar_url}
-                              alt={profile.name}
-                              className={`w-16 h-16 rounded-2xl object-cover ring-2 ${activeAccent.border}`}
-                            />
-                          ) : (
-                            <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center text-white font-black text-xl shadow-lg ${activeAccent.shadow}`}>
-                              {profile?.name
-                                ? profile.name
+                {/* TAB 1: ACCOUNT & PROFILE */}
+                {activeTab === "account" && (
+                  <motion.div
+                    key="account"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
+                  >
+                    {/* Card 1: Profile Snapshot Card */}
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                        <div className="flex items-center gap-5">
+                          <div className="relative">
+                            {profile?.avatar_url ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={profile.avatar_url}
+                                alt={profile.name}
+                                className={`w-16 h-16 rounded-2xl object-cover ring-2 ${activeAccent.border}`}
+                              />
+                            ) : (
+                              <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center text-white font-black text-xl shadow-lg ${activeAccent.shadow}`}>
+                                {profile?.name
+                                  ? profile.name
                                     .split(" ")
                                     .map((w) => w[0])
                                     .join("")
                                     .toUpperCase()
                                     .slice(0, 2)
-                                : "CC"}
+                                  : "CC"}
+                              </div>
+                            )}
+                            <div
+                              className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 ring-4 ring-zinc-900 flex items-center justify-center"
+                              title="Online & Active"
+                            >
+                              <Check className="w-3 h-3 text-white" />
                             </div>
-                          )}
-                          <div
-                            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 ring-4 ring-zinc-900 flex items-center justify-center"
-                            title="Online & Active"
-                          >
-                            <Check className="w-3 h-3 text-white" />
                           </div>
-                        </div>
 
                         <div>
                           <div className="flex items-center gap-2">
                             <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
                               {profile?.name || "Community Connect Member"}
                             </h3>
-                            <span className={`px-2.5 py-0.5 rounded-full ${activeAccent.badgeBg} border border-white/10 ${activeAccent.badgeText} text-xs font-semibold`}>
+                            {/* <span className={`px-2.5 py-0.5 rounded-full ${activeAccent.badgeBg} border border-white/10 ${activeAccent.badgeText} text-xs font-semibold`}>
                               Pro Member
-                            </span>
+                            </span> */}
                           </div>
                           <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                             {profile?.profession || "Community Member & Event Enthusiast"}
@@ -865,145 +898,143 @@ export default function SettingsContent() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <Link href="/profile/edit">
-                          <Button className="rounded-2xl bg-white text-zinc-900 hover:bg-zinc-100 font-semibold px-5 shadow-lg shadow-black/20">
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Edit Details
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card 2: Email & Verification */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Email Address</h3>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                        Your verified email address is used for event notifications, sign-ins, and account recovery.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                      <div className="flex-1 relative">
-                        <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-                        <Input
-                          id="settings-email-input"
-                          readOnly
-                          value={profile?.email || "user@communityconnect.io"}
-                          className="pl-10 bg-zinc-950/60 border-white/10 text-white rounded-2xl h-11 font-medium text-sm cursor-default"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold shrink-0">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Verified Email</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card 3: Password & Security */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Password & Authentication</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Protect your account by using a strong, unique password.
-                        </p>
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowPasswordModal(true)}
-                        className="rounded-2xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white font-semibold"
-                      >
-                        <Key className="w-4 h-4 mr-2" />
-                        Change Password
-                      </Button>
-                    </div>
-
-                    <div className="border-t border-white/5 pt-4 flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
-                      <span>Last changed: 30 days ago</span>
-                      <span className="text-emerald-400 font-semibold">Security Level: High</span>
-                    </div>
-                  </div>
-
-                  {/* Card 4: Danger Zone */}
-                  <div className="bg-rose-950/10 border border-rose-500/20 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-rose-400 flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5" />
-                        Danger Zone
-                      </h3>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                        Export your account data or permanently delete your account and all associated events.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <Button
-                        variant="outline"
-                        onClick={handleExportData}
-                        className="rounded-2xl border-white/10 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white font-semibold flex-1"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Export Account Data
-                      </Button>
-
-                      <Button
-                        onClick={() => setShowDeleteModal(true)}
-                        className="rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-semibold flex-1"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete Account
-                      </Button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* TAB 2: NOTIFICATIONS */}
-              {activeTab === "notifications" && (
-                <motion.div
-                  key="notifications"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-6"
-                >
-                  {/* NATIVE SYSTEM PUSH NOTIFICATIONS (PC & PHONE PWA) */}
-                  <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${
-                    isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"
-                  }`}>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            pushStatus.isSubscribed
-                              ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                              : pushStatus.permission === "denied"
-                              ? "bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400"
-                              : "bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400"
-                          }`}>
-                            {pushStatus.isSubscribed
-                              ? "✓ Active On This Device"
-                              : pushStatus.permission === "denied"
-                              ? "✕ Blocked In Browser"
-                              : "○ Not Enabled"}
-                          </span>
+                        <div className="flex items-center gap-3">
+                          <Link href="/profile/edit">
+                            <Button className={`rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold px-5 shadow-lg ${activeAccent.shadow}`}>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit Details
+                            </Button>
+                          </Link>
                         </div>
-                        <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>
-                          System Push Notifications (PC &amp; Mobile PWA)
-                        </h3>
-                        <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
-                          Receive native OS alerts with sound, vibration, and banners on your phone or desktop even when the app is closed.
+                      </div>
+                    </div>
+
+                    {/* Card 2: Email & Verification */}
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
+                      <div>
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Email Address</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                          Your verified email address is used for event notifications, sign-ins, and account recovery.
                         </p>
                       </div>
+
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                        <div className="flex-1 relative">
+                          <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                          <Input
+                            id="settings-email-input"
+                            readOnly
+                            value={profile?.email || "user@communityconnect.io"}
+                            className={`pl-10 ${isDark ? "bg-zinc-950/60 border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"} rounded-2xl h-11 font-medium text-sm cursor-default`}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold shrink-0">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Verified Email</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card 3: Password & Security */}
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Password & Authentication</h3>
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                            Protect your account by using a strong, unique password.
+                          </p>
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowPasswordModal(true)}
+                          className={`rounded-2xl border font-semibold ${isDark ? "border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"}`}
+                        >
+                          <Key className="w-4 h-4 mr-2" />
+                          Change Password
+                        </Button>
+                      </div>
+
+                      <div className={`border-t ${isDark ? "border-white/5" : "border-zinc-200"} pt-4 flex items-center justify-between text-xs ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
+                        <span>Last changed: 30 days ago</span>
+                        <span className="text-emerald-400 font-semibold">Security Level: High</span>
+                      </div>
+                    </div>
+
+                    {/* Card 4: Danger Zone */}
+                    <div className="bg-rose-950/10 border border-rose-500/20 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-rose-400 flex items-center gap-2">
+                          <AlertTriangle className="w-5 h-5" />
+                          Danger Zone
+                        </h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                          Export your account data or permanently delete your account and all associated events.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <Button
+                          variant="outline"
+                          onClick={handleExportData}
+                          className={`rounded-2xl border font-semibold flex-1 ${isDark ? "border-white/15 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"}`}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Export Account Data
+                        </Button>
+
+                        <Button
+                          onClick={() => setShowDeleteModal(true)}
+                          className="rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-semibold flex-1"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Account
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* TAB 2: NOTIFICATIONS */}
+                {activeTab === "notifications" && (
+                  <motion.div
+                    key="notifications"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
+                  >
+                    {/* NATIVE SYSTEM PUSH NOTIFICATIONS (PC & PHONE PWA) */}
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"
+                      }`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${pushStatus.isSubscribed
+                                ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                : pushStatus.permission === "denied"
+                                  ? "bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400"
+                                  : "bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400"
+                              }`}>
+                              {pushStatus.isSubscribed
+                                ? "✓ Active On This Device"
+                                : pushStatus.permission === "denied"
+                                  ? "✕ Blocked In Browser"
+                                  : "○ Not Enabled"}
+                            </span>
+                          </div>
+                          <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>
+                            System Push Notifications (PC &amp; Mobile PWA)
+                          </h3>
+                          <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                            Receive native OS alerts with sound, vibration, and banners on your phone or desktop even when the app is closed.
+                          </p>
+                        </div>
 
                       <div className="flex items-center gap-3 shrink-0">
                         {isPushLoading && <Loader2 className={`w-5 h-5 animate-spin ${activeAccent.text}`} />}
-                        <ToggleSwitch
+                        <ToggleSwitch 
                           id="toggle-systemPush"
                           checked={pushStatus.isSubscribed}
                           disabled={isPushLoading || pushStatus.permission === "denied" || !pushStatus.supported}
@@ -1013,271 +1044,268 @@ export default function SettingsContent() {
                       </div>
                     </div>
 
-                    {pushStatus.permission === "denied" && (
-                      <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400 text-xs font-semibold flex items-center gap-2.5">
-                        <AlertTriangle className="w-5 h-5 shrink-0" />
-                        <span>Notifications are blocked in your browser settings. Please click the padlock or tune icon in your address bar to allow notifications.</span>
-                      </div>
-                    )}
-
-                    {!pushStatus.supported && (
-                      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold flex items-start gap-2.5">
-                        <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                          <p className="font-bold">PWA Mode Required on Mobile Devices</p>
-                          <p>To enable system push notifications on iOS or some Android browsers, install this app on your device first by tapping your browser menu &gt; <strong>&quot;Add to Home Screen&quot;</strong>, then launch it from your home screen.</p>
+                      {pushStatus.permission === "denied" && (
+                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400 text-xs font-semibold flex items-center gap-2.5">
+                          <AlertTriangle className="w-5 h-5 shrink-0" />
+                          <span>Notifications are blocked in your browser settings. Please click the padlock or tune icon in your address bar to allow notifications.</span>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    <div className={`pt-4 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-                      isDark ? "border-white/10" : "border-zinc-100"
-                    }`}>
-                      <div className="flex items-center gap-4 text-xs font-medium text-zinc-400">
-                        <div className="flex items-center gap-1.5">
-                          <Laptop className="w-4 h-4 text-zinc-400" />
-                          <span>Windows / macOS / Linux</span>
+                      {!pushStatus.supported && (
+                        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold flex items-start gap-2.5">
+                          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                          <div className="space-y-1">
+                            <p className="font-bold">PWA Mode Required on Mobile Devices</p>
+                            <p>To enable system push notifications on iOS or some Android browsers, install this app on your device first by tapping your browser menu &gt; <strong>&quot;Add to Home Screen&quot;</strong>, then launch it from your home screen.</p>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <Smartphone className="w-4 h-4 text-zinc-400" />
-                          <span>Android / iOS 16.4+ PWA</span>
+                      )}
+
+                      <div className={`pt-4 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isDark ? "border-white/10" : "border-zinc-100"
+                        }`}>
+                        <div className="flex items-center gap-4 text-xs font-medium text-zinc-400">
+                          <div className="flex items-center gap-1.5">
+                            <Laptop className="w-4 h-4 text-zinc-400" />
+                            <span>Windows / macOS / Linux</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Smartphone className="w-4 h-4 text-zinc-400" />
+                            <span>Android / iOS 16.4+ PWA</span>
+                          </div>
                         </div>
-                      </div>
 
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={!pushStatus.isSubscribed || isTestingPush}
-                        onClick={handleTestPush}
-                        className={`rounded-full px-4 text-xs font-bold transition-all shadow-sm ${
-                          pushStatus.isSubscribed
-                            ? `${activeAccent.bg} text-white hover:opacity-90`
-                            : "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed"
-                        }`}
-                      >
-                        {isTestingPush ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                            Dispatching...
-                          </>
-                        ) : (
-                          <>
-                            <Bell className="w-3.5 h-3.5 mr-1.5" />
-                            Send Test Notification
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${
-                    isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"
-                  }`}>
-                    <div>
-                      <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Event &amp; Community Notifications</h3>
-                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
-                        Control when and how you receive updates from community organizers and attendees.
-                      </p>
-                    </div>
-
-                    <div className="space-y-5 divide-y divide-white/5">
-                      {/* Event Reminders Toggle */}
-                      <div className="pt-5 first:pt-0 flex items-center justify-between gap-4">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="toggle-emailReminders" className="text-sm font-bold text-white cursor-pointer">
-                            Event Reminders
-                          </Label>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            Receive reminders 24 hours before events you are attending start.
-                          </p>
-                        </div>
-                        <ToggleSwitch
-                          id="toggle-emailReminders"
-                          checked={settings.emailReminders}
-                          onChange={(val) => updateSetting("emailReminders", val)}
-                          activeBg={activeAccent.bg}
-                        />
-                      </div>
-
-                      {/* Community Updates Toggle */}
-                      <div className="pt-5 flex items-center justify-between gap-4">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="toggle-communityUpdates" className="text-sm font-bold text-white cursor-pointer">
-                            Community & Organizer Updates
-                          </Label>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            Get alerted immediately when an organizer modifies an event date, time, or location.
-                          </p>
-                        </div>
-                        <ToggleSwitch
-                          id="toggle-communityUpdates"
-                          checked={settings.communityUpdates}
-                          onChange={(val) => updateSetting("communityUpdates", val)}
-                          activeBg={activeAccent.bg}
-                        />
-                      </div>
-
-                      {/* Team Invites Toggle */}
-                      <div className="pt-5 flex items-center justify-between gap-4">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="toggle-teamInvites" className="text-sm font-bold text-white cursor-pointer">
-                            Team & Staff Join Requests
-                          </Label>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            Receive alerts when someone invites you to join their event staff or team.
-                          </p>
-                        </div>
-                        <ToggleSwitch
-                          id="toggle-teamInvites"
-                          checked={settings.teamInvites}
-                          onChange={(val) => updateSetting("teamInvites", val)}
-                          activeBg={activeAccent.bg}
-                        />
-                      </div>
-
-                      {/* Weekly Digest Toggle */}
-                      <div className="pt-5 flex items-center justify-between gap-4">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="toggle-weeklyDigest" className="text-sm font-bold text-white cursor-pointer">
-                            Weekly Community Digest
-                          </Label>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            A curated newsletter of top trending events and networking opportunities near you.
-                          </p>
-                        </div>
-                        <ToggleSwitch
-                          id="toggle-weeklyDigest"
-                          checked={settings.weeklyDigest}
-                          onChange={(val) => updateSetting("weeklyDigest", val)}
-                          activeBg={activeAccent.bg}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* UI Feedback & Audio Card */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Interface Audio & Micro-feedback</h3>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                        Enhance your user experience with subtle audio cues and tactile animations.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="space-y-0.5 flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-2xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center shrink-0`}>
-                          {settings.soundEffects ? (
-                            <Volume2 className="w-5 h-5" />
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!pushStatus.isSubscribed || isTestingPush}
+                          onClick={handleTestPush}
+                          className={`rounded-full px-4 text-xs font-bold transition-all shadow-sm ${pushStatus.isSubscribed
+                              ? `${activeAccent.bg} text-white hover:opacity-90`
+                              : isDark
+                                ? "bg-zinc-800 text-zinc-400 cursor-not-allowed"
+                                : "bg-zinc-100 text-zinc-500 cursor-not-allowed"
+                            }`}
+                        >
+                          {isTestingPush ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                              Dispatching...
+                            </>
                           ) : (
-                            <VolumeX className="w-5 h-5 text-zinc-500" />
+                            <>
+                              <Bell className="w-3.5 h-3.5 mr-1.5" />
+                              Send Test Notification
+                            </>
                           )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"
+                      }`}>
+                      <div>
+                        <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Event &amp; Community Notifications</h3>
+                        <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                          Control when and how you receive updates from community organizers and attendees.
+                        </p>
+                      </div>
+
+                      <div className="space-y-5 divide-y divide-white/5">
+                        {/* Event Reminders Toggle */}
+                        <div className="pt-5 first:pt-0 flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="toggle-emailReminders" className="text-sm font-bold text-white cursor-pointer">
+                              Event Reminders
+                            </Label>
+                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                              Receive reminders 24 hours before events you are attending start.
+                            </p>
+                          </div>
+                          <ToggleSwitch
+                            id="toggle-emailReminders"
+                            checked={settings.emailReminders}
+                            onChange={(val) => updateSetting("emailReminders", val)}
+                            activeBg={activeAccent.bg}
+                          />
                         </div>
-                        <div>
-                          <Label htmlFor="toggle-soundEffects" className="text-sm font-bold text-white cursor-pointer">
-                            UI Sound Effects
-                          </Label>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            Play subtle audio feedback when saving changes and clicking toggles.
-                          </p>
+
+                        {/* Community Updates Toggle */}
+                        <div className="pt-5 flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="toggle-communityUpdates" className="text-sm font-bold text-white cursor-pointer">
+                              Community & Organizer Updates
+                            </Label>
+                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                              Get alerted immediately when an organizer modifies an event date, time, or location.
+                            </p>
+                          </div>
+                          <ToggleSwitch
+                            id="toggle-communityUpdates"
+                            checked={settings.communityUpdates}
+                            onChange={(val) => updateSetting("communityUpdates", val)}
+                            activeBg={activeAccent.bg}
+                          />
+                        </div>
+
+                        {/* Team Invites Toggle */}
+                        <div className="pt-5 flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="toggle-teamInvites" className="text-sm font-bold text-white cursor-pointer">
+                              Team & Staff Join Requests
+                            </Label>
+                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                              Receive alerts when someone invites you to join their event staff or team.
+                            </p>
+                          </div>
+                          <ToggleSwitch
+                            id="toggle-teamInvites"
+                            checked={settings.teamInvites}
+                            onChange={(val) => updateSetting("teamInvites", val)}
+                            activeBg={activeAccent.bg}
+                          />
+                        </div>
+
+                        {/* Weekly Digest Toggle */}
+                        <div className="pt-5 flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="toggle-weeklyDigest" className="text-sm font-bold text-white cursor-pointer">
+                              Weekly Community Digest
+                            </Label>
+                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                              A curated newsletter of top trending events and networking opportunities near you.
+                            </p>
+                          </div>
+                          <ToggleSwitch
+                            id="toggle-weeklyDigest"
+                            checked={settings.weeklyDigest}
+                            onChange={(val) => updateSetting("weeklyDigest", val)}
+                            activeBg={activeAccent.bg}
+                          />
                         </div>
                       </div>
-                      <ToggleSwitch
-                        id="toggle-soundEffects"
-                        checked={settings.soundEffects}
-                        onChange={(val) => updateSetting("soundEffects", val)}
-                        activeBg={activeAccent.bg}
-                      />
                     </div>
 
-                    <div className="border-t border-white/5 pt-5">
-                      <Label htmlFor="select-notificationFrequency" className="text-sm font-bold text-white block mb-2">
-                        Email Digest Frequency
-                      </Label>
-                      <select
-                        id="select-notificationFrequency"
-                        value={settings.notificationFrequency}
-                        onChange={(e) =>
-                          updateSetting(
-                            "notificationFrequency",
-                            e.target.value as UserSettings["notificationFrequency"]
-                          )
-                        }
-                        className="w-full max-w-xs bg-zinc-950 border border-white/10 text-white rounded-2xl h-11 px-4 text-sm focus:ring-2 focus:ring-white/20"
-                      >
-                        <option value="realtime">Real-time (Immediate notifications)</option>
-                        <option value="daily">Daily summary</option>
-                        <option value="weekly">Weekly digest</option>
-                        <option value="muted">Muted (Do not send emails)</option>
-                      </select>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
+                    {/* UI Feedback & Audio Card */}
+                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Interface Audio & Micro-feedback</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                          Enhance your user experience with subtle audio cues and tactile animations.
+                        </p>
+                      </div>
 
-              {/* TAB 3: APPEARANCE & THEME */}
-              {activeTab === "appearance" && (
-                <motion.div
-                  key="appearance"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-6"
-                >
-                  {/* Theme Mode Selector */}
-                  <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
-                    <div>
-                      <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Color Mode</h3>
-                      <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
-                        Select your preferred interface theme for CommunityConnect.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {/* Dark Mode */}
-                      <button
-                        type="button"
-                        onClick={() => updateSetting("theme", "dark")}
-                        className={`group relative flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all ${
-                          settings.theme === "dark"
-                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-zinc-50"} shadow-lg ${activeAccent.shadow}`
-                            : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
-                        }`}
-                      >
-                        <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                          <Moon className="w-6 h-6" />
-                        </div>
-                        <span className={`text-sm font-bold ${settings.theme === "dark" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Dark Mode</span>
-                        <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Sleek Obsidian</span>
-                        {settings.theme === "dark" && (
-                          <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
-                            <CheckCircle2 className="w-5 h-5" />
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-0.5 flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-2xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center shrink-0`}>
+                            {settings.soundEffects ? (
+                              <Volume2 className="w-5 h-5" />
+                            ) : (
+                              <VolumeX className="w-5 h-5 text-zinc-500" />
+                            )}
                           </div>
-                        )}
-                      </button>
-
-                      {/* Light Mode */}
-                      <button
-                        type="button"
-                        onClick={() => updateSetting("theme", "light")}
-                        className={`group relative flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all ${
-                          settings.theme === "light"
-                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-zinc-50"} shadow-lg ${activeAccent.shadow}`
-                            : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
-                        }`}
-                      >
-                        <div className="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-900 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                          <Sun className="w-6 h-6" />
-                        </div>
-                        <span className={`text-sm font-bold ${settings.theme === "light" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Light Mode</span>
-                        <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Clean Crisp</span>
-                        {settings.theme === "light" && (
-                          <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
-                            <CheckCircle2 className="w-5 h-5" />
+                          <div>
+                            <Label htmlFor="toggle-soundEffects" className="text-sm font-bold text-white cursor-pointer">
+                              UI Sound Effects
+                            </Label>
+                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                              Play subtle audio feedback when saving changes and clicking toggles.
+                            </p>
                           </div>
-                        )}
-                      </button>
+                        </div>
+                        <ToggleSwitch
+                          id="toggle-soundEffects"
+                          checked={settings.soundEffects}
+                          onChange={(val) => updateSetting("soundEffects", val)}
+                          activeBg={activeAccent.bg}
+                        />
+                      </div>
+
+                      <div className="border-t border-white/5 pt-5">
+                        <Label htmlFor="select-notificationFrequency" className="text-sm font-bold text-white block mb-2">
+                          Email Digest Frequency
+                        </Label>
+                        <select
+                          id="select-notificationFrequency"
+                          value={settings.notificationFrequency}
+                          onChange={(e) =>
+                            updateSetting(
+                              "notificationFrequency",
+                              e.target.value as UserSettings["notificationFrequency"]
+                            )
+                          }
+                          className="w-full max-w-xs bg-zinc-950 border border-white/10 text-white rounded-2xl h-11 px-4 text-sm focus:ring-2 focus:ring-white/20"
+                        >
+                          <option value="realtime">Real-time (Immediate notifications)</option>
+                          <option value="daily">Daily summary</option>
+                          <option value="weekly">Weekly digest</option>
+                          <option value="muted">Muted (Do not send emails)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* TAB 3: APPEARANCE & THEME */}
+                {activeTab === "appearance" && (
+                  <motion.div
+                    key="appearance"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
+                  >
+                    {/* Theme Mode Selector */}
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
+                      <div>
+                        <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Color Mode</h3>
+                        <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
+                          Select your preferred interface theme for CommunityConnect.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {/* Dark Mode */}
+                        <button
+                          type="button"
+                          onClick={() => updateSetting("theme", "dark")}
+                          className={`group relative flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all ${settings.theme === "dark"
+                              ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-zinc-50"} shadow-lg ${activeAccent.shadow}`
+                              : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
+                            }`}
+                        >
+                          <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <Moon className="w-6 h-6" />
+                          </div>
+                          <span className={`text-sm font-bold ${settings.theme === "dark" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Dark Mode</span>
+                          <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Sleek Obsidian</span>
+                          {settings.theme === "dark" && (
+                            <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
+                              <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                          )}
+                        </button>
+
+                        {/* Light Mode */}
+                        <button
+                          type="button"
+                          onClick={() => updateSetting("theme", "light")}
+                          className={`group relative flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all ${settings.theme === "light"
+                              ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-zinc-50"} shadow-lg ${activeAccent.shadow}`
+                              : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
+                            }`}
+                        >
+                          <div className="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-900 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <Sun className="w-6 h-6" />
+                          </div>
+                          <span className={`text-sm font-bold ${settings.theme === "light" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Light Mode</span>
+                          <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Clean Crisp</span>
+                          {settings.theme === "light" && (
+                            <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
+                              <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                          )}
+                        </button>
 
                       {/* System Theme */}
                       <button
@@ -1289,7 +1317,7 @@ export default function SettingsContent() {
                             : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
                         }`}
                       >
-                        <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-zinc-300 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <div className={`w-12 h-12 rounded-2xl ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
                           <Monitor className="w-6 h-6" />
                         </div>
                         <span className={`text-sm font-bold ${settings.theme === "system" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>System</span>
@@ -1303,107 +1331,106 @@ export default function SettingsContent() {
                     </div>
                   </div>
 
-                  {/* Accent Color Picker */}
-                  <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
-                    <div>
-                      <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Accent Color Palette</h3>
-                      <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
-                        Choose an accent color to personalize highlights and buttons across your experience.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-                      {ACCENT_COLORS.map((color) => {
-                        const isSelected = settings.accentColor === color.id;
-                        return (
-                          <button
-                            key={color.id}
-                            type="button"
-                            onClick={() =>
-                              updateSetting(
-                                "accentColor",
-                                color.id as UserSettings["accentColor"]
-                              )
-                            }
-                            className={`flex flex-col items-center p-4 rounded-2xl border-2 transition-all ${
-                              isSelected
-                                ? `${color.border} ${isDark ? "bg-white/5" : "bg-zinc-100"} shadow-lg`
-                                : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
-                            }`}
-                          >
-                            <div className={`w-8 h-8 rounded-full ${color.bg} mb-2 shadow-md`} />
-                            <span className={`text-xs font-bold ${isSelected ? color.text : isDark ? "text-white" : "text-zinc-900"}`}>{color.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Interface Density & Animations */}
-                  <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
-                    <div>
-                      <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Interface Dynamics</h3>
-                      <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
-                        Adjust layout density and subtle animations for optimal performance.
-                      </p>
-                    </div>
-
-                    <div className={`space-y-5 divide-y ${isDark ? "divide-white/5" : "divide-zinc-200"}`}>
-                      <div className="pt-5 first:pt-0 flex items-center justify-between gap-4">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="toggle-compactMode" className={`text-sm font-bold cursor-pointer ${settings.compactMode ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
-                            Compact Grid Mode
-                          </Label>
-                          <p className={`text-xs ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"}`}>
-                            Reduce card padding and spacing to show more events per view.
-                          </p>
-                        </div>
-                        <ToggleSwitch
-                          id="toggle-compactMode"
-                          checked={settings.compactMode}
-                          onChange={(val) => updateSetting("compactMode", val)}
-                          activeBg={activeAccent.bg}
-                        />
+                    {/* Accent Color Picker */}
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
+                      <div>
+                        <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Accent Color Palette</h3>
+                        <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
+                          Choose an accent color to personalize highlights and buttons across your experience.
+                        </p>
                       </div>
 
-                      <div className="pt-5 flex items-center justify-between gap-4">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="toggle-smoothAnimations" className={`text-sm font-bold cursor-pointer ${settings.smoothAnimations ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
-                            Smooth Micro-Animations
-                          </Label>
-                          <p className={`text-xs ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"}`}>
-                            Enable fluid hover transitions and framer-motion layout animations.
-                          </p>
-                        </div>
-                        <ToggleSwitch
-                          id="toggle-smoothAnimations"
-                          checked={settings.smoothAnimations}
-                          onChange={(val) => updateSetting("smoothAnimations", val)}
-                          activeBg={activeAccent.bg}
-                        />
+                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+                        {ACCENT_COLORS.map((color) => {
+                          const isSelected = settings.accentColor === color.id;
+                          return (
+                            <button
+                              key={color.id}
+                              type="button"
+                              onClick={() =>
+                                updateSetting(
+                                  "accentColor",
+                                  color.id as UserSettings["accentColor"]
+                                )
+                              }
+                              className={`flex flex-col items-center p-4 rounded-2xl border-2 transition-all ${isSelected
+                                  ? `${color.border} ${isDark ? "bg-white/5" : "bg-zinc-100"} shadow-lg`
+                                  : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
+                                }`}
+                            >
+                              <div className={`w-8 h-8 rounded-full ${color.bg} mb-2 shadow-md`} />
+                              <span className={`text-xs font-bold ${isSelected ? color.text : isDark ? "text-white" : "text-zinc-900"}`}>{color.name}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              )}
 
-              {/* TAB 4: PRIVACY & VISIBILITY */}
-              {activeTab === "privacy" && (
-                <motion.div
-                  key="privacy"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-6"
-                >
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Profile Visibility</h3>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                        Control who can view your full profile and professional skills.
-                      </p>
+                    {/* Interface Density & Animations */}
+                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
+                      <div>
+                        <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Interface Dynamics</h3>
+                        <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
+                          Adjust layout density and subtle animations for optimal performance.
+                        </p>
+                      </div>
+
+                      <div className={`space-y-5 divide-y ${isDark ? "divide-white/5" : "divide-zinc-200"}`}>
+                        <div className="pt-5 first:pt-0 flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="toggle-compactMode" className={`text-sm font-bold cursor-pointer ${settings.compactMode ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
+                              Compact Grid Mode
+                            </Label>
+                            <p className={`text-xs ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"}`}>
+                              Reduce card padding and spacing to show more events per view.
+                            </p>
+                          </div>
+                          <ToggleSwitch
+                            id="toggle-compactMode"
+                            checked={settings.compactMode}
+                            onChange={(val) => updateSetting("compactMode", val)}
+                            activeBg={activeAccent.bg}
+                          />
+                        </div>
+
+                        <div className="pt-5 flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="toggle-smoothAnimations" className={`text-sm font-bold cursor-pointer ${settings.smoothAnimations ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
+                              Smooth Micro-Animations
+                            </Label>
+                            <p className={`text-xs ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"}`}>
+                              Enable fluid hover transitions and framer-motion layout animations.
+                            </p>
+                          </div>
+                          <ToggleSwitch
+                            id="toggle-smoothAnimations"
+                            checked={settings.smoothAnimations}
+                            onChange={(val) => updateSetting("smoothAnimations", val)}
+                            activeBg={activeAccent.bg}
+                          />
+                        </div>
+                      </div>
                     </div>
+                  </motion.div>
+                )}
+
+                {/* TAB 4: PRIVACY & VISIBILITY */}
+                {activeTab === "privacy" && (
+                  <motion.div
+                    key="privacy"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
+                  >
+                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Profile Visibility</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                          Control who can view your full profile and professional skills.
+                        </p>
+                      </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       {/* Public */}
@@ -1412,8 +1439,8 @@ export default function SettingsContent() {
                         onClick={() => updateSetting("profileVisibility", "public")}
                         className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
                           settings.profileVisibility === "public"
-                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg ${activeAccent.shadow}`
-                            : "border-white/5 bg-zinc-950/40 hover:border-white/20"
+                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-white"} shadow-lg ${activeAccent.shadow}`
+                            : isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"
                         }`}
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -1421,10 +1448,10 @@ export default function SettingsContent() {
                           {settings.profileVisibility === "public" ? (
                             <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
                           ) : (
-                            <Circle className="w-5 h-5 text-zinc-600" />
+                            <Circle className="w-5 h-5 text-zinc-400" />
                           )}
                         </div>
-                        <div className="text-sm font-bold text-white">Public</div>
+                        <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Public</div>
                         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Anyone on the web can discover your profile card.
                         </p>
@@ -1436,8 +1463,8 @@ export default function SettingsContent() {
                         onClick={() => updateSetting("profileVisibility", "community")}
                         className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
                           settings.profileVisibility === "community"
-                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg ${activeAccent.shadow}`
-                            : "border-white/5 bg-zinc-950/40 hover:border-white/20"
+                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-white"} shadow-lg ${activeAccent.shadow}`
+                            : isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"
                         }`}
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -1445,10 +1472,10 @@ export default function SettingsContent() {
                           {settings.profileVisibility === "community" ? (
                             <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
                           ) : (
-                            <Circle className="w-5 h-5 text-zinc-600" />
+                            <Circle className="w-5 h-5 text-zinc-400" />
                           )}
                         </div>
-                        <div className="text-sm font-bold text-white">Community Only</div>
+                        <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Community Only</div>
                         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Visible only to logged-in CommunityConnect members.
                         </p>
@@ -1460,8 +1487,8 @@ export default function SettingsContent() {
                         onClick={() => updateSetting("profileVisibility", "private")}
                         className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
                           settings.profileVisibility === "private"
-                            ? `${activeAccent.border} bg-zinc-900/80 shadow-lg ${activeAccent.shadow}`
-                            : "border-white/5 bg-zinc-950/40 hover:border-white/20"
+                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-white"} shadow-lg ${activeAccent.shadow}`
+                            : isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"
                         }`}
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -1469,10 +1496,10 @@ export default function SettingsContent() {
                           {settings.profileVisibility === "private" ? (
                             <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
                           ) : (
-                            <Circle className="w-5 h-5 text-zinc-600" />
+                            <Circle className="w-5 h-5 text-zinc-400" />
                           )}
                         </div>
-                        <div className="text-sm font-bold text-white">Private</div>
+                        <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Private</div>
                         <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                           Only event organizers of your events can view details.
                         </p>
@@ -1480,19 +1507,19 @@ export default function SettingsContent() {
                     </div>
                   </div>
 
-                  {/* Profile Field Permissions */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Contact & Location Privacy</h3>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                        Choose whether your personal email or location is displayed to attendees.
-                      </p>
-                    </div>
+                    {/* Profile Field Permissions */}
+                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Contact & Location Privacy</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                          Choose whether your personal email or location is displayed to attendees.
+                        </p>
+                      </div>
 
                     <div className="space-y-5 divide-y divide-white/5">
                       <div className="pt-5 first:pt-0 flex items-center justify-between gap-4">
                         <div className="space-y-0.5">
-                          <Label htmlFor="toggle-showEmailOnProfile" className="text-sm font-bold text-white cursor-pointer">
+                          <Label htmlFor="toggle-showEmailOnProfile" className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"} cursor-pointer`}>
                             Show Email Address on Profile
                           </Label>
                           <p className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -1509,7 +1536,7 @@ export default function SettingsContent() {
 
                       <div className="pt-5 flex items-center justify-between gap-4">
                         <div className="space-y-0.5">
-                          <Label htmlFor="toggle-showLocationOnProfile" className="text-sm font-bold text-white cursor-pointer">
+                          <Label htmlFor="toggle-showLocationOnProfile" className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"} cursor-pointer`}>
                             Show City / Location on Profile
                           </Label>
                           <p className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -1528,58 +1555,58 @@ export default function SettingsContent() {
                 </motion.div>
               )}
 
-              {/* TAB 5: EVENT PREFERENCES */}
-              {activeTab === "preferences" && (
-                <motion.div
-                  key="preferences"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-6"
-                >
-                  {/* Preferred Locations */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Preferred Event Locations</h3>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                        Add cities or regions so we can automatically show events near you.
-                      </p>
-                    </div>
+                {/* TAB 5: EVENT PREFERENCES */}
+                {activeTab === "preferences" && (
+                  <motion.div
+                    key="preferences"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
+                  >
+                    {/* Preferred Locations */}
+                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Preferred Event Locations</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                          Add cities or regions so we can automatically show events near you.
+                        </p>
+                      </div>
 
-                    <div className="max-w-md space-y-4">
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-                          <Input
-                            value={cityInput}
-                            onChange={(e) => setCityInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && cityInput.trim() !== '') {
-                                e.preventDefault();
+                      <div className="max-w-md space-y-4">
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                            <Input
+                              value={cityInput}
+                              onChange={(e) => setCityInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && cityInput.trim() !== '') {
+                                  e.preventDefault();
+                                  const newCities = [...(settings.preferredCities || []), cityInput.trim()];
+                                  updateSetting("preferredCities", newCities);
+                                  setCityInput("");
+                                }
+                              }}
+                              placeholder="e.g. San Francisco, CA or London, UK"
+                              className="pl-10 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              if (cityInput.trim() !== '') {
                                 const newCities = [...(settings.preferredCities || []), cityInput.trim()];
                                 updateSetting("preferredCities", newCities);
                                 setCityInput("");
                               }
                             }}
-                            placeholder="e.g. San Francisco, CA or London, UK"
-                            className="pl-10 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
-                          />
+                            className={`rounded-2xl px-6 ${activeAccent.bg} hover:opacity-90 transition-opacity`}
+                          >
+                            Add
+                          </Button>
                         </div>
-                        <Button 
-                          type="button" 
-                          onClick={() => {
-                            if (cityInput.trim() !== '') {
-                              const newCities = [...(settings.preferredCities || []), cityInput.trim()];
-                              updateSetting("preferredCities", newCities);
-                              setCityInput("");
-                            }
-                          }}
-                          className={`rounded-2xl px-6 ${activeAccent.bg} hover:opacity-90 transition-opacity`}
-                        >
-                          Add
-                        </Button>
-                      </div>
 
                       <div className="flex flex-wrap gap-2 pt-2">
                         {(settings.preferredCities || []).map((city, idx) => (
@@ -1621,7 +1648,11 @@ export default function SettingsContent() {
                                     updateSetting("preferredCities", [...(settings.preferredCities || []), city]);
                                   }
                                 }}
-                                className="px-3 py-1.5 rounded-full text-xs font-medium border bg-zinc-800/60 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                  isDark
+                                    ? "bg-zinc-800/60 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                                    : "bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+                                }`}
                               >
                                 + {city}
                               </button>
@@ -1632,87 +1663,90 @@ export default function SettingsContent() {
                     </div>
                   </div>
 
-                  {/* Favorite Event Categories */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Favorite Event Categories</h3>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                        Select tags to highlight relevant community meetups on your discover feed.
-                      </p>
+                    {/* Favorite Event Categories */}
+                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Favorite Event Categories</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                          Select tags to highlight relevant community meetups on your discover feed.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2.5">
+                        {CATEGORIES_LIST.map((cat) => {
+                          const isFav = settings.favoriteCategories.includes(cat);
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => {
+                                const newFavs = isFav
+                                  ? settings.favoriteCategories.filter((c) => c !== cat)
+                                  : [...settings.favoriteCategories, cat];
+                                updateSetting("favoriteCategories", newFavs);
+                              }}
+                              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold border transition-all ${isFav
+                                  ? `bg-gradient-to-r ${activeAccent.gradient} ${activeAccent.border} text-white shadow-md ${activeAccent.shadow}`
+                                  : "bg-zinc-950/60 border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-900"
+                                }`}
+                            >
+                              {isFav ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                              <span>{cat}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2.5">
-                      {CATEGORIES_LIST.map((cat) => {
-                        const isFav = settings.favoriteCategories.includes(cat);
-                        return (
-                          <button
-                            key={cat}
+                    {/* Search Preferences */}
+                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Saved Search Preferences</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                          Add keywords or tags to quickly access specific events you care about.
+                        </p>
+                      </div>
+
+                      <div className="max-w-md space-y-4">
+                        <div className="flex gap-2">
+                          <Input
+                            value={searchPrefInput}
+                            onChange={(e) => setSearchPrefInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && searchPrefInput.trim() !== '') {
+                                e.preventDefault();
+                                const newPrefs = [...(settings.searchPreferences || []), searchPrefInput.trim()];
+                                updateSetting("searchPreferences", newPrefs);
+                                setSearchPrefInput("");
+                              }
+                            }}
+                            placeholder="e.g. Hackathon, Machine Learning"
+                            className="bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
+                          />
+                          <Button
                             type="button"
                             onClick={() => {
-                              const newFavs = isFav
-                                ? settings.favoriteCategories.filter((c) => c !== cat)
-                                : [...settings.favoriteCategories, cat];
-                              updateSetting("favoriteCategories", newFavs);
+                              if (searchPrefInput.trim() !== '') {
+                                const newPrefs = [...(settings.searchPreferences || []), searchPrefInput.trim()];
+                                updateSetting("searchPreferences", newPrefs);
+                                setSearchPrefInput("");
+                              }
                             }}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold border transition-all ${
-                              isFav
-                                ? `bg-gradient-to-r ${activeAccent.gradient} ${activeAccent.border} text-white shadow-md ${activeAccent.shadow}`
-                                : "bg-zinc-950/60 border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-900"
-                            }`}
+                            className={`rounded-2xl px-6 ${activeAccent.bg} hover:opacity-90 transition-opacity`}
                           >
-                            {isFav ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                            <span>{cat}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Search Preferences */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Saved Search Preferences</h3>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                        Add keywords or tags to quickly access specific events you care about.
-                      </p>
-                    </div>
-
-                    <div className="max-w-md space-y-4">
-                      <div className="flex gap-2">
-                        <Input
-                          value={searchPrefInput}
-                          onChange={(e) => setSearchPrefInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && searchPrefInput.trim() !== '') {
-                              e.preventDefault();
-                              const newPrefs = [...(settings.searchPreferences || []), searchPrefInput.trim()];
-                              updateSetting("searchPreferences", newPrefs);
-                              setSearchPrefInput("");
-                            }
-                          }}
-                          placeholder="e.g. Hackathon, Machine Learning"
-                          className="bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
-                        />
-                        <Button 
-                          type="button" 
-                          onClick={() => {
-                            if (searchPrefInput.trim() !== '') {
-                              const newPrefs = [...(settings.searchPreferences || []), searchPrefInput.trim()];
-                              updateSetting("searchPreferences", newPrefs);
-                              setSearchPrefInput("");
-                            }
-                          }}
-                          className={`rounded-2xl px-6 ${activeAccent.bg} hover:opacity-90 transition-opacity`}
-                        >
-                          Add
-                        </Button>
-                      </div>
+                            Add
+                          </Button>
+                        </div>
 
                       <div className="flex flex-wrap gap-2 pt-2">
                         {(settings.searchPreferences || []).map((pref, idx) => (
                           <div 
                             key={idx} 
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/60 border border-white/5 rounded-full text-xs font-medium text-zinc-300"
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
+                              isDark
+                                ? "bg-zinc-800/60 border-white/5 text-zinc-300"
+                                : "bg-zinc-100 border-zinc-200 text-zinc-700"
+                            }`}
                           >
                             <span>{pref}</span>
                             <button
@@ -1721,7 +1755,7 @@ export default function SettingsContent() {
                                 const newPrefs = (settings.searchPreferences || []).filter((_, i) => i !== idx);
                                 updateSetting("searchPreferences", newPrefs);
                               }}
-                              className="text-zinc-500 hover:text-white transition-colors"
+                              className={`${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -1734,20 +1768,20 @@ export default function SettingsContent() {
                     </div>
                   </div>
 
-                  {/* Calendar Format */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Calendar Export Preference</h3>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                        Choose which calendar application opens when you export an event.
-                      </p>
-                    </div>
+                    {/* Calendar Format */}
+                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Calendar Export Preference</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                          Choose which calendar application opens when you export an event.
+                        </p>
+                      </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       {[
                         { id: "google", label: "Google Calendar", desc: "Open in web browser" },
-                        { id: "ical", label: "Apple iCal (.ics)", desc: "Download .ics file" },
-                        { id: "outlook", label: "Microsoft Outlook", desc: "Open in Outlook app" },
+                        // { id: "ical", label: "Apple iCal (.ics)", desc: "Download .ics file" },
+                        // { id: "outlook", label: "Microsoft Outlook", desc: "Open in Outlook app" },
                       ].map((item) => (
                         <button
                           key={item.id}
@@ -1773,92 +1807,91 @@ export default function SettingsContent() {
                 </motion.div>
               )}
 
-              {/* TAB 6: SESSIONS & SECURITY */}
-              {activeTab === "security" && (
-                <motion.div
-                  key="security"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-6"
-                >
-                  {/* Two Factor Auth */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                          <ShieldCheck className={`w-5 h-5 ${activeAccent.text}`} />
-                          Two-Factor Authentication (2FA)
-                        </h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Add an extra layer of security to your account with an authenticator app.
-                        </p>
+                {/* TAB 6: SESSIONS & SECURITY */}
+                {activeTab === "security" && (
+                  <motion.div
+                    key="security"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -15 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
+                  >
+                    {/* Two Factor Auth */}
+                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                            <ShieldCheck className={`w-5 h-5 ${activeAccent.text}`} />
+                            Two-Factor Authentication (2FA)
+                          </h3>
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                            Add an extra layer of security to your account with an authenticator app.
+                          </p>
+                        </div>
+
+                        <Button
+                          onClick={() => {
+                            if (settings.twoFactorEnabled) {
+                              setTwoFactorStep("disable");
+                              setShow2FAModal(true);
+                            } else {
+                              const newSecret = generateUniqueSecretKey();
+                              const newBackupCodes = generateUniqueBackupCodes(4);
+                              setUser2FASecret(newSecret);
+                              setUserBackupCodes(newBackupCodes);
+                              setTwoFactorStep("scan");
+                              setTwoFactorCode("");
+                              setTwoFactorError("");
+                              setShow2FAModal(true);
+                            }
+                          }}
+                          className={`rounded-2xl font-semibold ${settings.twoFactorEnabled
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                              : `${activeAccent.bg} hover:opacity-90 text-white`
+                            }`}
+                        >
+                          {settings.twoFactorEnabled ? "Enabled (Manage)" : "Enable 2FA"}
+                        </Button>
                       </div>
 
-                      <Button
-                        onClick={() => {
-                          if (settings.twoFactorEnabled) {
-                            setTwoFactorStep("disable");
-                            setShow2FAModal(true);
-                          } else {
-                            const newSecret = generateUniqueSecretKey();
-                            const newBackupCodes = generateUniqueBackupCodes(4);
-                            setUser2FASecret(newSecret);
-                            setUserBackupCodes(newBackupCodes);
-                            setTwoFactorStep("scan");
-                            setTwoFactorCode("");
-                            setTwoFactorError("");
-                            setShow2FAModal(true);
-                          }
-                        }}
-                        className={`rounded-2xl font-semibold ${
-                          settings.twoFactorEnabled
-                            ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                            : `${activeAccent.bg} hover:opacity-90 text-white`
-                        }`}
-                      >
-                        {settings.twoFactorEnabled ? "Enabled (Manage)" : "Enable 2FA"}
-                      </Button>
+                      {settings.twoFactorEnabled && (
+                        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-sm text-emerald-300">
+                          <CheckCircle2 className="w-5 h-5 shrink-0" />
+                          <span>
+                            Two-factor authentication is active on your account using an Authenticator app.
+                          </span>
+                        </div>
+                      )}
                     </div>
 
-                    {settings.twoFactorEnabled && (
-                      <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-sm text-emerald-300">
-                        <CheckCircle2 className="w-5 h-5 shrink-0" />
-                        <span>
-                          Two-factor authentication is active on your account using an Authenticator app.
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                    {/* Active Sessions */}
+                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Active Browser Sessions</h3>
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                            Manage and revoke access from devices currently signed into your account.
+                          </p>
+                        </div>
 
-                  {/* Active Sessions */}
-                  <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Active Browser Sessions</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Manage and revoke access from devices currently signed into your account.
-                        </p>
+                        <Button
+                          variant="outline"
+                          disabled={activeSessions.length <= 1}
+                          onClick={async () => {
+                            try {
+                              setActiveSessions((prev) => prev.filter((s) => s.isCurrent));
+                              await profileService.logoutAllDevices();
+                              showToast("All other browser sessions have been logged out.");
+                            } catch {
+                              showToast("Failed to log out sessions.");
+                            }
+                          }}
+                          className="rounded-2xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white text-xs font-semibold disabled:opacity-50"
+                        >
+                          Log Out All Other Sessions
+                        </Button>
                       </div>
-
-                      <Button
-                        variant="outline"
-                        disabled={activeSessions.length <= 1}
-                        onClick={async () => {
-                          try {
-                            setActiveSessions((prev) => prev.filter((s) => s.isCurrent));
-                            await profileService.logoutAllDevices();
-                            showToast("All other browser sessions have been logged out.");
-                          } catch {
-                            showToast("Failed to log out sessions.");
-                          }
-                        }}
-                        className="rounded-2xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white text-xs font-semibold disabled:opacity-50"
-                      >
-                        Log Out All Other Sessions
-                      </Button>
-                    </div>
 
                     <div className="space-y-3">
                       {activeSessions.map((sess) => {
@@ -1875,7 +1908,9 @@ export default function SettingsContent() {
                                 className={`w-10 h-10 rounded-xl ${
                                   sess.isCurrent
                                     ? `${activeAccent.badgeBg} ${activeAccent.badgeText}`
-                                    : "bg-zinc-800 text-zinc-400"
+                                    : isDark
+                                    ? "bg-zinc-800 text-zinc-400"
+                                    : "bg-zinc-100 text-zinc-600"
                                 } flex items-center justify-center shrink-0`}
                               >
                                 <IconComponent className="w-5 h-5" />
@@ -1895,57 +1930,56 @@ export default function SettingsContent() {
                               </div>
                             </div>
 
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={async () => {
-                                if (sess.isCurrent) {
-                                  showToast("Logging out of current device...");
-                                  setTimeout(() => {
-                                    localStorage.removeItem("token");
-                                    localStorage.removeItem("user");
-                                    router.push("/login");
-                                  }, 800);
-                                } else {
-                                  try {
-                                    await profileService.revokeSession(sess.id);
-                                    setActiveSessions((prev) => prev.filter((s) => s.id !== sess.id));
-                                    showToast(`Session (${sess.device} • ${sess.browser}) revoked and logged out successfully.`);
-                                  } catch (error: any) {
-                                    showToast(`Failed to revoke session: ${error.message || 'Unknown error'}`);
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  if (sess.isCurrent) {
+                                    showToast("Logging out of current device...");
+                                    setTimeout(() => {
+                                      localStorage.removeItem("token");
+                                      localStorage.removeItem("user");
+                                      router.push("/login");
+                                    }, 800);
+                                  } else {
+                                    try {
+                                      await profileService.revokeSession(sess.id);
+                                      setActiveSessions((prev) => prev.filter((s) => s.id !== sess.id));
+                                      showToast(`Session (${sess.device} • ${sess.browser}) revoked and logged out successfully.`);
+                                    } catch (error: any) {
+                                      showToast(`Failed to revoke session: ${error.message || 'Unknown error'}`);
+                                    }
                                   }
-                                }
-                              }}
-                              className={`text-xs ${
-                                sess.isCurrent
-                                  ? "text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                                  : "text-zinc-600 hover:text-rose-400 hover:bg-rose-500/10"
-                              } rounded-xl gap-1.5`}
-                            >
-                              {sess.isCurrent ? (
-                                <>
-                                  <LogOut className="w-3.5 h-3.5" />
-                                  Log Out Current Device
-                                </>
-                              ) : (
-                                <>
-                                  <LogOut className="w-3.5 h-3.5" />
-                                  Log Out Device
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        );
-                      })}
+                                }}
+                                className={`text-xs ${sess.isCurrent
+                                    ? "text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                    : "text-zinc-600 hover:text-rose-400 hover:bg-rose-500/10"
+                                  } rounded-xl gap-1.5`}
+                              >
+                                {sess.isCurrent ? (
+                                  <>
+                                    <LogOut className="w-3.5 h-3.5" />
+                                    Log Out Current Device
+                                  </>
+                                ) : (
+                                  <>
+                                    <LogOut className="w-3.5 h-3.5" />
+                                    Log Out Device
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
 
-                 
-                
-                </motion.div>
-              )}
-            </AnimatePresence>
-          )}
+
+
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
           </div>
         </div>
       </main>
@@ -2022,15 +2056,13 @@ export default function SettingsContent() {
                           {getPasswordStrength(newPassword).label}
                         </span>
                       </div>
-                      <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                      <div className="w-full h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
                         <div
-                          className={`h-full ${
-                            getPasswordStrength(newPassword).color
-                          } transition-all duration-300`}
+                          className={`h-full ${getPasswordStrength(newPassword).color
+                            } transition-all duration-300`}
                           style={{
-                            width: `${
-                              (getPasswordStrength(newPassword).score / 4) * 100
-                            }%`,
+                            width: `${(getPasswordStrength(newPassword).score / 4) * 100
+                              }%`,
                           }}
                         />
                       </div>

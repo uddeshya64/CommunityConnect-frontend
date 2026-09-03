@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
 import { useMyProfile } from "@/hooks/profileHooks";
 import { useToast } from "@/components/providers/ToastProvider";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 
 // Add Razorpay to the Window object for TypeScript
 declare global {
@@ -48,6 +49,7 @@ export default function EventRegistrationPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.eventId as string;
+  const { activeAccent } = useAppearance();
   const { success: showSuccess, error: showError } = useToast();
 
   const [event, setEvent] = useState<any>(null);
@@ -319,7 +321,7 @@ export default function EventRegistrationPage() {
   if (blockedReason) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-6">
-        <div className="w-full max-w-md bg-white p-8 rounded-3xl border border-zinc-200 shadow-2xl text-center space-y-6">
+        <div className="w-full max-w-md bg-white p-8 rounded-3xl border border-zinc-200 text-center space-y-6">
           <div className="w-16 h-16 rounded-full bg-red-50 border border-red-100 flex items-center justify-center mx-auto text-red-500">
             <X className="w-8 h-8" />
           </div>
@@ -330,7 +332,7 @@ export default function EventRegistrationPage() {
             </p>
           </div>
           <Link href={`/events/${eventId}`} className="block">
-            <Button className="w-full rounded-2xl py-6 bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-sm shadow-xl transition-all">
+            <Button className={`w-full rounded-2xl py-6 ${activeAccent.bg} hover:opacity-90 text-white font-bold text-sm transition-all`}>
               Back to Event Details
             </Button>
           </Link>
@@ -369,13 +371,13 @@ export default function EventRegistrationPage() {
       />
 
       {/* Navigation Header */}
-      <header className="relative z-20 w-full p-4 border-b border-zinc-200 bg-white flex items-center justify-between shadow-xs shrink-0">
+      <header className="relative z-20 w-full p-4 border-b border-zinc-200 bg-white flex items-center justify-between shrink-0">
         <Link href={`/events/${eventId}`}>
           <Button variant="ghost" className="rounded-full hover:bg-zinc-150 font-bold text-zinc-500 hover:text-zinc-950 transition-all text-xs h-9 px-4">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Event Details
           </Button>
         </Link>
-        <div className="flex items-center gap-2 font-black text-zinc-900 text-xs uppercase tracking-widest bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-full border border-emerald-100/80 shadow-xs">
+        <div className="flex items-center gap-2 font-black text-zinc-900 text-xs uppercase tracking-widest bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-full border border-emerald-100/80">
           <ShieldCheck className="w-4.5 h-4.5 text-emerald-600 shrink-0" /> Secure Checkout
         </div>
         <div className="w-28 hidden md:block"></div>
@@ -390,7 +392,7 @@ export default function EventRegistrationPage() {
             <div className="lg:sticky lg:top-8 space-y-6">
               
               {/* Event card with cover / default preset */}
-              <div className="bg-white rounded-3xl border border-zinc-200 shadow-xl shadow-zinc-200/40 overflow-hidden">
+              <div className="bg-white rounded-3xl border border-zinc-200 overflow-hidden">
                 {event.banner_url || event.bannerUrl || event.banner ? (
                   <img
                     src={event.banner_url || event.bannerUrl || event.banner}
@@ -421,7 +423,7 @@ export default function EventRegistrationPage() {
               </div>
 
               {/* Order Summary & CTA */}
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 shadow-xl shadow-zinc-200/40 space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 space-y-6">
                 <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 border-b border-zinc-100 pb-2">
                   Order Summary
                 </h3>
@@ -445,7 +447,7 @@ export default function EventRegistrationPage() {
                 <Button
                   onClick={handleCheckout}
                   disabled={isProcessing}
-                  className="w-full rounded-2xl py-7 bg-indigo-600 hover:bg-indigo-700 text-white text-base font-bold shadow-xl shadow-indigo-600/20 transition-all hover:scale-[1.01]"
+                  className="w-full rounded-2xl py-7 bg-indigo-600 hover:bg-indigo-700 text-white text-base font-bold transition-all hover:scale-[1.01]"
                 >
                   {isProcessing ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -468,7 +470,7 @@ export default function EventRegistrationPage() {
           <div className="lg:col-span-7 space-y-8">
             
             {/* Form Section 1: Profile Information */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 shadow-xl shadow-zinc-200/40 space-y-6">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 space-y-6">
               <div>
                 <h2 className="text-lg sm:text-xl font-extrabold text-zinc-900 tracking-tight">Contact Information</h2>
                 <p className="text-zinc-400 text-xs font-medium mt-1">Details will be verified and pre-filled from your profile data.</p>
@@ -526,7 +528,7 @@ export default function EventRegistrationPage() {
 
             {/* Form Section 2: Team Setup Details */}
             {event.registration_type === "team" ? (
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 shadow-xl shadow-zinc-200/40 space-y-6">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 space-y-6">
                 <div>
                   <h2 className="text-lg sm:text-xl font-extrabold text-zinc-900 tracking-tight">Team Configuration</h2>
                   <p className="text-zinc-400 text-xs font-medium mt-1">Specify team credentials and direct invitation emails.</p>
@@ -534,7 +536,7 @@ export default function EventRegistrationPage() {
 
                 <div className="space-y-5">
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold text-zinc-650 uppercase tracking-wider">
+                    <Label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
                       Team Name *
                     </Label>
                     <Input
@@ -546,9 +548,9 @@ export default function EventRegistrationPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center border-b border-zinc-155 pb-2">
-                      <Label className="text-xs font-bold text-zinc-650 uppercase tracking-wider">Team Member Emails</Label>
-                      <span className="text-xs font-black text-indigo-755 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">
+                    <div className="flex justify-between items-center border-b border-zinc-200 pb-2">
+                      <Label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Team Member Emails</Label>
+                      <span className="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">
                         {members.length} / {event.max_team_size} Members
                       </span>
                     </div>
@@ -566,7 +568,7 @@ export default function EventRegistrationPage() {
                             className="h-11 rounded-xl bg-white border-zinc-200 text-xs font-semibold flex-1 px-4"
                           />
                           {index >= event.min_team_size && (
-                            <Button variant="ghost" onClick={() => removeMember(index)} className="w-10 h-10 p-0 rounded-xl text-red-500 hover:text-red-750 hover:bg-red-50 shrink-0">
+                            <Button variant="ghost" onClick={() => removeMember(index)} className="w-10 h-10 p-0 rounded-xl text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0">
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           )}
@@ -575,7 +577,7 @@ export default function EventRegistrationPage() {
                     </div>
 
                     {members.length < event.max_team_size && (
-                      <Button variant="outline" onClick={addMember} className="w-full h-11 border-dashed border-zinc-300 text-zinc-550 hover:text-indigo-650 hover:border-indigo-200 hover:bg-indigo-50 rounded-xl text-xs font-bold transition-all">
+                      <Button variant="outline" onClick={addMember} className="w-full h-11 border-dashed border-zinc-300 text-zinc-600 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 rounded-xl text-xs font-bold transition-all">
                         <Plus className="w-4 h-4 mr-1.5" /> Add Another Member
                       </Button>
                     )}
@@ -583,7 +585,7 @@ export default function EventRegistrationPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 shadow-xl shadow-zinc-200/40 flex items-center gap-4">
+              <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-150 flex items-center justify-center shrink-0">
                   <User className="w-6 h-6 text-indigo-600" />
                 </div>
@@ -622,7 +624,7 @@ export default function EventRegistrationPage() {
               if (customQuestions.length === 0) return null;
 
               return (
-                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 shadow-xl shadow-zinc-200/40 space-y-6">
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 space-y-6">
                   <div>
                     <h2 className="text-lg sm:text-xl font-extrabold text-zinc-900 tracking-tight">Additional Questions</h2>
                     <p className="text-zinc-400 text-xs font-medium mt-1">Answer specific questions requested by the event organizers.</p>
@@ -636,7 +638,7 @@ export default function EventRegistrationPage() {
                       if (field.type === "textarea") {
                         return (
                           <div key={key} className="space-y-2">
-                            <Label className="text-xs font-bold text-zinc-650 uppercase tracking-wider">
+                            <Label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
                               {field.label} {field.required && "*"}
                             </Label>
                             <textarea
@@ -652,7 +654,7 @@ export default function EventRegistrationPage() {
                       if (field.type === "select") {
                         return (
                           <div key={key} className="space-y-2">
-                            <Label className="text-xs font-bold text-zinc-655 uppercase tracking-wider">
+                            <Label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
                               {field.label} {field.required && "*"}
                             </Label>
                             <select
@@ -674,7 +676,7 @@ export default function EventRegistrationPage() {
                       if (field.type === "checkbox" || field.type === "boolean") {
                         return (
                           <div key={key} className="space-y-2.5">
-                            <Label className="text-xs font-bold text-zinc-655 uppercase tracking-wider">
+                            <Label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
                               {field.label} {field.required && "*"}
                             </Label>
                             <div className="flex gap-3 max-w-[240px]">
@@ -683,7 +685,7 @@ export default function EventRegistrationPage() {
                                 onClick={() => updateResponse(key, "true")}
                                 className={`h-11 px-6 rounded-xl border font-bold text-sm flex-1 transition-all ${
                                   value === "true"
-                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/10"
+                                    ? "bg-indigo-600 text-white border-indigo-600"
                                     : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"
                                 }`}
                               >
@@ -694,7 +696,7 @@ export default function EventRegistrationPage() {
                                 onClick={() => updateResponse(key, "false")}
                                 className={`h-11 px-6 rounded-xl border font-bold text-sm flex-1 transition-all ${
                                   value === "false"
-                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/10"
+                                    ? "bg-indigo-600 text-white border-indigo-600"
                                     : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"
                                 }`}
                               >
