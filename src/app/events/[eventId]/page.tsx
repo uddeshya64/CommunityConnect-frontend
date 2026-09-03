@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
-  HelpCircle, Copy, Tag, Sparkles, Bookmark
+  HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, CheckSquare, Megaphone, Send, Smile, MessageSquare
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -290,7 +290,7 @@ export default function EventDetailsPage() {
   const [permissions, setPermissions] = useState<string[]>([]);
 
   const [viewMode, setViewMode] = useState<"DASHBOARD" | "PREVIEW">("PREVIEW");
-  const [activeTab, setActiveTab] = useState<"OVERVIEW" | "PARTICIPANTS" | "EDIT" | "AGENDA" | "STAFF" | "SETTINGS" | "ORGANIZER_SETTINGS">("OVERVIEW");
+  const [activeTab, setActiveTab] = useState<"OVERVIEW" | "PARTICIPANTS" | "EDIT" | "AGENDA" | "STAFF" | "TASKS" | "ANNOUNCEMENTS" | "SETTINGS" | "ORGANIZER_SETTINGS">("OVERVIEW");
 
 
 
@@ -384,10 +384,21 @@ export default function EventDetailsPage() {
   const [participants, setParticipants] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+  const [creatorUser, setCreatorUser] = useState<any>(null);
   const [organizerConfig, setOrganizerConfig] = useState<any>(null);
   const [isFetchingTab, setIsFetchingTab] = useState(false);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [configMessage, setConfigMessage] = useState({ type: "", text: "" });
+
+  // --- STAFF CATEGORIES & PERMISSIONS MODAL STATES ---
+  const [selectedRoleCategory, setSelectedRoleCategory] = useState<string>("ALL");
+  const [editingMember, setEditingMember] = useState<any | null>(null);
+  const [editMemberRoleId, setEditMemberRoleId] = useState<string>("");
+  const [editMemberOverrides, setEditMemberOverrides] = useState<string[]>([]);
+  const [isUpdatingStaff, setIsUpdatingStaff] = useState(false);
+  const [isRemovingStaffId, setIsRemovingStaffId] = useState<number | null>(null);
+  const [isCancellingInviteId, setIsCancellingInviteId] = useState<number | null>(null);
 
   // --- CHECK-IN & QR SCANNING STATES ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -410,6 +421,54 @@ export default function EventDetailsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRoleId, setInviteRoleId] = useState("");
   const [isInviting, setIsInviting] = useState(false);
+
+  // --- STAFF TASKS STATES ---
+  const [tasksList, setTasksList] = useState<any[]>([]);
+  const [taskStatusFilter, setTaskStatusFilter] = useState<"ALL" | "PENDING" | "COMPLETED">("ALL");
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    title: "",
+    description: "",
+    priority: "medium",
+    assignedToId: "",
+    dueDate: ""
+  });
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [isUpdatingTaskId, setIsUpdatingTaskId] = useState<number | null>(null);
+  const [isDeletingTaskId, setIsDeletingTaskId] = useState<number | null>(null);
+
+  // --- ANNOUNCEMENTS STATES ---
+  const [announcementsList, setAnnouncementsList] = useState<any[]>([]);
+  const [announcementForm, setAnnouncementForm] = useState({
+    title: "",
+    message: "",
+    targetGroup: "all"
+  });
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [isDeletingAnnId, setIsDeletingAnnId] = useState<number | null>(null);
+  const [reactingAnnId, setReactingAnnId] = useState<number | null>(null);
+
+  // --- UI CONFIRMATION MODAL STATE ---
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    onConfirm: () => {}
+  });
+
+  const requestConfirm = (title: string, description: string, onConfirm: () => void) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      description,
+      onConfirm
+    });
+  };
 
   // --- REGISTRATION STATES ---
   const [isRegistered, setIsRegistered] = useState(false);
@@ -586,6 +645,11 @@ export default function EventDetailsPage() {
 
         setStaffList(rawEvent.user_roles || []);
 
+        // Also fetch event announcements for public/participant view
+        api.get(`/events/${eventId}/announcements`)
+          .then(res => setAnnouncementsList(res.data.data || []))
+          .catch(err => console.error("Failed to load initial announcements", err));
+
         const token = localStorage.getItem("accessToken");
         if (token) {
           const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
@@ -624,14 +688,33 @@ export default function EventDetailsPage() {
           const res = await api.get(`/events/${eventId}/manage/participants`);
           setParticipants(res.data.data || res.data || []);
         } else if (activeTab === "STAFF" && hasPermission("MANAGE_STAFF")) {
-          const res = await api.get(`/events/${eventId}/staff/roles`);
-          setRoles(res.data.data || res.data || []);
+          const [rolesRes, staffRes] = await Promise.all([
+            api.get(`/events/${eventId}/staff/roles`),
+            api.get(`/events/${eventId}/staff/members`).catch(() => ({ data: { data: {} } }))
+          ]);
+          setRoles(rolesRes.data.data || rolesRes.data || []);
+          const staffData = staffRes.data.data || {};
+          setStaffList(staffData.staff || []);
+          setPendingInvites(staffData.pendingInvites || []);
+          if (staffData.creator) setCreatorUser(staffData.creator);
         } else if (activeTab === "ORGANIZER_SETTINGS" && isOwner && event?.organizerId) {
           const res = await api.get(`/organizers/${event.organizerId}/config`);
           setOrganizerConfig(res.data.data || res.data);
         } else if (activeTab === "AGENDA") {
           const res = await api.get(`/events/${eventId}/timelines`);
           setTimelinesList(res.data.data || res.data || []);
+        } else if (activeTab === "TASKS") {
+          const [tasksRes, staffRes] = await Promise.all([
+            api.get(`/events/${eventId}/tasks`).catch(() => ({ data: { data: [] } })),
+            staffList.length === 0 ? api.get(`/events/${eventId}/staff/members`).catch(() => ({ data: { data: {} } })) : null
+          ]);
+          setTasksList(tasksRes.data.data || []);
+          if (staffRes?.data?.data?.staff) {
+            setStaffList(staffRes.data.data.staff);
+          }
+        } else if (activeTab === "ANNOUNCEMENTS") {
+          const res = await api.get(`/events/${eventId}/announcements`).catch(() => ({ data: { data: [] } }));
+          setAnnouncementsList(res.data.data || []);
         }
       } catch (err) {
         console.error(`Failed to fetch ${activeTab} data`, err);
@@ -923,20 +1006,257 @@ export default function EventDetailsPage() {
 
   const handleInviteStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail || !inviteRoleId) return alert("Select a role and enter an email.");
+    if (!inviteEmail || !inviteRoleId) return showError("Select a role and enter an email.");
     try {
       setIsInviting(true);
       await api.post(`/events/${eventId}/staff/invite`, {
         email: inviteEmail,
         roleId: Number(inviteRoleId)
       });
-      alert("Invitation sent successfully!");
+      showSuccess("Staff invitation sent successfully!");
       setInviteEmail("");
+
+      // Refresh staff and pending invites
+      const staffRes = await api.get(`/events/${eventId}/staff/members`).catch(() => null);
+      if (staffRes?.data?.data) {
+        setStaffList(staffRes.data.data.staff || []);
+        setPendingInvites(staffRes.data.data.pendingInvites || []);
+      }
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to invite staff.");
+      showError(err.response?.data?.error || "Failed to invite staff.");
     } finally {
       setIsInviting(false);
     }
+  };
+
+  const ALL_PERMISSIONS_LIST = [
+    { key: "MANAGE_EVENT", label: "Manage Event", desc: "Edit title, dates, settings, & basic info" },
+    { key: "MANAGE_STAFF", label: "Manage Staff", desc: "Invite/remove staff members & adjust roles" },
+    { key: "VIEW_DASHBOARD", label: "View Dashboard", desc: "Access the backend organizer dashboard" },
+    { key: "MANAGE_ATTENDEES", label: "Manage Attendees", desc: "Accept, reject, & view attendee registrations" },
+    { key: "MANAGE_FORMS", label: "Manage Forms", desc: "Create & edit custom registration forms" },
+    { key: "MANAGE_TICKETS", label: "Manage Tickets", desc: "Manage ticket tiers & pricing" },
+    { key: "MANAGE_CHECK_IN", label: "Check-in Gatekeeper", desc: "Perform attendee ticket scanning & check-in" },
+    { key: "MANAGE_AGENDA", label: "Manage Agenda", desc: "Create & edit event timelines & tracks" },
+    { key: "MANAGE_SPEAKERS", label: "Manage Speakers", desc: "Manage event speakers & schedule" },
+    { key: "SCORE_SUBMISSIONS", label: "Grade Submissions", desc: "Evaluate hackathon project submissions" },
+    { key: "MANAGE_COMMUNICATIONS", label: "Announcements", desc: "Send event announcements & notifications" },
+  ];
+
+  const handleOpenEditStaffModal = (st: any) => {
+    setEditingMember(st);
+    const roleIdStr = String(st.role_id || st.role?.id || "");
+    setEditMemberRoleId(roleIdStr);
+
+    const userOverrides: string[] | null = st.permissions_override;
+    const activePerms = Array.isArray(userOverrides)
+      ? userOverrides
+      : ((st.role?.permissions as string[]) || []);
+    setEditMemberOverrides(activePerms);
+  };
+
+  const handleRoleSelectChange = (newRoleId: string) => {
+    setEditMemberRoleId(newRoleId);
+    const selectedRole = roles.find((r) => String(r.id) === newRoleId);
+    if (selectedRole?.permissions) {
+      setEditMemberOverrides([...selectedRole.permissions]);
+    }
+  };
+
+  const handleTogglePermissionOverride = (permKey: string) => {
+    setEditMemberOverrides(prev =>
+      prev.includes(permKey)
+        ? prev.filter(k => k !== permKey)
+        : [...prev, permKey]
+    );
+  };
+
+  const handleSelectAllPermissions = () => {
+    setEditMemberOverrides(ALL_PERMISSIONS_LIST.map(p => p.key));
+  };
+
+  const handleClearAllPermissions = () => {
+    setEditMemberOverrides([]);
+  };
+
+  const handleSaveStaffPermissions = async () => {
+    if (!editingMember) return;
+    try {
+      setIsUpdatingStaff(true);
+      await api.patch(`/events/${eventId}/staff/members/${editingMember.user.id}`, {
+        roleId: editMemberRoleId ? Number(editMemberRoleId) : undefined,
+        permissionsOverride: editMemberOverrides
+      });
+      showSuccess("Staff member role and permissions updated!");
+      setEditingMember(null);
+
+      const staffRes = await api.get(`/events/${eventId}/staff/members`).catch(() => null);
+      if (staffRes?.data?.data) {
+        setStaffList(staffRes.data.data.staff || []);
+        setPendingInvites(staffRes.data.data.pendingInvites || []);
+      }
+    } catch (err: any) {
+      showError(err.response?.data?.error || "Failed to update staff permissions.");
+    } finally {
+      setIsUpdatingStaff(false);
+    }
+  };
+
+  const handleRemoveStaffMember = async (userId: number, userName: string) => {
+    requestConfirm("Remove Staff Member", `Are you sure you want to remove ${userName} from event staff?`, async () => {
+      try {
+        setIsRemovingStaffId(userId);
+        await api.delete(`/events/${eventId}/staff/members/${userId}`);
+        showSuccess("Staff member removed successfully.");
+
+        const staffRes = await api.get(`/events/${eventId}/staff/members`).catch(() => null);
+        if (staffRes?.data?.data) {
+          setStaffList(staffRes.data.data.staff || []);
+          setPendingInvites(staffRes.data.data.pendingInvites || []);
+        }
+      } catch (err: any) {
+        showError(err.response?.data?.error || "Failed to remove staff member.");
+      } finally {
+        setIsRemovingStaffId(null);
+      }
+    });
+  };
+
+  const handleCancelStaffInvite = async (inviteId: number) => {
+    requestConfirm("Cancel Invitation", "Are you sure you want to cancel this invitation?", async () => {
+      try {
+        setIsCancellingInviteId(inviteId);
+        await api.delete(`/events/${eventId}/staff/invites/${inviteId}`);
+        showSuccess("Invitation cancelled.");
+
+        const staffRes = await api.get(`/events/${eventId}/staff/members`).catch(() => null);
+        if (staffRes?.data?.data) {
+          setStaffList(staffRes.data.data.staff || []);
+          setPendingInvites(staffRes.data.data.pendingInvites || []);
+        }
+      } catch (err: any) {
+        showError(err.response?.data?.error || "Failed to cancel invitation.");
+      } finally {
+        setIsCancellingInviteId(null);
+      }
+    });
+  };
+
+  // --- TASK HANDLERS ---
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskForm.title || !taskForm.assignedToId) {
+      showError("Please enter a title and select a staff member to assign.");
+      return;
+    }
+    try {
+      setIsCreatingTask(true);
+      await api.post(`/events/${eventId}/tasks`, {
+        title: taskForm.title,
+        description: taskForm.description,
+        priority: taskForm.priority,
+        assignedToId: Number(taskForm.assignedToId),
+        dueDate: taskForm.dueDate || undefined
+      });
+      showSuccess("Task created and assigned successfully!");
+      setTaskForm({ title: "", description: "", priority: "medium", assignedToId: "", dueDate: "" });
+      setIsTaskModalOpen(false);
+
+      const tasksRes = await api.get(`/events/${eventId}/tasks`).catch(() => null);
+      if (tasksRes?.data?.data) {
+        setTasksList(tasksRes.data.data);
+      }
+    } catch (err: any) {
+      showError(err.response?.data?.error || "Failed to create task.");
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
+
+  const handleToggleTaskStatus = async (task: any) => {
+    const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+    try {
+      setIsUpdatingTaskId(task.id);
+      await api.patch(`/events/${eventId}/tasks/${task.id}/status`, { status: newStatus });
+      setTasksList(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null } : t));
+      showSuccess(`Task marked as ${newStatus}!`);
+    } catch (err: any) {
+      showError(err.response?.data?.error || "Failed to update task status.");
+    } finally {
+      setIsUpdatingTaskId(null);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: number) => {
+    requestConfirm("Delete Task", "Are you sure you want to delete this task?", async () => {
+      try {
+        setIsDeletingTaskId(taskId);
+        await api.delete(`/events/${eventId}/tasks/${taskId}`);
+        setTasksList(prev => prev.filter(t => t.id !== taskId));
+        showSuccess("Task deleted.");
+      } catch (err: any) {
+        showError(err.response?.data?.error || "Failed to delete task.");
+      } finally {
+        setIsDeletingTaskId(null);
+      }
+    });
+  };
+
+  // --- ANNOUNCEMENT HANDLERS ---
+  const handleBroadcastAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!announcementForm.message) {
+      showError("Please enter an announcement message.");
+      return;
+    }
+    try {
+      setIsBroadcasting(true);
+      await api.post(`/events/${eventId}/announcements`, {
+        title: announcementForm.title || undefined,
+        message: announcementForm.message,
+        targetGroup: announcementForm.targetGroup
+      });
+      showSuccess("Announcement broadcasted successfully to all target participants & staff!");
+      setAnnouncementForm({ title: "", message: "", targetGroup: "all" });
+
+      const annRes = await api.get(`/events/${eventId}/announcements`).catch(() => null);
+      if (annRes?.data?.data) {
+        setAnnouncementsList(annRes.data.data);
+      }
+    } catch (err: any) {
+      showError(err.response?.data?.error || "Failed to broadcast announcement.");
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
+  const handleToggleEmojiReaction = async (announcementId: number, emoji: string) => {
+    try {
+      setReactingAnnId(announcementId);
+      const res = await api.post(`/events/${eventId}/announcements/${announcementId}/react`, { emoji });
+      if (res.data?.data) {
+        setAnnouncementsList(res.data.data);
+      }
+    } catch (err: any) {
+      showError(err.response?.data?.error || "Failed to update reaction.");
+    } finally {
+      setReactingAnnId(null);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (announcementId: number) => {
+    requestConfirm("Delete Announcement", "Are you sure you want to delete this announcement?", async () => {
+      try {
+        setIsDeletingAnnId(announcementId);
+        await api.delete(`/events/${eventId}/announcements/${announcementId}`);
+        setAnnouncementsList(prev => prev.filter(a => a.id !== announcementId));
+        showSuccess("Announcement deleted.");
+      } catch (err: any) {
+        showError(err.response?.data?.error || "Failed to delete announcement.");
+      } finally {
+        setIsDeletingAnnId(null);
+      }
+    });
   };
 
   // --- AGENDA MANAGEMENT HANDLERS ---
@@ -1120,18 +1440,20 @@ export default function EventDetailsPage() {
 
           {/* Navigation links: horizontal scroll on mobile, vertical list on desktop */}
           <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-y-auto no-scrollbar pb-2 md:pb-0 flex-1 min-w-0">
-            <button onClick={() => setActiveTab("OVERVIEW")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "OVERVIEW" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-              <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" /> Overview
-            </button>
+            {(hasPermission("VIEW_DASHBOARD") || hasPermission("MANAGE_EVENT") || isOwner) && (
+              <button onClick={() => setActiveTab("OVERVIEW")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "OVERVIEW" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
+                <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" /> Overview
+              </button>
+            )}
 
-            {hasPermission("MANAGE_ATTENDEES") && (
+            {(hasPermission("MANAGE_ATTENDEES") || hasPermission("MANAGE_CHECK_IN") || hasPermission("MANAGE_FORMS") || isOwner) && (
               <button onClick={() => setActiveTab("PARTICIPANTS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "PARTICIPANTS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
                 <List className="w-4 h-4 md:w-5 md:h-5" /> Participants
               </button>
             )}
 
             {/* Scan QR Button on Desktop only */}
-            {hasPermission("MANAGE_ATTENDEES") && (
+            {(hasPermission("MANAGE_ATTENDEES") || hasPermission("MANAGE_CHECK_IN") || isOwner) && (
               <button
                 onClick={() => {
                   setScanResult(null);
@@ -1144,19 +1466,33 @@ export default function EventDetailsPage() {
               </button>
             )}
 
-            <button onClick={() => setActiveTab("EDIT")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "EDIT" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-              <Pencil className="w-4 h-4 md:w-5 md:h-5" /> Edit Details
-            </button>
+            {(hasPermission("MANAGE_EVENT") || isOwner) && (
+              <button onClick={() => setActiveTab("EDIT")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "EDIT" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
+                <Pencil className="w-4 h-4 md:w-5 md:h-5" /> Edit Details
+              </button>
+            )}
 
-            {hasPermission("MANAGE_EVENT") && (
+            {(hasPermission("MANAGE_AGENDA") || hasPermission("MANAGE_CONTENT") || hasPermission("MANAGE_EVENT") || hasPermission("VIEW_DASHBOARD") || isOwner) && (
               <button onClick={() => setActiveTab("AGENDA")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "AGENDA" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
                 <Calendar className="w-4 h-4 md:w-5 md:h-5" /> Event Agenda
               </button>
             )}
 
-            {hasPermission("MANAGE_STAFF") && (
+            {(hasPermission("MANAGE_STAFF") || isOwner) && (
               <button onClick={() => setActiveTab("STAFF")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "STAFF" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
                 <Shield className="w-4 h-4 md:w-5 md:h-5" /> Staff & Roles
+              </button>
+            )}
+
+            {(hasPermission("VIEW_DASHBOARD") || hasPermission("MANAGE_STAFF") || isStaff || isOwner) && (
+              <button onClick={() => setActiveTab("TASKS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "TASKS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
+                <CheckSquare className="w-4 h-4 md:w-5 md:h-5" /> Event Tasks
+              </button>
+            )}
+
+            {(hasPermission("VIEW_DASHBOARD") || isStaff || isOwner || hasPermission("MANAGE_COMMUNICATIONS") || hasPermission("MANAGE_EVENT")) && (
+              <button onClick={() => setActiveTab("ANNOUNCEMENTS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "ANNOUNCEMENTS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
+                <Megaphone className="w-4 h-4 md:w-5 md:h-5" /> Announcements
               </button>
             )}
 
@@ -1720,52 +2056,919 @@ export default function EventDetailsPage() {
                 {/* 4. STAFF & ROLES TAB */}
                 {activeTab === "STAFF" && hasPermission("MANAGE_STAFF") && (
                   <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-8">
-                    <div>
-                      <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Staff & Roles Management</h1>
-                      <p className="text-zinc-500 font-medium mt-1">Assign custom RBAC roles and staff permissions to manage the event.</p>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Organization Staff & Roles</h1>
+                        <p className="text-zinc-500 font-medium mt-1">Categorized organization members, RBAC roles, and granular permission controls.</p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          const el = document.getElementById("invite-form");
+                          el?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className={`rounded-full ${activeAccent.bg} hover:opacity-90 text-white font-bold px-6 py-2.5 shadow-md flex items-center gap-2 text-sm`}
+                      >
+                        <UserPlus className="w-4 h-4" /> Add Staff Member
+                      </Button>
                     </div>
 
-                    <form onSubmit={handleInviteStaff} className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 space-y-4">
-                      <h3 className="font-bold text-zinc-900 text-base">Invite Staff Member</h3>
+                    {/* ROLE CATEGORIES SUMMARY CARDS & FILTER TABS */}
+                    {(() => {
+                      const getRoleCount = (name: string) => staffList.filter(s => (s.role?.name || "") === name).length;
+
+                      const categories = [
+                        { id: "ALL", label: "All Members", count: staffList.length, color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+                        { id: "Admin", label: "Admins", count: getRoleCount("Admin"), color: "bg-purple-50 text-purple-700 border-purple-200" },
+                        { id: "Registration Manager", label: "Registration Managers", count: getRoleCount("Registration Manager"), color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+                        { id: "Program Manager", label: "Program Managers", count: getRoleCount("Program Manager"), color: "bg-blue-50 text-blue-700 border-blue-200" },
+                        { id: "Volunteer", label: "Volunteers", count: getRoleCount("Volunteer"), color: "bg-amber-50 text-amber-700 border-amber-200" },
+                        { id: "Guest", label: "Guests", count: getRoleCount("Guest"), color: "bg-zinc-100 text-zinc-700 border-zinc-200" },
+                        { id: "PENDING", label: "Pending Invites", count: pendingInvites.length, color: "bg-orange-50 text-orange-700 border-orange-200" },
+                      ];
+
+                      return (
+                        <div className="flex flex-wrap items-center gap-2.5 pb-2 border-b border-zinc-100">
+                          {categories.map((cat) => {
+                            const isSelected = selectedRoleCategory === cat.id;
+                            return (
+                              <button
+                                key={cat.id}
+                                onClick={() => setSelectedRoleCategory(cat.id)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+                                  isSelected
+                                    ? `${activeAccent.bg} text-white border-transparent shadow-sm scale-105`
+                                    : `${cat.color} hover:opacity-85`
+                                }`}
+                              >
+                                <span>{cat.label}</span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                  isSelected ? "bg-white/20 text-white" : "bg-white/80 text-zinc-900 shadow-2xs"
+                                }`}>
+                                  {cat.count}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Invite Staff Form */}
+                    <form id="invite-form" onSubmit={handleInviteStaff} className="bg-zinc-50 p-6 rounded-3xl border border-zinc-200 space-y-4 shadow-2xs">
+                      <h3 className="font-extrabold text-zinc-900 text-base flex items-center gap-2">
+                        <UserPlus className="w-4 h-4 text-indigo-600" /> Invite Organization Member
+                      </h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Input
-                          placeholder="Staff email address..."
+                          placeholder="Member email address..."
                           type="email"
                           value={inviteEmail}
                           onChange={(e) => setInviteEmail(e.target.value)}
-                          className="py-6 bg-white border-zinc-200 rounded-xl md:col-span-2"
+                          className="py-6 bg-white border-zinc-200 rounded-2xl md:col-span-2"
+                          required
                         />
                         <select
                           value={inviteRoleId}
                           onChange={(e) => setInviteRoleId(e.target.value)}
-                          className="h-12 px-3 rounded-xl bg-white border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="h-12 px-4 rounded-2xl bg-white border border-zinc-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          required
                         >
-                          <option value="">Select Role...</option>
+                          <option value="">Assign Role (5 Options)...</option>
                           {roles.map((r) => (
                             <option key={r.id} value={r.id}>{r.name}</option>
                           ))}
                         </select>
                       </div>
-                      <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-5 shadow-sm" disabled={isInviting} type="submit">
+                      <Button className={`rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-bold px-6 py-5 shadow-sm`} disabled={isInviting} type="submit">
                         {isInviting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Role Invitation"}
                       </Button>
                     </form>
 
-                    <div className="space-y-4">
-                      <h3 className="font-bold text-zinc-900 text-base">Assigned Event Staff</h3>
-                      {staffList.length === 0 ? (
-                        <p className="text-zinc-500 text-sm font-medium">No assigned staff members found.</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {staffList.map((st, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl border border-zinc-200/60">
-                              <div>
-                                <p className="font-extrabold text-zinc-900 text-sm">{st.user?.name || "Staff Member"}</p>
-                                <p className="text-xs text-zinc-500 font-medium">{st.user?.email}</p>
+                    {/* CATEGORIZED MEMBERS LISTING */}
+                    {(() => {
+                      const rolesOrder = ["Admin", "Registration Manager", "Program Manager", "Volunteer", "Guest"];
+                      
+                      const filteredStaff = selectedRoleCategory === "ALL"
+                        ? staffList
+                        : selectedRoleCategory === "PENDING"
+                        ? []
+                        : staffList.filter(st => (st.role?.name || "") === selectedRoleCategory);
+
+                      const activeRolesToDisplay = selectedRoleCategory === "ALL"
+                        ? rolesOrder
+                        : selectedRoleCategory === "PENDING"
+                        ? []
+                        : [selectedRoleCategory];
+
+                      return (
+                        <div className="space-y-8">
+                          {selectedRoleCategory !== "PENDING" && activeRolesToDisplay.map((roleCategoryName) => {
+                            const membersInGroup = filteredStaff.filter(st => (st.role?.name || "Guest") === roleCategoryName);
+                            if (membersInGroup.length === 0 && selectedRoleCategory === "ALL") return null;
+
+                            const getRoleBadgeStyle = (name: string) => {
+                              switch (name) {
+                                case "Admin": return "bg-purple-100 text-purple-800 border-purple-300";
+                                case "Registration Manager": return "bg-emerald-100 text-emerald-800 border-emerald-300";
+                                case "Program Manager": return "bg-blue-100 text-blue-800 border-blue-300";
+                                case "Volunteer": return "bg-amber-100 text-amber-800 border-amber-300";
+                                default: return "bg-zinc-100 text-zinc-800 border-zinc-300";
+                              }
+                            };
+
+                            return (
+                              <div key={roleCategoryName} className="space-y-4">
+                                <div className="flex items-center justify-between border-b border-zinc-100 pb-2">
+                                  <div className="flex items-center gap-2.5">
+                                    <span className={`text-xs font-black px-3 py-1 rounded-full border uppercase tracking-wider ${getRoleBadgeStyle(roleCategoryName)}`}>
+                                      {roleCategoryName}
+                                    </span>
+                                    <span className="text-xs font-semibold text-zinc-400">
+                                      ({membersInGroup.length} {membersInGroup.length === 1 ? "member" : "members"})
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {membersInGroup.length === 0 ? (
+                                  <p className="text-zinc-400 text-xs font-medium italic pl-2">No members assigned to {roleCategoryName} role yet.</p>
+                                ) : (
+                                  <div className="grid grid-cols-1 gap-3">
+                                    {membersInGroup.map((st, idx) => {
+                                      const isCreator = creatorUser && st.user?.id === creatorUser.id;
+                                      const userOverrides: string[] | null = st.permissions_override;
+                                      const allUserPermissions: string[] = Array.isArray(userOverrides)
+                                        ? userOverrides
+                                        : (st.role?.permissions || []);
+
+                                      return (
+                                        <div key={idx} className="p-5 bg-zinc-50/80 hover:bg-zinc-50 rounded-3xl border border-zinc-200/80 transition-all shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                          <div className="flex items-start gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-rose-500 flex items-center justify-center text-white font-black text-base shrink-0 shadow-sm">
+                                              {st.user?.avatar_url ? (
+                                                <img src={st.user.avatar_url} alt={st.user.name} className="w-full h-full object-cover rounded-2xl" />
+                                              ) : (
+                                                st.user?.name ? st.user.name.slice(0, 2).toUpperCase() : "ST"
+                                              )}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                              <div className="flex flex-wrap items-center gap-2">
+                                                <h4 className="font-extrabold text-zinc-900 text-base">{st.user?.name || "Organization Member"}</h4>
+                                                {isCreator && (
+                                                  <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-full">
+                                                    Event Creator / Owner
+                                                  </span>
+                                                )}
+                                                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getRoleBadgeStyle(roleCategoryName)}`}>
+                                                  {roleCategoryName}
+                                                </span>
+                                              </div>
+                                              <p className="text-xs text-zinc-500 font-semibold">{st.user?.email}</p>
+                                              
+                                              {/* PERMISSIONS PILLS */}
+                                              <div className="pt-2 flex flex-wrap items-center gap-1.5">
+                                                <span className="text-[10px] font-bold text-zinc-400 uppercase mr-1">Permissions:</span>
+                                                {allUserPermissions.length === 0 ? (
+                                                  <span className="text-[10px] text-zinc-400 italic">None assigned</span>
+                                                ) : (
+                                                  allUserPermissions.map((permKey) => {
+                                                    const isOverride = Array.isArray(userOverrides) && userOverrides.includes(permKey);
+                                                    return (
+                                                      <span
+                                                        key={permKey}
+                                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                                          isOverride
+                                                            ? "bg-purple-100 text-purple-800 border-purple-300 font-extrabold"
+                                                            : "bg-white text-zinc-700 border-zinc-200"
+                                                        }`}
+                                                        title={isOverride ? "Custom permission override granted" : "Base role permission"}
+                                                      >
+                                                        {isOverride ? `+ ${permKey}` : permKey}
+                                                      </span>
+                                                    );
+                                                  })
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* ADMIN ACTION CONTROLS */}
+                                          <div className="flex items-center gap-2 shrink-0 md:self-center border-t md:border-t-0 pt-3 md:pt-0">
+                                            <Button
+                                              onClick={() => handleOpenEditStaffModal(st)}
+                                              variant="outline"
+                                              size="sm"
+                                              className="rounded-xl border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-800 text-xs font-bold flex items-center gap-1.5 py-2 px-3 shadow-2xs"
+                                            >
+                                              <Pencil className="w-3.5 h-3.5 text-indigo-600" /> Edit Role & Permissions
+                                            </Button>
+
+                                            {!isCreator && (
+                                              <Button
+                                                onClick={() => handleRemoveStaffMember(st.user.id, st.user.name || "this user")}
+                                                disabled={isRemovingStaffId === st.user.id}
+                                                variant="outline"
+                                                size="sm"
+                                                className="rounded-xl border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center gap-1.5 py-2 px-3 shadow-2xs"
+                                              >
+                                                {isRemovingStaffId === st.user.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                Remove
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
-                              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-                                {st.role?.name || "Role Assigned"}
-                              </span>
+                            );
+                          })}
+
+                          {/* PENDING INVITATIONS LIST */}
+                          {(selectedRoleCategory === "ALL" || selectedRoleCategory === "PENDING") && pendingInvites.length > 0 && (
+                            <div className="space-y-4 pt-6 border-t border-zinc-200">
+                              <div className="flex items-center justify-between">
+                                <h3 className="font-extrabold text-zinc-900 text-base flex items-center gap-2">
+                                  <Mail className="w-4.5 h-4.5 text-orange-500" /> Pending Invitations ({pendingInvites.length})
+                                </h3>
+                              </div>
+                              <div className="grid grid-cols-1 gap-3">
+                                {pendingInvites.map((invite) => (
+                                  <div key={invite.id} className="p-4 bg-orange-50/40 rounded-2xl border border-orange-200/80 flex items-center justify-between gap-4">
+                                    <div>
+                                      <p className="font-extrabold text-zinc-900 text-sm">{invite.email}</p>
+                                      <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                                        Invited as <span className="font-bold text-orange-800 bg-orange-100 px-2 py-0.5 rounded-md border border-orange-200">{invite.role?.name || "Staff"}</span>
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-xs font-bold text-orange-700 bg-orange-100 px-3 py-1 rounded-full border border-orange-200">
+                                        Pending Accept
+                                      </span>
+                                      <Button
+                                        onClick={() => handleCancelStaffInvite(invite.id)}
+                                        disabled={isCancellingInviteId === invite.id}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded-xl font-bold"
+                                      >
+                                        {isCancellingInviteId === invite.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Cancel Invite"}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* EDIT PERMISSIONS & ROLE MODAL */}
+                <AnimatePresence>
+                  {editingMember && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-50 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+                      onClick={() => !isUpdatingStaff && setEditingMember(null)}
+                    >
+                      <motion.div
+                        initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white max-w-2xl w-full rounded-[2.5rem] border border-zinc-200 shadow-2xl p-6 sm:p-8 my-8 space-y-6"
+                      >
+                        <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
+                          <div>
+                            <h2 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Adjust Role & Permissions</h2>
+                            <p className="text-xs text-zinc-500 font-semibold mt-1">
+                              Updating settings for <span className="text-indigo-600 font-extrabold">{editingMember.user?.name || editingMember.user?.email}</span>
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setEditingMember(null)}
+                            className="w-9 h-9 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-500 hover:text-zinc-900"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* SELECT ROLE */}
+                        <div className="space-y-2">
+                          <label className="text-sm font-extrabold text-zinc-900">Assigned Role</label>
+                          <select
+                            value={editMemberRoleId}
+                            onChange={(e) => handleRoleSelectChange(e.target.value)}
+                            className="w-full h-12 px-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          >
+                            {roles.map((r) => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* CONFIGURE PERMISSIONS (FULLY EDITABLE) */}
+                        <div className="space-y-4 pt-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-sm font-extrabold text-zinc-900">Configure Member Permissions</h3>
+                              <p className="text-xs text-zinc-500 mt-0.5">Toggle any system permission below to customize access for this member.</p>
+                            </div>
+                            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full shrink-0">
+                              {editMemberOverrides.length} / {ALL_PERMISSIONS_LIST.length} Granted
+                            </span>
+                          </div>
+
+                          {/* Quick Action Buttons */}
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleSelectAllPermissions}
+                              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-lg border border-indigo-200 transition-colors"
+                            >
+                              Select All
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleClearAllPermissions}
+                              className="text-xs font-bold text-zinc-600 hover:text-zinc-800 bg-zinc-100 hover:bg-zinc-200 px-3 py-1 rounded-lg border border-zinc-200 transition-colors"
+                            >
+                              Clear All
+                            </button>
+                          </div>
+
+                          {/* Interactive Permissions List */}
+                          <div className="max-h-64 overflow-y-auto space-y-2 pr-1 pt-1">
+                            {ALL_PERMISSIONS_LIST.map((perm) => {
+                              const isChecked = editMemberOverrides.includes(perm.key);
+                              return (
+                                <div
+                                  key={perm.key}
+                                  onClick={() => handleTogglePermissionOverride(perm.key)}
+                                  className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                                    isChecked
+                                      ? "bg-indigo-50/80 border-indigo-300 shadow-2xs"
+                                      : "bg-zinc-50 hover:bg-zinc-100/70 border-zinc-200"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {}}
+                                    className="mt-1 rounded text-indigo-600 focus:ring-indigo-500"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-extrabold text-zinc-900 text-xs">{perm.label}</span>
+                                        <span className="text-[10px] font-mono font-bold text-zinc-400">({perm.key})</span>
+                                      </div>
+                                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                        isChecked ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-zinc-200 text-zinc-600"
+                                      }`}>
+                                        {isChecked ? "Granted" : "Disabled"}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-zinc-500 font-medium mt-0.5">{perm.desc}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* FOOTER BUTTONS */}
+                        <div className="flex items-center justify-end gap-3 border-t border-zinc-100 pt-4">
+                          <Button
+                            onClick={() => setEditingMember(null)}
+                            variant="outline"
+                            className="rounded-xl border-zinc-200 text-zinc-700 font-bold px-5"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleSaveStaffPermissions}
+                            disabled={isUpdatingStaff}
+                            className={`rounded-xl ${activeAccent.bg} text-white font-bold px-6 shadow-sm`}
+                          >
+                            {isUpdatingStaff ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Role & Permissions"}
+                          </Button>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* 5. EVENT TASKS TAB */}
+                {activeTab === "TASKS" && (
+                  <div className="animate-in fade-in duration-500 space-y-6">
+                    {/* TOP HEADER & COUNTERS */}
+                    <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-zinc-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight">Event Tasks & Assignments</h1>
+                          <span className="bg-indigo-50 text-indigo-700 text-xs font-black uppercase px-3 py-1 rounded-full border border-indigo-200">
+                            {tasksList.length} Total
+                          </span>
+                        </div>
+                        <p className="text-zinc-500 font-medium text-xs sm:text-sm mt-1">
+                          Track assigned tasks, monitor completion progress, and assign responsibilities to staff members.
+                        </p>
+                      </div>
+
+                      {(isOwner || hasPermission("MANAGE_STAFF") || hasPermission("MANAGE_EVENT")) && (
+                        <Button
+                          onClick={() => {
+                            if (staffList.length === 0) {
+                              api.get(`/events/${eventId}/staff/members`).then(res => {
+                                if (res.data?.data?.staff) setStaffList(res.data.data.staff);
+                              });
+                            }
+                            setIsTaskModalOpen(true);
+                          }}
+                          className={`rounded-2xl ${activeAccent.bg} text-white font-bold px-6 h-12 shadow-md hover:scale-105 transition-transform flex items-center gap-2 shrink-0`}
+                        >
+                          <Plus className="w-5 h-5" /> Assign New Task
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* STATUS FILTERS BAR */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 bg-zinc-50 p-2.5 rounded-2xl border border-zinc-200/80">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setTaskStatusFilter("ALL")}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            taskStatusFilter === "ALL"
+                              ? "bg-white text-zinc-900 shadow-xs border border-zinc-200"
+                              : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                          }`}
+                        >
+                          All Tasks ({tasksList.length})
+                        </button>
+                        <button
+                          onClick={() => setTaskStatusFilter("PENDING")}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            taskStatusFilter === "PENDING"
+                              ? "bg-amber-50 text-amber-900 shadow-xs border border-amber-200"
+                              : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                          }`}
+                        >
+                          Pending ({tasksList.filter(t => t.status === 'pending').length})
+                        </button>
+                        <button
+                          onClick={() => setTaskStatusFilter("COMPLETED")}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            taskStatusFilter === "COMPLETED"
+                              ? "bg-emerald-50 text-emerald-900 shadow-xs border border-emerald-200"
+                              : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                          }`}
+                        >
+                          Completed ({tasksList.filter(t => t.status === 'completed').length})
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* TASK CARDS LIST */}
+                    {(() => {
+                      const filteredTasks = tasksList.filter(t => {
+                        if (taskStatusFilter === "PENDING") return t.status === 'pending';
+                        if (taskStatusFilter === "COMPLETED") return t.status === 'completed';
+                        return true;
+                      });
+
+                      if (isFetchingTab) {
+                        return (
+                          <div className="p-12 text-center bg-white rounded-3xl border border-zinc-200">
+                            <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-600 mb-3" />
+                            <p className="text-zinc-500 text-sm font-semibold">Loading assigned tasks...</p>
+                          </div>
+                        );
+                      }
+
+                      if (filteredTasks.length === 0) {
+                        return (
+                          <div className="p-12 text-center bg-white rounded-3xl border border-zinc-200 space-y-3">
+                            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                              <CheckSquare className="w-7 h-7" />
+                            </div>
+                            <h3 className="text-lg font-extrabold text-zinc-900">No Tasks Found</h3>
+                            <p className="text-xs text-zinc-500 font-medium max-w-md mx-auto">
+                              {taskStatusFilter === "ALL"
+                                ? "No tasks have been assigned for this event yet."
+                                : `No ${taskStatusFilter.toLowerCase()} tasks found.`}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="grid grid-cols-1 gap-4">
+                          {filteredTasks.map((task) => {
+                            const isCompleted = task.status === 'completed';
+                            const priorityColor =
+                              task.priority === 'urgent'
+                                ? 'bg-red-50 text-red-700 border-red-200'
+                                : task.priority === 'high'
+                                ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                : task.priority === 'medium'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-blue-50 text-blue-700 border-blue-200';
+
+                            return (
+                              <div
+                                key={task.id}
+                                className={`p-5 rounded-3xl border transition-all shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                                  isCompleted
+                                    ? "bg-zinc-50/60 border-zinc-200 opacity-85"
+                                    : "bg-white border-zinc-200 hover:border-indigo-200 hover:shadow-md"
+                                }`}
+                              >
+                                <div className="flex items-start gap-4 min-w-0">
+                                  {/* TOGGLE CHECKBOX */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTaskStatus(task)}
+                                    disabled={isUpdatingTaskId === task.id}
+                                    className={`w-7 h-7 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 transition-all ${
+                                      isCompleted
+                                        ? "bg-emerald-500 border-emerald-600 text-white"
+                                        : "bg-white border-zinc-300 hover:border-indigo-500 text-transparent"
+                                    }`}
+                                  >
+                                    {isUpdatingTaskId === task.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
+                                    ) : (
+                                      <CheckCircle2 className="w-5 h-5 fill-current text-white" />
+                                    )}
+                                  </button>
+
+                                  <div className="space-y-1.5 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <h4 className={`font-extrabold text-base ${isCompleted ? "line-through text-zinc-400" : "text-zinc-900"}`}>
+                                        {task.title}
+                                      </h4>
+                                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${priorityColor}`}>
+                                        {task.priority} Priority
+                                      </span>
+                                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                                        isCompleted ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                                      }`}>
+                                        {isCompleted ? "Completed" : "Pending"}
+                                      </span>
+                                    </div>
+
+                                    {task.description && (
+                                      <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+                                        {task.description}
+                                      </p>
+                                    )}
+
+                                    <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 font-semibold pt-1">
+                                      {/* Assigned To Badge */}
+                                      <div className="flex items-center gap-1.5 bg-zinc-100 px-2.5 py-1 rounded-xl text-zinc-700">
+                                        <div className="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] font-black flex items-center justify-center shrink-0">
+                                          {task.assigned_to?.name ? task.assigned_to.name[0].toUpperCase() : "U"}
+                                        </div>
+                                        <span>Assigned to: <strong className="text-zinc-900">{task.assigned_to?.name || task.assigned_to?.email}</strong></span>
+                                      </div>
+
+                                      {/* Creator Badge */}
+                                      {task.created_by && (
+                                        <span>By: <span className="text-zinc-600 font-bold">{task.created_by.name}</span></span>
+                                      )}
+
+                                      {/* Due Date */}
+                                      {task.due_date && (
+                                        <span className="flex items-center gap-1 text-zinc-500 font-bold">
+                                          <Clock className="w-3.5 h-3.5" /> Due {new Date(task.due_date).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* ACTIONS */}
+                                <div className="flex items-center justify-end gap-2 shrink-0 border-t md:border-t-0 pt-3 md:pt-0">
+                                  <Button
+                                    type="button"
+                                    onClick={() => handleToggleTaskStatus(task)}
+                                    disabled={isUpdatingTaskId === task.id}
+                                    variant="outline"
+                                    size="sm"
+                                    className={`rounded-xl text-xs font-bold px-4 py-2 border ${
+                                      isCompleted
+                                        ? "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100"
+                                        : "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                                    }`}
+                                  >
+                                    {isCompleted ? "Mark Pending" : "Mark Completed"}
+                                  </Button>
+
+                                  {(isOwner || task.created_by_id === creatorUser?.id || hasPermission("MANAGE_STAFF")) && (
+                                    <Button
+                                      type="button"
+                                      onClick={() => handleDeleteTask(task.id)}
+                                      disabled={isDeletingTaskId === task.id}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="rounded-xl text-xs text-red-600 hover:bg-red-50 hover:text-red-800 font-bold p-2"
+                                    >
+                                      {isDeletingTaskId === task.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* ASSIGN NEW TASK MODAL */}
+                <AnimatePresence>
+                  {isTaskModalOpen && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-50 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+                      onClick={() => !isCreatingTask && setIsTaskModalOpen(false)}
+                    >
+                      <motion.div
+                        initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white max-w-lg w-full rounded-[2.5rem] border border-zinc-200 shadow-2xl p-6 sm:p-8 space-y-6"
+                      >
+                        <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
+                          <div>
+                            <h2 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Assign New Task</h2>
+                            <p className="text-xs text-zinc-500 font-semibold mt-1">Assign a task to an organization staff member.</p>
+                          </div>
+                          <button
+                            onClick={() => setIsTaskModalOpen(false)}
+                            className="w-9 h-9 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-500 hover:text-zinc-900"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <form onSubmit={handleCreateTask} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs font-extrabold text-zinc-900">Task Title *</Label>
+                            <Input
+                              required
+                              placeholder="e.g., Verify attendee check-in desk setup"
+                              value={taskForm.title}
+                              onChange={(e) => setTaskForm(prev => ({ ...prev, title: e.target.value }))}
+                              className="rounded-2xl h-11 border-zinc-200 focus:ring-indigo-500 font-semibold text-sm"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-xs font-extrabold text-zinc-900">Assign To Staff Member *</Label>
+                            <select
+                              required
+                              value={taskForm.assignedToId}
+                              onChange={(e) => setTaskForm(prev => ({ ...prev, assignedToId: e.target.value }))}
+                              className="w-full h-11 px-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                              <option value="">-- Select Staff Member --</option>
+                              {staffList.map((st) => (
+                                <option key={st.user.id} value={st.user.id}>
+                                  {st.user.name || st.user.email} ({st.role?.name || "Staff"})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-extrabold text-zinc-900">Priority</Label>
+                              <select
+                                value={taskForm.priority}
+                                onChange={(e) => setTaskForm(prev => ({ ...prev, priority: e.target.value }))}
+                                className="w-full h-11 px-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              >
+                                <option value="low">Low Priority</option>
+                                <option value="medium">Medium Priority</option>
+                                <option value="high">High Priority</option>
+                                <option value="urgent">Urgent</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-xs font-extrabold text-zinc-900">Due Date</Label>
+                              <Input
+                                type="date"
+                                value={taskForm.dueDate}
+                                onChange={(e) => setTaskForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                                className="rounded-2xl h-11 border-zinc-200 text-xs font-bold"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-xs font-extrabold text-zinc-900">Description / Instructions</Label>
+                            <textarea
+                              rows={3}
+                              placeholder="Provide detailed instructions for the assigned member..."
+                              value={taskForm.description}
+                              onChange={(e) => setTaskForm(prev => ({ ...prev, description: e.target.value }))}
+                              className="w-full p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-end gap-3 border-t border-zinc-100 pt-4">
+                            <Button
+                              type="button"
+                              onClick={() => setIsTaskModalOpen(false)}
+                              variant="outline"
+                              className="rounded-xl border-zinc-200 text-zinc-700 font-bold px-5"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="submit"
+                              disabled={isCreatingTask}
+                              className={`rounded-xl ${activeAccent.bg} text-white font-bold px-6 shadow-sm`}
+                            >
+                              {isCreatingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : "Assign Task"}
+                            </Button>
+                          </div>
+                        </form>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* 6. ANNOUNCEMENTS TAB */}
+                {activeTab === "ANNOUNCEMENTS" && (
+                  <div className="animate-in fade-in duration-500 space-y-6">
+                    {/* TOP BROADCAST FORM CARD */}
+                    <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-6">
+                      <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight">Event Announcements</h1>
+                            <span className="bg-indigo-50 text-indigo-700 text-xs font-black uppercase px-3 py-1 rounded-full border border-indigo-200">
+                              {announcementsList.length} Broadcasted
+                            </span>
+                          </div>
+                          <p className="text-zinc-500 font-medium text-xs sm:text-sm mt-1">
+                            Broadcast important updates, alerts, and instructions to event participants and staff members.
+                          </p>
+                        </div>
+                      </div>
+
+                      {(isOwner || hasPermission("MANAGE_COMMUNICATIONS") || hasPermission("MANAGE_EVENT")) && (
+                        <form onSubmit={handleBroadcastAnnouncement} className="space-y-4 bg-zinc-50/80 p-5 rounded-3xl border border-zinc-200">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex-1 space-y-1">
+                              <Label className="text-xs font-extrabold text-zinc-900">Announcement Title (Optional)</Label>
+                              <Input
+                                placeholder="e.g., Gate 3 Check-in Desk Relocated to Hall B"
+                                value={announcementForm.title}
+                                onChange={(e) => setAnnouncementForm(prev => ({ ...prev, title: e.target.value }))}
+                                className="rounded-2xl h-11 bg-white border-zinc-200 focus:ring-indigo-500 font-semibold text-sm"
+                              />
+                            </div>
+
+                            <div className="w-full md:w-64 space-y-1">
+                              <Label className="text-xs font-extrabold text-zinc-900">Target Audience *</Label>
+                              <select
+                                value={announcementForm.targetGroup}
+                                onChange={(e) => setAnnouncementForm(prev => ({ ...prev, targetGroup: e.target.value }))}
+                                className="w-full h-11 px-4 rounded-2xl bg-white border border-zinc-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              >
+                                <option value="all">🌐 All Participants & Staff</option>
+                                <option value="participants">👥 Participants Only</option>
+                                <option value="staff">🛡️ Staff & Volunteers Only</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs font-extrabold text-zinc-900">Broadcast Message *</Label>
+                            <textarea
+                              required
+                              rows={3}
+                              placeholder="Write your announcement message here..."
+                              value={announcementForm.message}
+                              onChange={(e) => setAnnouncementForm(prev => ({ ...prev, message: e.target.value }))}
+                              className="w-full p-4 rounded-2xl bg-white border border-zinc-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          <div className="flex justify-end">
+                            <Button
+                              type="submit"
+                              disabled={isBroadcasting}
+                              className={`rounded-2xl ${activeAccent.bg} text-white font-bold px-8 h-12 shadow-md hover:scale-105 transition-transform flex items-center gap-2`}
+                            >
+                              {isBroadcasting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4" /> Broadcast Announcement</>}
+                            </Button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+
+                    {/* PAST ANNOUNCEMENTS BROADCAST FEED */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-extrabold text-zinc-900 px-2 flex items-center gap-2">
+                        <Megaphone className="w-5 h-5 text-indigo-600" /> Past Broadcast History
+                      </h3>
+
+                      {isFetchingTab ? (
+                        <div className="p-12 text-center bg-white rounded-3xl border border-zinc-200">
+                          <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-600 mb-3" />
+                          <p className="text-zinc-500 text-sm font-semibold">Loading broadcast history...</p>
+                        </div>
+                      ) : announcementsList.length === 0 ? (
+                        <div className="p-12 text-center bg-white rounded-3xl border border-zinc-200 space-y-3">
+                          <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                            <Megaphone className="w-7 h-7" />
+                          </div>
+                          <h3 className="text-lg font-extrabold text-zinc-900">No Broadcasts Yet</h3>
+                          <p className="text-xs text-zinc-500 font-medium max-w-md mx-auto">
+                            Broadcast messages to alert attendees, provide venue updates, or send staff instructions.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-4">
+                          {announcementsList.map((ann) => (
+                            <div key={ann.id} className="p-6 rounded-3xl bg-white border border-zinc-200 shadow-xs space-y-4 hover:shadow-md transition-shadow">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-100 pb-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-2xl bg-indigo-500 text-white font-extrabold flex items-center justify-center text-sm shadow-xs shrink-0">
+                                    {ann.author?.name ? ann.author.name[0].toUpperCase() : "A"}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-extrabold text-sm text-zinc-900">{ann.title}</h4>
+                                    <p className="text-[11px] text-zinc-400 font-semibold">
+                                      By <span className="text-zinc-700 font-bold">{ann.author?.name || "Organizer"}</span> • {new Date(ann.createdAt).toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200">
+                                    {ann.targetGroup === 'all' ? '🌐 All Members' : ann.targetGroup === 'staff' ? '🛡️ Staff Only' : '👥 Participants Only'}
+                                  </span>
+
+                                  {(isOwner || ann.author?.id === creatorUser?.id || hasPermission("MANAGE_COMMUNICATIONS")) && (
+                                    <Button
+                                      type="button"
+                                      onClick={() => handleDeleteAnnouncement(ann.id)}
+                                      disabled={isDeletingAnnId === ann.id}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="rounded-xl text-xs text-red-600 hover:bg-red-50 hover:text-red-800 font-bold p-2"
+                                    >
+                                      {isDeletingAnnId === ann.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+
+                              <p className="text-xs text-zinc-700 font-medium leading-relaxed whitespace-pre-wrap">
+                                {ann.message}
+                              </p>
+
+                              {/* EMOJI REACTION BAR */}
+                              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-100">
+                                {['👍', '❤️', '🔥', '🎉', '🚀', '👏'].map((emoji) => {
+                                  const rSummary = ann.reactionSummary?.find((r: any) => r.emoji === emoji);
+                                  const count = rSummary?.count || 0;
+                                  const hasReacted = rSummary?.hasReacted || false;
+
+                                  return (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => handleToggleEmojiReaction(ann.id, emoji)}
+                                      disabled={reactingAnnId === ann.id}
+                                      className={`px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                                        hasReacted
+                                          ? "bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs scale-105"
+                                          : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:scale-105"
+                                      }`}
+                                    >
+                                      <span>{emoji}</span>
+                                      {count > 0 && <span>{count}</span>}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1774,7 +2977,7 @@ export default function EventDetailsPage() {
                   </div>
                 )}
 
-                {/* 5. ORGANIZER SETTINGS TAB */}
+                {/* 7. ORGANIZER SETTINGS TAB */}
                 {activeTab === "ORGANIZER_SETTINGS" && isOwner && (
                   <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-8">
                     <div>
@@ -2266,6 +3469,54 @@ export default function EventDetailsPage() {
           )}
         </AnimatePresence>
 
+        {/* REUSABLE UI CONFIRMATION MODAL */}
+        <AnimatePresence>
+          {confirmModal.isOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+              onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white max-w-md w-full rounded-[2.5rem] border border-zinc-200 shadow-2xl p-6 sm:p-8 space-y-6"
+              >
+                <div className="space-y-2">
+                  <h3 className="text-xl font-extrabold text-zinc-900">{confirmModal.title}</h3>
+                  <p className="text-xs text-zinc-500 font-medium leading-relaxed">{confirmModal.description}</p>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 border-t border-zinc-100 pt-4">
+                  <Button
+                    type="button"
+                    onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                    variant="outline"
+                    className="rounded-xl border-zinc-200 text-zinc-700 font-bold px-5"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const fn = confirmModal.onConfirm;
+                      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                      fn();
+                    }}
+                    className="rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold px-6 shadow-sm"
+                  >
+                    Confirm Action
+                  </Button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         </div>
       </div>
     );
@@ -2683,6 +3934,70 @@ export default function EventDetailsPage() {
               </div>
             </div>
           </div>
+
+          {/* Card Block 5: Announcements & Broadcast Updates Feed */}
+          {announcementsList.length > 0 && (
+            <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
+              <div className="flex items-center justify-between">
+                <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
+                  <Megaphone className={`w-5 h-5 ${theme.accent}`} /> Event Announcements & Updates
+                </h2>
+                <span className={`text-xs font-black uppercase px-3 py-1 rounded-full ${theme.isDark ? "bg-indigo-950/60 text-indigo-300 border border-indigo-800" : "bg-indigo-50 text-indigo-700 border border-indigo-200"}`}>
+                  {announcementsList.length} Messages
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {announcementsList.map((ann) => (
+                  <div key={ann.id} className={`p-5 rounded-2xl border transition-all ${theme.isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-white border-zinc-200 shadow-xs"}`}>
+                    <div className="flex items-center justify-between border-b border-current/10 pb-3 mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-500 text-white font-extrabold flex items-center justify-center text-xs shadow-xs">
+                          {ann.author?.name ? ann.author.name[0].toUpperCase() : "A"}
+                        </div>
+                        <div>
+                          <h4 className={`font-extrabold text-sm ${theme.textHeading}`}>{ann.title}</h4>
+                          <p className={`text-[10px] font-bold ${theme.textMuted}`}>
+                            {ann.author?.name || "Organizer"} • {new Date(ann.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className={`text-xs font-medium leading-relaxed whitespace-pre-wrap ${theme.textMuted}`}>
+                      {ann.message}
+                    </p>
+
+                    {/* EMOJI REACTION BAR */}
+                    <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-current/10">
+                      {['👍', '❤️', '🔥', '🎉', '🚀', '👏'].map((emoji) => {
+                        const rSummary = ann.reactionSummary?.find((r: any) => r.emoji === emoji);
+                        const count = rSummary?.count || 0;
+                        const hasReacted = rSummary?.hasReacted || false;
+
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleToggleEmojiReaction(ann.id, emoji)}
+                            disabled={reactingAnnId === ann.id}
+                            className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                              hasReacted
+                                ? theme.isDark ? "bg-indigo-600/30 border-indigo-400 text-indigo-200" : "bg-indigo-50 border-indigo-300 text-indigo-900"
+                                : theme.isDark ? "bg-zinc-800/60 border-zinc-700 text-zinc-300 hover:bg-zinc-800" : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
+                            }`}
+                          >
+                            <span>{emoji}</span>
+                            {count > 0 && <span>{count}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
 

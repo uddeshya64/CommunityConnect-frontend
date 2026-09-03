@@ -99,7 +99,6 @@ export default function Sidebar({
             <div className={`w-8 h-8 shrink-0 rounded-xl bg-gradient-to-br ${activeAccent.gradient} shadow-sm flex items-center justify-center`}>
               <span className="text-white text-xs font-black">CC</span>
             </div>
-            {!isCollapsed}
           </Link>
 
           {/* Collapse toggle — desktop only, hidden inside the mobile drawer copy */}

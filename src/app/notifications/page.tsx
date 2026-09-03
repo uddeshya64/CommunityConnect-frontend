@@ -68,6 +68,7 @@ function NotificationsPageContent() {
   // 2. Handle Action (Accept / Decline)
   const handleAction = async (item: NotificationItem, action: 'accept' | 'decline') => {
     try {
+      if (!item.token) return;
       setProcessingId(`${item.id}_${action}`);
       setAlert(null);
 
@@ -281,6 +282,8 @@ function NotificationsPageContent() {
                         <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${
                           item.type === 'TEAM_INVITE' 
                             ? 'from-indigo-500 to-purple-600' 
+                            : item.type === 'ROLE_UPDATE'
+                            ? 'from-purple-500 to-indigo-600'
                             : 'from-amber-500 to-orange-600'
                         } flex items-center justify-center text-white shrink-0 shadow-inner`}>
                           {item.type === 'TEAM_INVITE' ? <Users className="w-7 h-7" /> : <Shield className="w-7 h-7" />}
@@ -293,9 +296,11 @@ function NotificationsPageContent() {
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                             item.type === 'TEAM_INVITE' 
                               ? (isDark ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700') 
+                              : item.type === 'ROLE_UPDATE'
+                              ? (isDark ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-50 text-purple-700')
                               : (isDark ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-50 text-amber-700')
                           }`}>
-                            {item.type === 'TEAM_INVITE' ? 'Team Invite' : 'Staff Invite'}
+                            {item.type === 'TEAM_INVITE' ? 'Team Invite' : item.type === 'ROLE_UPDATE' ? 'Role Updated' : 'Staff Invite'}
                           </span>
                           <span className="text-zinc-400 font-bold text-xs">
                             {new Date(item.created_at).toLocaleDateString(undefined, { 
@@ -309,6 +314,10 @@ function NotificationsPageContent() {
                           <p className={`font-semibold text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
                             You were invited to join <span className={`font-black ${activeAccent.text}`}>{item.teamName}</span> for <span className={`font-bold ${isDark ? "text-white" : "text-zinc-950"}`}>{item.eventName}</span>.
                           </p>
+                        ) : item.type === 'ROLE_UPDATE' ? (
+                          <p className={`font-semibold text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+                            Your role for <span className={`font-bold ${isDark ? "text-white" : "text-zinc-950"}`}>{item.eventName}</span> was updated to <span className="text-purple-500 font-black">{item.roleName}</span>.
+                          </p>
                         ) : (
                           <p className={`font-semibold text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
                             You were invited to join the staff for <span className={`font-bold ${isDark ? "text-white" : "text-zinc-950"}`}>{item.eventName}</span> as a <span className="text-amber-500 font-black">{item.roleName}</span>.
@@ -319,38 +328,48 @@ function NotificationsPageContent() {
 
                     {/* Actions panel */}
                     <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0 justify-end">
-                      <Button
-                        variant="outline"
-                        onClick={() => handleAction(item, 'decline')}
-                        disabled={processingId !== null}
-                        className={`rounded-full px-5 h-10 font-bold transition-all shadow-xs ${
-                          isDark
-                            ? "border-zinc-700 bg-zinc-800 text-white hover:bg-zinc-700 hover:text-white"
-                            : "border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 hover:text-black"
-                        }`}
-                      >
-                        {processingId === `${item.id}_decline` ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <X className="w-4 h-4 mr-1.5" /> Decline
-                          </>
-                        )}
-                      </Button>
-                      
-                      <Button
-                        onClick={() => handleAction(item, 'accept')}
-                        disabled={processingId !== null}
-                        className={`rounded-full ${activeAccent.bg} text-white hover:opacity-95 shadow-md ${activeAccent.shadow} px-6 h-10 font-bold transition-all hover:scale-105`}
-                      >
-                        {processingId === `${item.id}_accept` ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Check className="w-4 h-4 mr-1.5" /> Accept
-                          </>
-                        )}
-                      </Button>
+                      {item.type === 'ROLE_UPDATE' ? (
+                        <Link href={item.eventId ? `/events/${item.eventId}` : '/events/mine/myEvents'}>
+                          <Button className={`rounded-full ${activeAccent.bg} text-white font-bold px-6 h-10 shadow-md hover:opacity-90`}>
+                            View Event
+                          </Button>
+                        </Link>
+                      ) : (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={() => handleAction(item, 'decline')}
+                            disabled={processingId !== null}
+                            className={`rounded-full px-5 h-10 font-bold transition-all shadow-xs ${
+                              isDark
+                                ? "border-zinc-700 bg-zinc-800 text-white hover:bg-zinc-700 hover:text-white"
+                                : "border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 hover:text-black"
+                            }`}
+                          >
+                            {processingId === `${item.id}_decline` ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <X className="w-4 h-4 mr-1.5" /> Decline
+                              </>
+                            )}
+                          </Button>
+                          
+                          <Button
+                            onClick={() => handleAction(item, 'accept')}
+                            disabled={processingId !== null}
+                            className={`rounded-full ${activeAccent.bg} text-white hover:opacity-95 shadow-md ${activeAccent.shadow} px-6 h-10 font-bold transition-all hover:scale-105`}
+                          >
+                            {processingId === `${item.id}_accept` ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Check className="w-4 h-4 mr-1.5" /> Accept
+                              </>
+                            )}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </motion.div>
                 ))}

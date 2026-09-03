@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Menu, User } from "lucide-react";
+import { Bell, Menu } from "lucide-react";
 import { useUser } from "@/components/providers/UserProvider";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { notificationService } from "@/services/notification.service";
@@ -22,6 +22,7 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
   useEffect(() => {
     let isMounted = true;
     const fetchNotifications = async () => {
+      if (!profile) return;
       try {
         const notifs = await notificationService.getNotifications();
         if (isMounted && Array.isArray(notifs)) {
@@ -36,7 +37,7 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
     return () => {
       isMounted = false;
     };
-  }, [pathname]);
+  }, [pathname, profile]);
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
