@@ -21,21 +21,51 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
 
   useEffect(() => {
     let isMounted = true;
-    const fetchNotifications = async () => {
+
+    const checkUnreadNotifications = async () => {
       if (!profile) return;
+      if (pathname === "/notifications") {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("cc_notifications_last_viewed", new Date().toISOString());
+        }
+        if (isMounted) setHasNotifications(false);
+        return;
+      }
+
       try {
         const notifs = await notificationService.getNotifications();
         if (isMounted && Array.isArray(notifs)) {
-          setHasNotifications(notifs.length > 0);
+          const lastViewedStr = typeof window !== "undefined" ? localStorage.getItem("cc_notifications_last_viewed") : null;
+          const lastViewedTime = lastViewedStr ? new Date(lastViewedStr).getTime() : 0;
+
+          // Only show red dot if there are notifications created AFTER last viewed time
+          const hasUnreadNew = notifs.some((n: any) => {
+            const notifTime = new Date(n.created_at || Date.now()).getTime();
+            return notifTime > lastViewedTime;
+          });
+
+          setHasNotifications(hasUnreadNew);
         }
       } catch (err) {
         if (isMounted) setHasNotifications(false);
       }
     };
 
-    fetchNotifications();
+    checkUnreadNotifications();
+
+    const handleNotificationsRead = () => {
+      if (isMounted) setHasNotifications(false);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("cc_notifications_read", handleNotificationsRead);
+    }
+
     return () => {
       isMounted = false;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("cc_notifications_read", handleNotificationsRead);
+      }
     };
   }, [pathname, profile]);
 

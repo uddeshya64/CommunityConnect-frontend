@@ -31,6 +31,11 @@ function NotificationsPageContent() {
       setIsLoading(true);
       const data = await notificationService.getNotifications();
       setNotifications(data);
+      // Mark notifications as read/viewed so the red dot indicator disappears
+      if (typeof window !== "undefined") {
+        localStorage.setItem("cc_notifications_last_viewed", new Date().toISOString());
+        window.dispatchEvent(new CustomEvent("cc_notifications_read"));
+      }
     } catch (err: any) {
       setAlert({
         type: 'error',
