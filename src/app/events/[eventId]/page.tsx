@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
-  HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, CheckSquare, Megaphone, Send, Smile, MessageSquare
+  HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, CheckSquare, Megaphone, Send, Smile, MessageSquare, Gamepad2
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { useToast } from "@/components/providers/ToastProvider";
 import AppLayout from "@/components/layout/AppLayout";
 import Navbar from "@/components/layout/Navbar";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import ActivityManagerTab from "@/components/gamification/ActivityManagerTab";
 
 interface EventDetails {
   id: string;
@@ -290,7 +291,7 @@ export default function EventDetailsPage() {
   const [permissions, setPermissions] = useState<string[]>([]);
 
   const [viewMode, setViewMode] = useState<"DASHBOARD" | "PREVIEW">("PREVIEW");
-  const [activeTab, setActiveTab] = useState<"OVERVIEW" | "PARTICIPANTS" | "EDIT" | "AGENDA" | "STAFF" | "TASKS" | "ANNOUNCEMENTS" | "SETTINGS" | "ORGANIZER_SETTINGS">("OVERVIEW");
+  const [activeTab, setActiveTab] = useState<"OVERVIEW" | "PARTICIPANTS" | "EDIT" | "AGENDA" | "STAFF" | "TASKS" | "ANNOUNCEMENTS" | "ACTIVITIES" | "SETTINGS" | "ORGANIZER_SETTINGS">("OVERVIEW");
 
 
 
@@ -840,21 +841,24 @@ export default function EventDetailsPage() {
 
   const handleConfirmDelete = async () => {
     if (!event) return;
-    if (deleteConfirmText.trim() !== event.title) {
-      alert(`Please type "${event.title}" to confirm.`);
+    const normalizedInput = deleteConfirmText.trim().toLowerCase();
+    const normalizedTitle = event.title.trim().toLowerCase();
+
+    if (normalizedInput !== normalizedTitle) {
+      showError(`Please type "${event.title.trim()}" to confirm deletion.`);
       return;
     }
     try {
       setIsDeleting(true);
       await eventService.deleteEvent(eventId);
       showSuccess("Event deleted successfully!");
+      setShowDeleteModal(false);
       router.push("/home");
     } catch (err: any) {
-      console.error(err);
-      alert(err.response?.data?.error || "Failed to delete the event.");
+      console.error("Delete event error:", err);
+      showError(err.response?.data?.error || "Failed to delete the event.");
     } finally {
       setIsDeleting(false);
-      setShowDeleteModal(false);
     }
   };
 
@@ -969,35 +973,115 @@ export default function EventDetailsPage() {
     }
   };
 
+  const stopVideoTracks = () => {
+    try {
+      const videoElements = document.querySelectorAll("#qr-scanner-element video");
+      videoElements.forEach((videoEl: any) => {
+        videoEl.onabort = null;
+        videoEl.onerror = null;
+        if (videoEl.srcObject) {
+          const stream = videoEl.srcObject as MediaStream;
+          stream.getTracks().forEach((track) => {
+            try {
+              track.stop();
+            } catch (e) {}
+          });
+          videoEl.srcObject = null;
+        }
+      });
+    } catch (e) {}
+  };
+
+  const handleCloseScanner = () => {
+    setIsQrScanning(false);
+    stopVideoTracks();
+  };
+
   useEffect(() => {
     let html5Qrcode: Html5Qrcode | null = null;
+    let isCancelled = false;
+
     if (isQrScanning) {
-      const timer = setTimeout(() => {
-        html5Qrcode = new Html5Qrcode("qr-scanner-element");
-        html5Qrcode.start(
-          { facingMode: "environment" },
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 }
-          },
-          (qrCodeMessage) => {
-            if (html5Qrcode) {
-              html5Qrcode.stop().catch(console.error);
+      const timer = setTimeout(async () => {
+        const scannerElement = document.getElementById("qr-scanner-element");
+        if (!scannerElement || isCancelled) return;
+
+        try {
+          html5Qrcode = new Html5Qrcode("qr-scanner-element");
+          if (isCancelled) {
+            try {
+              html5Qrcode.clear();
+            } catch (e) {}
+            return;
+          }
+
+          await html5Qrcode.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 }
+            },
+            async (qrCodeMessage) => {
+              isCancelled = true;
+              stopVideoTracks();
+              if (html5Qrcode && html5Qrcode.isScanning) {
+                await html5Qrcode.stop().catch(() => {});
+                try {
+                  html5Qrcode.clear();
+                } catch (e) {}
+              }
+              handleCloseScanner();
+              handleQrCheckIn(qrCodeMessage);
+            },
+            () => { }
+          );
+
+          const videoEl = document.querySelector("#qr-scanner-element video") as any;
+          if (videoEl) {
+            videoEl.onabort = (e: any) => {
+              if (e && typeof e.preventDefault === "function") e.preventDefault();
+              if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+            };
+            videoEl.onerror = (e: any) => {
+              if (e && typeof e.preventDefault === "function") e.preventDefault();
+              if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+            };
+          }
+
+          if (isCancelled && html5Qrcode) {
+            stopVideoTracks();
+            if (html5Qrcode.isScanning) {
+              await html5Qrcode.stop().catch(() => {});
             }
-            handleQrCheckIn(qrCodeMessage);
-          },
-          () => { }
-        ).catch(err => {
+            try {
+              html5Qrcode.clear();
+            } catch (e) {}
+          }
+        } catch (err: any) {
           console.error("Failed to start QR scanner:", err);
-          alert("Could not open camera. Please check camera permissions.");
-          setIsQrScanning(false);
-        });
-      }, 300);
+          if (!isCancelled) {
+            alert("Could not open camera. Please check camera permissions.");
+            handleCloseScanner();
+          }
+        }
+      }, 250);
 
       return () => {
+        isCancelled = true;
         clearTimeout(timer);
-        if (html5Qrcode && html5Qrcode.isScanning) {
-          html5Qrcode.stop().catch(console.error);
+        stopVideoTracks();
+        if (html5Qrcode) {
+          if (html5Qrcode.isScanning) {
+            html5Qrcode.stop().then(() => {
+              try {
+                html5Qrcode?.clear();
+              } catch (e) {}
+            }).catch(() => {});
+          } else {
+            try {
+              html5Qrcode.clear();
+            } catch (e) {}
+          }
         }
       };
     }
@@ -1493,6 +1577,12 @@ export default function EventDetailsPage() {
             {(hasPermission("VIEW_DASHBOARD") || isStaff || isOwner || hasPermission("MANAGE_COMMUNICATIONS") || hasPermission("MANAGE_EVENT")) && (
               <button onClick={() => setActiveTab("ANNOUNCEMENTS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "ANNOUNCEMENTS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
                 <Megaphone className="w-4 h-4 md:w-5 md:h-5" /> Announcements
+              </button>
+            )}
+
+            {(hasPermission("MANAGE_AGENDA") || hasPermission("MANAGE_CONTENT") || hasPermission("MANAGE_EVENT") || hasPermission("VIEW_DASHBOARD") || isStaff || isOwner) && (
+              <button onClick={() => setActiveTab("ACTIVITIES")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "ACTIVITIES" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
+                <Gamepad2 className="w-4 h-4 md:w-5 md:h-5" /> Activities & Quizzes
               </button>
             )}
 
@@ -2977,6 +3067,17 @@ export default function EventDetailsPage() {
                   </div>
                 )}
 
+                {/* ACTIVITIES & GAMIFICATION TAB */}
+                {activeTab === "ACTIVITIES" && (
+                  <ActivityManagerTab 
+                    eventId={eventId as string} 
+                    isOwner={isOwner} 
+                    hasPermission={hasPermission} 
+                    activeAccent={activeAccent} 
+                    isDark={isDark} 
+                  />
+                )}
+
                 {/* 7. ORGANIZER SETTINGS TAB */}
                 {activeTab === "ORGANIZER_SETTINGS" && isOwner && (
                   <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-8">
@@ -3117,7 +3218,7 @@ export default function EventDetailsPage() {
             >
               <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative">
                 <button
-                  onClick={() => setIsQrScanning(false)}
+                  onClick={handleCloseScanner}
                   type="button"
                   className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-700 p-2"
                 >
@@ -3140,7 +3241,7 @@ export default function EventDetailsPage() {
                 )}
 
                 <Button
-                  onClick={() => setIsQrScanning(false)}
+                  onClick={handleCloseScanner}
                   type="button"
                   className="w-full mt-4 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-bold py-3"
                 >
@@ -3410,13 +3511,13 @@ export default function EventDetailsPage() {
               <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4">
                 <h3 className="text-xl font-extrabold text-zinc-900">Confirm Deletion</h3>
                 <p className="text-sm font-medium text-zinc-600">
-                  Type <span className="font-mono font-bold text-zinc-900">&quot;{event.title}&quot;</span> to confirm permanent deletion.
+                  Type <span className="font-mono font-bold text-zinc-900">&quot;{event?.title?.trim()}&quot;</span> to confirm permanent deletion.
                 </p>
                 <Input
                   value={deleteConfirmText}
                   onChange={(e) => setDeleteConfirmText(e.target.value)}
                   placeholder="Enter event title..."
-                  className="py-5 bg-zinc-50 border-zinc-200 rounded-xl font-semibold"
+                  className="py-5 bg-zinc-50 border-zinc-200 rounded-xl font-semibold text-zinc-900"
                 />
                 <div className="flex gap-3 pt-2">
                   <Button
@@ -3425,7 +3526,11 @@ export default function EventDetailsPage() {
                   >
                     Cancel
                   </Button>
-                  <Button className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold py-5 shadow-md shadow-red-600/20" disabled={isDeleting} onClick={handleConfirmDelete}>
+                  <Button 
+                    className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold py-5 shadow-md shadow-red-600/20 disabled:opacity-50" 
+                    disabled={isDeleting || deleteConfirmText.trim().toLowerCase() !== (event?.title || "").trim().toLowerCase()} 
+                    onClick={handleConfirmDelete}
+                  >
                     {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
                   </Button>
                 </div>
@@ -3935,69 +4040,7 @@ export default function EventDetailsPage() {
             </div>
           </div>
 
-          {/* Card Block 5: Announcements & Broadcast Updates Feed */}
-          {announcementsList.length > 0 && (
-            <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
-              <div className="flex items-center justify-between">
-                <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
-                  <Megaphone className={`w-5 h-5 ${theme.accent}`} /> Event Announcements & Updates
-                </h2>
-                <span className={`text-xs font-black uppercase px-3 py-1 rounded-full ${theme.isDark ? "bg-indigo-950/60 text-indigo-300 border border-indigo-800" : "bg-indigo-50 text-indigo-700 border border-indigo-200"}`}>
-                  {announcementsList.length} Messages
-                </span>
-              </div>
 
-              <div className="space-y-4">
-                {announcementsList.map((ann) => (
-                  <div key={ann.id} className={`p-5 rounded-2xl border transition-all ${theme.isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-white border-zinc-200 shadow-xs"}`}>
-                    <div className="flex items-center justify-between border-b border-current/10 pb-3 mb-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-500 text-white font-extrabold flex items-center justify-center text-xs shadow-xs">
-                          {ann.author?.name ? ann.author.name[0].toUpperCase() : "A"}
-                        </div>
-                        <div>
-                          <h4 className={`font-extrabold text-sm ${theme.textHeading}`}>{ann.title}</h4>
-                          <p className={`text-[10px] font-bold ${theme.textMuted}`}>
-                            {ann.author?.name || "Organizer"} • {new Date(ann.createdAt).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className={`text-xs font-medium leading-relaxed whitespace-pre-wrap ${theme.textMuted}`}>
-                      {ann.message}
-                    </p>
-
-                    {/* EMOJI REACTION BAR */}
-                    <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-current/10">
-                      {['👍', '❤️', '🔥', '🎉', '🚀', '👏'].map((emoji) => {
-                        const rSummary = ann.reactionSummary?.find((r: any) => r.emoji === emoji);
-                        const count = rSummary?.count || 0;
-                        const hasReacted = rSummary?.hasReacted || false;
-
-                        return (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => handleToggleEmojiReaction(ann.id, emoji)}
-                            disabled={reactingAnnId === ann.id}
-                            className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
-                              hasReacted
-                                ? theme.isDark ? "bg-indigo-600/30 border-indigo-400 text-indigo-200" : "bg-indigo-50 border-indigo-300 text-indigo-900"
-                                : theme.isDark ? "bg-zinc-800/60 border-zinc-700 text-zinc-300 hover:bg-zinc-800" : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
-                            }`}
-                          >
-                            <span>{emoji}</span>
-                            {count > 0 && <span>{count}</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
         </div>
 

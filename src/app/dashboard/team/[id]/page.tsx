@@ -10,7 +10,7 @@ import {
   MapPin, Share2, ExternalLink, Download, CreditCard,
   Receipt, Mail, Copy, CheckCircle2, UserCircle2,
   CalendarPlus, ShieldCheck, Printer, Bell, Compass, Laptop, MonitorSmartphone, Building2,
-  Sparkles, Tag, User
+  Sparkles, Tag, User, Megaphone, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,11 @@ export default function TeamParticipantDashboard() {
   const [isCalendarConnected, setIsCalendarConnected] = useState(false);
   const [personalAgenda, setPersonalAgenda] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Announcements State
+  const [announcementsList, setAnnouncementsList] = useState<any[]>([]);
+  const [visibleAnnouncementsCount, setVisibleAnnouncementsCount] = useState(3);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(false);
+  const [reactingAnnId, setReactingAnnId] = useState<number | null>(null);
 
   // UI Action States
   const [isEditingName, setIsEditingName] = useState(false);
@@ -131,10 +136,42 @@ export default function TeamParticipantDashboard() {
     }
   };
 
+  const fetchAnnouncements = useCallback(async (eventId: number) => {
+    try {
+      setIsLoadingAnnouncements(true);
+      const res = await api.get(`/events/${eventId}/announcements`);
+      setAnnouncementsList(res.data.data || []);
+    } catch (err) {
+      console.error("Failed to load announcements for dashboard", err);
+    } finally {
+      setIsLoadingAnnouncements(false);
+    }
+  }, []);
+
+  const handleToggleEmojiReaction = async (announcementId: number, emoji: string) => {
+    const eventId = teamData?.event?.id;
+    if (!eventId) return;
+    try {
+      setReactingAnnId(announcementId);
+      const res = await api.post(`/events/${eventId}/announcements/${announcementId}/react`, { emoji });
+      setAnnouncementsList(res.data.data || []);
+    } catch (err: any) {
+      console.error("Failed to toggle reaction", err);
+    } finally {
+      setReactingAnnId(null);
+    }
+  };
+
   useEffect(() => {
     if (id) fetchDashboardData();
     fetchAgendaStatus();
   }, [id]);
+
+  useEffect(() => {
+    if (teamData?.event?.id) {
+      fetchAnnouncements(teamData.event.id);
+    }
+  }, [teamData?.event?.id, fetchAnnouncements]);
 
   // --- API HANDLERS MATCHING YOUR VALIDATION & ROUTES ---
 
@@ -273,12 +310,6 @@ export default function TeamParticipantDashboard() {
   const currentUserMember = getCurrentUserMember();
   const userTicketCode = currentUserMember?.ticket_code || null;
 
-  // Use the pre-calculated capacity from your new backend logic
-  const maxTeamSize = teamData?.event?.max_team_size || 5;
-  const emptySlotsCount = teamData?.capacity?.seats_available || 0;
-  const isTeamFull = teamData?.capacity?.is_full || false;
-  const meetsMinimum = teamData?.capacity?.meets_minimum || false;
-
   const regType = (
     teamData?.event?.registration_type ||
     teamData?.event?.regType ||
@@ -287,7 +318,11 @@ export default function TeamParticipantDashboard() {
     ""
   ).toLowerCase();
 
-  const isSolo = regType === "solo" || maxTeamSize === 1;
+  const isSolo = regType === "solo" || regType === "individual" || (teamData?.event?.max_team_size !== undefined && Number(teamData?.event?.max_team_size) <= 1);
+  const maxTeamSize = teamData?.event?.max_team_size ?? (isSolo ? 1 : 5);
+  const emptySlotsCount = isSolo ? 0 : (teamData?.capacity?.seats_available || 0);
+  const isTeamFull = teamData?.capacity?.is_full || false;
+  const meetsMinimum = teamData?.capacity?.meets_minimum || false;
 
   // Rich Event & Booking Metadata Extraction
   const eventDetails = teamData?.event || {};
@@ -782,6 +817,107 @@ export default function TeamParticipantDashboard() {
                 </motion.div>
               )}
 
+            </section>
+          )}
+          {/* 3. EVENT ANNOUNCEMENTS & UPDATES FEED */}
+          {announcementsList.length > 0 && (
+            <section className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl space-y-6 mt-6">
+              <div className="flex items-center justify-between border-b border-white/10 pb-6">
+                <div>
+                  <h3 className="text-2xl font-bold flex items-center gap-3 text-white">
+                    <Megaphone className="w-6 h-6 text-indigo-400" /> Event Announcements
+                  </h3>
+                  <p className="text-zinc-400 mt-1 text-sm font-medium">
+                    Latest broadcasts and updates from event organizers.
+                  </p>
+                </div>
+                <span className="text-xs font-black uppercase px-3.5 py-1.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-800/80">
+                  Showing {Math.min(visibleAnnouncementsCount, announcementsList.length)} of {announcementsList.length} Messages
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {announcementsList.slice(0, visibleAnnouncementsCount).map((ann, idx) => (
+                  <div key={ann.id} className="p-6 rounded-2xl border border-white/10 bg-zinc-900/80 shadow-md space-y-3 transition-all hover:border-white/20 relative">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-extrabold flex items-center justify-center text-sm shadow-md">
+                          {ann.author?.name ? ann.author.name[0].toUpperCase() : "A"}
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-base text-white flex items-center gap-2">
+                            {ann.title}
+                            {idx === 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider">
+                                ✨ Latest Broadcast
+                              </span>
+                            )}
+                          </h4>
+                          <p className="text-xs font-bold text-zinc-400 mt-0.5">
+                            {ann.author?.name || "Organizer"} • {new Date(ann.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap text-zinc-300 pt-1">
+                      {ann.message}
+                    </p>
+
+                    {/* EMOJI REACTION BAR */}
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10">
+                      {['👍', '❤️', '🔥', '🎉', '🚀', '👏'].map((emoji) => {
+                        const rSummary = ann.reactionSummary?.find((r: any) => r.emoji === emoji);
+                        const count = rSummary?.count || 0;
+                        const hasReacted = rSummary?.hasReacted || false;
+
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleToggleEmojiReaction(ann.id, emoji)}
+                            disabled={reactingAnnId === ann.id}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                              hasReacted
+                                ? "bg-indigo-600/30 border-indigo-400 text-indigo-200"
+                                : "bg-zinc-800/80 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:border-zinc-500"
+                            }`}
+                          >
+                            <span>{emoji}</span>
+                            {count > 0 && <span className="font-extrabold">{count}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* PAGINATION CONTROLS: LOAD MORE / SHOW LESS */}
+              {announcementsList.length > 3 && (
+                <div className="pt-4 flex items-center justify-center gap-3">
+                  {announcementsList.length > visibleAnnouncementsCount && (
+                    <Button
+                      onClick={() => setVisibleAnnouncementsCount((prev) => prev + 3)}
+                      variant="outline"
+                      className="h-11 px-6 rounded-xl border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-extrabold transition-all flex items-center gap-2"
+                    >
+                      <span>Load More Announcements</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {visibleAnnouncementsCount > 3 && (
+                    <Button
+                      onClick={() => setVisibleAnnouncementsCount(3)}
+                      variant="outline"
+                      className="h-11 px-6 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-extrabold transition-all flex items-center gap-2"
+                    >
+                      <span>Show Less</span>
+                      <ChevronUp className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </section>
           )}
         </div>

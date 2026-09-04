@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { MapPin, Calendar, CalendarPlus, Plus, CalendarDays, CheckCircle2, Radio } from "lucide-react";
+import { MapPin, Calendar, CalendarPlus, Plus, CalendarDays, CheckCircle2, Radio, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { eventService } from "@/services/event.service";
 import AppLayout from "@/components/layout/AppLayout";
@@ -20,12 +20,14 @@ interface AppEvent {
   attendees?: number;
   createdBy?: number | string;
   bannerUrl?: string | null;
+  staffRoleName?: string;
 }
 
 export default function MyEventsPage() {
   const { isDark, activeAccent } = useAppearance();
   const { profile } = useUser();
   const [events, setEvents] = useState<AppEvent[]>([]);
+  const [contributedEvents, setContributedEvents] = useState<AppEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"upcoming" | "live" | "concluded">("upcoming");
   const userId = profile?.id;
@@ -75,20 +77,59 @@ export default function MyEventsPage() {
         setIsLoading(false);
       }
     };
+
+    const fetchContributedEvents = async () => {
+      try {
+        const response = await eventService.getContributedEvents();
+        const rawList = Array.isArray(response) ? response : (response?.data || []);
+        const formatted = rawList.map((evt: any) => ({
+          id: evt.id || evt._id,
+          title: evt.title,
+          category: evt.type || evt.category || "Meetup",
+          date: evt.start_date || evt.date || new Date().toISOString(),
+          endDate: evt.end_date || evt.endDate || null,
+          location: evt.location || evt.mode || "TBA",
+          attendees: evt.capacity || 0,
+          createdBy: evt.created_by,
+          bannerUrl: evt.banner_url || evt.bannerUrl || evt.banner || null,
+          staffRoleName: evt.staffRoleName || "Staff Member",
+        }));
+        setContributedEvents(formatted);
+      } catch (err) {
+        console.error("Failed to fetch contributed events:", err);
+      }
+    };
+
     fetchEvents();
+    fetchContributedEvents();
   }, []);
 
-  // Split user hosted events into Upcoming, Live, vs Concluded
+  // Split user hosted & contributed events into Upcoming, Live, vs Concluded
   const { upcomingEvents, liveEvents, concludedEvents } = useMemo(() => {
-    if (userId === undefined) return { upcomingEvents: [], liveEvents: [], concludedEvents: [] };
-    const userHosted = events.filter((evt) => String(evt.createdBy) === String(userId));
+    // Combine events created by user AND events where user is assigned as staff
+    const userHosted = userId !== undefined
+      ? events.filter((evt) => String(evt.createdBy) === String(userId))
+      : [];
+
+    const eventMap = new Map<string, AppEvent>();
+    userHosted.forEach((evt) => eventMap.set(String(evt.id), evt));
+    contributedEvents.forEach((evt) => {
+      const existing = eventMap.get(String(evt.id));
+      if (existing) {
+        eventMap.set(String(evt.id), { ...existing, staffRoleName: evt.staffRoleName });
+      } else {
+        eventMap.set(String(evt.id), evt);
+      }
+    });
+    const allUserEvents = Array.from(eventMap.values());
+
     const nowMs = new Date().getTime();
 
     const upcoming: AppEvent[] = [];
     const live: AppEvent[] = [];
     const concluded: AppEvent[] = [];
 
-    userHosted.forEach((evt) => {
+    allUserEvents.forEach((evt) => {
       const startMs = evt.date ? new Date(evt.date).getTime() : NaN;
       let endMs = evt.endDate ? new Date(evt.endDate).getTime() : NaN;
       if (isNaN(endMs) && !isNaN(startMs)) {
@@ -109,7 +150,7 @@ export default function MyEventsPage() {
     });
 
     return { upcomingEvents: upcoming, liveEvents: live, concludedEvents: concluded };
-  }, [events, userId]);
+  }, [events, contributedEvents, userId]);
 
   const activeEvents =
     activeCategory === "upcoming"
@@ -130,7 +171,7 @@ export default function MyEventsPage() {
               <div>
                 <h1 className={`text-4xl md:text-5xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} tracking-tight mb-3`}>My Events</h1>
                 <p className={`text-base sm:text-lg ${isDark ? "text-zinc-300" : "text-zinc-700"} font-medium max-w-2xl`}>
-                  Everything you&apos;ve hosted, categorized by upcoming, live, and concluded events.
+                  Everything you&apos;ve hosted or contributed to as staff, categorized by upcoming, live, and concluded events.
                 </p>
               </div>
               <Link href="/events/create">
@@ -188,7 +229,7 @@ export default function MyEventsPage() {
               </button>
             </div>
 
-            {(isLoading || userId === undefined) && (
+            {isLoading && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
                 {[...Array(3)].map((_, i) => (
                   <div
@@ -208,7 +249,7 @@ export default function MyEventsPage() {
               </div>
             )}
 
-            {!isLoading && userId !== undefined && activeEvents.length === 0 && (
+            {!isLoading && activeEvents.length === 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -227,10 +268,10 @@ export default function MyEventsPage() {
                 </h3>
                 <p className={`text-lg ${isDark ? "text-zinc-300" : "text-zinc-700"} font-medium mb-10 max-w-md mx-auto`}>
                   {activeCategory === "upcoming"
-                    ? "Events you host that are scheduled for the future will show up here. Ready to create one?"
+                    ? "Events you host or contribute to as staff that are scheduled for the future will show up here. Ready to create one?"
                     : activeCategory === "live"
-                    ? "Events you host that are currently in progress will appear live here."
-                    : "Past events you have hosted will appear here once they conclude."}
+                    ? "Events you host or contribute to as staff that are currently in progress will appear live here."
+                    : "Past events you have hosted or contributed to as staff will appear here once they conclude."}
                 </p>
                 {activeCategory === "upcoming" && (
                   <Link href="/events/create">
@@ -273,20 +314,27 @@ export default function MyEventsPage() {
                                 className="w-full h-full object-cover absolute inset-0"
                               />
                             )}
-                            <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
+                            <div className="absolute top-4 left-4 flex flex-wrap items-center gap-2 z-10">
                               <div className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-sm backdrop-blur-md ${isDark ? "bg-zinc-950/80 text-zinc-100" : "bg-white/90 text-zinc-900"}`}>
                                 {event.category || "Tech Event"}
                               </div>
-                              <div className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold shadow-sm backdrop-blur-md uppercase tracking-wider flex items-center gap-1.5 ${
-                                activeCategory === "live"
-                                  ? "bg-red-600 text-white animate-pulse"
-                                  : activeCategory === "concluded"
-                                  ? "bg-zinc-800/90 text-zinc-300 border border-zinc-700"
-                                  : "bg-emerald-500/90 text-white"
-                              }`}>
-                                {activeCategory === "live" && <span className="w-2 h-2 rounded-full bg-white animate-ping" />}
-                                {activeCategory === "live" ? "Live Now" : activeCategory === "concluded" ? "Concluded" : "Upcoming"}
-                              </div>
+                              {event.staffRoleName ? (
+                                <div className="px-2.5 py-1 rounded-full text-[11px] font-extrabold shadow-sm backdrop-blur-md uppercase tracking-wider bg-purple-600 text-white flex items-center gap-1">
+                                  <ShieldCheck className="w-3 h-3" />
+                                  {event.staffRoleName}
+                                </div>
+                              ) : (
+                                <div className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold shadow-sm backdrop-blur-md uppercase tracking-wider flex items-center gap-1.5 ${
+                                  activeCategory === "live"
+                                    ? "bg-red-600 text-white animate-pulse"
+                                    : activeCategory === "concluded"
+                                    ? "bg-zinc-800/90 text-zinc-300 border border-zinc-700"
+                                    : "bg-emerald-500/90 text-white"
+                                }`}>
+                                  {activeCategory === "live" && <span className="w-2 h-2 rounded-full bg-white animate-ping" />}
+                                  {activeCategory === "live" ? "Live Now" : activeCategory === "concluded" ? "Concluded" : "Upcoming"}
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div className="p-5 flex-1 flex flex-col">
