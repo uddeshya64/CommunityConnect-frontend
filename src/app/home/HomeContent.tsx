@@ -299,135 +299,62 @@ export default function HomeContent() {
     const cachedEvents = localStorage.getItem("cc_home_events");
     if (cachedEvents) {
       try {
-        setEvents(JSON.parse(cachedEvents));
-        setIsLoading(false);
+        const parsed = JSON.parse(cachedEvents);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setEvents(parsed);
+          setIsLoading(false);
+        }
       } catch (e) {}
     }
 
-    const fetchEvents =
-      async () => {
-        try {
-          const response =
-            await eventService.getFeed();
+    const fetchEvents = async () => {
+      try {
+        const response = await eventService.getFeed();
 
-          console.log(
-            "🔥 BACKEND FEED DATA:",
-            response
-          );
+        console.log("🔥 BACKEND FEED DATA:", response);
 
-          let rawEvents: any[] =
-            [];
+        let rawEvents: any[] = [];
 
-          if (
-            Array.isArray(response)
-          ) {
-            rawEvents =
-              response;
-          } else if (
-            response?.data?.events &&
-            Array.isArray(
-              response.data.events
-            )
-          ) {
-            rawEvents =
-              response.data.events;
-          } else if (
-            response?.data?.data &&
-            Array.isArray(
-              response.data.data
-            )
-          ) {
-            rawEvents =
-              response.data.data;
-          } else if (
-            response &&
-            Array.isArray(
-              response.data
-            )
-          ) {
-            rawEvents =
-              response.data;
-          } else if (
-            response &&
-            Array.isArray(
-              response.events
-            )
-          ) {
-            rawEvents =
-              response.events;
-          } else {
-            console.error(
-              "🚨 Could not find events array in response",
-              response
-            );
-          }
-
-          // ============================================
-          // FORMAT EVENTS
-          // ============================================
-
-          const formattedEvents =
-            rawEvents.map(
-              (evt: any) => {
-                return {
-                  id:
-                    String(
-                      evt.id ||
-                        evt._id
-                    ),
-
-                  title:
-                    evt.title || "Untitled Event",
-
-                  category:
-                    evt.type?.name ||
-                    evt.type ||
-                    evt.category ||
-                    "Meetup",
-
-                  date:
-                    evt.start_date ||
-                    evt.date ||
-                    new Date().toISOString(),
-
-                  endDate:
-                    evt.end_date ||
-                    null,
-
-                  location:
-                    evt.location ||
-                    evt.mode ||
-                    "TBA",
-
-                  attendees:
-                    evt.capacity ||
-                    0,
-
-                  createdBy:
-                    evt.created_by ?? evt.createdBy,
-
-                  bannerUrl:
-                    evt.banner_url ||
-                    evt.bannerUrl ||
-                    evt.banner ||
-                    null,
-                };
-              }
-            );
-
-          setEvents(
-            formattedEvents
-          );
-          // localStorage.setItem("cc_home_events", JSON.stringify(formattedEvents));
-        } catch (error) {
-          console.error(
-            "Failed to fetch events:",
-            error
-          );
-        } finally {
-          setIsLoading(false);
+        if (Array.isArray(response)) {
+          rawEvents = response;
+        } else if (response?.data?.events && Array.isArray(response.data.events)) {
+          rawEvents = response.data.events;
+        } else if (response?.data?.data && Array.isArray(response.data.data)) {
+          rawEvents = response.data.data;
+        } else if (response && Array.isArray(response.data)) {
+          rawEvents = response.data;
+        } else if (response && Array.isArray(response.events)) {
+          rawEvents = response.events;
+        } else {
+          console.error("🚨 Could not find events array in response", response);
         }
-      };
+
+        const formattedEvents = rawEvents.map((evt: any) => {
+          return {
+            id: String(evt.id || evt._id),
+            title: evt.title || "Untitled Event",
+            category: evt.type?.name || evt.type || evt.category || "Meetup",
+            date: evt.start_date || evt.date || new Date().toISOString(),
+            endDate: evt.end_date || null,
+            location: evt.location || evt.mode || "TBA",
+            attendees: evt.capacity || 0,
+            createdBy: evt.created_by ?? evt.createdBy,
+            bannerUrl: evt.banner_url || evt.bannerUrl || evt.banner || null,
+          };
+        });
+
+        setEvents(formattedEvents);
+        if (formattedEvents.length > 0) {
+          localStorage.setItem("cc_home_events", JSON.stringify(formattedEvents));
+        } else {
+          localStorage.removeItem("cc_home_events");
+        }
+      } catch (error) {
+        console.error("Failed to fetch events:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
     fetchEvents();
   }, []);
