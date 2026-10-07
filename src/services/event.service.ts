@@ -97,5 +97,11 @@ export const eventService = {
     const page = params?.page || 1;
     const response = await api.get(`/events/saved?page=${page}&limit=${limit}`);
     return response.data;
+  },
+
+  // Get contributed events (where user is a staff member / contributor)
+  getContributedEvents: async () => {
+    const response = await api.get('/events/contributed');
+    return response.data;
   }
 };

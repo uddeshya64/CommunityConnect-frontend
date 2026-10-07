@@ -117,18 +117,19 @@ export const pushNotificationService = {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-      let isSubscribed = false;
+      const permissionGranted = Notification.permission === "granted";
+      const isLocalSubscribed = !!subscription && permissionGranted;
 
-      if (token) {
+      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      let isSubscribed = isLocalSubscribed;
+
+      if (token && isLocalSubscribed) {
         try {
           const res = await api.get("/notifications/push/status");
           isSubscribed = !!res.data.isSubscribed;
         } catch {
-          isSubscribed = false;
+          isSubscribed = isLocalSubscribed;
         }
-      } else {
-        isSubscribed = !!subscription && Notification.permission === "granted";
       }
 
       return {
@@ -249,10 +250,14 @@ export const pushNotificationService = {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
 
+      const endpoint = subscription ? subscription.endpoint : undefined;
+
+      // 1. Tell backend to remove subscription from database first
+      await api.post("/notifications/push/unsubscribe", { endpoint }).catch(() => null);
+
+      // 2. Unsubscribe from browser PushManager
       if (subscription) {
-        const endpoint = subscription.endpoint;
         await subscription.unsubscribe();
-        await api.post("/notifications/push/unsubscribe", { endpoint });
       }
 
       return { success: true };

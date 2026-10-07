@@ -10,7 +10,7 @@ import {
   MapPin, Share2, ExternalLink, Download, CreditCard,
   Receipt, Mail, Copy, CheckCircle2, UserCircle2,
   CalendarPlus, ShieldCheck, Printer, Bell, Compass, Laptop, MonitorSmartphone, Building2,
-  Sparkles, Tag, User
+  Sparkles, Tag, User, Megaphone, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,11 @@ export default function TeamParticipantDashboard() {
   const [isCalendarConnected, setIsCalendarConnected] = useState(false);
   const [personalAgenda, setPersonalAgenda] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Announcements State
+  const [announcementsList, setAnnouncementsList] = useState<any[]>([]);
+  const [visibleAnnouncementsCount, setVisibleAnnouncementsCount] = useState(3);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(false);
+  const [reactingAnnId, setReactingAnnId] = useState<number | null>(null);
 
   // UI Action States
   const [isEditingName, setIsEditingName] = useState(false);
@@ -131,10 +136,42 @@ export default function TeamParticipantDashboard() {
     }
   };
 
+  const fetchAnnouncements = useCallback(async (eventId: number) => {
+    try {
+      setIsLoadingAnnouncements(true);
+      const res = await api.get(`/events/${eventId}/announcements`);
+      setAnnouncementsList(res.data.data || []);
+    } catch (err) {
+      console.error("Failed to load announcements for dashboard", err);
+    } finally {
+      setIsLoadingAnnouncements(false);
+    }
+  }, []);
+
+  const handleToggleEmojiReaction = async (announcementId: number, emoji: string) => {
+    const eventId = teamData?.event?.id;
+    if (!eventId) return;
+    try {
+      setReactingAnnId(announcementId);
+      const res = await api.post(`/events/${eventId}/announcements/${announcementId}/react`, { emoji });
+      setAnnouncementsList(res.data.data || []);
+    } catch (err: any) {
+      console.error("Failed to toggle reaction", err);
+    } finally {
+      setReactingAnnId(null);
+    }
+  };
+
   useEffect(() => {
     if (id) fetchDashboardData();
     fetchAgendaStatus();
   }, [id]);
+
+  useEffect(() => {
+    if (teamData?.event?.id) {
+      fetchAnnouncements(teamData.event.id);
+    }
+  }, [teamData?.event?.id, fetchAnnouncements]);
 
   // --- API HANDLERS MATCHING YOUR VALIDATION & ROUTES ---
 
@@ -256,28 +293,22 @@ export default function TeamParticipantDashboard() {
   const invites = teamData?.invites || [];
   const isLeader = teamData?.is_leader || false;
 
-  // Find current user's ticket code from roster
-  const getCurrentUserTicketCode = () => {
+  // Find current user's member object and ticket code from roster
+  const getCurrentUserMember = () => {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
       if (!token) return null;
       const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
       const currentUserId = payload.id || payload.userId || payload._id;
-      const currentUserMember = members.find((m: any) => Number(m.user_id) === Number(currentUserId));
-      return currentUserMember?.ticket_code || null;
+      return members.find((m: any) => Number(m.user_id) === Number(currentUserId)) || null;
     } catch (e) {
-      console.error("Error decoding token for check-in QR:", e);
+      console.error("Error decoding token for member info:", e);
       return null;
     }
   };
 
-  const userTicketCode = getCurrentUserTicketCode();
-
-  // Use the pre-calculated capacity from your new backend logic
-  const maxTeamSize = teamData?.event?.max_team_size || 5;
-  const emptySlotsCount = teamData?.capacity?.seats_available || 0;
-  const isTeamFull = teamData?.capacity?.is_full || false;
-  const meetsMinimum = teamData?.capacity?.meets_minimum || false;
+  const currentUserMember = getCurrentUserMember();
+  const userTicketCode = currentUserMember?.ticket_code || null;
 
   const regType = (
     teamData?.event?.registration_type ||
@@ -287,7 +318,11 @@ export default function TeamParticipantDashboard() {
     ""
   ).toLowerCase();
 
-  const isSolo = regType === "solo" || maxTeamSize === 1;
+  const isSolo = regType === "solo" || regType === "individual" || (teamData?.event?.max_team_size !== undefined && Number(teamData?.event?.max_team_size) <= 1);
+  const maxTeamSize = teamData?.event?.max_team_size ?? (isSolo ? 1 : 5);
+  const emptySlotsCount = isSolo ? 0 : (teamData?.capacity?.seats_available || 0);
+  const isTeamFull = teamData?.capacity?.is_full || false;
+  const meetsMinimum = teamData?.capacity?.meets_minimum || false;
 
   // Rich Event & Booking Metadata Extraction
   const eventDetails = teamData?.event || {};
@@ -600,11 +635,11 @@ export default function TeamParticipantDashboard() {
                       <CheckCircle2 className="w-3 h-3" /> Entry Ticket Confirmed
                     </span>
                     <span className="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
-                      {isSolo ? "Individual Pass" : "Team Pass"}
+                      Entry Pass
                     </span>
                   </div>
                   <h3 className="text-2xl font-black text-white">
-                    {isSolo ? (members[0]?.user?.name || teamData?.name || "Participant") : teamData?.name}
+                    {currentUserMember?.user?.name || members[0]?.user?.name || "Participant"}
                   </h3>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
                     <Button onClick={() => setShowEntryPassModal(true)} variant="default" className="h-11 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/20 transition-all">
@@ -625,9 +660,9 @@ export default function TeamParticipantDashboard() {
               <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-8">
                 <div>
                   <h3 className="text-2xl font-bold flex items-center gap-3">
-                    <Users className="w-6 h-6 text-indigo-400" /> Team Roster
+                    <Users className="w-6 h-6 text-indigo-400" /> {teamData?.name || "Team Members"}
                   </h3>
-                  <p className="text-zinc-500 mt-1 font-medium">Manage your squad for the event.</p>
+                  <p className="text-zinc-500 mt-1 font-medium">Manage members for your team.</p>
                 </div>
                 <div className="text-right flex flex-col items-end gap-2">
                   <div className="flex items-center gap-4">
@@ -776,10 +811,113 @@ export default function TeamParticipantDashboard() {
                   <div className="p-1.5 rounded-full bg-emerald-500/20 text-emerald-300">
                     <Check className="w-5 h-5" />
                   </div>
-                  <p className="font-bold text-sm tracking-wide">Team Capacity Reached. Your roster is locked and ready!</p>
+                  <p className="font-bold text-sm tracking-wide">
+                    {teamData?.name ? `${teamData.name} Capacity Reached.` : "Team Capacity Reached."} Your team is complete and ready!
+                  </p>
                 </motion.div>
               )}
 
+            </section>
+          )}
+          {/* 3. EVENT ANNOUNCEMENTS & UPDATES FEED */}
+          {announcementsList.length > 0 && (
+            <section className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-8 md:p-12 backdrop-blur-xl space-y-6 mt-6">
+              <div className="flex items-center justify-between border-b border-white/10 pb-6">
+                <div>
+                  <h3 className="text-2xl font-bold flex items-center gap-3 text-white">
+                    <Megaphone className="w-6 h-6 text-indigo-400" /> Event Announcements
+                  </h3>
+                  <p className="text-zinc-400 mt-1 text-sm font-medium">
+                    Latest broadcasts and updates from event organizers.
+                  </p>
+                </div>
+                <span className="text-xs font-black uppercase px-3.5 py-1.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-800/80">
+                  Showing {Math.min(visibleAnnouncementsCount, announcementsList.length)} of {announcementsList.length} Messages
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {announcementsList.slice(0, visibleAnnouncementsCount).map((ann, idx) => (
+                  <div key={ann.id} className="p-6 rounded-2xl border border-white/10 bg-zinc-900/80 shadow-md space-y-3 transition-all hover:border-white/20 relative">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-extrabold flex items-center justify-center text-sm shadow-md">
+                          {ann.author?.name ? ann.author.name[0].toUpperCase() : "A"}
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-base text-white flex items-center gap-2">
+                            {ann.title}
+                            {idx === 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider">
+                                ✨ Latest Broadcast
+                              </span>
+                            )}
+                          </h4>
+                          <p className="text-xs font-bold text-zinc-400 mt-0.5">
+                            {ann.author?.name || "Organizer"} • {new Date(ann.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap text-zinc-300 pt-1">
+                      {ann.message}
+                    </p>
+
+                    {/* EMOJI REACTION BAR */}
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10">
+                      {['👍', '❤️', '🔥', '🎉', '🚀', '👏'].map((emoji) => {
+                        const rSummary = ann.reactionSummary?.find((r: any) => r.emoji === emoji);
+                        const count = rSummary?.count || 0;
+                        const hasReacted = rSummary?.hasReacted || false;
+
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleToggleEmojiReaction(ann.id, emoji)}
+                            disabled={reactingAnnId === ann.id}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                              hasReacted
+                                ? "bg-indigo-600/30 border-indigo-400 text-indigo-200"
+                                : "bg-zinc-800/80 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:border-zinc-500"
+                            }`}
+                          >
+                            <span>{emoji}</span>
+                            {count > 0 && <span className="font-extrabold">{count}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* PAGINATION CONTROLS: LOAD MORE / SHOW LESS */}
+              {announcementsList.length > 3 && (
+                <div className="pt-4 flex items-center justify-center gap-3">
+                  {announcementsList.length > visibleAnnouncementsCount && (
+                    <Button
+                      onClick={() => setVisibleAnnouncementsCount((prev) => prev + 3)}
+                      variant="outline"
+                      className="h-11 px-6 rounded-xl border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-extrabold transition-all flex items-center gap-2"
+                    >
+                      <span>Load More Announcements</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {visibleAnnouncementsCount > 3 && (
+                    <Button
+                      onClick={() => setVisibleAnnouncementsCount(3)}
+                      variant="outline"
+                      className="h-11 px-6 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-extrabold transition-all flex items-center gap-2"
+                    >
+                      <span>Show Less</span>
+                      <ChevronUp className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </section>
           )}
         </div>
@@ -1438,10 +1576,10 @@ export default function TeamParticipantDashboard() {
                 </div>
 
                 <h3 className="text-2xl font-black text-white mb-1">
-                  {isSolo ? (members[0]?.user?.name || teamData?.name || "Participant") : teamData?.name}
+                  {currentUserMember?.user?.name || members[0]?.user?.name || "Participant"}
                 </h3>
                 <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider">
-                  {isSolo ? "Individual Pass" : "Team Pass"}
+                  Entry Pass
                 </p>
               </div>
 

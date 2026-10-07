@@ -62,6 +62,10 @@ function LoginContent() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  const [isSendingResetOtp, setIsSendingResetOtp] = useState(false);
+  const [isVerifyingResetOtp, setIsVerifyingResetOtp] = useState(false);
+  const [isSettingNewPassword, setIsSettingNewPassword] = useState(false);
+
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -216,14 +220,18 @@ function LoginContent() {
   // =============================
   const handleSendResetOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!resetEmail.trim()) return;
     try {
       setServerError("");
+      setIsSendingResetOtp(true);
       await sendResetOtp(resetEmail);
       setView("FORGOT_OTP");
     } catch (error: any) {
       setServerError(
         error.response?.data?.message || "Failed to send OTP"
       );
+    } finally {
+      setIsSendingResetOtp(false);
     }
   };
 
@@ -233,6 +241,8 @@ function LoginContent() {
   const handleVerifyResetOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setServerError("");
+      setIsVerifyingResetOtp(true);
       const response = await verifyResetOtp(resetEmail, resetOtp);
       setResetToken(response.token);
       setView("FORGOT_NEW_PASSWORD");
@@ -240,6 +250,8 @@ function LoginContent() {
       setServerError(
         error.response?.data?.message || "Invalid OTP"
       );
+    } finally {
+      setIsVerifyingResetOtp(false);
     }
   };
 
@@ -255,6 +267,8 @@ function LoginContent() {
     }
 
     try {
+      setServerError("");
+      setIsSettingNewPassword(true);
       await resetPassword(resetToken, newPassword, confirmPassword);
       setSuccessMessage("Password reset successfully");
       showSuccess("Password reset successfully");
@@ -263,6 +277,8 @@ function LoginContent() {
       setServerError(
         error.response?.data?.message || "Failed to reset password"
       );
+    } finally {
+      setIsSettingNewPassword(false);
     }
   };
 
@@ -454,9 +470,17 @@ function LoginContent() {
 
                   <Button
                     type="submit"
-                    className={`w-full rounded-xl py-6 ${activeAccent.bg} text-white hover:opacity-90 font-semibold shadow-md`}
+                    disabled={isSendingResetOtp}
+                    className={`w-full rounded-xl py-6 ${activeAccent.bg} text-white hover:opacity-90 font-semibold shadow-md flex items-center justify-center gap-2`}
                   >
-                    Send Reset Code
+                    {isSendingResetOtp ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Sending Reset Code...
+                      </>
+                    ) : (
+                      "Send Reset Code"
+                    )}
                   </Button>
 
                   <button
@@ -496,9 +520,17 @@ function LoginContent() {
 
                   <Button
                     type="submit"
-                    className={`w-full rounded-xl py-6 ${activeAccent.bg} text-white hover:opacity-90 font-semibold shadow-md`}
+                    disabled={isVerifyingResetOtp}
+                    className={`w-full rounded-xl py-6 ${activeAccent.bg} text-white hover:opacity-90 font-semibold shadow-md flex items-center justify-center gap-2`}
                   >
-                    Verify Code
+                    {isVerifyingResetOtp ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Verifying Code...
+                      </>
+                    ) : (
+                      "Verify Code"
+                    )}
                   </Button>
                 </form>
               </div>
@@ -540,9 +572,17 @@ function LoginContent() {
 
                   <Button
                     type="submit"
-                    className={`w-full rounded-xl py-6 ${activeAccent.bg} text-white hover:opacity-90 font-semibold shadow-md`}
+                    disabled={isSettingNewPassword}
+                    className={`w-full rounded-xl py-6 ${activeAccent.bg} text-white hover:opacity-90 font-semibold shadow-md flex items-center justify-center gap-2`}
                   >
-                    Reset Password
+                    {isSettingNewPassword ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Resetting Password...
+                      </>
+                    ) : (
+                      "Reset Password"
+                    )}
                   </Button>
                 </form>
               </div>

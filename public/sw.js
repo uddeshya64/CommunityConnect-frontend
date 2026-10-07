@@ -44,21 +44,34 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/notifications';
+  let targetUrl = 'https://community-connect-frontend-5oe1-beta.vercel.app/notifications';
+  
+  if (event.notification.data && event.notification.data.url) {
+    let rawUrl = event.notification.data.url;
+    if (rawUrl.includes('localhost')) {
+      rawUrl = rawUrl.replace(/^https?:\/\/localhost:\d+/, 'https://community-connect-frontend-5oe1-beta.vercel.app');
+    } else if (rawUrl.startsWith('/')) {
+      rawUrl = 'https://community-connect-frontend-5oe1-beta.vercel.app' + rawUrl;
+    }
+    targetUrl = rawUrl;
+  }
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If a window client is already open, focus it and navigate
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientList) => {
+      // If a window client on deployed origin is open, focus it and navigate
       for (const client of clientList) {
-        if ('focus' in client) {
-          client.focus();
+        if (client.url && client.url.includes('community-connect-frontend-5oe1-beta.vercel.app')) {
+          if ('focus' in client) {
+            await client.focus();
+          }
           if ('navigate' in client && targetUrl) {
             return client.navigate(targetUrl);
           }
           return;
         }
       }
-      // If no window is open, open a new window
+
+      // If no deployed origin tab is open, open a new window to the deployed URL directly
       if (self.clients.openWindow && targetUrl) {
         return self.clients.openWindow(targetUrl);
       }

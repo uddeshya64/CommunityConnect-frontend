@@ -2,14 +2,17 @@ import { api } from '@/lib/axios';
 
 export interface NotificationItem {
   id: string;
-  type: 'TEAM_INVITE' | 'STAFF_INVITE';
-  token: string;
+  type: 'TEAM_INVITE' | 'STAFF_INVITE' | 'ROLE_UPDATE' | 'LIVE_QUIZ';
+  token?: string;
+  eventId?: number;
+  quizId?: number;
+  quizTitle?: string;
   teamName?: string;
   roleName?: string;
   eventName: string;
   eventBanner?: string | null;
   created_at: string;
-  expires_at: string;
+  expires_at?: string;
 }
 
 export const notificationService = {
