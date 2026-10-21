@@ -55,7 +55,7 @@ const SAMPLE_PROMPTS = [
   "Organize a weekend hackathon in Jaipur for 150 participants focused on web development, with team registration.",
 ];
 
-const AI_SPEECH_LANG = process.env.NEXT_PUBLIC_AI_SPEECH_LANG || "en-IN";
+const DEFAULT_SPEECH_LANG = process.env.NEXT_PUBLIC_AI_SPEECH_LANG || "en-IN";
 
 function isoToLocalInput(iso?: string): string {
   if (!iso) return "";
@@ -83,10 +83,13 @@ function formatDisplayDate(iso?: string): string {
 
 interface SpeechEvent {
   resultIndex?: number;
-  results: Array<{
-    isFinal: boolean;
-    0?: { transcript?: string };
-  }>;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      0?: { transcript?: string };
+    };
+  };
 }
 
 interface SpeechRecognitionLike {
@@ -255,7 +258,11 @@ export default function AiEventCreatorPage() {
   const [speechSupported, setSpeechSupported] = useState(false);
   const [speechError, setSpeechError] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [speechLang, setSpeechLang] = useState<string>(DEFAULT_SPEECH_LANG);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const baseInputRef = useRef<string>("");
+  const finalSpeechRef = useRef<string>("");
+  const interimSpeechRef = useRef<string>("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -269,7 +276,20 @@ export default function AiEventCreatorPage() {
   const hasDraft = Object.keys(draft).length > 0;
 
   useEffect(() => {
-    setSpeechSupported(Boolean(getSpeechRecognition()));
+    const hasRec = Boolean(getSpeechRecognition());
+    setSpeechSupported(hasRec);
+    if (typeof window !== "undefined" && navigator?.language) {
+      const userLang = navigator.language;
+      if (!process.env.NEXT_PUBLIC_AI_SPEECH_LANG) {
+        if (userLang.startsWith("hi")) {
+          setSpeechLang("hi-IN");
+        } else if (userLang.startsWith("en-IN")) {
+          setSpeechLang("en-IN");
+        } else if (userLang.startsWith("en")) {
+          setSpeechLang("en-US");
+        }
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -400,16 +420,31 @@ export default function AiEventCreatorPage() {
 
   /* ------------------------- Voice input (Web Speech API) ------------------------- */
 
+  const finalizeVoiceInput = useCallback(() => {
+    const base = baseInputRef.current.trim();
+    const finalSpoken = [finalSpeechRef.current, interimSpeechRef.current]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (finalSpoken) {
+      setInput(base ? `${base} ${finalSpoken}` : finalSpoken);
+    }
+    setInterimTranscript("");
+    setIsListening(false);
+    finalSpeechRef.current = "";
+    interimSpeechRef.current = "";
+  }, []);
+
   const stopListening = useCallback(() => {
     try {
       recognitionRef.current?.stop();
     } catch {
       /* already stopped */
     }
-    setIsListening(false);
-  }, []);
+    finalizeVoiceInput();
+  }, [finalizeVoiceInput]);
 
-  const startListening = () => {
+  const startListening = async () => {
     const SpeechRecognition = getSpeechRecognition();
 
     if (!SpeechRecognition) {
@@ -423,74 +458,106 @@ export default function AiEventCreatorPage() {
       return;
     }
 
-    navigator.mediaDevices
-      ?.getUserMedia?.({ audio: true })
-      .then(() => {
-        try {
-          const recognition = new SpeechRecognition();
-          recognitionRef.current = recognition;
-          recognition.lang = AI_SPEECH_LANG;
-          recognition.continuous = true;
-          recognition.interimResults = true;
+    setSpeechError("");
 
-          recognition.onresult = (event) => {
-            setSpeechError("");
-            let interim = "";
-            let finalAccumulator = "";
-            const startIndex = event.resultIndex !== undefined ? event.resultIndex : 0;
-            for (let i = startIndex; i < event.results.length; i += 1) {
-              const res = event.results[i];
-              const text = res?.[0]?.transcript || "";
-              if (res?.isFinal) {
-                finalAccumulator += (finalAccumulator ? " " : "") + text.trim();
-              } else {
-                interim += text;
-              }
-            }
-            if (finalAccumulator) {
-              setInput((prev) => {
-                const trimmedPrev = prev.trim();
-                const trimmedFinal = finalAccumulator.trim();
-                if (trimmedPrev.endsWith(trimmedFinal)) return trimmedPrev;
-                return trimmedPrev ? `${trimmedPrev} ${trimmedFinal}` : trimmedFinal;
-              });
-            }
-            setInterimTranscript(interim);
-          };
-
-          recognition.onend = () => {
-            setIsListening(false);
-            setInterimTranscript("");
-          };
-
-          recognition.onerror = (event) => {
-            const code = event?.error || "";
-            const messages: Record<string, string> = {
-              "not-allowed":
-                "Microphone permission was denied. Allow microphone access and try again.",
-              "service-not-allowed":
-                "Microphone access was blocked in your browser settings.",
-              "no-speech":
-                "No speech was detected. Please try again.",
-              "network":
-                "Speech recognition failed due to a network problem. Try again or use text input.",
-              "audio-capture":
-                "No microphone was found on this device.",
-              "aborted": "",
-            };
-            setSpeechError(messages[code] || "Speech recognition failed. Please try again.");
-            if (code !== "aborted") setIsListening(false);
-          };
-
-          recognition.start();
-          setIsListening(true);
-        } catch {
-          setSpeechError("Could not start the microphone. Please type your event instead.");
+    // 1. Verify mic access and immediately release the audio hardware track.
+    // In Chromium, an active MediaStream holds the audio capture device,
+    // which prevents SpeechRecognition from receiving audio frames.
+    if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (err: unknown) {
+        const name = (err as { name?: string })?.name;
+        if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+          setSpeechError("Microphone permission was denied. Please allow microphone access in your browser address bar.");
+        } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+          setSpeechError("No microphone was detected on this device. Please check your mic connection.");
+        } else {
+          setSpeechError("Could not access microphone. Please type your event instead.");
         }
-      })
-      .catch(() => {
-        setSpeechError("Microphone permission was denied. You can still type your event.");
-      });
+        return;
+      }
+    }
+
+    // 2. Abort previous recognition instance cleanly
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {
+        /* noop */
+      }
+      recognitionRef.current = null;
+    }
+
+    // 3. Snapshot base input before this speech session
+    baseInputRef.current = input;
+    finalSpeechRef.current = "";
+    interimSpeechRef.current = "";
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.lang = speechLang;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = (event: SpeechEvent) => {
+        setSpeechError("");
+        let sessionFinal = "";
+        let sessionInterim = "";
+
+        for (let i = 0; i < event.results.length; i += 1) {
+          const res = event.results[i];
+          const text = res?.[0]?.transcript || "";
+          if (res?.isFinal) {
+            sessionFinal += (sessionFinal ? " " : "") + text.trim();
+          } else {
+            sessionInterim += (sessionInterim ? " " : "") + text.trim();
+          }
+        }
+
+        finalSpeechRef.current = sessionFinal;
+        interimSpeechRef.current = sessionInterim;
+        setInterimTranscript(sessionInterim);
+
+        // Update textarea live with base input + finalized text + interim preview
+        const base = baseInputRef.current.trim();
+        const liveFull = [base, sessionFinal, sessionInterim].filter(Boolean).join(" ");
+        setInput(liveFull);
+      };
+
+      recognition.onend = () => {
+        finalizeVoiceInput();
+      };
+
+      recognition.onerror = (event: { error?: string }) => {
+        const code = event?.error || "";
+        const messages: Record<string, string> = {
+          "not-allowed":
+            "Microphone permission was denied. Allow microphone access in your browser and try again.",
+          "service-not-allowed":
+            "Microphone access was blocked in your browser settings.",
+          "no-speech":
+            "No speech was detected. Please check your microphone volume and speak clearly.",
+          "network":
+            "Speech recognition failed due to a network issue. If using Brave browser, enable Google Services in Settings > Privacy, or type your event.",
+          "audio-capture":
+            "No microphone was found or it is being used by another application.",
+          "aborted": "",
+        };
+        if (code && code !== "aborted") {
+          setSpeechError(messages[code] || "Speech recognition failed. Please try again or type your event.");
+          setIsListening(false);
+        }
+      };
+
+      recognition.start();
+      setIsListening(true);
+    } catch {
+      setSpeechError("Could not start microphone. Please type your event instead.");
+      setIsListening(false);
+    }
   };
 
   useEffect(() => {
@@ -831,31 +898,61 @@ export default function AiEventCreatorPage() {
                             : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
                         }`}
                       />
-                      <button
-                        type="button"
-                        onClick={startListening}
-                        disabled={!speechSupported}
-                        aria-label={isListening ? "Stop recording" : "Start voice input"}
-                        title={isListening ? "Stop recording" : "Speak your event"}
-                        className={`absolute bottom-3 right-3 w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
-                          isListening
-                            ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/40"
-                            : speechSupported
-                            ? `${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white" : "bg-white border-zinc-200 text-zinc-500 hover:text-indigo-600"}`
-                            : "opacity-40 cursor-not-allowed text-zinc-400 border-zinc-200"
-                        }`}
-                      >
-                        {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                      </button>
+                      <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+                        {speechSupported && !isListening && (
+                          <select
+                            value={speechLang}
+                            onChange={(e) => setSpeechLang(e.target.value)}
+                            aria-label="Speech recognition language"
+                            title="Select speech recognition language"
+                            className={`text-[11px] font-medium rounded-lg border px-1.5 py-1 transition focus:outline-none ${
+                              isDark
+                                ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white"
+                                : "bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900"
+                            }`}
+                          >
+                            <option value="en-IN">EN (India)</option>
+                            <option value="en-US">EN (US)</option>
+                            <option value="hi-IN">हिन्दी (Hindi)</option>
+                          </select>
+                        )}
+                        <button
+                          type="button"
+                          onClick={startListening}
+                          disabled={!speechSupported}
+                          aria-label={isListening ? "Stop recording" : "Start voice input"}
+                          title={isListening ? "Stop recording" : "Speak your event"}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
+                            isListening
+                              ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/40 animate-pulse"
+                              : speechSupported
+                              ? `${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white" : "bg-white border-zinc-200 text-zinc-500 hover:text-indigo-600"}`
+                              : "opacity-40 cursor-not-allowed text-zinc-400 border-zinc-200"
+                          }`}
+                        >
+                          {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     {isListening && (
-                      <div className="flex items-center gap-2 text-xs font-bold text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
-                        <span className="relative flex w-2 h-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                        </span>
-                        Listening… {interimTranscript && <em className="opacity-70 not-italic">{interimTranscript}</em>}
+                      <div className="flex items-center justify-between gap-2 text-xs font-bold text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="relative flex w-2 h-2 shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                          </span>
+                          <span className="truncate">
+                            Listening… {interimTranscript && <em className="opacity-80 not-italic font-normal">“{interimTranscript}”</em>}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={stopListening}
+                          className="shrink-0 px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 text-[11px] font-semibold transition shadow-sm"
+                        >
+                          Done speaking
+                        </button>
                       </div>
                     )}
 
@@ -868,7 +965,7 @@ export default function AiEventCreatorPage() {
 
                     <div className="flex items-center justify-between gap-3">
                       <p className={`text-[11px] font-medium ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
-                        {speechSupported ? "Mic uses your browser's speech recognition." : "Voice input not supported — type instead."}
+                        {speechSupported ? "Mic uses your browser's speech recognition · Speak clearly." : "Voice input not supported — type instead."}
                       </p>
                       <Button
                         onClick={handleGenerate}
