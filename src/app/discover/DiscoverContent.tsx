@@ -119,6 +119,7 @@ export default function DiscoverContent() {
   const [cityInput, setCityInput] = useState("");
   const [isSavingCustomization, setIsSavingCustomization] = useState(false);
   const [customizationSaveMsg, setCustomizationSaveMsg] = useState("");
+  const [visibleEventsCount, setVisibleEventsCount] = useState(12);
 
   useEffect(() => {
     setMounted(true);
@@ -404,6 +405,10 @@ export default function DiscoverContent() {
       })
       .sort((a, b) => b.matchScore - a.matchScore);
   }, [scoredEvents, searchQuery, activeFilter]);
+
+  useEffect(() => {
+    setVisibleEventsCount(12);
+  }, [filteredEvents]);
 
   // --- IN-PLACE CUSTOMIZATION ACTIONS ---
   const handleAddSkill = async (newSkill: string) => {
@@ -1044,7 +1049,7 @@ export default function DiscoverContent() {
                 animate={{ opacity: 1 }}
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4"
               >
-                {filteredEvents.map((event, index) => {
+                {filteredEvents.slice(0, visibleEventsCount).map((event, index) => {
                   const gradients = [
                     "from-blue-500 to-cyan-400",
                     "from-indigo-500 to-purple-600",
@@ -1207,6 +1212,25 @@ export default function DiscoverContent() {
                   );
                 })}
               </motion.div>
+            )}
+
+            {filteredEvents.length > visibleEventsCount && (
+              <div className="flex flex-col items-center gap-2 mt-8">
+                <Button
+                  onClick={() => setVisibleEventsCount((c) => c + 12)}
+                  variant="outline"
+                  className={`rounded-2xl font-bold px-8 py-5 flex items-center gap-2 ${isDark
+                    ? "bg-zinc-900/60 border-zinc-800 text-zinc-200 hover:bg-zinc-800"
+                    : "bg-white border-zinc-200 text-zinc-800 hover:bg-zinc-50"
+                    }`}
+                >
+                  <ChevronDown className="w-5 h-5" />
+                  Show More Events
+                </Button>
+                <p className={`text-xs font-semibold ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+                  Showing {Math.min(visibleEventsCount, filteredEvents.length)} of {filteredEvents.length} events
+                </p>
+              </div>
             )}
           </main>
 

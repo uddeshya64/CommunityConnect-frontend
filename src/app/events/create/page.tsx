@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Search, ListPlus, Sparkles } from "lucide-react";
+import { Search, ListPlus, Sparkles, Wand2, ArrowRight } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import { EVENT_TEMPLATES, CUSTOM_TEMPLATE_ID } from "@/lib/eventTemplates";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
@@ -49,6 +49,34 @@ export default function SelectTemplatePage() {
             Pick a template to get started, or build your own from scratch.
           </p>
         </div>
+
+        {/* AI-powered creation banner */}
+        <motion.button
+          type="button"
+          onClick={() => router.push("/events/create/ai")}
+          whileHover={{ y: -2 }}
+          className={`mb-8 w-full text-left rounded-3xl border bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 border-transparent text-white shadow-lg shadow-indigo-600/25 overflow-hidden cursor-pointer`}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 p-6 sm:p-7">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+              <Wand2 className="w-6 h-6 sm:w-7 sm:h-7" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg sm:text-xl font-extrabold tracking-tight flex items-center gap-2">
+                Create with AI
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-widest">
+                  New
+                </span>
+              </h2>
+              <p className="text-sm text-indigo-100/90 font-medium mt-1">
+                Describe the event in plain language or speak it — AI fills the form for you to review and publish.
+              </p>
+            </div>
+            <span className="hidden sm:inline-flex items-center gap-2 rounded-xl bg-white text-indigo-700 font-bold px-5 py-3 text-sm shadow-md shrink-0">
+              Try it <ArrowRight className="w-4 h-4" />
+            </span>
+          </div>
+        </motion.button>
 
         {/* Search bar */}
         <div className="relative mb-8 max-w-md">

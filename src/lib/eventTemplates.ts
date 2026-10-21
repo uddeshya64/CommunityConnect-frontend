@@ -136,6 +136,9 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   },
 ];
 
+/** The 10 predefined event categories (template ids) shared across the app. */
+export const PREDEFINED_EVENT_CATEGORIES: string[] = EVENT_TEMPLATES.map((t) => t.id);
+
 export const CUSTOM_TEMPLATE_ID = "Custom";
 
 export function getTemplateById(id: string): EventTemplate | undefined {
