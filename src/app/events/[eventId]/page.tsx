@@ -9,7 +9,8 @@ import {
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
-  HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, CheckSquare, Megaphone, Send, Smile, MessageSquare, Gamepad2
+  HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, CheckSquare, Megaphone, Send, Smile, MessageSquare, Gamepad2,
+  ChevronDown
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -352,6 +353,8 @@ export default function EventDetailsPage() {
   });
   const [isSavingAgenda, setIsSavingAgenda] = useState(false);
   const [agendaError, setAgendaError] = useState("");
+  const [visibleAgendaCount, setVisibleAgendaCount] = useState(20);
+  const [visibleEventAgendaCount, setVisibleEventAgendaCount] = useState(20);
 
   useEffect(() => {
     profileService.getMyProfile().then((profile: any) => {
@@ -2049,8 +2052,9 @@ export default function EventDetailsPage() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="relative border-l border-zinc-200 ml-4 pl-8 space-y-8 py-4">
-                        {timelinesList.map((timeline) => {
+                      <div className="space-y-6">
+                        <div className="relative border-l border-zinc-200 ml-4 pl-8 space-y-8 py-4">
+                        {timelinesList.slice(0, visibleAgendaCount).map((timeline) => {
                           const start = new Date(timeline.start_time);
                           const end = timeline.end_time ? new Date(timeline.end_time) : null;
                           return (
@@ -2138,6 +2142,22 @@ export default function EventDetailsPage() {
                             </div>
                           );
                         })}
+                        </div>
+                        {timelinesList.length > visibleAgendaCount && (
+                          <div className="flex flex-col items-center gap-2">
+                            <Button
+                              onClick={() => setVisibleAgendaCount((c) => c + 20)}
+                              variant="outline"
+                              className="rounded-2xl border-zinc-200 bg-white text-zinc-800 font-bold px-6 py-6 hover:bg-zinc-50 shadow-sm flex items-center gap-2"
+                            >
+                              <ChevronDown className="w-5 h-5 text-indigo-600" />
+                              Show More Sessions
+                            </Button>
+                            <p className="text-xs font-semibold text-zinc-400">
+                              Showing {Math.min(visibleAgendaCount, timelinesList.length)} of {timelinesList.length} sessions
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -3886,7 +3906,15 @@ export default function EventDetailsPage() {
                     (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
                   );
 
-                  return sortedGroups.map(([dateStr, items]) => {
+                  const allItems = sortedGroups.flatMap(([, items]) => items);
+                  const visibleIdSet = new Set(
+                    allItems.slice(0, visibleEventAgendaCount).map((it: any) => it.id)
+                  );
+
+                  return sortedGroups
+                    .map(([dateStr, items]) => [dateStr, items.filter((it: any) => visibleIdSet.has(it.id))] as [string, any[]])
+                    .filter(([, items]) => items.length > 0)
+                    .map(([dateStr, items]) => {
                     const d = new Date(dateStr);
                     const month = d.toLocaleDateString("en-US", { month: "short" });
                     const day = d.getDate();
@@ -4000,6 +4028,22 @@ export default function EventDetailsPage() {
                     );
                   });
                 })()}
+
+                {event.timelines.length > visibleEventAgendaCount && (
+                  <div className="flex flex-col items-center gap-2 pt-2">
+                    <Button
+                      onClick={() => setVisibleEventAgendaCount((c) => c + 20)}
+                      variant="outline"
+                      className="rounded-2xl border-current/20 bg-transparent text-current font-bold px-6 py-5 hover:opacity-80 shadow-sm flex items-center gap-2"
+                    >
+                      <ChevronDown className="w-5 h-5" />
+                      Show More Sessions
+                    </Button>
+                    <p className="text-[10px] font-semibold opacity-60">
+                      Showing {Math.min(visibleEventAgendaCount, event.timelines.length)} of {event.timelines.length} sessions
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

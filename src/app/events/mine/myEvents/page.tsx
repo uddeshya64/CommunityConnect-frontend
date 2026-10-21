@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { MapPin, Calendar, CalendarPlus, Plus, CalendarDays, CheckCircle2, Radio, ShieldCheck } from "lucide-react";
+import { MapPin, Calendar, CalendarPlus, Plus, CalendarDays, CheckCircle2, Radio, ShieldCheck, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { eventService } from "@/services/event.service";
 import AppLayout from "@/components/layout/AppLayout";
@@ -30,7 +30,12 @@ export default function MyEventsPage() {
   const [contributedEvents, setContributedEvents] = useState<AppEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"upcoming" | "live" | "concluded">("upcoming");
+  const [visibleEventsCount, setVisibleEventsCount] = useState(12);
   const userId = profile?.id;
+
+  useEffect(() => {
+    setVisibleEventsCount(12);
+  }, [activeCategory]);
 
   useEffect(() => {
     const cachedEvents = localStorage.getItem("cc_my_events");
@@ -285,7 +290,7 @@ export default function MyEventsPage() {
 
             {!isLoading && activeEvents.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mt-4">
-                {activeEvents.map((event, index) => {
+                {activeEvents.slice(0, visibleEventsCount).map((event, index) => {
                   const gradients = ["from-blue-500 to-cyan-400", "from-indigo-500 to-purple-600", "from-rose-500 to-orange-400", "from-emerald-400 to-teal-500"];
                   const randomGradient = gradients[index % gradients.length];
 
@@ -358,6 +363,25 @@ export default function MyEventsPage() {
                   );
                 })}
               </motion.div>
+            )}
+
+            {!isLoading && activeEvents.length > visibleEventsCount && (
+              <div className="flex flex-col items-center gap-2 mt-8">
+                <Button
+                  onClick={() => setVisibleEventsCount((c) => c + 12)}
+                  variant="outline"
+                  className={`rounded-2xl font-bold px-8 py-5 flex items-center gap-2 ${isDark
+                    ? "bg-zinc-900/60 border-white/10 text-zinc-200 hover:bg-zinc-800"
+                    : "bg-white border-zinc-200 text-zinc-800 hover:bg-zinc-50"
+                    }`}
+                >
+                  <ChevronDown className="w-5 h-5" />
+                  Show More Events
+                </Button>
+                <p className={`text-xs font-semibold ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+                  Showing {Math.min(visibleEventsCount, activeEvents.length)} of {activeEvents.length} events
+                </p>
+              </div>
             )}
           </main>
         </div>

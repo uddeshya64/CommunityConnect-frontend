@@ -25,12 +25,14 @@ import {
   Trash2,
   Clock,
   Users,
-  Globe
+  Globe,
+  Crosshair,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
+import { locationService } from "@/services/location.service";
 import {
   EVENT_TEMPLATES,
   CUSTOM_TEMPLATE_ID,
@@ -173,44 +175,59 @@ function CreateEventPageInner() {
     }
   };
 
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+
+  const handleDetectLocation = async () => {
+    if (isDetectingLocation) return;
+    setIsDetectingLocation(true);
+    try {
+      const address = await locationService.detectCurrentLocation();
+      updateForm("location", address);
+      setIsLocationSelected(true);
+      setLocationSuggestions([]);
+      clearFieldError("location");
+      showSuccess(`Accurate location detected: ${address.split(",")[0]}`);
+    } catch (err: any) {
+      showError(err?.message || "Could not detect location. Please check browser GPS permissions.");
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  };
+
   useEffect(() => {
     const searchTerm = formData.location.trim();
-    if (isLocationSelected || searchTerm.length < 3) {
-      if (isLocationSelected) {
+    if (isLocationSelected || searchTerm.length < 3 || formData.mode === "online") {
+      if (isLocationSelected || formData.mode === "online") {
         setLocationSuggestions([]);
       }
       setIsLoadingSuggestions(false);
       return;
     }
 
-    const timer = window.setTimeout(() => {
+    const timer = window.setTimeout(async () => {
       locationControllerRef.current?.abort();
       const controller = new AbortController();
       locationControllerRef.current = controller;
       setIsLoadingSuggestions(true);
 
-      fetch(`${API_BASE_URL}/locations/search?q=${encodeURIComponent(searchTerm)}`, {
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) throw new Error("Unable to fetch locations");
-          const result = await response.json();
-          const suggestions = Array.isArray(result?.data)
-            ? result.data.map((item: any) => {
-                const label = [item.name, item.address].filter(Boolean).join(" - ");
-                return { label: label || "Unknown location", value: label || "Unknown location" };
-              })
-            : [];
-          setLocationSuggestions(suggestions);
-        })
-        .catch(() => setLocationSuggestions([]))
-        .finally(() => {
-          if (locationControllerRef.current === controller) setIsLoadingSuggestions(false);
+      try {
+        const raw = await locationService.search(searchTerm, controller.signal);
+        const suggestions = raw.map((item) => {
+          const label = [item.name, item.address].filter(Boolean).join(" - ") || item.name;
+          return { label, value: label };
         });
-    }, 400);
+        setLocationSuggestions(suggestions);
+      } catch {
+        setLocationSuggestions([]);
+      } finally {
+        if (locationControllerRef.current === controller) {
+          setIsLoadingSuggestions(false);
+        }
+      }
+    }, 350);
 
     return () => window.clearTimeout(timer);
-  }, [formData.location]);
+  }, [formData.location, isLocationSelected, formData.mode]);
 
   const updateTemplateValue = (fieldId: string, value: string) => {
     setTemplateValues((prev) => ({ ...prev, [fieldId]: value }));
@@ -970,12 +987,39 @@ function CreateEventPageInner() {
 
                     <FormRow icon={<MapPin className="w-4 h-4 text-red-400" />}>
                       <div className="space-y-1.5 relative">
-                        <Label className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-700"} uppercase tracking-wider`}>
-                          Location / Venue {formData.mode === "online" && "(Optional)"}
-                        </Label>
+                        <div className="flex items-center justify-between">
+                          <Label className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-700"} uppercase tracking-wider`}>
+                            Location / Venue {formData.mode === "online" && "(Optional)"}
+                          </Label>
+                          {formData.mode !== "online" && (
+                            <button
+                              type="button"
+                              onClick={handleDetectLocation}
+                              disabled={isDetectingLocation}
+                              className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg border transition-all ${
+                                isDark
+                                  ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20"
+                                  : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                              }`}
+                              title="Detect your accurate current location via GPS"
+                            >
+                              {isDetectingLocation ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                                  <span>Detecting…</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Crosshair className="w-3.5 h-3.5 text-indigo-500" />
+                                  <span>Use Accurate Location</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
                         <div className="relative">
                           <Input
-                            placeholder={formData.mode === "online" ? "e.g. Zoom or Meet URL" : "e.g. Auditorium Hall, Tech Hub Jaipur"}
+                            placeholder={formData.mode === "online" ? "e.g. Zoom or Meet URL" : "e.g. Auditorium Hall, Tech Hub Jaipur (type 3+ chars)"}
                             value={formData.location}
                             onChange={(e) => {
                               updateForm("location", e.target.value);
@@ -998,11 +1042,11 @@ function CreateEventPageInner() {
                         </div>
                         {isLoadingSuggestions && formData.location.trim().length >= 3 && (
                           <p className={`absolute z-30 mt-1 text-xs ${isDark ? "text-zinc-300 bg-zinc-800 border-zinc-700" : "text-zinc-500 bg-white border-zinc-200"} px-2.5 py-1.5 rounded border shadow-sm animate-pulse`}>
-                            Searching locations...
+                            Searching locations via Mapbox API...
                           </p>
                         )}
                         {locationSuggestions.length > 0 && (
-                          <ul className={`absolute z-50 mt-1 w-full max-h-40 overflow-y-auto rounded-lg border ${isDark ? "border-zinc-700 bg-zinc-900 divide-zinc-800" : "border-zinc-200 bg-white divide-zinc-100"} shadow-xl py-1 divide-y`}>
+                          <ul className={`absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border ${isDark ? "border-zinc-700 bg-zinc-900 divide-zinc-800" : "border-zinc-200 bg-white divide-zinc-100"} shadow-xl py-1 divide-y`}>
                             {locationSuggestions.map((suggestion) => (
                               <li
                                 key={suggestion.value}
@@ -1010,9 +1054,10 @@ function CreateEventPageInner() {
                                   event.preventDefault();
                                   handleLocationSelect(suggestion.value);
                                 }}
-                                className={`cursor-pointer px-3 py-2.5 text-sm ${isDark ? "text-zinc-100 hover:bg-zinc-800 hover:text-white" : "text-zinc-800 hover:bg-indigo-50 hover:text-indigo-950"} transition-colors font-semibold`}
+                                className={`cursor-pointer px-3 py-2 text-sm flex items-center gap-2 ${isDark ? "text-zinc-100 hover:bg-zinc-800 hover:text-white" : "text-zinc-800 hover:bg-indigo-50 hover:text-indigo-950"} transition-colors font-medium`}
                               >
-                                {suggestion.label}
+                                <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                <span className="truncate">{suggestion.label}</span>
                               </li>
                             ))}
                           </ul>
