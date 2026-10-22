@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { setStoredTokens } from "@/lib/auth";
 
 export default function OAuthSuccessContent() {
   const searchParams = useSearchParams();
@@ -15,20 +16,13 @@ export default function OAuthSuccessContent() {
 
     if (accessToken) {
       localStorage.removeItem("cc_user_settings");
-      localStorage.setItem("accessToken", accessToken);
-    }
-    if (refreshToken) {
-      localStorage.setItem("refreshToken", refreshToken);
+      setStoredTokens(accessToken, refreshToken);
     }
     if (name) {
       localStorage.setItem("userName", name);
     }
     if (email) {
       localStorage.setItem("userEmail", email);
-    }
-
-    if (accessToken && typeof window !== "undefined") {
-      window.dispatchEvent(new Event("cc_auth_changed"));
     }
 
     const storedAccessToken = accessToken || localStorage.getItem("accessToken");

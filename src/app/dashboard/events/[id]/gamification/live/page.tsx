@@ -1,20 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams, useParams } from "next/navigation";
+import { useSearchParams, useParams, useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
-import { Users, Play, Trophy, HelpCircle, Clock, Sparkles } from "lucide-react";
+import { 
+  Users, Play, Trophy, HelpCircle, Clock, Sparkles, 
+  Copy, Check, Share2, Radio, UserCheck, ArrowRight
+} from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/axios";
 import { getSocketBaseUrl } from "@/lib/socket";
+import { hasStoredSession } from "@/lib/auth";
 
 export default function LiveOrganizerDashboard() {
+  const router = useRouter();
   const { id: eventId } = useParams();
   const searchParams = useSearchParams();
   const quizId = searchParams.get("quizId");
+
+  useEffect(() => {
+    if (!hasStoredSession()) {
+      router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+    }
+  }, [router]);
   
   const [socket, setSocket] = useState<Socket | null>(null);
   const [usersJoined, setUsersJoined] = useState<number>(0);
+  const [connectedPlayers, setConnectedPlayers] = useState<Array<{ userId: number; name: string }>>([]);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [quizStarted, setQuizStarted] = useState(false);
   const [quizEnded, setQuizEnded] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -23,7 +36,7 @@ export default function LiveOrganizerDashboard() {
   const [showLeaderboardStage, setShowLeaderboardStage] = useState(false);
 
   useEffect(() => {
-    if (!eventId || !quizId) return;
+    if (!eventId || !quizId || !hasStoredSession()) return;
 
     // Fetch quiz data with questions & options
     api.get(`/events/${eventId}/quizzes`)
@@ -53,12 +66,30 @@ export default function LiveOrganizerDashboard() {
 
     newSocket.on("connect", () => {
       console.log(`[LiveOrganizerDashboard] Socket connected with ID: ${newSocket.id}`);
+      // Join as host (userId 0) - Quiz room is live, but DO NOT auto-start questions!
       newSocket.emit("join_quiz", { quizId: parseInt(quizId as string), userId: 0 });
-      newSocket.emit("start_quiz", { quizId: parseInt(quizId as string) });
+    });
+
+    newSocket.on("room_players", (data: { count: number; players: Array<{ userId: number; name: string }> }) => {
+      setUsersJoined(data.count || 0);
+      setConnectedPlayers(data.players || []);
     });
 
     newSocket.on("user_joined", () => {
-      setUsersJoined(prev => prev + 1);
+      // room_players maintains full list & count
+    });
+
+    newSocket.on("quiz_state", (state: any) => {
+      if (state.status === "COMPLETED") {
+        setQuizEnded(true);
+        if (state.leaderboard) setLeaderboard(state.leaderboard);
+      } else if (state.status === "IN_PROGRESS" && state.question) {
+        setQuizStarted(true);
+        setCurrentQuestion(state.question);
+      } else {
+        // Room is in lobby waiting stage
+        setQuizStarted(false);
+      }
     });
 
     newSocket.on("quiz_started", () => {
@@ -89,6 +120,11 @@ export default function LiveOrganizerDashboard() {
   const handleStartQuiz = () => {
     socket?.emit("start_quiz", { quizId: parseInt(quizId as string) });
     setQuizStarted(true);
+
+    // If quiz has questions, broadcast the first question immediately
+    if (quiz?.questions && quiz.questions.length > 0) {
+      handleNextQuestion(quiz.questions[0].id);
+    }
   };
 
   const handleNextQuestion = (questionId: number) => {
@@ -108,13 +144,28 @@ export default function LiveOrganizerDashboard() {
     }
   };
 
+  const getParticipantUrl = () => {
+    if (typeof window !== "undefined") {
+      return `${window.location.origin}/events/${eventId}/quiz/${quizId}`;
+    }
+    return `/events/${eventId}/quiz/${quizId}`;
+  };
+
+  const copyParticipantLink = () => {
+    if (typeof window !== "undefined" && navigator?.clipboard) {
+      navigator.clipboard.writeText(getParticipantUrl());
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
   return (
     <div className="p-6 max-w-6xl mx-auto h-[85vh] flex flex-col space-y-6">
       {/* HOST CONTROL HEADER */}
       <div className="flex justify-between items-center bg-gradient-to-r from-zinc-900 via-indigo-950 to-purple-950 text-white p-6 rounded-3xl shadow-xl border border-white/10">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-rose-500 animate-pulse text-lg">🔴</span>
+            <span className="text-emerald-400 animate-pulse text-lg">🟢</span>
             <h1 className="text-2xl font-black tracking-tight">Host Control Center</h1>
           </div>
           <p className="text-indigo-200 text-xs mt-1">
@@ -126,7 +177,7 @@ export default function LiveOrganizerDashboard() {
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/10 shadow-inner">
             <Users className="text-indigo-400 w-5 h-5" />
             <span className="text-2xl font-black">{usersJoined}</span>
-            <span className="text-xs text-indigo-200 uppercase font-bold tracking-wider">Players Joined</span>
+            <span className="text-xs text-indigo-200 uppercase font-bold tracking-wider">Players in Lobby</span>
           </div>
 
           {!quizEnded && (
@@ -180,20 +231,89 @@ export default function LiveOrganizerDashboard() {
           </Link>
         </div>
       ) : !quizStarted ? (
-        <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-zinc-900 rounded-3xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 p-8 shadow-sm">
-          <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
-            <Sparkles className="w-10 h-10 text-yellow-500" />
+        /* LOBBY WAITING ROOM (Waiting for host to start) */
+        <div className="flex-1 flex flex-col bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-8 shadow-sm justify-between space-y-6">
+          {/* LOBBY BANNER */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/20">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30">
+                <Radio className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-extrabold uppercase tracking-wider border border-emerald-500/30">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" /> Room Open & Accepting Players
+                </span>
+                <h2 className="text-xl font-black text-zinc-900 dark:text-white mt-1">
+                  Participant Waiting Lobby
+                </h2>
+              </div>
+            </div>
+
+            {/* COPY INVITE LINK */}
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <input
+                type="text"
+                readOnly
+                value={getParticipantUrl()}
+                className="bg-white dark:bg-zinc-800 text-xs px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 font-mono text-zinc-600 dark:text-zinc-300 w-full md:w-72 select-all"
+              />
+              <button
+                onClick={copyParticipantLink}
+                className="px-4 py-2.5 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white text-white dark:text-zinc-900 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shrink-0 shadow-sm"
+              >
+                {copiedLink ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                {copiedLink ? "Copied!" : "Copy Link"}
+              </button>
+            </div>
           </div>
-          <h2 className="text-3xl font-black text-zinc-900 dark:text-white mb-2">Ready to Launch Live Activity</h2>
-          <p className="text-zinc-500 text-sm mb-6 max-w-md text-center">
-            Clicking &quot;Start Quiz Now&quot; will broadcast a join popup to all active participants in this event.
-          </p>
-          <button 
-            onClick={handleStartQuiz}
-            className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg rounded-2xl shadow-xl shadow-indigo-600/30 transition-all transform hover:scale-105 flex items-center gap-3"
-          >
-            <Play fill="currentColor" className="w-5 h-5" /> Start Quiz Now
-          </button>
+
+          {/* PLAYERS WALL */}
+          <div className="flex-1 flex flex-col justify-center items-center text-center space-y-4 py-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-extrabold text-sm">
+              <Users className="w-4 h-4 text-indigo-500" />
+              {usersJoined === 0
+                ? "Waiting for attendees to join the room..."
+                : `${usersJoined} ${usersJoined === 1 ? "player" : "players"} connected in the lobby`}
+            </div>
+
+            {connectedPlayers.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-center gap-2.5 max-w-3xl mx-auto max-h-48 overflow-y-auto p-2">
+                {connectedPlayers.map((p, idx) => (
+                  <div
+                    key={p.userId || idx}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-extrabold shadow-sm animate-in fade-in zoom-in-95 duration-200"
+                  >
+                    <span className="w-6 h-6 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-500 text-white flex items-center justify-center text-[10px] font-black">
+                      {p.name.charAt(0).toUpperCase()}
+                    </span>
+                    <span>{p.name}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                Share the participant link or instruct attendees to open the live quiz notification. As players connect from their devices, their names will appear here.
+              </p>
+            )}
+          </div>
+
+          {/* START QUIZ BUTTON (Host decides when to start) */}
+          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="font-bold text-zinc-800 dark:text-zinc-200">
+                {quiz?.questions?.length || 0} Questions Ready
+              </span>
+              {" "}&bull; Click &quot;Start Quiz Now&quot; to broadcast Question 1 to all waiting attendees.
+            </div>
+
+            <button
+              onClick={handleStartQuiz}
+              disabled={!quiz?.questions || quiz.questions.length === 0}
+              className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-base rounded-2xl shadow-xl shadow-emerald-600/30 transition-all transform hover:scale-[1.02] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Play fill="currentColor" className="w-5 h-5" /> Start Quiz Now
+            </button>
+          </div>
         </div>
       ) : (
         <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-0">

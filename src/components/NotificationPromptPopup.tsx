@@ -47,7 +47,11 @@ export default function NotificationPromptPopup() {
     }
 
     // 6. Check if already subscribed
+    let timer: NodeJS.Timeout | null = null;
+    let isCancelled = false;
+
     pushNotificationService.getStatus().then((status) => {
+      if (isCancelled) return;
       if (status.isSubscribed) {
         localStorage.setItem("notification_prompt_completed", "true");
         return;
@@ -55,12 +59,17 @@ export default function NotificationPromptPopup() {
 
       // Increment count and show popup smoothly
       localStorage.setItem("notification_popup_count", String(count + 1));
-      const timer = setTimeout(() => {
-        setIsVisible(true);
+      timer = setTimeout(() => {
+        if (!isCancelled) {
+          setIsVisible(true);
+        }
       }, 1800);
-
-      return () => clearTimeout(timer);
     });
+
+    return () => {
+      isCancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [pathname]);
 
   const handleEnable = async () => {

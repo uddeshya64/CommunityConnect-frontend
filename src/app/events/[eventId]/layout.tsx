@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { API_BASE_URL, APP_URL } from "@/config/env";
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -7,8 +8,8 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { eventId } = await params;
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
-  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const apiBaseUrl = API_BASE_URL;
+  const appBaseUrl = APP_URL;
 
   try {
     const res = await fetch(`${apiBaseUrl}/events/${eventId}`, {
