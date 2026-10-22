@@ -25,8 +25,7 @@ import PageTransition from "@/components/layout/PageTransition";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useUser } from "@/components/providers/UserProvider";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+import { API_BASE_URL } from "@/config/env";
 
 export default function MyProfilePage() {
     const { isDark, activeAccent } = useAppearance();

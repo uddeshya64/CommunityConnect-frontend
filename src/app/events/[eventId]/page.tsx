@@ -10,7 +10,7 @@ import {
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
   HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, CheckSquare, Megaphone, Send, Smile, MessageSquare, Gamepad2,
-  ChevronDown
+  ChevronDown, ShieldAlert
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -4183,7 +4183,36 @@ export default function EventDetailsPage() {
             </div>
 
             {/* ACTION CTA CHECKS */}
-            {isRegistered ? (
+            {isStaff || isOwner ? (
+              <div className="space-y-3">
+                <div className={`p-4 rounded-2xl flex items-start gap-3 border ${
+                  isDark ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-900"
+                }`}>
+                  <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-extrabold text-xs">Organizer Preview Mode</p>
+                    <p className="opacity-85 text-[11px] font-semibold mt-0.5 leading-relaxed">
+                      You are previewing this event as an organizer or staff member. Registration is restricted to regular participants.
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  disabled
+                  className="w-full rounded-2xl py-6 bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-bold text-sm cursor-not-allowed shadow-none border border-zinc-300 dark:border-zinc-700"
+                >
+                  Registration Disabled (Preview Mode)
+                </Button>
+                {viewMode === "PREVIEW" && (
+                  <Button
+                    onClick={() => setViewMode("DASHBOARD")}
+                    variant="outline"
+                    className="w-full rounded-2xl py-5 font-bold text-xs flex items-center justify-center gap-2 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-850 transition-all text-zinc-700 dark:text-zinc-300"
+                  >
+                    <LayoutDashboard className="w-4 h-4 text-indigo-500" /> Return to Event Dashboard
+                  </Button>
+                )}
+              </div>
+            ) : isRegistered ? (
               <div className="space-y-3">
                 <div className={`p-4.5 rounded-2xl flex items-start gap-3 border ${activeAccent.badgeBg} ${activeAccent.border} ${activeAccent.text}`}>
                   <CheckCircle2 className={`w-5 h-5 ${activeAccent.text} shrink-0 mt-0.5`} />

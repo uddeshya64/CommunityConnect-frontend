@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
 import { useMyProfile } from "@/hooks/profileHooks";
+import { RAZORPAY_KEY_ID } from "@/config/env";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
@@ -105,6 +106,26 @@ export default function EventRegistrationPage() {
         const response = await eventService.getEventById(eventId);
         const rawEvent = response?.data?.event || response?.data || response?.event || response;
         setEvent(rawEvent);
+
+        const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+        if (token) {
+          try {
+            const tokenPayload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            const currentUserId = tokenPayload.id || tokenPayload.userId || tokenPayload._id;
+            const eventOrganizerId = rawEvent.created_by || rawEvent.creator?.id;
+
+            const isUserOwner = String(currentUserId) === String(eventOrganizerId);
+            const isUserStaff = isUserOwner || Boolean(rawEvent.user_context?.is_organizer) || (Array.isArray(rawEvent.user_context?.permissions) && rawEvent.user_context.permissions.length > 0) || tokenPayload.role === "admin";
+
+            if (isUserStaff) {
+              setBlockedReason("You are an organizer or staff member of this event. Organizers are not permitted to register as attendees.");
+              setIsLoading(false);
+              return;
+            }
+          } catch (tokErr) {
+            console.error("Token decode error in register page", tokErr);
+          }
+        }
 
         const rCount = rawEvent._count?.registrations || rawEvent.registeredCount || 0;
         const now = new Date();
@@ -261,7 +282,7 @@ export default function EventRegistrationPage() {
 
       // 5. Handle Paid Registration (Razorpay)
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_YOUR_KEY",
+        key: RAZORPAY_KEY_ID || "rzp_test_YOUR_KEY",
         amount: result.amount,
         currency: result.currency,
         name: "Community Connect",

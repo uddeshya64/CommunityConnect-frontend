@@ -39,8 +39,8 @@ import PageTransition from "@/components/layout/PageTransition";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useUser } from "@/components/providers/UserProvider";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+import { API_BASE_URL } from "@/config/env";
+import { hasStoredSession } from "@/lib/auth";
 
 type EditProfileFormValues = UpdateProfileFormValues;
 
@@ -49,6 +49,12 @@ export default function EditProfilePage() {
   const { success: showSuccess, error: showError } = useToast();
   const { profile: userProfile, setProfileData, isLoading: isUserLoading } = useUser();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!hasStoredSession()) {
+      router.replace("/login?redirect=/profile/edit");
+    }
+  }, [router]);
 
   const [isLoading, setIsLoading] = useState(!userProfile && isUserLoading);
   const [isSaving, setIsSaving] = useState(false);

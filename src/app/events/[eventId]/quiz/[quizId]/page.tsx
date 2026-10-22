@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import { useUser } from "@/components/providers/UserProvider";
-import { 
-  Loader2, CheckCircle2, XCircle, Trophy, Lock, 
-  Clock, Zap, Sparkles, Radio, Award 
+import {
+  Loader2, CheckCircle2, XCircle, Trophy, Lock,
+  Clock, Zap, Sparkles, Radio, Award
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -15,38 +15,40 @@ import { Button } from "@/components/ui/button";
 import { getSocketBaseUrl } from "@/lib/socket";
 
 const SHAPES = [
-  { 
-    bg: "from-rose-500 via-red-600 to-rose-700 hover:from-rose-400 hover:to-red-600 border-red-400/30", 
-    badgeBg: "bg-red-950/60 border-red-400/40 text-red-200", 
-    icon: "🔺", 
-    label: "Option A" 
+  {
+    bg: "from-rose-500 via-red-600 to-rose-700 hover:from-rose-400 hover:to-red-600 border-red-400/30",
+    badgeBg: "bg-red-950/60 border-red-400/40 text-red-200",
+    icon: "🔺",
+    label: "Option A"
   },
-  { 
-    bg: "from-blue-500 via-indigo-600 to-blue-700 hover:from-blue-400 hover:to-indigo-600 border-blue-400/30", 
-    badgeBg: "bg-blue-950/60 border-blue-400/40 text-blue-200", 
-    icon: "🔷", 
-    label: "Option B" 
+  {
+    bg: "from-blue-500 via-indigo-600 to-blue-700 hover:from-blue-400 hover:to-indigo-600 border-blue-400/30",
+    badgeBg: "bg-blue-950/60 border-blue-400/40 text-blue-200",
+    icon: "🔷",
+    label: "Option B"
   },
-  { 
-    bg: "from-amber-500 via-yellow-600 to-amber-700 hover:from-amber-400 hover:to-yellow-600 border-amber-400/30", 
-    badgeBg: "bg-amber-950/60 border-amber-400/40 text-amber-200", 
-    icon: "🟡", 
-    label: "Option C" 
+  {
+    bg: "from-amber-500 via-yellow-600 to-amber-700 hover:from-amber-400 hover:to-yellow-600 border-amber-400/30",
+    badgeBg: "bg-amber-950/60 border-amber-400/40 text-amber-200",
+    icon: "🟡",
+    label: "Option C"
   },
-  { 
-    bg: "from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:to-teal-600 border-emerald-400/30", 
-    badgeBg: "bg-emerald-950/60 border-emerald-400/40 text-emerald-200", 
-    icon: "🟩", 
-    label: "Option D" 
+  {
+    bg: "from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:to-teal-600 border-emerald-400/30",
+    badgeBg: "bg-emerald-950/60 border-emerald-400/40 text-emerald-200",
+    icon: "🟩",
+    label: "Option D"
   }
 ];
 
 export default function ParticipantQuizPage() {
   const { eventId, quizId } = useParams();
   const { profile, isLoading } = useUser();
-  
+
   const [socket, setSocket] = useState<Socket | null>(null);
   const [status, setStatus] = useState<"CONNECTING" | "WAITING" | "QUESTION" | "ANSWERED" | "RESULT" | "LEADERBOARD" | "QUIZ_ENDED">("CONNECTING");
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [playerCount, setPlayerCount] = useState<number>(1);
   const [endedMessage, setEndedMessage] = useState<string>("The host has concluded the live quiz activity.");
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [answerResult, setAnswerResult] = useState<{ correct: boolean, points: number } | null>(null);
@@ -56,13 +58,13 @@ export default function ParticipantQuizPage() {
 
   useEffect(() => {
     if (!quizId || !profile?.id) return;
-    
+
     const socketUrl = getSocketBaseUrl();
     const newSocket = io(`${socketUrl}/quiz`, {
       transports: ["polling", "websocket"],
       withCredentials: true
     });
-    
+
     setSocket(newSocket);
 
     const emitJoin = () => {
@@ -72,10 +74,24 @@ export default function ParticipantQuizPage() {
       }
     };
 
+    newSocket.on("connect", () => {
+      setConnectionError(null);
+      emitJoin();
+    });
+
+    newSocket.on("connect_error", (err: any) => {
+      console.error("[Participant Quiz] Socket connection error:", err);
+      setConnectionError(err?.message || "Unable to reach the live activity server.");
+    });
+
+    newSocket.on("room_players", (data: { count: number }) => {
+      if (data?.count) {
+        setPlayerCount(data.count);
+      }
+    });
+
     if (newSocket.connected) {
       emitJoin();
-    } else {
-      newSocket.on("connect", emitJoin);
     }
 
     newSocket.on("quiz_state", (state: any) => {
@@ -145,17 +161,17 @@ export default function ParticipantQuizPage() {
 
   const submitAnswer = (optionId: number) => {
     if (status !== "QUESTION") return;
-    
+
     const timeTaken = (Date.now() - questionStartTime) / 1000;
-    
-    socket?.emit("submit_answer", { 
-      quizId: parseInt(quizId as string), 
-      questionId: currentQuestion.id, 
-      optionId, 
+
+    socket?.emit("submit_answer", {
+      quizId: parseInt(quizId as string),
+      questionId: currentQuestion.id,
+      optionId,
       userId: profile?.id,
-      timeTaken 
+      timeTaken
     });
-    
+
     setStatus("ANSWERED");
   };
 
@@ -187,9 +203,37 @@ export default function ParticipantQuizPage() {
   // Connecting State
   if (status === "CONNECTING") {
     return (
-      <div className="h-screen flex flex-col items-center justify-center bg-zinc-950 text-indigo-400 space-y-4">
-        <Loader2 className="animate-spin w-12 h-12" />
-        <p className="text-sm font-semibold text-zinc-400">Connecting to live activity room...</p>
+      <div className="h-screen flex flex-col items-center justify-center bg-zinc-950 text-indigo-400 p-6 text-center space-y-4">
+        {connectionError ? (
+          <div className="max-w-md w-full bg-zinc-900/90 border border-red-500/30 p-6 rounded-2xl shadow-xl space-y-4">
+            <div className="w-12 h-12 bg-red-500/20 text-red-400 rounded-xl flex items-center justify-center mx-auto">
+              <XCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white mb-1">Live Connection Issue</h2>
+              <p className="text-sm text-zinc-400">
+                {connectionError}
+              </p>
+              <p className="text-xs text-zinc-500 mt-2 font-mono">
+                Target: {getSocketBaseUrl()}/quiz
+              </p>
+            </div>
+            <Button
+              onClick={() => {
+                setConnectionError(null);
+                socket?.connect();
+              }}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl"
+            >
+              Retry Connection
+            </Button>
+          </div>
+        ) : (
+          <>
+            <Loader2 className="animate-spin w-12 h-12" />
+            <p className="text-sm font-semibold text-zinc-400">Connecting to live activity room...</p>
+          </>
+        )}
       </div>
     );
   }
@@ -223,10 +267,12 @@ export default function ParticipantQuizPage() {
           <div className="pt-4 border-t border-white/10 space-y-2">
             <div className="flex items-center justify-center gap-2 text-indigo-300 text-xs font-bold uppercase tracking-widest">
               <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-              Waiting for Host Broadcast
+              Waiting for Host to Start
             </div>
             <p className="text-xs text-white/70 leading-relaxed">
-              The host has launched the activity. Questions will appear on your screen automatically as soon as the host selects them!
+              {playerCount > 1
+                ? `You and ${playerCount - 1} other ${playerCount - 1 === 1 ? "player are" : "players are"} waiting in the lobby.`
+                : "You are connected in the lobby. Waiting for other players to join."} Questions will appear automatically once the host starts the quiz!
             </p>
           </div>
         </motion.div>
@@ -269,19 +315,18 @@ export default function ParticipantQuizPage() {
 
         {/* TIMER PROGRESS BAR */}
         <div className="w-full bg-zinc-800/50 h-1.5 overflow-hidden">
-          <motion.div 
-            className={`h-full transition-all duration-1000 ${
-              timeLeft <= 5 ? "bg-rose-500" : "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
-            }`}
+          <motion.div
+            className={`h-full transition-all duration-1000 ${timeLeft <= 5 ? "bg-rose-500" : "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
+              }`}
             style={{ width: `${progressPercent}%` }}
           />
         </div>
 
         {/* MAIN QUESTION & OPTIONS CONTENT */}
         <div className="flex-1 max-w-5xl mx-auto w-full p-4 sm:p-6 md:p-8 flex flex-col justify-between z-10 overflow-y-auto space-y-6">
-          
+
           {/* HERO QUESTION CARD */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -15 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full bg-white/10 backdrop-blur-xl border border-white/20 p-6 sm:p-8 md:p-10 rounded-3xl shadow-2xl text-center space-y-3 relative overflow-hidden"
@@ -297,7 +342,7 @@ export default function ParticipantQuizPage() {
 
           {/* ANSWERED OVERLAY OR OPTIONS GRID */}
           {status === "ANSWERED" ? (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               className="flex-1 flex flex-col items-center justify-center bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-8 text-center space-y-4 my-auto shadow-2xl"
@@ -349,26 +394,23 @@ export default function ParticipantQuizPage() {
   if (status === "RESULT") {
     const isCorrect = answerResult?.correct;
     return (
-      <div className={`h-screen flex flex-col items-center justify-center text-white p-6 relative overflow-hidden ${
-        isCorrect 
-          ? "bg-gradient-to-br from-emerald-950 via-teal-950 to-zinc-950" 
+      <div className={`h-screen flex flex-col items-center justify-center text-white p-6 relative overflow-hidden ${isCorrect
+          ? "bg-gradient-to-br from-emerald-950 via-teal-950 to-zinc-950"
           : "bg-gradient-to-br from-rose-950 via-red-950 to-zinc-950"
-      }`}>
-        <div className={`absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full blur-3xl pointer-events-none ${
-          isCorrect ? "bg-emerald-500/20" : "bg-rose-500/20"
-        }`} />
+        }`}>
+        <div className={`absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full blur-3xl pointer-events-none ${isCorrect ? "bg-emerald-500/20" : "bg-rose-500/20"
+          }`} />
 
-        <motion.div 
+        <motion.div
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
           className="relative z-10 max-w-md w-full bg-white/10 backdrop-blur-xl border border-white/10 p-8 sm:p-10 rounded-3xl shadow-2xl text-center space-y-6"
         >
-          <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-2xl border ${
-            isCorrect 
-              ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-400" 
+          <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-2xl border ${isCorrect
+              ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-400"
               : "bg-rose-500/20 border-rose-400/40 text-rose-400"
-          }`}>
+            }`}>
             {isCorrect ? <CheckCircle2 className="w-14 h-14" /> : <XCircle className="w-14 h-14" />}
           </div>
 
@@ -408,7 +450,7 @@ export default function ParticipantQuizPage() {
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Activity Leaderboard</h1>
             <p className="text-indigo-200 text-xs font-semibold">Top performers for this round</p>
           </div>
-          
+
           <div className="space-y-3">
             {leaderboard.map((lb, i) => {
               const isCurrentUser = lb.user_id === profile?.id;
@@ -420,16 +462,15 @@ export default function ParticipantQuizPage() {
               const rankClass = ranks[i] || "bg-white/10 border-white/10 text-white";
 
               return (
-                <motion.div 
+                <motion.div
                   key={lb.id || i}
                   initial={{ x: -30, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: i * 0.1 }}
-                  className={`flex justify-between items-center p-4 rounded-2xl border backdrop-blur-md shadow-lg transition-all ${
-                    isCurrentUser 
-                      ? "bg-gradient-to-r from-yellow-500/30 to-amber-500/30 border-yellow-400 text-white font-extrabold ring-2 ring-yellow-400/50" 
+                  className={`flex justify-between items-center p-4 rounded-2xl border backdrop-blur-md shadow-lg transition-all ${isCurrentUser
+                      ? "bg-gradient-to-r from-yellow-500/30 to-amber-500/30 border-yellow-400 text-white font-extrabold ring-2 ring-yellow-400/50"
                       : `bg-gradient-to-r ${rankClass}`
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3.5">
                     <span className="text-lg font-black w-6 text-center opacity-80">#{i + 1}</span>
@@ -444,7 +485,7 @@ export default function ParticipantQuizPage() {
               );
             })}
           </div>
-          
+
           <div className="pt-4 text-center text-xs font-semibold text-indigo-300/80 flex items-center justify-center gap-2">
             <Loader2 className="animate-spin w-4 h-4" /> Waiting for host to broadcast next round...
           </div>
@@ -483,16 +524,15 @@ export default function ParticipantQuizPage() {
                 const rankClass = ranks[i] || "bg-white/10 border-white/10 text-white";
 
                 return (
-                  <motion.div 
+                  <motion.div
                     key={lb.id || i}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    className={`flex justify-between items-center p-3.5 rounded-2xl border backdrop-blur-md transition-all ${
-                      isCurrentUser 
-                        ? "bg-gradient-to-r from-yellow-500/30 to-amber-500/30 border-yellow-400 text-white font-extrabold ring-2 ring-yellow-400/50" 
+                    className={`flex justify-between items-center p-3.5 rounded-2xl border backdrop-blur-md transition-all ${isCurrentUser
+                        ? "bg-gradient-to-r from-yellow-500/30 to-amber-500/30 border-yellow-400 text-white font-extrabold ring-2 ring-yellow-400/50"
                         : `bg-gradient-to-r ${rankClass}`
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-black w-6 text-center opacity-80">#{i + 1}</span>

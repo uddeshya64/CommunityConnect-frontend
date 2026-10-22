@@ -5,6 +5,16 @@ export interface AiConversationMessage {
   content: string;
 }
 
+export interface RegistrationFormField {
+  id: string;
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "number" | "select" | "checkbox";
+  required: boolean;
+  options?: string[];
+  is_fixed?: boolean;
+}
+
 /** Mirrors the backend `EventDraftValues` wire format (events column names). */
 export interface AiEventDraft {
   title?: string;
@@ -19,6 +29,7 @@ export interface AiEventDraft {
   registration_fee?: number | string;
   min_team_size?: number | string;
   max_team_size?: number | string;
+  registration_form_schema?: RegistrationFormField[];
   [key: string]: unknown;
 }
 

@@ -45,8 +45,7 @@ import {
 
 
 import AppLayout from "@/components/layout/AppLayout";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+import { API_BASE_URL } from "@/config/env";
 
 interface EventFormData {
   title: string;

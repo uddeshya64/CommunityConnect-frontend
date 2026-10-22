@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import PageTransition from "@/components/layout/PageTransition";
+import { API_BASE_URL } from "@/config/env";
+import { hasStoredSession, setStoredTokens } from "@/lib/auth";
 import { verify2FACode } from "@/lib/totp";
 import {
   useLogin,
@@ -46,6 +48,13 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirect");
   const { success: showSuccess, error: showError } = useToast();
+
+  useEffect(() => {
+    if (hasStoredSession()) {
+      const targetUrl = localStorage.getItem("returnUrl") || redirectParam || "/home";
+      router.replace(targetUrl);
+    }
+  }, [redirectParam, router]);
 
   const [view, setView] = useState<ViewState>("LOGIN");
   const [serverError, setServerError] = useState("");
@@ -133,12 +142,7 @@ function LoginContent() {
       }
 
       localStorage.removeItem("cc_user_settings");
-      localStorage.setItem("accessToken", result.accessToken);
-      localStorage.setItem("refreshToken", result.refreshToken);
-      
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("cc_auth_changed"));
-      }
+      setStoredTokens(result.accessToken, result.refreshToken);
 
       showSuccess("Signed in successfully!");
 
@@ -186,12 +190,7 @@ function LoginContent() {
       }
 
       localStorage.removeItem("cc_user_settings");
-      localStorage.setItem("accessToken", pendingTokens.accessToken);
-      localStorage.setItem("refreshToken", pendingTokens.refreshToken);
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("cc_auth_changed"));
-      }
+      setStoredTokens(pendingTokens.accessToken, pendingTokens.refreshToken);
 
       setSuccessMessage("2FA verification successful! Welcome back.");
       showSuccess("2FA verification successful! Welcome back.");
@@ -212,7 +211,7 @@ function LoginContent() {
     if (targetUrl) {
       sessionStorage.setItem("redirectUrl", targetUrl);
     }
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
+    window.location.href = `${API_BASE_URL}/auth/google`;
   };
 
   // =============================
