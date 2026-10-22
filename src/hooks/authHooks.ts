@@ -1,7 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+import { API_BASE_URL } from "@/config/env";
 
 export interface RegisterInitPayload {
   email: string;
@@ -156,6 +155,8 @@ export interface LogoutResponse {
   message: string;
 }
 
+import { clearStoredAuth, getStoredTokens } from "@/lib/auth";
+
 export function useLogout() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,41 +165,29 @@ export function useLogout() {
     setIsLoading(true);
     setError(null);
 
+    const { accessToken } = getStoredTokens();
+
     try {
-      const accessToken = localStorage.getItem("accessToken");
-
-      const { data } = await axios.post<LogoutResponse>(
-        `${API_BASE_URL}/auth/logout`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      // Clear stored tokens and profile cache
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("cc_user_profile");
-      localStorage.removeItem("cc_user_id");
-      localStorage.removeItem("cc_user_settings");
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("cc_auth_changed"));
+      if (accessToken) {
+        await axios.post<LogoutResponse>(
+          `${API_BASE_URL}/auth/logout`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            timeout: 4000,
+          }
+        );
       }
-
-      return data;
     } catch (err: any) {
-      const message =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        "Failed to logout. Please try again.";
-      setError(message);
-      throw new Error(message);
+      console.warn("Server-side logout skipped (continuing local cleanup):", err.message);
     } finally {
+      clearStoredAuth();
       setIsLoading(false);
     }
+
+    return { success: true, message: "Logged out successfully" };
   };
 
   return { logout, isLoading, error };

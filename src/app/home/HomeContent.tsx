@@ -18,7 +18,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { eventService } from "@/services/event.service";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
-import NotificationPromptPopup from "@/components/NotificationPromptPopup";
 import Sidebar from "@/app/home/SideBar";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
@@ -419,7 +418,6 @@ export default function HomeContent() {
         ============================================ */}
 
         <ProfilePromptPopup />
-        <NotificationPromptPopup />
 
         {/* ============================================
             MAIN

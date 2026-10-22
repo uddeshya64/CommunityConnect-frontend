@@ -23,6 +23,7 @@ import {
   Tag
 } from "lucide-react";
 import { api } from "@/lib/axios";
+import { API_BASE_URL } from "@/config/env";
 import { useToast } from "@/components/providers/ToastProvider";
 
 interface ExternalConflict {
@@ -364,7 +365,7 @@ export default function PersonalizeAgendaModal({
                 </button>
               ) : (
                 <a
-                  href={(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + "/auth/google/calendar?token=" + (typeof window !== "undefined" ? localStorage.getItem("accessToken") || "" : "") + "&returnUrl=" + (typeof window !== "undefined" ? encodeURIComponent(window.location.href) : "")}
+                  href={`${API_BASE_URL}/auth/google/calendar?token=${typeof window !== "undefined" ? localStorage.getItem("accessToken") || "" : ""}&returnUrl=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
                 >
                   <Calendar className="w-3.5 h-3.5" />

@@ -8,6 +8,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { verify2FACode, generateUniqueSecretKey, generateUniqueBackupCodes } from "@/lib/totp";
 import { EVENT_TEMPLATES } from "@/lib/eventTemplates";
 import AppLayout from "@/components/layout/AppLayout";
+import { performLogout } from "@/lib/auth";
 import {
   Settings as SettingsIcon,
   User,
@@ -1936,11 +1937,7 @@ export default function SettingsContent() {
                                 onClick={async () => {
                                   if (sess.isCurrent) {
                                     showToast("Logging out of current device...");
-                                    setTimeout(() => {
-                                      localStorage.removeItem("token");
-                                      localStorage.removeItem("user");
-                                      router.push("/login");
-                                    }, 800);
+                                    await performLogout();
                                   } else {
                                     try {
                                       await profileService.revokeSession(sess.id);

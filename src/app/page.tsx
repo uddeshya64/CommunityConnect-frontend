@@ -1,12 +1,24 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import PageTransition from "@/components/layout/PageTransition";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import { hasStoredSession } from "@/lib/auth";
 
 export default function Home() {
   const { isDark, activeAccent } = useAppearance();
+  const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    if (hasStoredSession()) {
+      setIsLoggedIn(true);
+      router.replace("/home");
+    }
+  }, [router]);
 
   return (
     <PageTransition>
@@ -24,14 +36,24 @@ export default function Home() {
           CommunityConnect
         </div>
         <div className="space-x-2 sm:space-x-4 flex items-center">
-          <Link href="/login" className={`text-xs sm:text-sm font-semibold ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-indigo-600"} transition-colors`}>
-            Log in
-          </Link>
-          <Link href="/register">
-            <Button className={`rounded-full ${activeAccent.bg} text-white hover:opacity-90 shadow-sm px-4 sm:px-6 py-1 sm:py-2 text-xs sm:text-sm`}>
-              Sign up
-            </Button>
-          </Link>
+          {isLoggedIn ? (
+            <Link href="/home">
+              <Button className={`rounded-full ${activeAccent.bg} text-white hover:opacity-90 shadow-sm px-4 sm:px-6 py-1 sm:py-2 text-xs sm:text-sm`}>
+                Open App
+              </Button>
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className={`text-xs sm:text-sm font-semibold ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-indigo-600"} transition-colors`}>
+                Log in
+              </Link>
+              <Link href="/register">
+                <Button className={`rounded-full ${activeAccent.bg} text-white hover:opacity-90 shadow-sm px-4 sm:px-6 py-1 sm:py-2 text-xs sm:text-sm`}>
+                  Sign up
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 
@@ -57,12 +79,12 @@ export default function Home() {
         </p>
         
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-6 sm:pt-8 w-full sm:w-auto px-4 sm:px-0">
-          <Link href="/login" className="w-full sm:w-auto">
+          <Link href={isLoggedIn ? "/home" : "/login"} className="w-full sm:w-auto">
             <Button size="lg" className={`w-full rounded-full ${activeAccent.bg} text-white hover:opacity-90 shadow-md ${activeAccent.shadow} px-8 py-5 sm:py-6 text-base sm:text-lg font-semibold transition-all hover:scale-105`}>
               Explore Events
             </Button>
           </Link>
-          <Link href="/login" className="w-full sm:w-auto">
+          <Link href={isLoggedIn ? "/events/create" : "/login"} className="w-full sm:w-auto">
             <Button variant="outline" size="lg" className={`w-full rounded-full px-8 py-5 sm:py-6 text-base sm:text-lg font-semibold ${isDark ? "border-white/10 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-200" : "border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"} shadow-sm transition-all hover:scale-105`}>
               Host an Event
             </Button>

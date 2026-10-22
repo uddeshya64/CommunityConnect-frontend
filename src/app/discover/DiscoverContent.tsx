@@ -35,7 +35,6 @@ import Sidebar from "@/app/home/SideBar";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import ProfilePromptPopup from "@/components/ProfilePromptPopup";
-import NotificationPromptPopup from "@/components/NotificationPromptPopup";
 
 interface AppEvent {
   id: string;
@@ -1236,7 +1235,6 @@ export default function DiscoverContent() {
 
           {/* Prompts */}
           <ProfilePromptPopup />
-          <NotificationPromptPopup />
         </div>
       </AppLayout>
     </div>

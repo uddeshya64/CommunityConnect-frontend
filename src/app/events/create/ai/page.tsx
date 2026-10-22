@@ -27,6 +27,10 @@ import {
   Info,
   Crosshair,
   X,
+  FileText,
+  Lock,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +39,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { PREDEFINED_EVENT_CATEGORIES } from "@/lib/eventTemplates";
+import { AI_SPEECH_LANG } from "@/config/env";
 import { eventService } from "@/services/event.service";
 import {
   locationService,
@@ -44,18 +49,27 @@ import {
   aiEventService,
   type AiEventDraft,
   type AiConversationMessage,
+  type RegistrationFormField,
 } from "@/services/aiEvent.service";
 
 const MODES = ["online", "offline", "hybrid"];
 const REG_TYPES = ["solo", "team"];
 
-const SAMPLE_PROMPTS = [
-  "Create a two-day technical conference on AI and cloud computing at our Jaipur office on November 15, 2026 for 100 participants, with a registration deadline five days before the event.",
-  "Plan a Salesforce Flow workshop next month, online, for 40 people.",
-  "Organize a weekend hackathon in Jaipur for 150 participants focused on web development, with team registration.",
+const DEFAULT_REG_FORM_FIELDS: RegistrationFormField[] = [
+  { id: "reg_college", key: "college", label: "College / University", type: "text", required: true },
+  { id: "reg_branch", key: "branch", label: "Branch / Stream", type: "text", required: false },
+  { id: "reg_year", key: "year", label: "Graduation Year / Academic Year", type: "text", required: false },
+  { id: "reg_resume", key: "resume", label: "Resume Link", type: "text", required: false },
+  { id: "reg_why_join", key: "why_join", label: "Why Join?", type: "textarea", required: false },
 ];
 
-const DEFAULT_SPEECH_LANG = process.env.NEXT_PUBLIC_AI_SPEECH_LANG || "en-IN";
+const SAMPLE_PROMPTS = [
+  "Create a two-day technical conference on AI and cloud computing at our Jaipur office on November 15, 2026 for 100 participants, asking for college and resume link.",
+  "Plan a Salesforce Flow workshop next month, online, for 40 people with T-Shirt size and experience level questions.",
+  "Organize a weekend hackathon in Jaipur for 150 participants focused on web development, with team registration and questions for GitHub URL and branch.",
+];
+
+const DEFAULT_SPEECH_LANG = AI_SPEECH_LANG;
 
 function isoToLocalInput(iso?: string): string {
   if (!iso) return "";
@@ -254,6 +268,55 @@ export default function AiEventCreatorPage() {
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const typeOptions = PREDEFINED_EVENT_CATEGORIES;
 
+  const [regFormFields, setRegFormFields] = useState<RegistrationFormField[]>(DEFAULT_REG_FORM_FIELDS);
+
+  const addRegFormField = (
+    key: string,
+    label: string,
+    type: "text" | "textarea" | "number" | "select" | "checkbox",
+    options?: string[]
+  ) => {
+    const id = `reg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const cleanKey = (key || label).toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 30) || id;
+    setRegFormFields((prev) => [
+      ...prev,
+      {
+        id,
+        key: cleanKey,
+        label,
+        type,
+        required: false,
+        options: type === "select" ? (options || ["Option 1", "Option 2"]) : undefined,
+      },
+    ]);
+    setErrors((prev) => {
+      if (!prev.reg_form_fields) return prev;
+      const next = { ...prev };
+      delete next.reg_form_fields;
+      return next;
+    });
+  };
+
+  const updateRegFormField = (id: string, patch: Partial<RegistrationFormField>) => {
+    setRegFormFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+    setErrors((prev) => {
+      if (!prev.reg_form_fields) return prev;
+      const next = { ...prev };
+      delete next.reg_form_fields;
+      return next;
+    });
+  };
+
+  const removeRegFormField = (id: string) => {
+    setRegFormFields((prev) => prev.filter((f) => f.id !== id));
+    setErrors((prev) => {
+      if (!prev.reg_form_fields) return prev;
+      const next = { ...prev };
+      delete next.reg_form_fields;
+      return next;
+    });
+  };
+
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [speechError, setSpeechError] = useState("");
@@ -271,16 +334,38 @@ export default function AiEventCreatorPage() {
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
+  const [isLocationSelected, setIsLocationSelected] = useState(false);
   const locationAbortRef = useRef<AbortController | null>(null);
+  const locationWrapperRef = useRef<HTMLDivElement | null>(null);
+  const locationInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasDraft = Object.keys(draft).length > 0;
+
+  useEffect(() => {
+    const handleClickOutside = (event: Event) => {
+      if (
+        locationWrapperRef.current &&
+        !locationWrapperRef.current.contains(event.target as Node)
+      ) {
+        setIsLocationDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside, true);
+    document.addEventListener("pointerdown", handleClickOutside, true);
+    document.addEventListener("touchstart", handleClickOutside, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+      document.removeEventListener("pointerdown", handleClickOutside, true);
+      document.removeEventListener("touchstart", handleClickOutside, true);
+    };
+  }, []);
 
   useEffect(() => {
     const hasRec = Boolean(getSpeechRecognition());
     setSpeechSupported(hasRec);
     if (typeof window !== "undefined" && navigator?.language) {
       const userLang = navigator.language;
-      if (!process.env.NEXT_PUBLIC_AI_SPEECH_LANG) {
+      if (!AI_SPEECH_LANG || AI_SPEECH_LANG === "en-IN") {
         if (userLang.startsWith("hi")) {
           setSpeechLang("hi-IN");
         } else if (userLang.startsWith("en-IN")) {
@@ -299,9 +384,12 @@ export default function AiEventCreatorPage() {
   // Debounced Location Autocomplete search via Mapbox API
   useEffect(() => {
     const loc = (draft.location || "").toString().trim();
-    if (!loc || loc.length < 3 || draft.mode === "online") {
+    if (isLocationSelected || !loc || loc.length < 3 || draft.mode === "online") {
       setLocationSuggestions([]);
       setIsLoadingLocation(false);
+      if (isLocationSelected || draft.mode === "online" || !loc) {
+        setIsLocationDropdownOpen(false);
+      }
       return;
     }
 
@@ -314,11 +402,15 @@ export default function AiEventCreatorPage() {
       try {
         const results = await locationService.search(loc, controller.signal);
         setLocationSuggestions(results);
-        if (results.length > 0) {
+        // Only open dropdown if user is still focused on the location input
+        if (results.length > 0 && document.activeElement === locationInputRef.current) {
           setIsLocationDropdownOpen(true);
+        } else {
+          setIsLocationDropdownOpen(false);
         }
       } catch {
         setLocationSuggestions([]);
+        setIsLocationDropdownOpen(false);
       } finally {
         if (locationAbortRef.current === controller) {
           setIsLoadingLocation(false);
@@ -327,13 +419,14 @@ export default function AiEventCreatorPage() {
     }, 350);
 
     return () => window.clearTimeout(timer);
-  }, [draft.location, draft.mode]);
+  }, [draft.location, isLocationSelected, draft.mode]);
 
   const handleDetectLocation = async () => {
     if (isDetectingLocation) return;
     setIsDetectingLocation(true);
     try {
       const address = await locationService.detectCurrentLocation();
+      setIsLocationSelected(true);
       updateDraft("location", address);
       setLocationSuggestions([]);
       setIsLocationDropdownOpen(false);
@@ -347,6 +440,7 @@ export default function AiEventCreatorPage() {
 
   const handleSelectLocation = (s: LocationSuggestion) => {
     const label = [s.name, s.address].filter(Boolean).join(" - ") || s.name || s.address;
+    setIsLocationSelected(true);
     updateDraft("location", label);
     setLocationSuggestions([]);
     setIsLocationDropdownOpen(false);
@@ -358,9 +452,11 @@ export default function AiEventCreatorPage() {
     setInterimTranscript("");
     setMessages([]);
     setDraft({});
+    setRegFormFields(DEFAULT_REG_FORM_FIELDS);
     setErrors({});
     setMissingFields([]);
     setInput("");
+    setIsLocationSelected(false);
     setLocationSuggestions([]);
     setIsLocationDropdownOpen(false);
   };
@@ -386,7 +482,10 @@ export default function AiEventCreatorPage() {
       const result = await aiEventService.chat({
         message,
         history: messages,
-        draft,
+        draft: {
+          ...draft,
+          registration_form_schema: regFormFields,
+        },
         knownTypes: typeOptions,
       });
 
@@ -395,12 +494,30 @@ export default function AiEventCreatorPage() {
         nextDraft.description = generateClientDescription(nextDraft, message);
       }
 
+      // Sync AI-generated / updated attendee questions if provided
+      if (Array.isArray(result.draft?.registration_form_schema) && result.draft.registration_form_schema.length > 0) {
+        const mapped = result.draft.registration_form_schema.map((f: any, idx: number) => ({
+          id: f.id || `reg_${Date.now()}_${idx}`,
+          key: f.key || (f.label || "").toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 30) || `custom_${idx}`,
+          label: f.label || "",
+          type: (["text", "textarea", "number", "select", "checkbox"].includes(f.type) ? f.type : "text") as any,
+          required: Boolean(f.required),
+          options: f.options,
+        }));
+        setRegFormFields(mapped);
+      }
+
       setMessages((prev) => [
         ...prev,
         userMessage,
         { role: "assistant", content: result.reply },
       ]);
       setDraft(nextDraft);
+      if (nextDraft.location) {
+        setIsLocationSelected(true);
+      }
+      setLocationSuggestions([]);
+      setIsLocationDropdownOpen(false);
       setMissingFields(result.missing_fields?.filter((f) => f !== "description") || []);
       setInput("");
     } catch (err: unknown) {
@@ -644,6 +761,12 @@ export default function AiEventCreatorPage() {
       next.max_team_size = ["Maximum team size cannot be less than minimum team size."];
     }
 
+    regFormFields.forEach((field) => {
+      if (!field.label.trim()) {
+        next.reg_form_fields = ["Please specify a question title for all custom questionnaire inputs."];
+      }
+    });
+
     return next;
   };
 
@@ -712,6 +835,29 @@ export default function AiEventCreatorPage() {
       if (draft.custom_fields) {
         payload.custom_fields = draft.custom_fields;
       }
+
+      const registration_form_schema = [
+        { key: "name", label: "Full Name", type: "text", required: true, is_fixed: true },
+        { key: "email", label: "Email Address", type: "text", required: true, is_fixed: true },
+        { key: "phone", label: "Phone Number", type: "text", required: true, is_fixed: true },
+        ...regFormFields
+          .filter((f) => f.label.trim())
+          .map((f) => ({
+            id: f.id,
+            key: f.key || f.label.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 30),
+            label: f.label.trim(),
+            type: f.type,
+            required: !!f.required,
+            options: f.options,
+            is_fixed: false,
+          })),
+      ];
+
+      payload.registration_form_schema = registration_form_schema;
+      payload.custom_fields = {
+        ...((draft.custom_fields as Record<string, unknown>) || {}),
+        registration_form_schema,
+      };
 
       const created = await eventService.createEvent(payload);
       showSuccess("Event created successfully!");
@@ -1154,7 +1300,7 @@ export default function AiEventCreatorPage() {
                       </div>
 
                       {/* Location with Accurate Location API Autocomplete & GPS */}
-                      <div className="space-y-1.5 relative">
+                      <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
                           <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
                             <MapPin className="w-3 h-3 inline mr-1 text-red-500" /> Location / Meeting link {isLocationRequired && <span className="text-red-500">*</span>}
@@ -1186,15 +1332,33 @@ export default function AiEventCreatorPage() {
                           )}
                         </div>
 
-                        <div className="relative">
+                        <div className="relative" ref={locationWrapperRef}>
                           <Input
+                            ref={locationInputRef}
                             value={draft.location || ""}
                             onChange={(e) => {
                               updateDraft("location", e.target.value);
-                              setIsLocationDropdownOpen(true);
+                              setIsLocationSelected(false);
+                              if (e.target.value.trim().length >= 3) {
+                                setIsLocationDropdownOpen(true);
+                              } else {
+                                setIsLocationDropdownOpen(false);
+                              }
                             }}
                             onFocus={() => {
-                              if (locationSuggestions.length > 0) setIsLocationDropdownOpen(true);
+                              if (locationSuggestions.length > 0 && !isLocationSelected) {
+                                setIsLocationDropdownOpen(true);
+                              }
+                            }}
+                            onBlur={(e) => {
+                              if (!locationWrapperRef.current?.contains(e.relatedTarget as Node)) {
+                                setIsLocationDropdownOpen(false);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                setIsLocationDropdownOpen(false);
+                              }
                             }}
                             placeholder={draft.mode === "online" ? "e.g. Zoom / Google Meet URL" : "e.g. Auditorium Hall, Jaipur (type 3+ chars)"}
                             className={`h-11 pr-20 ${fieldClass("location")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"}`}
@@ -1203,11 +1367,12 @@ export default function AiEventCreatorPage() {
                             {isLoadingLocation && (
                               <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
                             )}
-                            {draft.location && (
+                            {(draft.location || "").toString().trim() && (
                               <button
                                 type="button"
                                 onClick={() => {
                                   updateDraft("location", "");
+                                  setIsLocationSelected(false);
                                   setLocationSuggestions([]);
                                   setIsLocationDropdownOpen(false);
                                 }}
@@ -1218,40 +1383,44 @@ export default function AiEventCreatorPage() {
                               </button>
                             )}
                           </div>
-                        </div>
 
-                        {/* Suggestions Dropdown */}
-                        {isLocationDropdownOpen && locationSuggestions.length > 0 && (
-                          <div className={`absolute z-50 mt-1 w-full rounded-2xl border shadow-xl max-h-52 overflow-y-auto divide-y ${
-                            isDark
-                              ? "bg-zinc-900 border-zinc-800 divide-zinc-800 text-zinc-100"
-                              : "bg-white border-zinc-200 divide-zinc-100 text-zinc-800"
-                          }`}>
-                            <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-zinc-400 bg-zinc-50 dark:bg-zinc-950/50">
-                              Suggested Locations (Mapbox API)
+                          {/* Suggestions Dropdown positioned strictly under the Input */}
+                          {isLocationDropdownOpen && locationSuggestions.length > 0 && (
+                            <div className={`absolute left-0 top-full mt-1.5 w-full z-50 rounded-2xl border shadow-2xl max-h-56 overflow-y-auto divide-y backdrop-blur-md ${
+                              isDark
+                                ? "bg-zinc-900/95 border-zinc-700 divide-zinc-800 text-zinc-100"
+                                : "bg-white/95 border-zinc-200 divide-zinc-100 text-zinc-800"
+                            }`}>
+                              <div className="px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-zinc-400 bg-zinc-100/50 dark:bg-zinc-950/70 flex items-center justify-between">
+                                <span>Suggested Locations (Mapbox)</span>
+                                <span className="text-[9px] font-normal lowercase opacity-70">press to select</span>
+                              </div>
+                              {locationSuggestions.map((s, idx) => (
+                                <button
+                                  key={`${s.mapboxId || idx}-${s.name}`}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleSelectLocation(s);
+                                  }}
+                                  className={`w-full text-left px-3.5 py-2.5 flex items-start gap-2.5 transition-colors ${
+                                    isDark
+                                      ? "hover:bg-indigo-600/20 text-zinc-200 hover:text-white"
+                                      : "hover:bg-indigo-50 text-zinc-800 hover:text-indigo-950"
+                                  }`}
+                                >
+                                  <MapPin className="w-4 h-4 mt-0.5 text-indigo-500 shrink-0" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-bold truncate">{s.name}</p>
+                                    {s.address && (
+                                      <p className="text-[11px] text-zinc-400 truncate">{s.address}</p>
+                                    )}
+                                  </div>
+                                </button>
+                              ))}
                             </div>
-                            {locationSuggestions.map((s, idx) => (
-                              <button
-                                key={`${s.mapboxId || idx}-${s.name}`}
-                                type="button"
-                                onClick={() => handleSelectLocation(s)}
-                                className={`w-full text-left px-3.5 py-2.5 flex items-start gap-2.5 transition-colors ${
-                                  isDark
-                                    ? "hover:bg-zinc-800 text-zinc-200 hover:text-white"
-                                    : "hover:bg-indigo-50 text-zinc-800 hover:text-indigo-950"
-                                }`}
-                              >
-                                <MapPin className="w-4 h-4 mt-0.5 text-indigo-500 shrink-0" />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-bold truncate">{s.name}</p>
-                                  {s.address && (
-                                    <p className="text-[11px] text-zinc-400 truncate">{s.address}</p>
-                                  )}
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                          )}
+                        </div>
 
                         {errors.location && <FieldError message={errors.location[0]} />}
                         {!errors.location && isLocationRequired && !(draft.location || "").toString().trim() && (
@@ -1260,6 +1429,7 @@ export default function AiEventCreatorPage() {
                           </p>
                         )}
                       </div>
+
 
                       {/* Capacity + Fee */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1381,6 +1551,187 @@ export default function AiEventCreatorPage() {
                           }`}
                         />
                         {errors.description && <FieldError message={errors.description[0]} />}
+                      </div>
+
+                      {/* Attendee Custom Questionnaire */}
+                      <div className="space-y-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-xl flex items-center justify-center shrink-0 border border-blue-500/20 shadow-xs">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className={`text-base font-black ${isDark ? "text-white" : "text-zinc-900"} tracking-tight`}>
+                              Attendee Custom Questionnaire
+                            </h3>
+                            <p className={`${isDark ? "text-zinc-400" : "text-zinc-500"} text-xs font-semibold`}>
+                              Build forms attendees answer during checkout registration.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Fixed Profile Fields Notice */}
+                        <div className={`p-3 rounded-xl ${isDark ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300" : "bg-indigo-50/70 border-indigo-100 text-indigo-900"} border space-y-0.5`}>
+                          <div className="flex items-center gap-1.5 font-bold text-xs">
+                            <Lock className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> Fixed Profile Fields
+                          </div>
+                          <p className={`text-xs ${isDark ? "text-zinc-300" : "text-indigo-800"} font-medium`}>
+                            These fields are mandatory: <span className="font-bold">Full Name, Email Address, Phone Number</span>.
+                          </p>
+                        </div>
+
+                        {/* Quick Presets & Blank */}
+                        <div className="space-y-2">
+                          <label className={`text-[11px] font-black uppercase tracking-wider ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                            Quick Presets & Blank
+                          </label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              { label: "College / University", key: "college", type: "text" },
+                              { label: "Graduation Year", key: "year", type: "text" },
+                              { label: "Branch / Stream", key: "branch", type: "text" },
+                              { label: "Resume Link", key: "resume", type: "text" },
+                              { label: "Why Join?", key: "why_join", type: "textarea" },
+                            ].map((p) => (
+                              <button
+                                key={p.label}
+                                type="button"
+                                onClick={() => addRegFormField(p.key, p.label, p.type as any)}
+                                className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all shadow-xs ${
+                                  isDark
+                                    ? "bg-zinc-800 border-zinc-700 text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                                    : "bg-zinc-100 border-zinc-200 text-zinc-800 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200"
+                                }`}
+                              >
+                                + {p.label}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => addRegFormField(`custom_${Date.now()}`, "", "text")}
+                              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Blank Question
+                            </button>
+                          </div>
+                        </div>
+
+                        {errors.reg_form_fields && (
+                          <p className="text-xs text-red-500 font-semibold bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+                            {errors.reg_form_fields[0]}
+                          </p>
+                        )}
+
+                        {/* Horizontal rows for questionnaire fields */}
+                        <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                          {regFormFields.length === 0 && (
+                            <p className={`text-center py-6 ${isDark ? "text-zinc-500" : "text-zinc-400"} italic text-xs font-medium`}>
+                              No dynamic checkout questions added. Click presets above or ask AI in chat!
+                            </p>
+                          )}
+                          {regFormFields.map((field) => (
+                            <div
+                              key={field.id}
+                              className={`flex flex-col md:flex-row items-center gap-2.5 p-3 rounded-xl border ${
+                                isDark
+                                  ? "bg-zinc-950/70 border-zinc-800"
+                                  : "bg-zinc-50 border-zinc-200"
+                              }`}
+                            >
+                              <div className="w-full md:w-1/3">
+                                <Input
+                                  value={field.label}
+                                  onChange={(e) => updateRegFormField(field.id, { label: e.target.value })}
+                                  placeholder="Question Label (e.g. Laptop Brand)"
+                                  className={`h-9 rounded-lg text-xs font-semibold ${
+                                    isDark
+                                      ? "bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
+                                      : "bg-white border-zinc-200 text-zinc-900"
+                                  }`}
+                                />
+                              </div>
+                              <div className="w-full md:w-1/4">
+                                <select
+                                  value={field.type}
+                                  onChange={(e) =>
+                                    updateRegFormField(field.id, {
+                                      type: e.target.value as any,
+                                      options:
+                                        e.target.value === "select"
+                                          ? field.options || ["Option 1", "Option 2"]
+                                          : undefined,
+                                    })
+                                  }
+                                  className={`w-full h-9 py-1 px-2.5 rounded-lg border text-xs font-bold focus:outline-none ${
+                                    isDark
+                                      ? "border-zinc-700 bg-zinc-900 text-white"
+                                      : "border-zinc-200 bg-white text-zinc-800"
+                                  }`}
+                                >
+                                  <option value="text">Short Text</option>
+                                  <option value="textarea">Long Text</option>
+                                  <option value="number">Number</option>
+                                  <option value="select">Dropdown Options</option>
+                                  <option value="checkbox">Checkbox Toggle</option>
+                                </select>
+                              </div>
+                              <div className="flex-1 w-full">
+                                {field.type === "select" ? (
+                                  <Input
+                                    value={(field.options || []).join(", ")}
+                                    onChange={(e) =>
+                                      updateRegFormField(field.id, {
+                                        options: e.target.value
+                                          .split(",")
+                                          .map((o) => o.trim())
+                                          .filter(Boolean),
+                                      })
+                                    }
+                                    placeholder="e.g. S, M, L, XL"
+                                    className={`h-9 rounded-lg text-xs font-semibold px-2.5 ${
+                                      isDark
+                                        ? "bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
+                                        : "bg-white border-zinc-200 text-zinc-900"
+                                    }`}
+                                  />
+                                ) : (
+                                  <div
+                                    className={`text-xs ${
+                                      isDark ? "text-zinc-400" : "text-zinc-500"
+                                    } font-semibold italic text-center md:text-left`}
+                                  >
+                                    No additional configuration
+                                  </div>
+                                )}
+                              </div>
+                              <div className="shrink-0 flex items-center gap-3">
+                                <label
+                                  className={`flex items-center gap-1.5 text-xs font-bold ${
+                                    isDark ? "text-white" : "text-zinc-800"
+                                  } cursor-pointer uppercase select-none`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={field.required}
+                                    onChange={(e) =>
+                                      updateRegFormField(field.id, { required: e.target.checked })
+                                    }
+                                    className="w-3.5 h-3.5 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+                                  />
+                                  Req
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => removeRegFormField(field.id)}
+                                  className="p-1.5 rounded hover:text-red-400 text-zinc-400 hover:bg-red-500/10 transition-colors shrink-0"
+                                  aria-label="Remove field"
+                                  title="Remove question"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
                       {/* Schedule readout */}

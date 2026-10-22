@@ -32,7 +32,7 @@ import { useProfileById, MyProfile } from "@/hooks/profileHooks";
 import { useUser } from "@/components/providers/UserProvider";
 import PageTransition from "@/components/layout/PageTransition";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+import { API_BASE_URL } from "@/config/env";
 
 // ==============================
 // CREATED EVENT TYPE

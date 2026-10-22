@@ -22,15 +22,28 @@ const UserContext = createContext<UserContextType>({
   clearProfile: () => {},
 });
 
+import { getStoredTokens, clearStoredAuth } from "@/lib/auth";
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("cc_user_profile");
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return null;
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProfile = useCallback(async (): Promise<Profile | null> => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-    if (!token) {
+    const { accessToken, refreshToken } = getStoredTokens();
+    if (!accessToken && !refreshToken) {
       setProfile(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("cc_user_profile");
+      }
       setIsLoading(false);
       return null;
     }
@@ -39,6 +52,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const data = await profileService.getMyProfile();
       setProfile(data);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("cc_user_profile", JSON.stringify(data));
+      }
       return data;
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || "Failed to load user profile");
@@ -54,7 +70,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined") return;
 
     const handleAuthChange = () => {
-      setIsLoading(true);
       fetchProfile();
     };
 
@@ -69,6 +84,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const clearProfile = useCallback(() => {
     setProfile(null);
+    clearStoredAuth();
   }, []);
 
   const setProfileData = useCallback((data: Profile | null) => {

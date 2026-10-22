@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import Link from "next/link";
+import { API_BASE_URL } from "@/config/env";
+import { hasStoredSession, setStoredTokens } from "@/lib/auth";
 
 import {
   ArrowRight,
@@ -38,6 +40,13 @@ export default function RegisterPage() {
   const { isDark, activeAccent } = useAppearance();
   const router = useRouter();
   const { success: showSuccess, error: showError } = useToast();
+
+  useEffect(() => {
+    if (hasStoredSession()) {
+      const returnUrl = localStorage.getItem("returnUrl") || "/home";
+      router.replace(returnUrl);
+    }
+  }, [router]);
 
   const [step, setStep] = useState<1 | 2>(1);
   const [serverError, setServerError] = useState("");
@@ -68,16 +77,7 @@ export default function RegisterPage() {
   // =====================================================
 
   const handleGoogleLogin = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-    if (!apiUrl) {
-      setServerError(
-        "Backend API URL is not configured. Please check your .env.local file."
-      );
-      return;
-    }
-
-    window.location.href = `${apiUrl}/auth/google`;
+    window.location.href = `${API_BASE_URL}/auth/google`;
   };
 
   // =====================================================
@@ -138,19 +138,7 @@ export default function RegisterPage() {
 
       // Save authentication tokens
       localStorage.removeItem("cc_user_settings");
-      localStorage.setItem(
-        "accessToken",
-        result.accessToken
-      );
-
-      localStorage.setItem(
-        "refreshToken",
-        result.refreshToken
-      );
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("cc_auth_changed"));
-      }
+      setStoredTokens(result.accessToken, result.refreshToken);
 
       // Reset notification prompt for new user registration
       localStorage.removeItem("notification_prompt_completed");

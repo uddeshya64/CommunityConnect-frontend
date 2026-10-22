@@ -19,6 +19,7 @@ import Navbar from "@/components/NavBar";
 import PersonalizeAgendaModal from "@/components/agenda/PersonalizeAgendaModal";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import AppLayout from "@/components/layout/AppLayout";
+import { API_BASE_URL } from "@/config/env";
 
 export default function TeamParticipantDashboard() {
   const handleDownloadICS = async () => {
@@ -953,7 +954,7 @@ export default function TeamParticipantDashboard() {
               <div className="flex flex-wrap items-center gap-2">
                 {!isCalendarConnected ? (
                   <a
-                    href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api"}/auth/google/calendar?token=${typeof window !== "undefined" ? localStorage.getItem("accessToken") || "" : ""}&returnUrl=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
+                    href={`${API_BASE_URL}/auth/google/calendar?token=${typeof window !== "undefined" ? localStorage.getItem("accessToken") || "" : ""}&returnUrl=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-extrabold text-xs shadow-md transition-all hover:scale-[1.02]"
                   >
                     <Calendar className="w-3.5 h-3.5 text-zinc-950" />
