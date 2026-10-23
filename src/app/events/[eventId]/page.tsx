@@ -10,7 +10,7 @@ import {
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
   HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, CheckSquare, Megaphone, Send, Smile, MessageSquare, Gamepad2,
-  ChevronDown, ShieldAlert
+  ChevronDown, ShieldAlert, Camera
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import Navbar from "@/components/layout/Navbar";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import ActivityManagerTab from "@/components/gamification/ActivityManagerTab";
+import AiAgendaBuilderModal from "@/components/events/AiAgendaBuilderModal";
 
 interface EventDetails {
   id: string;
@@ -336,6 +337,7 @@ export default function EventDetailsPage() {
 
   const [timelinesList, setTimelinesList] = useState<any[]>([]);
   const [isAgendaModalOpen, setIsAgendaModalOpen] = useState(false);
+  const [isAiAgendaModalOpen, setIsAiAgendaModalOpen] = useState(false);
   const [editingTimelineItem, setEditingTimelineItem] = useState<any | null>(null);
   const [agendaToDeleteId, setAgendaToDeleteId] = useState<number | null>(null);
   const [isDeletingAgenda, setIsDeletingAgenda] = useState(false);
@@ -408,9 +410,15 @@ export default function EventDetailsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [checkInFilter, setCheckInFilter] = useState<"ALL" | "PRESENT" | "ABSENT">("ALL");
   const [isQrScanning, setIsQrScanning] = useState(false);
+  const [isCameraStarting, setIsCameraStarting] = useState(true);
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string; participantName?: string } | null>(null);
   const [isPerformingCheckIn, setIsPerformingCheckIn] = useState<number | null>(null);
   const [welcomeAttendee, setWelcomeAttendee] = useState<string | null>(null);
+  const [alreadyCheckedInModal, setAlreadyCheckedInModal] = useState<{
+    message: string;
+    name?: string;
+    time?: string;
+  } | null>(null);
 
   // --- ACTIONS & FILE UPLOAD STATES ---
   const [editData, setEditData] = useState<any>({});
@@ -922,6 +930,7 @@ export default function EventDetailsPage() {
       });
 
       const displayName = participant.name || participant.user?.name || "Participant";
+      setAlreadyCheckedInModal(null);
       setWelcomeAttendee(displayName);
       setTimeout(() => {
         setWelcomeAttendee(null);
@@ -935,7 +944,24 @@ export default function EventDetailsPage() {
         )
       );
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to check in participant.");
+      const errMsg = err.response?.data?.error || "Failed to check in participant.";
+      const isAlready = Boolean(
+        err.response?.data?.isAlreadyCheckedIn ||
+        errMsg.toLowerCase().includes("already checked in")
+      );
+      if (isAlready) {
+        setWelcomeAttendee(null);
+        setAlreadyCheckedInModal({
+          message: errMsg,
+          name: err.response?.data?.participantName || participant.name || participant.user?.name,
+          time: err.response?.data?.checkedInAt
+        });
+        setTimeout(() => {
+          setAlreadyCheckedInModal(null);
+        }, 4500);
+      } else {
+        alert(errMsg);
+      }
     } finally {
       setIsPerformingCheckIn(null);
     }
@@ -952,6 +978,7 @@ export default function EventDetailsPage() {
 
       setIsQrScanning(false);
       setScanResult(null);
+      setAlreadyCheckedInModal(null);
       setWelcomeAttendee(attendeeName);
 
       setTimeout(() => {
@@ -969,10 +996,37 @@ export default function EventDetailsPage() {
 
     } catch (err: any) {
       console.error("QR check in error:", err);
-      setScanResult({
-        success: false,
-        message: err.response?.data?.error || "Invalid ticket code or check-in failed."
-      });
+      const errMsg = err.response?.data?.error || "Invalid ticket code or check-in failed.";
+      const isAlready = Boolean(
+        err.response?.data?.isAlreadyCheckedIn ||
+        errMsg.toLowerCase().includes("already checked in")
+      );
+
+      setIsQrScanning(false);
+      setScanResult(null);
+
+      if (isAlready) {
+        setWelcomeAttendee(null);
+        setAlreadyCheckedInModal({
+          message: errMsg,
+          name: err.response?.data?.participantName,
+          time: err.response?.data?.checkedInAt
+        });
+
+        setTimeout(() => {
+          setAlreadyCheckedInModal(null);
+          setIsQrScanning(true);
+        }, 4500);
+      } else {
+        setScanResult({
+          success: false,
+          message: errMsg
+        });
+        alert(errMsg);
+        setTimeout(() => {
+          setIsQrScanning(true);
+        }, 1500);
+      }
     }
   };
 
@@ -997,6 +1051,7 @@ export default function EventDetailsPage() {
 
   const handleCloseScanner = () => {
     setIsQrScanning(false);
+    setIsCameraStarting(false);
     stopVideoTracks();
   };
 
@@ -1005,6 +1060,7 @@ export default function EventDetailsPage() {
     let isCancelled = false;
 
     if (isQrScanning) {
+      setIsCameraStarting(true);
       const timer = setTimeout(async () => {
         const scannerElement = document.getElementById("qr-scanner-element");
         if (!scannerElement || isCancelled) return;
@@ -1021,7 +1077,7 @@ export default function EventDetailsPage() {
           await html5Qrcode.start(
             { facingMode: "environment" },
             {
-              fps: 10,
+              fps: 15,
               qrbox: { width: 250, height: 250 }
             },
             async (qrCodeMessage) => {
@@ -1039,8 +1095,14 @@ export default function EventDetailsPage() {
             () => { }
           );
 
-          const videoEl = document.querySelector("#qr-scanner-element video") as any;
+          // Once started, format video and hide loader smoothly when video actually paints
+          const videoEl = document.querySelector("#qr-scanner-element video") as HTMLVideoElement | null;
           if (videoEl) {
+            videoEl.style.width = "100%";
+            videoEl.style.height = "100%";
+            videoEl.style.objectFit = "cover";
+            videoEl.style.borderRadius = "1rem";
+
             videoEl.onabort = (e: any) => {
               if (e && typeof e.preventDefault === "function") e.preventDefault();
               if (e && typeof e.stopPropagation === "function") e.stopPropagation();
@@ -1049,6 +1111,16 @@ export default function EventDetailsPage() {
               if (e && typeof e.preventDefault === "function") e.preventDefault();
               if (e && typeof e.stopPropagation === "function") e.stopPropagation();
             };
+
+            if (videoEl.readyState >= 2) {
+              setIsCameraStarting(false);
+            } else {
+              videoEl.onloadeddata = () => setIsCameraStarting(false);
+              videoEl.onplaying = () => setIsCameraStarting(false);
+              setTimeout(() => setIsCameraStarting(false), 600);
+            }
+          } else {
+            setIsCameraStarting(false);
           }
 
           if (isCancelled && html5Qrcode) {
@@ -1062,17 +1134,19 @@ export default function EventDetailsPage() {
           }
         } catch (err: any) {
           console.error("Failed to start QR scanner:", err);
+          setIsCameraStarting(false);
           if (!isCancelled) {
             alert("Could not open camera. Please check camera permissions.");
             handleCloseScanner();
           }
         }
-      }, 250);
+      }, 150);
 
       return () => {
         isCancelled = true;
         clearTimeout(timer);
         stopVideoTracks();
+        setIsCameraStarting(false);
         if (html5Qrcode) {
           if (html5Qrcode.isScanning) {
             html5Qrcode.stop().then(() => {
@@ -1612,7 +1686,7 @@ export default function EventDetailsPage() {
         {/* Right Content Area with Navbar on top */}
         <div className="flex-1 flex flex-col min-w-0 relative">
           <Navbar />
-          <div className="flex-1 p-6 md:p-12 overflow-y-auto min-w-0">
+          <div className="flex-1 p-3.5 sm:p-6 md:p-12 overflow-y-auto min-w-0">
           <div className="max-w-4xl mx-auto">
 
             {isFetchingTab ? (
@@ -2031,25 +2105,42 @@ export default function EventDetailsPage() {
                         <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Event Agenda</h1>
                         <p className="text-zinc-500 font-medium mt-1">Design a creative schedule and session timeline for your event.</p>
                       </div>
-                      <Button
-                        onClick={handleOpenAddAgenda}
-                        className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-6 shadow-lg shadow-indigo-600/25 flex items-center gap-2 self-start md:self-auto transition-transform hover:scale-[1.02]"
-                      >
-                        <Plus className="w-5 h-5" /> Add Session
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          onClick={() => setIsAiAgendaModalOpen(true)}
+                          className="rounded-2xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-500 hover:via-indigo-500 hover:to-purple-500 text-white font-extrabold px-6 py-6 shadow-lg shadow-indigo-600/25 flex items-center gap-2 self-start md:self-auto transition-transform hover:scale-[1.02]"
+                        >
+                          <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" /> AI Agenda Builder
+                        </Button>
+                        <Button
+                          onClick={handleOpenAddAgenda}
+                          variant="outline"
+                          className="rounded-2xl border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-bold px-6 py-6 shadow-sm flex items-center gap-2 self-start md:self-auto"
+                        >
+                          <Plus className="w-5 h-5" /> Manual Session
+                        </Button>
+                      </div>
                     </div>
 
                     {timelinesList.length === 0 ? (
                       <div className="text-center py-16 border-2 border-dashed border-zinc-200 rounded-3xl bg-zinc-50">
                         <Clock className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
                         <h3 className="font-extrabold text-zinc-800 text-lg">No sessions added yet</h3>
-                        <p className="text-zinc-500 text-sm font-medium mt-1">Add sessions to build a stunning timeline for your attendees.</p>
-                        <Button
-                          onClick={handleOpenAddAgenda}
-                          className="mt-6 rounded-xl bg-white border border-zinc-200 text-zinc-800 font-bold px-5 py-2.5 hover:bg-zinc-50 shadow-sm"
-                        >
-                          Create First Session
-                        </Button>
+                        <p className="text-zinc-500 text-sm font-medium mt-1">Add sessions manually or let AI structure an agenda from your voice prompt.</p>
+                        <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+                          <Button
+                            onClick={() => setIsAiAgendaModalOpen(true)}
+                            className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold px-6 py-3 shadow-md shadow-indigo-600/20 flex items-center gap-2"
+                          >
+                            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" /> Build with AI
+                          </Button>
+                          <Button
+                            onClick={handleOpenAddAgenda}
+                            className="rounded-xl bg-white border border-zinc-200 text-zinc-800 font-bold px-6 py-3 hover:bg-zinc-50 shadow-sm flex items-center gap-2"
+                          >
+                            <Plus className="w-4 h-4" /> Manual Session
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-6">
@@ -3091,6 +3182,7 @@ export default function EventDetailsPage() {
                 {activeTab === "ACTIVITIES" && (
                   <ActivityManagerTab 
                     eventId={eventId as string} 
+                    eventTitle={event?.title || "Event"}
                     isOwner={isOwner} 
                     hasPermission={hasPermission} 
                     activeAccent={activeAccent} 
@@ -3234,24 +3326,78 @@ export default function EventDetailsPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
             >
-              <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                transition={{ type: "spring", duration: 0.35, bounce: 0.1 }}
+                className={`w-full max-w-md rounded-3xl p-6 shadow-2xl relative border ${
+                  isDark ? "bg-zinc-950 border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"
+                }`}
+              >
                 <button
                   onClick={handleCloseScanner}
                   type="button"
-                  className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-700 p-2"
+                  className={`absolute right-4 top-4 p-2 rounded-full transition-colors ${
+                    isDark ? "text-zinc-400 hover:text-white hover:bg-zinc-900" : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
+                  }`}
                 >
-                  <XCircle className="w-6 h-6" />
+                  <X className="w-5 h-5" />
                 </button>
 
                 <div className="text-center mb-4">
-                  <h3 className="text-xl font-extrabold text-zinc-900">Scan Ticket QR</h3>
-                  <p className="text-xs font-semibold text-zinc-500 mt-1">Position attendee&apos;s ticket QR code inside the camera frame.</p>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-bold mb-2 border border-indigo-500/20">
+                    <QrCode className="w-3.5 h-3.5" /> Ticket Gatekeeper
+                  </div>
+                  <h3 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"}`}>Scan Ticket QR</h3>
+                  <p className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                    Position attendee&apos;s ticket QR code inside the camera frame.
+                  </p>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border-2 border-zinc-200 bg-black aspect-square flex items-center justify-center relative">
-                  <div id="qr-scanner-element" className="w-full h-full"></div>
+                {/* Camera Viewport with smooth loader overlay */}
+                <div className="overflow-hidden rounded-2xl border-2 border-zinc-800 bg-zinc-950 aspect-square flex items-center justify-center relative shadow-inner">
+                  <div 
+                    id="qr-scanner-element" 
+                    className="w-full h-full relative [&_video]:w-full [&_video]:h-full [&_video]:object-cover [&_video]:rounded-2xl [&_canvas]:hidden [&_img]:hidden [&_select]:hidden [&_button]:hidden"
+                  />
+
+                  {/* Smooth Loader while camera initializes */}
+                  {isCameraStarting && (
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-950 text-white p-6 text-center select-none animate-in fade-in duration-200">
+                      <div className="relative mb-5">
+                        <div className="w-16 h-16 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin" />
+                        <div className="absolute inset-2 rounded-full border-2 border-violet-500/30 border-b-violet-500 animate-[spin_1.5s_linear_infinite_reverse]" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Camera className="w-6 h-6 text-indigo-400 animate-pulse" />
+                        </div>
+                      </div>
+                      <h4 className="text-sm font-extrabold text-white tracking-wide">Starting Camera Scanner</h4>
+                      <p className="text-xs text-zinc-400 mt-1.5 max-w-[220px] leading-relaxed">
+                        Initializing video feed... Please allow camera access if prompted.
+                      </p>
+                      <div className="flex items-center gap-2 mt-4 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-semibold text-zinc-400">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                        <span>Connecting Video Hardware</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Target Frame Reticle (visible only when camera is active) */}
+                  {!isCameraStarting && (
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+                      <div className="w-56 h-56 relative border-2 border-dashed border-indigo-400/40 rounded-2xl">
+                        <div className="absolute -top-1 -left-1 w-6 h-6 border-t-3 border-l-3 border-indigo-500 rounded-tl-lg" />
+                        <div className="absolute -top-1 -right-1 w-6 h-6 border-t-3 border-r-3 border-indigo-500 rounded-tr-lg" />
+                        <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-3 border-l-3 border-indigo-500 rounded-bl-lg" />
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-3 border-r-3 border-indigo-500 rounded-br-lg" />
+                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/60 to-transparent animate-pulse" />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {scanResult && (
@@ -3263,11 +3409,13 @@ export default function EventDetailsPage() {
                 <Button
                   onClick={handleCloseScanner}
                   type="button"
-                  className="w-full mt-4 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-900 font-bold py-3"
+                  className={`w-full mt-4 rounded-xl font-bold py-3 transition-colors ${
+                    isDark ? "bg-zinc-900 hover:bg-zinc-800 text-white" : "bg-zinc-100 hover:bg-zinc-200 text-zinc-900"
+                  }`}
                 >
                   Close Scanner
                 </Button>
-              </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -3498,23 +3646,130 @@ export default function EventDetailsPage() {
           )}
         </AnimatePresence>
 
-        {/* WELCOME BANNER MODAL */}
+        {/* FULL HIGH-IMPACT WELCOME WINDOW MODAL */}
         <AnimatePresence>
           {welcomeAttendee && (
             <motion.div
-              initial={{ opacity: 0, y: 50, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 50, scale: 0.9 }}
-              className={`fixed bottom-8 right-8 z-50 ${isDark ? "bg-zinc-950 text-white border-zinc-800" : "bg-white text-zinc-900 border-zinc-200"} p-6 rounded-3xl shadow-2xl border flex items-center gap-4 max-w-md`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
             >
-              <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-xs font-black text-emerald-400 uppercase tracking-widest">Check-In Successful</p>
-                <h4 className={`text-lg font-black ${isDark ? "text-white" : "text-zinc-900"} mt-0.5`}>Welcome, {welcomeAttendee}! 👋</h4>
-                <p className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"} mt-0.5`}>Attendance status updated seamlessly.</p>
-              </div>
+              <motion.div
+                initial={{ scale: 0.85, y: 30, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.85, y: 30, opacity: 0 }}
+                transition={{ type: "spring", damping: 18, stiffness: 120 }}
+                className="relative w-full max-w-lg bg-zinc-950 border border-zinc-800 p-8 sm:p-12 rounded-[2.5rem] text-center shadow-2xl flex flex-col items-center justify-center gap-6 text-white overflow-hidden"
+              >
+                {/* Background ambient glow */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-36 bg-emerald-500/20 rounded-full blur-[90px] pointer-events-none" />
+
+                <div className="w-20 h-20 bg-emerald-500/10 border-2 border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.25)]">
+                  <CheckCircle2 className="w-10 h-10 animate-bounce" />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-emerald-400 text-xs sm:text-sm font-black uppercase tracking-[0.25em]">
+                    Check-In Successful
+                  </p>
+                  <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">
+                    {event?.title}
+                  </p>
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white mt-1">
+                    Welcome, <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">{welcomeAttendee}</span>! 👋
+                  </h2>
+                  <p className="text-zinc-400 text-xs sm:text-sm font-medium mt-1">
+                    Ticket verified seamlessly. Please enter and enjoy the event!
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 w-full pt-2">
+                  <Button
+                    onClick={() => {
+                      setWelcomeAttendee(null);
+                      setIsQrScanning(true);
+                    }}
+                    className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-6 shadow-lg shadow-emerald-600/20 text-sm"
+                  >
+                    Scan Next Ticket
+                  </Button>
+                </div>
+
+                {/* Autoclose Progress Bar */}
+                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-zinc-850 rounded-b-[2.5rem] overflow-hidden">
+                  <motion.div
+                    initial={{ width: "100%" }}
+                    animate={{ width: "0%" }}
+                    transition={{ duration: 4, ease: "linear" }}
+                    className="h-full bg-emerald-500"
+                  />
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ALREADY CHECKED IN WINDOW MODAL */}
+        <AnimatePresence>
+          {alreadyCheckedInModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.85, y: 30, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.85, y: 30, opacity: 0 }}
+                transition={{ type: "spring", damping: 18, stiffness: 120 }}
+                className="relative w-full max-w-lg bg-zinc-950 border border-amber-500/40 p-8 sm:p-12 rounded-[2.5rem] text-center shadow-2xl flex flex-col items-center justify-center gap-6 text-white overflow-hidden"
+              >
+                {/* Background ambient glow */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-36 bg-amber-500/20 rounded-full blur-[90px] pointer-events-none" />
+
+                <div className="w-20 h-20 bg-amber-500/10 border-2 border-amber-500/30 text-amber-400 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(245,158,11,0.25)]">
+                  <ShieldAlert className="w-10 h-10 animate-pulse" />
+                </div>
+
+                <div className="space-y-2">
+                  <span className="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-black uppercase tracking-widest inline-block">
+                    Already Checked In
+                  </span>
+                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-1">
+                    Ticket Already Verified ⚠️
+                  </h2>
+                  <p className="text-amber-200 text-sm font-bold mt-2 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl leading-relaxed">
+                    {alreadyCheckedInModal.message}
+                  </p>
+                  <p className="text-zinc-400 text-xs font-medium pt-1">
+                    This ticket QR code has already been scanned and cannot be used again.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 w-full pt-2">
+                  <Button
+                    onClick={() => {
+                      setAlreadyCheckedInModal(null);
+                      setIsQrScanning(true);
+                    }}
+                    className="w-full rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold py-6 shadow-lg shadow-amber-600/20 text-sm"
+                  >
+                    Scan Next Ticket
+                  </Button>
+                </div>
+
+                {/* Autoclose Progress Bar */}
+                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-zinc-850 rounded-b-[2.5rem] overflow-hidden">
+                  <motion.div
+                    initial={{ width: "100%" }}
+                    animate={{ width: "0%" }}
+                    transition={{ duration: 4.5, ease: "linear" }}
+                    className="h-full bg-amber-500"
+                  />
+                </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -3593,6 +3848,32 @@ export default function EventDetailsPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* AI AGENDA BUILDER MODAL */}
+        <AiAgendaBuilderModal
+          isOpen={isAiAgendaModalOpen}
+          onClose={() => setIsAiAgendaModalOpen(false)}
+          eventId={eventId}
+          eventTitle={event.title}
+          eventStartDate={event.startDate}
+          eventEndDate={event.endDate}
+          eventLocation={event.location}
+          isDark={isDark}
+          onSessionsCreated={(createdList) => {
+            const sortList = (list: any[]) =>
+              [...list].sort(
+                (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+              );
+            setTimelinesList((prev) => sortList([...prev, ...createdList]));
+            setEvent((prev) => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                timelines: sortList([...(prev.timelines || []), ...createdList]),
+              };
+            });
+          }}
+        />
 
         {/* REUSABLE UI CONFIRMATION MODAL */}
         <AnimatePresence>
@@ -3678,7 +3959,7 @@ export default function EventDetailsPage() {
           <Button 
             onClick={handleToggleSave}
             variant="ghost" 
-            className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-4 ${
+            className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-3 sm:px-4 ${
               event?.is_saved 
                 ? theme.isDark ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/20" : "bg-indigo-50 text-indigo-600 border border-indigo-200" 
                 : theme.isDark 
@@ -3686,8 +3967,9 @@ export default function EventDetailsPage() {
                   : "bg-white/80 hover:bg-white border border-zinc-200 text-zinc-700 hover:text-zinc-950"
             }`}
           >
-            <Bookmark className={`w-4 h-4 mr-2 ${event?.is_saved ? "fill-current" : ""}`} /> 
-            {event?.is_saved ? "Saved" : "Save Event"}
+            <Bookmark className={`w-4 h-4 sm:mr-2 ${event?.is_saved ? "fill-current" : ""}`} /> 
+            <span className="hidden sm:inline">{event?.is_saved ? "Saved" : "Save Event"}</span>
+            <span className="sm:hidden ml-1">{event?.is_saved ? "Saved" : "Save"}</span>
           </Button>
 
           <Button 

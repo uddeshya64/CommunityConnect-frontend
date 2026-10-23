@@ -317,7 +317,8 @@ export default function SettingsContent() {
         ]);
         if (profileData) setProfile(profileData);
         if (backendSettings && typeof backendSettings === "object" && Object.keys(backendSettings).length > 0) {
-          const merged = { ...DEFAULT_SETTINGS, ...backendSettings };
+          const clientTheme = (typeof window !== "undefined" ? localStorage.getItem("cc_theme") : null) || settings.theme || "dark";
+          const merged = { ...DEFAULT_SETTINGS, ...backendSettings, theme: clientTheme };
           setSettings(merged);
           localStorage.setItem("cc_user_settings", JSON.stringify(merged));
           if (merged.twoFactorSecret) {
@@ -379,8 +380,14 @@ export default function SettingsContent() {
     const updated = { ...settings, [key]: value };
     setSettings(updated);
 
-    localStorage.setItem("cc_user_settings", JSON.stringify(updated));
     if (typeof window !== "undefined") {
+      if (key === "theme") {
+        localStorage.setItem("cc_theme", String(value));
+        window.dispatchEvent(
+          new CustomEvent("cc_theme_changed", { detail: value })
+        );
+      }
+      localStorage.setItem("cc_user_settings", JSON.stringify(updated));
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: updated })
       );
@@ -405,10 +412,14 @@ export default function SettingsContent() {
 
   const resetToDefaults = () => {
     setSettings(DEFAULT_SETTINGS);
-    localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
     if (typeof window !== "undefined") {
+      localStorage.setItem("cc_theme", "dark");
+      localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: DEFAULT_SETTINGS })
+      );
+      window.dispatchEvent(
+        new CustomEvent("cc_theme_changed", { detail: "dark" })
       );
     }
     profileService.updateMySettings(DEFAULT_SETTINGS).catch(() => { });
@@ -703,7 +714,9 @@ export default function SettingsContent() {
                       onClick={() => setActiveTab(tab.key)}
                       className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-sm font-semibold shrink-0 transition-all ${isActive
                           ? `bg-gradient-to-r ${activeAccent.gradient || "from-indigo-600 to-violet-600"} text-white shadow-lg ${activeAccent.shadow || "shadow-indigo-500/20"}`
-                          : "bg-zinc-900/60 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-white/5"
+                          : isDark
+                            ? "bg-zinc-900/60 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-white/5"
+                            : "bg-white text-zinc-700 hover:text-zinc-950 hover:bg-zinc-100 border border-zinc-200"
                         }`}
                     >
                       <Icon className="w-4 h-4 shrink-0" />
@@ -714,7 +727,7 @@ export default function SettingsContent() {
               </div>
 
               {/* Desktop Sidebar Rail */}
-              <div className="hidden lg:flex flex-col gap-1.5 bg-zinc-900/40 border border-white/5 p-2 rounded-3xl backdrop-blur-xl">
+              <div className={`hidden lg:flex flex-col gap-1.5 ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white/80 border-zinc-200/80"} border p-2 rounded-3xl backdrop-blur-xl`}>
                 {filteredTabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.key;
