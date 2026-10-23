@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User as UserIcon, LayoutDashboard, Settings, Bell } from "lucide-react";
+import { User as UserIcon, LayoutDashboard, Settings, Bell, Sun, Moon } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
@@ -13,6 +13,7 @@ export default function Navbar({ theme }: { theme?: "light" | "dark" }) {
   const appearance = useAppearance();
   const isDark = theme ? theme === "dark" : appearance.isDark;
   const activeAccent = appearance.activeAccent;
+  const toggleTheme = appearance.toggleTheme;
 
   useEffect(() => {
     const controlNavbar = () => {
@@ -78,6 +79,23 @@ export default function Navbar({ theme }: { theme?: "light" | "dark" }) {
                   <Bell className="w-4.5 h-4.5" />
                 </div>
               </Link>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                aria-label={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition-all hover:scale-105 ${
+                  isDark
+                    ? "bg-white/5 border-white/10 text-zinc-200 hover:text-yellow-300 hover:bg-white/10"
+                    : "bg-zinc-100 border-zinc-200 text-zinc-800 hover:text-indigo-600 hover:bg-zinc-200"
+                }`}
+              >
+                {isDark ? (
+                  <Moon className="w-4.5 h-4.5 transition-transform hover:-rotate-12" />
+                ) : (
+                  <Sun className="w-4.5 h-4.5 text-amber-500 transition-transform hover:rotate-45" />
+                )}
+              </button>
               <Link href="/settings" title="Settings">
                 <div
                   className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition-all hover:scale-105 ${

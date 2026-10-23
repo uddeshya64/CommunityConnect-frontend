@@ -72,7 +72,7 @@ export default function SelectTemplatePage() {
                 Describe the event in plain language or speak it — AI fills the form for you to review and publish.
               </p>
             </div>
-            <span className="hidden sm:inline-flex items-center gap-2 rounded-xl bg-white text-indigo-700 font-bold px-5 py-3 text-sm shadow-md shrink-0">
+            <span className="inline-flex self-start sm:self-auto items-center gap-2 rounded-xl bg-white text-indigo-700 font-bold px-4 py-2.5 sm:px-5 sm:py-3 text-xs sm:text-sm shadow-md shrink-0">
               Try it <ArrowRight className="w-4 h-4" />
             </span>
           </div>

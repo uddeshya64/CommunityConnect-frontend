@@ -8,9 +8,11 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/axios";
 import { useToast } from "@/components/providers/ToastProvider";
+import AiQuizBuilderModal from "./AiQuizBuilderModal";
 
 interface ActivityManagerTabProps {
   eventId: string;
+  eventTitle?: string;
   isOwner: boolean;
   hasPermission: (perm: string) => boolean;
   activeAccent?: any;
@@ -19,6 +21,7 @@ interface ActivityManagerTabProps {
 
 export default function ActivityManagerTab({
   eventId,
+  eventTitle = "Event",
   isOwner,
   hasPermission,
   activeAccent = { badgeBg: "bg-indigo-500/10", text: "text-indigo-600", bg: "bg-indigo-600" },
@@ -30,6 +33,9 @@ export default function ActivityManagerTab({
 
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // AI Quiz Builder Modal State
+  const [isAiQuizModalOpen, setIsAiQuizModalOpen] = useState(false);
 
   // New Quiz Modal / Form State
   const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
@@ -197,8 +203,14 @@ export default function ActivityManagerTab({
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <button
+              onClick={() => setIsAiQuizModalOpen(true)}
+              className="px-5 py-3 rounded-xl bg-gradient-to-r from-purple-500 via-indigo-500 to-pink-500 hover:from-purple-600 hover:via-indigo-600 hover:to-pink-600 text-white font-bold text-xs md:text-sm transition-all shadow-lg shadow-purple-500/25 flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95"
+            >
+              <Sparkles className="w-4 h-4 text-yellow-300" /> AI Quiz Builder
+            </button>
+            <button
               onClick={() => setIsCreatingQuiz(true)}
-              className="px-5 py-3 rounded-xl bg-white text-indigo-950 font-bold text-xs md:text-sm hover:bg-indigo-50 transition-all shadow-lg flex items-center gap-2"
+              className="px-5 py-3 rounded-xl bg-white text-indigo-950 font-bold text-xs md:text-sm hover:bg-indigo-50 transition-all shadow-lg flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95"
             >
               <Plus className="w-4 h-4 text-indigo-600" /> Create Activity
             </button>
@@ -394,12 +406,20 @@ export default function ActivityManagerTab({
             <p className="text-xs text-zinc-400 max-w-sm mx-auto">
               Program Managers and Event Admins can plan trivia games or session quizzes to boost attendee engagement.
             </p>
-            <button
-              onClick={() => setIsCreatingQuiz(true)}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all inline-flex items-center gap-2 mt-2"
-            >
-              <Plus className="w-4 h-4" /> Create First Activity
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+              <button
+                onClick={() => setIsAiQuizModalOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:via-indigo-700 hover:to-pink-700 text-white font-bold text-xs shadow-md shadow-purple-600/20 inline-flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95 transition-all"
+              >
+                <Sparkles className="w-4 h-4 text-yellow-300" /> Generate with AI
+              </button>
+              <button
+                onClick={() => setIsCreatingQuiz(true)}
+                className="px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs shadow-sm transition-all inline-flex items-center gap-2 cursor-pointer"
+              >
+                <Plus className="w-4 h-4 text-indigo-600" /> Manual Activity
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -499,7 +519,7 @@ export default function ActivityManagerTab({
                                   </button>
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 gap-2 pt-1">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                                 {q.options?.map((opt: any, optIdx: number) => (
                                   <div 
                                     key={opt.id || optIdx} 
@@ -509,7 +529,7 @@ export default function ActivityManagerTab({
                                         : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                                     }`}
                                   >
-                                    <span>{String.fromCharCode(65 + optIdx)}. {opt.text}</span>
+                                    <span className="truncate pr-1">{String.fromCharCode(65 + optIdx)}. {opt.text}</span>
                                     {opt.is_correct && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
                                   </div>
                                 ))}
@@ -526,6 +546,21 @@ export default function ActivityManagerTab({
           </div>
         )}
       </div>
+
+      {/* AI QUIZ BUILDER MODAL */}
+      <AiQuizBuilderModal
+        isOpen={isAiQuizModalOpen}
+        onClose={() => setIsAiQuizModalOpen(false)}
+        eventId={eventId}
+        eventTitle={eventTitle}
+        isDark={isDark}
+        onQuizCreated={(newQuiz) => {
+          fetchQuizzes();
+          if (newQuiz?.id) {
+            setExpandedQuizId(newQuiz.id);
+          }
+        }}
+      />
     </div>
   );
 }

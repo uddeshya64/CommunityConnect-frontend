@@ -56,7 +56,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row relative">
+    <div className="min-h-screen flex flex-col md:flex-row relative w-full overflow-x-hidden">
       <Sidebar
         collapsed={collapsed}
         setCollapsed={setCollapsed}

@@ -95,4 +95,80 @@ export const aiEventService = {
     const response = await api.get("/ai-events/schema");
     return response.data?.data;
   },
+
+  /**
+   * Generate event agenda sessions from prompt or audio transcript via Gemini AI.
+   */
+  generateAgenda: async (params: {
+    eventId: number | string;
+    prompt: string;
+    history?: Array<{ role: "user" | "assistant"; content: string }>;
+  }): Promise<{
+    reply: string;
+    sessions: Array<{
+      title: string;
+      speaker_name?: string | null;
+      description?: string | null;
+      tags?: string[];
+      start_time: string;
+      end_time: string;
+      location?: string | null;
+    }>;
+    source: "gemini" | "local";
+  }> => {
+    const response = await api.post("/ai-events/agenda/generate", {
+      eventId: Number(params.eventId),
+      prompt: params.prompt,
+      history: params.history || [],
+      timeZoneOffsetMinutes:
+        typeof window !== "undefined" ? new Date().getTimezoneOffset() : 0,
+    });
+    return response.data?.data;
+  },
+
+  /**
+   * Generate interactive quiz & questions from prompt or audio transcript via Gemini AI.
+   */
+  generateQuiz: async (params: {
+    eventId: number | string;
+    prompt: string;
+    currentQuiz?: {
+      title?: string;
+      description?: string;
+      questions?: Array<{
+        text: string;
+        time_limit?: number;
+        points?: number;
+        options: Array<{
+          text: string;
+          is_correct: boolean;
+        }>;
+      }>;
+    };
+    history?: Array<{ role: "user" | "assistant"; content: string }>;
+  }): Promise<{
+    reply: string;
+    quiz: {
+      title: string;
+      description: string;
+      questions: Array<{
+        text: string;
+        time_limit: number;
+        points: number;
+        options: Array<{
+          text: string;
+          is_correct: boolean;
+        }>;
+      }>;
+    };
+    source: "gemini" | "local";
+  }> => {
+    const response = await api.post("/ai-events/quiz/generate", {
+      eventId: Number(params.eventId),
+      prompt: params.prompt,
+      currentQuiz: params.currentQuiz,
+      history: params.history || [],
+    });
+    return response.data?.data;
+  },
 };

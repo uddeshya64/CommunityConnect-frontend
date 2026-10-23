@@ -268,12 +268,12 @@ function NotificationsPageContent() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -15 }}
                     transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                    className={`w-full p-6 rounded-3xl border shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 ${
+                    className={`w-full p-4 sm:p-6 rounded-2xl sm:rounded-3xl border shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6 ${
                       isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200/60"
                     }`}
                   >
                     {/* Visual indicators */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 w-full sm:w-auto">
                       {/* Avatar/Banner Image */}
                       {item.eventBanner ? (
                         <img 
@@ -298,7 +298,7 @@ function NotificationsPageContent() {
                       )}
 
                       {/* Content details */}
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1.5">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                             item.type === 'LIVE_QUIZ'
@@ -320,19 +320,19 @@ function NotificationsPageContent() {
                         </div>
 
                         {item.type === 'LIVE_QUIZ' ? (
-                          <p className={`font-semibold text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+                          <p className={`font-semibold text-sm sm:text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
                             Quiz <span className={`font-black ${activeAccent.text}`}>{item.quizTitle || 'Live Quiz'}</span> is now LIVE for event <span className={`font-bold ${isDark ? "text-white" : "text-zinc-950"}`}>{item.eventName}</span>!
                           </p>
                         ) : item.type === 'TEAM_INVITE' ? (
-                          <p className={`font-semibold text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+                          <p className={`font-semibold text-sm sm:text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
                             You were invited to join <span className={`font-black ${activeAccent.text}`}>{item.teamName}</span> for <span className={`font-bold ${isDark ? "text-white" : "text-zinc-950"}`}>{item.eventName}</span>.
                           </p>
                         ) : item.type === 'ROLE_UPDATE' ? (
-                          <p className={`font-semibold text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+                          <p className={`font-semibold text-sm sm:text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
                             Your role for <span className={`font-bold ${isDark ? "text-white" : "text-zinc-950"}`}>{item.eventName}</span> was updated to <span className="text-purple-500 font-black">{item.roleName}</span>.
                           </p>
                         ) : (
-                          <p className={`font-semibold text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+                          <p className={`font-semibold text-sm sm:text-base leading-snug ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
                             You were invited to join the staff for <span className={`font-bold ${isDark ? "text-white" : "text-zinc-950"}`}>{item.eventName}</span> as a <span className="text-amber-500 font-black">{item.roleName}</span>.
                           </p>
                         )}
@@ -340,7 +340,7 @@ function NotificationsPageContent() {
                     </div>
 
                     {/* Actions panel */}
-                    <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0 justify-end">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 shrink-0 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 justify-end">
                       {item.type === 'LIVE_QUIZ' ? (
                         <Link href={`/events/${item.eventId}/quiz/${item.quizId}`}>
                           <Button className="rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold px-6 h-10 shadow-lg hover:brightness-110 transition-all hover:scale-105">
