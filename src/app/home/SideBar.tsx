@@ -19,6 +19,8 @@ import {
   ChevronsRight,
   Loader2,
   AlertTriangle,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useUser } from "@/components/providers/UserProvider";
 import { useLogout } from "@/hooks/authHooks";
@@ -51,7 +53,7 @@ export default function Sidebar({
   mobileOpen: propMobileOpen,
   setMobileOpen: propSetMobileOpen,
 }: SidebarProps = {}) {
-  const { isDark, activeAccent } = useAppearance();
+  const { isDark, activeAccent, toggleTheme } = useAppearance();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -167,8 +169,40 @@ export default function Sidebar({
         </Link>
       </div>
 
-      {/* Footer: settings/logout */}
-      <div className="border-t border-zinc-200/70 pt-4 flex flex-col gap-1">
+      {/* Footer: theme switcher/settings/logout */}
+      <div className="border-t border-zinc-200/70 dark:border-white/10 pt-4 flex flex-col gap-1">
+        {/* Quick Theme Switcher */}
+        <button
+          type="button"
+          onClick={toggleTheme}
+          title={isCollapsed ? (isDark ? "Switch to Light Mode" : "Switch to Dark Mode") : undefined}
+          className={`relative flex items-center rounded-full text-sm font-semibold transition-colors cursor-pointer ${
+            isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5 justify-between"
+          } ${
+            isDark
+              ? "text-zinc-300 hover:text-white hover:bg-white/5"
+              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            {isDark ? (
+              <Moon className="w-4.5 h-4.5 shrink-0 text-indigo-400" strokeWidth={2.2} />
+            ) : (
+              <Sun className="w-4.5 h-4.5 shrink-0 text-amber-500" strokeWidth={2.2} />
+            )}
+            {!isCollapsed && <span>{isDark ? "Dark Theme" : "Light Theme"}</span>}
+          </div>
+          {!isCollapsed && (
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                isDark ? "bg-white/10 text-zinc-300" : "bg-zinc-200 text-zinc-700"
+              }`}
+            >
+              {isDark ? "Dark" : "Light"}
+            </span>
+          )}
+        </button>
+
         <Link
           href="/settings"
           onClick={() => setMobileOpen(false)}
@@ -218,7 +252,7 @@ export default function Sidebar({
       <motion.aside
         animate={{ width: collapsed ? 88 : 256 }}
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
-        className={`hidden md:flex md:flex-col fixed top-0 left-0 bottom-0 z-30 px-4 py-6 border-r ${isDark ? "border-white/5 bg-zinc-950/80 text-white" : "border-zinc-200/70 bg-white/70 text-zinc-900"} backdrop-blur-xl overflow-hidden transition-colors duration-300`}
+        className={`hidden md:flex md:flex-col fixed top-0 left-0 bottom-0 z-30 px-4 py-6 border-r ${isDark ? "border-white/5 bg-zinc-950/80 text-white" : "border-zinc-200/70 bg-white/70 text-zinc-900"} backdrop-blur-xl overflow-y-auto overflow-x-hidden transition-colors duration-300`}
       >
         {renderSidebarContent(collapsed)}
       </motion.aside>
@@ -239,7 +273,7 @@ export default function Sidebar({
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", stiffness: 320, damping: 32 }}
-              className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 ${isDark ? "bg-zinc-950 text-white border-r border-white/10" : "bg-white text-zinc-900"} px-4 py-6 shadow-2xl transition-colors duration-300`}
+              className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] ${isDark ? "bg-zinc-950 text-white border-r border-white/10" : "bg-white text-zinc-900"} px-4 py-6 shadow-2xl overflow-y-auto overflow-x-hidden transition-colors duration-300`}
             >
               <button
                 onClick={() => setMobileOpen(false)}

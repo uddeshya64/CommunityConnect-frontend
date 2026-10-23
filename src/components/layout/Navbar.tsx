@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Menu } from "lucide-react";
+import { Bell, Menu, Sun, Moon } from "lucide-react";
 import { useUser } from "@/components/providers/UserProvider";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { notificationService } from "@/services/notification.service";
@@ -14,7 +14,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProps) {
-  const { isDark, activeAccent } = useAppearance();
+  const { isDark, activeAccent, toggleTheme } = useAppearance();
   const pathname = usePathname();
   const { profile } = useUser();
   const [hasNotifications, setHasNotifications] = useState(false);
@@ -87,14 +87,14 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
         : "bg-white/80 border-zinc-200/70 text-zinc-900"
         }`}
     >
-      <div className="h-full px-4 sm:px-6 flex items-center justify-between gap-4">
+      <div className="h-full px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
         {/* LEFT SECTION */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {/* Mobile view: Hamburger Menu trigger */}
           {onToggleMobile && (
             <button
               onClick={onToggleMobile}
-              className={`md:hidden p-2 rounded-xl flex items-center justify-center transition-colors ${isDark
+              className={`md:hidden p-2 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isDark
                 ? "text-zinc-300 hover:text-white hover:bg-white/10"
                 : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
                 }`}
@@ -107,14 +107,14 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
           {/* Mobile view: Project Logo */}
           <Link
             href="/home"
-            className="md:hidden flex items-center gap-2 font-extrabold text-lg group"
+            className="md:hidden flex items-center gap-2 font-extrabold text-base sm:text-lg group min-w-0"
           >
             <div
-              className={`w-8 h-8 rounded-xl bg-gradient-to-br ${activeAccent.gradient} shadow-sm flex items-center justify-center`}
+              className={`w-8 h-8 rounded-xl bg-gradient-to-br ${activeAccent.gradient} shadow-sm flex items-center justify-center shrink-0`}
             >
               <span className="text-white text-xs font-black">CC</span>
             </div>
-            <span className={`font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>
+            <span className={`font-bold truncate hidden min-[360px]:inline ${isDark ? "text-white" : "text-zinc-900"}`}>
               CommunityConnect
             </span>
           </Link>
@@ -136,7 +136,26 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
         </div>
 
         {/* RIGHT SECTION: Notification Bell + Profile Icon */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          {/* Quick Theme Toggle (Moon / Sun) */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={`p-2.5 rounded-full border transition-all hover:scale-105 cursor-pointer ${
+              isDark
+                ? "text-zinc-200 border-white/10 bg-white/5 hover:text-yellow-300 hover:bg-white/15"
+                : "text-zinc-700 border-zinc-200 bg-zinc-100 hover:text-indigo-600 hover:bg-zinc-200"
+            }`}
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            aria-label={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDark ? (
+              <Moon className="w-5 h-5 transition-transform hover:-rotate-12" strokeWidth={2.2} />
+            ) : (
+              <Sun className="w-5 h-5 text-amber-500 transition-transform hover:rotate-45" strokeWidth={2.2} />
+            )}
+          </button>
+
           {/* Notification Bell */}
           <Link href="/notifications">
             <div

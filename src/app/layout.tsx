@@ -24,14 +24,25 @@ export const metadata: Metadata = {
 const appearanceScript = `
   (function() {
     try {
-      var stored = localStorage.getItem("cc_user_settings");
-      var settings = stored ? JSON.parse(stored) : {};
-      var theme = settings.theme || "dark";
+      var storedTheme = localStorage.getItem("cc_theme");
+      var storedSettings = localStorage.getItem("cc_user_settings");
+      var settings = storedSettings ? JSON.parse(storedSettings) : {};
+      
+      // Default to "dark" theme for every user until manually changed
+      var theme = storedTheme || settings.theme || "dark";
       var accent = settings.accentColor || "indigo";
       var compact = settings.compactMode || false;
       var smooth = settings.smoothAnimations !== false;
       
-      var isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      var isDark = true;
+      if (theme === "light") {
+        isDark = false;
+      } else if (theme === "system") {
+        isDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)").matches : true;
+      } else {
+        isDark = true; // default dark
+      }
+
       var root = document.documentElement;
       if (isDark) {
         root.classList.add("dark");

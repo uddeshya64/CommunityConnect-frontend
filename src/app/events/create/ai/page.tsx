@@ -1109,14 +1109,14 @@ export default function AiEventCreatorPage() {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <p className={`text-[11px] font-medium ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
                         {speechSupported ? "Mic uses your browser's speech recognition · Speak clearly." : "Voice input not supported — type instead."}
                       </p>
                       <Button
                         onClick={handleGenerate}
                         disabled={isGenerating || !input.trim()}
-                        className={`rounded-xl ${activeAccent.bg} hover:opacity-90 text-white font-bold shadow-lg ${activeAccent.shadow}`}
+                        className={`w-full sm:w-auto shrink-0 rounded-xl ${activeAccent.bg} hover:opacity-90 text-white font-bold shadow-lg ${activeAccent.shadow}`}
                       >
                         {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                         Generate with AI

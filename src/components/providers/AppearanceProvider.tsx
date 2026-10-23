@@ -166,6 +166,7 @@ export interface AppearanceContextType {
   isDark: boolean;
   activeAccent: AccentColorConfig;
   updateSetting: <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => void;
+  toggleTheme: () => void;
   resetToDefaults: () => void;
 }
 
@@ -189,11 +190,19 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return;
 
     try {
+      const storedTheme = localStorage.getItem("cc_theme") as "dark" | "light" | "system" | null;
       const stored = localStorage.getItem("cc_user_settings");
+      let loadedSettings = DEFAULT_SETTINGS;
       if (stored) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
+        loadedSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
       }
+      if (storedTheme && ["dark", "light", "system"].includes(storedTheme)) {
+        loadedSettings.theme = storedTheme;
+      } else {
+        // Industry standard default: Dark theme for every user
+        loadedSettings.theme = loadedSettings.theme || "dark";
+      }
+      setSettings(loadedSettings);
     } catch (err) {
       console.error("Failed to load appearance settings:", err);
     }
@@ -223,13 +232,17 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       try {
         const token = localStorage.getItem("accessToken");
         if (!token) {
-          setSettings(DEFAULT_SETTINGS);
+          // Unauthenticated/guest: ensure theme remains local dark
+          const localTheme = (localStorage.getItem("cc_theme") as any) || "dark";
+          setSettings((prev) => ({ ...DEFAULT_SETTINGS, ...prev, theme: localTheme }));
           return;
         }
         const remote = await profileService.getMySettings();
         if (remote && Object.keys(remote).length > 0) {
           setSettings((prev) => {
-            const merged = { ...prev, ...remote };
+            // Keep client's local session theme choice sovereign
+            const clientTheme = (localStorage.getItem("cc_theme") as any) || prev.theme || "dark";
+            const merged = { ...prev, ...remote, theme: clientTheme };
             localStorage.setItem("cc_user_settings", JSON.stringify(merged));
             return merged;
           });
@@ -363,22 +376,39 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     setSettings(updated);
 
     if (typeof window !== "undefined") {
+      // Store theme immediately in local storage session
+      if (key === "theme") {
+        localStorage.setItem("cc_theme", String(value));
+        window.dispatchEvent(
+          new CustomEvent("cc_theme_changed", { detail: value })
+        );
+      }
       localStorage.setItem("cc_user_settings", JSON.stringify(updated));
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: updated })
       );
     }
+    // Optionally background-sync settings if user is authenticated
     profileService.updateMySettings({ [key]: value }).catch(() => {
       // Silently ignore if offline
     });
   };
 
+  const toggleTheme = () => {
+    const next = isDark ? "light" : "dark";
+    updateSetting("theme", next);
+  };
+
   const resetToDefaults = () => {
     setSettings(DEFAULT_SETTINGS);
     if (typeof window !== "undefined") {
+      localStorage.setItem("cc_theme", "dark");
       localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
       window.dispatchEvent(
         new CustomEvent("cc_settings_updated", { detail: DEFAULT_SETTINGS })
+      );
+      window.dispatchEvent(
+        new CustomEvent("cc_theme_changed", { detail: "dark" })
       );
     }
     profileService.updateMySettings(DEFAULT_SETTINGS).catch(() => {});
@@ -395,6 +425,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
         isDark,
         activeAccent,
         updateSetting,
+        toggleTheme,
         resetToDefaults,
       }}
     >
@@ -405,13 +436,14 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
 const DEFAULT_APPEARANCE_CONTEXT: AppearanceContextType = {
   settings: DEFAULT_SETTINGS,
-  theme: "system",
+  theme: "dark",
   accentColor: "indigo",
   compactMode: false,
   smoothAnimations: true,
   isDark: true,
   activeAccent: ACCENT_COLORS_CONFIG[0],
   updateSetting: () => {},
+  toggleTheme: () => {},
   resetToDefaults: () => {},
 };
 
