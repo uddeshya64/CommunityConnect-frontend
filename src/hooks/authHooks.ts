@@ -36,6 +36,8 @@ export interface LoginResponse {
   success: boolean;
   accessToken: string;
   refreshToken: string;
+  requires2FA?: boolean;
+  settings?: any;
 }
 
 export function useRegisterInit() {

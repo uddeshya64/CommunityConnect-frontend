@@ -4,6 +4,26 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Loader2,
+  MailCheck,
+  Eye,
+  EyeOff,
+  User,
+  Mail,
+  Lock,
+  Sun,
+  Moon,
+  ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
+  Zap,
+  Sparkles,
+  RotateCcw,
+} from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 import {
   RegisterSchema,
@@ -13,21 +33,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-import Link from "next/link";
+import PageTransition from "@/components/layout/PageTransition";
 import { API_BASE_URL } from "@/config/env";
 import { hasStoredSession, setStoredTokens } from "@/lib/auth";
-
-import {
-  ArrowRight,
-  Users,
-  Loader2,
-  MailCheck,
-  Eye,
-  EyeOff,
-} from "lucide-react";
-
-import PageTransition from "@/components/layout/PageTransition";
 
 import {
   useRegisterInit,
@@ -35,9 +43,10 @@ import {
 } from "@/hooks/authHooks";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import AuthGeometricShowcase from "@/components/auth/AuthGeometricShowcase";
 
 export default function RegisterPage() {
-  const { isDark, activeAccent } = useAppearance();
+  const { isDark, toggleTheme, activeAccent } = useAppearance();
   const router = useRouter();
   const { success: showSuccess, error: showError } = useToast();
 
@@ -52,6 +61,7 @@ export default function RegisterPage() {
   const [serverError, setServerError] = useState("");
   const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const {
     registerInit,
@@ -72,84 +82,81 @@ export default function RegisterPage() {
     },
   });
 
+  // Countdown timer for resend OTP
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
   // =====================================================
   // GOOGLE OAUTH
   // =====================================================
-
   const handleGoogleLogin = () => {
     window.location.href = `${API_BASE_URL}/auth/google`;
   };
 
   // =====================================================
-  // STEP 1: REGISTER DETAILS
+  // STEP 1: REGISTER DETAILS & SEND OTP
   // =====================================================
-
-  const onSubmitDetails = async (
-    data: RegisterFormValues
-  ) => {
+  const onSubmitDetails = async (data: RegisterFormValues) => {
     try {
       setServerError("");
-
-      // Send OTP to user's email
-      await registerInit(
-        data.email,
-        data.password
-      );
-
-      // Move to OTP verification
+      await registerInit(data.email, data.password);
       setStep(2);
+      setResendCooldown(45);
+      showSuccess("Verification code sent to your email!");
     } catch (error: any) {
       setServerError(
+        error.response?.data?.message ||
         error.message ||
-          "Failed to send OTP. Please try again."
+        "Failed to initiate registration. Please try again."
       );
     }
   };
 
   // =====================================================
-  // STEP 2: VERIFY OTP
+  // RESEND OTP
   // =====================================================
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      setServerError("");
+      await registerInit(form.getValues("email"), form.getValues("password"));
+      setResendCooldown(45);
+      showSuccess("New verification code sent!");
+    } catch (error: any) {
+      setServerError(
+        error.response?.data?.message || "Failed to resend code. Please try again."
+      );
+    }
+  };
 
-  const onVerifyOtp = async (
-    e: React.FormEvent
-  ) => {
+  // =====================================================
+  // STEP 2: VERIFY OTP & COMPLETE REGISTRATION
+  // =====================================================
+  const onVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (otp.length !== 6) {
-      setServerError(
-        "OTP must be exactly 6 digits."
-      );
+    if (!otp || otp.length < 6) {
+      setServerError("Please enter the complete 6-digit verification code.");
       return;
     }
 
     try {
       setServerError("");
-
-      const {
-        name,
-        email,
-      } = form.getValues();
-
       const result = await verifyRegister(
-        name,
-        email,
+        form.getValues("name"),
+        form.getValues("email"),
         otp
       );
 
-      // Save authentication tokens
-      localStorage.removeItem("cc_user_settings");
       setStoredTokens(result.accessToken, result.refreshToken);
+      showSuccess("Account created successfully! Welcome to Eventrix.");
 
-      // Reset notification prompt for new user registration
-      localStorage.removeItem("notification_prompt_completed");
-      localStorage.removeItem("notification_popup_count");
-
-      showSuccess("Account registered successfully! Welcome to CommunityConnect.");
-
-      // Check return URL
-      const returnUrl =
-        localStorage.getItem("returnUrl");
-
+      const returnUrl = localStorage.getItem("returnUrl");
       if (returnUrl) {
         localStorage.removeItem("returnUrl");
         router.push(returnUrl);
@@ -157,297 +164,258 @@ export default function RegisterPage() {
         router.push("/home");
       }
     } catch (error: any) {
-      const errMsg = error.message || "Invalid OTP. Please try again.";
-      setServerError(errMsg);
-      showError(errMsg);
+      setServerError(
+        error.response?.data?.message ||
+        error.message ||
+        "Invalid or expired verification code."
+      );
     }
   };
 
   return (
     <PageTransition>
-      <div className={`min-h-screen w-full flex flex-col lg:flex-row transition-colors duration-300 ${
-        isDark ? "bg-zinc-950 text-zinc-100" : "bg-white text-zinc-900"
-      }`}>
-
+      <div 
+        className="min-h-screen w-full flex flex-col lg:flex-row relative transition-colors duration-300"
+        style={{
+          background: "var(--bg)",
+          color: "var(--text)",
+        }}
+      >
         {/* =====================================================
-            LEFT SIDE - FORM
+            LEFT COLUMN: POLISHED REGISTRATION FORM (Standalone tokens)
         ====================================================== */}
-
-        <div className="w-full lg:w-1/2 flex flex-col justify-center p-4 sm:p-16 xl:p-24 py-8">
-
-          <div className="w-full max-w-md mx-auto space-y-8">
-
-            {/* LOGO */}
-
+        <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 min-h-screen relative z-10">
+          
+          {/* Top Brand Bar & Theme Toggle */}
+          <div className="flex items-center justify-between w-full">
             <Link
               href="/"
-              className={`flex items-center gap-2 font-extrabold text-xl mb-12 w-fit hover:opacity-80 transition-opacity ${
-                isDark ? "text-white" : "text-zinc-900"
-              }`}
+              className="flex items-center gap-2.5 font-bricolage font-black text-xl tracking-tight group"
             >
-              <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${activeAccent.gradient} shadow-sm`} />
-
-              CommunityConnect
+              <div 
+                className="w-8 h-8 rounded-[10px] flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-105"
+                style={{
+                  background: "linear-gradient(135deg, var(--accent, #6366f1), var(--accent2, #a855f7))",
+                  boxShadow: "0 6px 18px -6px var(--accent, #6366f1)",
+                }}
+              >
+                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 5h14M5 12h9M5 19h14" />
+                  <circle cx="18" cy="12" r="1.5" fill="currentColor" />
+                </svg>
+              </div>
+              <span
+                className="font-bricolage text-[18px] font-bold tracking-tight whitespace-nowrap"
+                style={{ color: "var(--text)" }}
+              >
+                Event<span style={{ color: "var(--accent, #6366f1)" }}>rix</span>
+              </span>
             </Link>
 
-            {/* SERVER ERROR */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              className="w-9 h-9 rounded-xl border border-zinc-300 dark:border-white/10 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-xs"
+            >
+              {isDark ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-600" />
+              )}
+            </button>
+          </div>
 
+          {/* Center Form Card */}
+          <div className="w-full max-w-[430px] mx-auto py-8 sm:py-12 space-y-7">
+            
+            {/* Step Progress Pills */}
+            <div className="flex items-center gap-2">
+              <div 
+                className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
+                  step >= 1 ? "bg-[var(--accent)]" : "bg-zinc-200 dark:bg-zinc-800"
+                }`}
+              />
+              <div 
+                className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
+                  step >= 2 ? "bg-[var(--accent)]" : "bg-zinc-200 dark:bg-zinc-800"
+                }`}
+              />
+            </div>
+
+            {/* Error Banner */}
             {serverError && (
-              <div className={`p-4 rounded-xl border font-medium text-sm ${
-                isDark ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-red-50 border-red-100 text-red-600"
-              }`}>
-                {serverError}
+              <div className="p-4 rounded-2xl border border-rose-300 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-start gap-3 shadow-sm animate-in fade-in">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div className="flex-1 leading-relaxed">{serverError}</div>
               </div>
             )}
 
             {/* =================================================
-                STEP 1
+                STEP 1: ACCOUNT DETAILS
             ================================================== */}
-
             {step === 1 && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-                {/* HEADING */}
-
+              <div className="space-y-6 animate-in fade-in">
+                
+                {/* Heading & Subheading */}
                 <div className="space-y-2">
-                  <h1 className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
-                    isDark ? "text-white" : "text-zinc-900"
-                  }`}>
-                    Create an account
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-white/5 border border-indigo-200 dark:border-white/10 text-indigo-700 dark:text-indigo-300 text-[10.5px] font-mono font-bold uppercase tracking-wider">
+                    <Sparkles className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                    <span>STEP 01 // JOIN THE PLATFORM</span>
+                  </div>
+                  <h1 className="font-bricolage text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 dark:text-white">
+                    Create your account
                   </h1>
-
-                  <p className={`text-lg font-medium ${
-                    isDark ? "text-zinc-400" : "text-zinc-500"
-                  }`}>
-                    Join the community to discover amazing events.
+                  <p className="text-zinc-600 dark:text-zinc-400 text-sm font-medium leading-relaxed">
+                    Join thousands of creators, engineers, and organizers running real-time hackathons and meetups.
                   </p>
                 </div>
 
-                {/* =================================================
-                    GOOGLE LOGIN BUTTON
-                ================================================== */}
-
-                <Button
+                {/* Google Sign In Button - Decent, colorful quad-border with 100% visible high contrast text */}
+                <button
                   type="button"
-                  variant="outline"
                   onClick={handleGoogleLogin}
-                  className={`w-full rounded-xl py-6 font-semibold text-base transition-all ${
-                    isDark ? "bg-zinc-900 border-white/10 text-zinc-200 hover:bg-zinc-800" : "bg-white border-zinc-200 hover:bg-zinc-50 text-zinc-900"
-                  }`}
+                  className="w-full relative group rounded-2xl p-[1.5px] transition-all duration-200 hover:scale-[1.01] shadow-xs hover:shadow-md cursor-pointer bg-gradient-to-r from-blue-500 via-rose-500 via-amber-400 to-emerald-500"
                 >
-                  {/* GOOGLE ICON */}
-
-                  <svg
-                    className="mr-3 h-5 w-5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.55 2.53-3.32 3.31v2.58h4.1c2.4-2.21 3.86-5.48 3.86-9.9z"
-                      fill="#4285F4"
-                    />
-
-                    <path
-                      d="M12 23c3.24 0 5.95-1.08 7.93-2.92l-4.1-2.58c-1.08.72-2.45 1.15-3.83 1.15-2.95 0-5.45-1.99-6.35-4.66H1.4v2.66A12 12 0 0 0 12 23z"
-                      fill="#34A853"
-                    />
-
-                    <path
-                      d="M5.65 13.99A7.2 7.2 0 0 1 5.25 12c0-.69.12-1.36.4-1.99V7.35H1.4A12 12 0 0 0 0 12c0 1.93.46 3.75 1.4 5.35l4.25-3.36z"
-                      fill="#FBBC05"
-                    />
-
-                    <path
-                      d="M12 5.35c1.77 0 3.35.61 4.6 1.8l3.45-3.45C17.95 1.7 15.24 0 12 0A12 12 0 0 0 1.4 7.35l4.25 3.36C6.55 7.34 9.05 5.35 12 5.35z"
-                      fill="#EA4335"
-                    />
-                  </svg>
-
-                  Continue with Google
-                </Button>
-
-                {/* =================================================
-                    OR DIVIDER
-                ================================================== */}
-
-                <div className="relative my-6">
-
-                  <div className="absolute inset-0 flex items-center">
-                    <div className={`w-full border-t ${isDark ? "border-white/10" : "border-zinc-200"}`} />
-                  </div>
-
-                  <div className="relative flex justify-center text-sm">
-                    <span className={`px-4 font-medium ${isDark ? "bg-zinc-950 text-zinc-400" : "bg-white text-zinc-500"}`}>
-                      OR
+                  <div className="w-full h-full py-3.5 px-4 rounded-[14.5px] bg-white dark:bg-zinc-900 group-hover:bg-zinc-50 dark:group-hover:bg-zinc-850 flex items-center justify-center gap-3 transition-colors">
+                    <FcGoogle className="w-5 h-5 shrink-0 transition-transform group-hover:scale-110" />
+                    <span className="text-zinc-900 dark:text-white font-bold text-sm tracking-tight">
+                      Sign up with Google
                     </span>
                   </div>
+                </button>
 
+                {/* Geometric Divider */}
+                <div className="relative flex items-center justify-center my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-dashed border-zinc-300 dark:border-white/15" />
+                  </div>
+                  <div className="relative px-3 bg-[var(--bg)] font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                    OR WITH EMAIL
+                  </div>
                 </div>
 
-                {/* =================================================
-                    EMAIL / PASSWORD FORM
-                ================================================== */}
-
-                <form
-                  onSubmit={form.handleSubmit(
-                    onSubmitDetails
-                  )}
-                  className="space-y-5"
-                >
-
-                  {/* NAME */}
-
-                  <div className="space-y-2">
-
-                    <Label
-                      htmlFor="name"
-                      className={`font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}
-                    >
+                {/* Registration Form */}
+                <form onSubmit={form.handleSubmit(onSubmitDetails)} className="space-y-4">
+                  {/* Full Name Input */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="name" className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                       Full Name
                     </Label>
-
-                    <Input
-                      id="name"
-                      placeholder="John Doe"
-                      {...form.register("name")}
-                      disabled={isSendingOtp}
-                      className={`rounded-xl px-4 py-6 transition-all text-base ${
-                        isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
-                      }`}
-                    />
-
-                    {form.formState.errors.name && (
-                      <p className="text-sm text-red-500 font-medium">
-                        {
-                          form.formState.errors.name
-                            .message
-                        }
-                      </p>
-                    )}
-
-                  </div>
-
-                  {/* EMAIL */}
-
-                  <div className="space-y-2">
-
-                    <Label
-                      htmlFor="email"
-                      className={`font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}
-                    >
-                      Email Address
-                    </Label>
-
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="m@example.com"
-                      {...form.register("email")}
-                      disabled={isSendingOtp}
-                      className={`rounded-xl px-4 py-6 transition-all text-base ${
-                        isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
-                      }`}
-                    />
-
-                    {form.formState.errors.email && (
-                      <p className="text-sm text-red-500 font-medium">
-                        {
-                          form.formState.errors.email
-                            .message
-                        }
-                      </p>
-                    )}
-
-                  </div>
-
-                  {/* PASSWORD */}
-
-                  <div className="space-y-2">
-
-                    <Label
-                      htmlFor="password"
-                      className={`font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}
-                    >
-                      Password
-                    </Label>
-
                     <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <Input
+                        id="name"
+                        type="text"
+                        placeholder="Aarav Sharma"
+                        {...form.register("name")}
+                        disabled={isSendingOtp}
+                        className="rounded-2xl pl-11 pr-4 py-6 border border-zinc-300 dark:border-white/10 bg-white dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-50 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-sm focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 transition-all shadow-xs"
+                      />
+                    </div>
+                    {form.formState.errors.name && (
+                      <p className="text-xs text-rose-500 font-semibold mt-1">
+                        {form.formState.errors.name?.message}
+                      </p>
+                    )}
+                  </div>
 
+                  {/* Email Address Input */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email" className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                      Work / Personal Email
+                    </Label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="you@domain.com"
+                        {...form.register("email")}
+                        disabled={isSendingOtp}
+                        className="rounded-2xl pl-11 pr-4 py-6 border border-zinc-300 dark:border-white/10 bg-white dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-50 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-sm focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 transition-all shadow-xs"
+                      />
+                    </div>
+                    {form.formState.errors.email && (
+                      <p className="text-xs text-rose-500 font-semibold mt-1">
+                        {form.formState.errors.email?.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Password Input */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="password" className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                      Password (min 8 chars)
+                    </Label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400">
+                        <Lock className="w-4 h-4" />
+                      </div>
                       <Input
                         id="password"
-                        type={
-                          showPassword
-                            ? "text"
-                            : "password"
-                        }
-                        {...form.register(
-                          "password"
-                        )}
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        {...form.register("password")}
                         disabled={isSendingOtp}
-                        className={`rounded-xl px-4 py-6 pr-12 transition-all text-base ${
-                          isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
-                        }`}
+                        className="rounded-2xl pl-11 pr-11 py-6 border border-zinc-300 dark:border-white/10 bg-white dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-50 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-sm focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 transition-all shadow-xs"
                       />
-
                       <button
                         type="button"
-                        tabIndex={-1}
-                        onClick={() =>
-                          setShowPassword(
-                            !showPassword
-                          )
-                        }
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer transition-colors"
                       >
                         {showPassword ? (
-                          <EyeOff className="h-5 w-5" />
+                          <EyeOff className="w-4 h-4" />
                         ) : (
-                          <Eye className="h-5 w-5" />
+                          <Eye className="w-4 h-4" />
                         )}
                       </button>
-
                     </div>
-
                     {form.formState.errors.password && (
-                      <p className="text-sm text-red-500 font-medium">
-                        {
-                          form.formState.errors
-                            .password.message
-                        }
+                      <p className="text-xs text-rose-500 font-semibold mt-1">
+                        {form.formState.errors.password?.message}
                       </p>
                     )}
-
                   </div>
 
-                  {/* CONTINUE BUTTON */}
-
+                  {/* Submit Button - 100% WHITE inside text in both themes */}
                   <Button
                     type="submit"
                     disabled={isSendingOtp}
-                    className={`w-full rounded-xl mt-4 py-6 ${activeAccent.bg} hover:opacity-90 text-white font-semibold text-lg shadow-md ${activeAccent.shadow} transition-all hover:scale-[1.02]`}
+                    className="w-full rounded-2xl py-6 font-bricolage text-base font-bold !text-white shadow-xl hover:shadow-2xl transition-all hover:scale-[1.01] flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    style={{
+                      background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                      color: "#ffffff",
+                      boxShadow: "0 14px 30px -14px var(--accent)",
+                    }}
                   >
                     {isSendingOtp ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin !text-white" />
+                        <span className="!text-white font-bold">Sending Security Code...</span>
+                      </>
                     ) : (
                       <>
-                        Continue
-                        <ArrowRight className="ml-2 h-5 w-5" />
+                        <span className="!text-white font-bold">Continue to Verification</span>
+                        <ArrowRight className="w-4 h-4 !text-white" />
                       </>
                     )}
                   </Button>
-
                 </form>
 
-                {/* LOGIN LINK */}
-
-                <p className="text-center text-zinc-500 font-medium">
+                {/* Sign In Switch Link */}
+                <p className="text-center text-xs font-medium text-zinc-600 dark:text-zinc-400 pt-2">
                   Already have an account?{" "}
-
                   <Link
                     href="/login"
-                    className={`font-bold ${activeAccent.text} hover:underline underline-offset-4`}
+                    className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline ml-1 cursor-pointer"
                   >
-                    Sign in
+                    Sign In
                   </Link>
                 </p>
 
@@ -455,182 +423,116 @@ export default function RegisterPage() {
             )}
 
             {/* =================================================
-                STEP 2 - OTP VERIFICATION
+                STEP 2: OTP VERIFICATION
             ================================================== */}
-
             {step === 2 && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500">
-
-                {/* ICON */}
-
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 ${activeAccent.badgeBg} ${activeAccent.text}`}>
-                  <MailCheck className="w-8 h-8" />
+              <div className="space-y-6 animate-in fade-in">
+                
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-indigo-50 dark:bg-white/5 border border-indigo-200 dark:border-white/10 text-indigo-600 dark:text-indigo-400">
+                  <MailCheck className="w-7 h-7" />
                 </div>
-
-                {/* HEADING */}
 
                 <div className="space-y-2">
-
-                  <h1 className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
-                    isDark ? "text-white" : "text-zinc-900"
-                  }`}>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-white/5 border border-indigo-200 dark:border-white/10 text-indigo-700 dark:text-indigo-300 text-[10.5px] font-mono font-bold uppercase tracking-wider">
+                    <span>STEP 02 // EMAIL VERIFICATION</span>
+                  </div>
+                  <h1 className="font-bricolage text-3xl font-black tracking-tight text-zinc-950 dark:text-white">
                     Check your email
                   </h1>
-
-                  <p className={`text-lg font-medium ${
-                    isDark ? "text-zinc-400" : "text-zinc-500"
-                  }`}>
-                    We sent a 6-digit verification code to{" "}
-                    <span className={`font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>
-                      {form.getValues("email")}
-                    </span>
-                    .
+                  <p className="text-zinc-600 dark:text-zinc-400 text-sm font-medium leading-relaxed">
+                    We dispatched a 6-digit verification code to{" "}
+                    <span className="font-bold text-zinc-950 dark:text-white">{form.getValues("email")}</span>.
                   </p>
-
                 </div>
 
-                {/* OTP FORM */}
-
-                <form
-                  onSubmit={onVerifyOtp}
-                  className="space-y-6"
-                >
-
-                  {/* OTP INPUT */}
-
-                  <div className="space-y-2">
-
-                    <Label
-                      htmlFor="otp"
-                      className={`font-semibold ${isDark ? "text-zinc-200" : "text-zinc-900"}`}
-                    >
+                <form onSubmit={onVerifyOtp} className="space-y-5">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="otp" className="text-xs font-bold font-mono uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                       Verification Code
                     </Label>
-
                     <Input
                       id="otp"
                       type="text"
                       maxLength={6}
-                      placeholder="Enter 6-digit OTP"
+                      placeholder="••••••"
                       value={otp}
-                      onChange={(e) =>
-                        setOtp(
-                          e.target.value.replace(
-                            /\D/g,
-                            ""
-                          )
-                        )
-                      }
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                       disabled={isVerifying}
-                      className={`rounded-xl text-center tracking-[0.5em] text-2xl font-bold px-4 py-8 transition-all ${
-                        isDark ? "bg-zinc-900 border-white/10 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
-                      }`}
+                      className="rounded-2xl text-center font-mono text-2xl font-bold tracking-[0.4em] py-7 border border-zinc-300 dark:border-white/10 bg-white dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-50 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 transition-all shadow-xs"
                     />
-
                   </div>
-
-                  {/* VERIFY BUTTON */}
 
                   <Button
                     type="submit"
-                    disabled={isVerifying}
-                    className={`w-full rounded-xl py-6 ${activeAccent.bg} hover:opacity-90 text-white font-semibold text-lg shadow-md ${activeAccent.shadow} transition-all hover:scale-[1.02]`}
+                    disabled={isVerifying || otp.length < 6}
+                    className="w-full rounded-2xl py-6 font-bricolage text-base font-bold !text-white shadow-xl hover:shadow-2xl transition-all hover:scale-[1.01] flex items-center justify-center gap-2 cursor-pointer"
+                    style={{
+                      background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                      color: "#ffffff",
+                      boxShadow: "0 14px 30px -14px var(--accent)",
+                    }}
                   >
                     {isVerifying ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin !text-white" />
+                        <span className="!text-white font-bold">Creating Your Account...</span>
+                      </>
                     ) : (
-                      "Verify & Create Account"
+                      <>
+                        <span className="!text-white font-bold">Verify & Complete Registration</span>
+                        <ArrowRight className="w-4 h-4 !text-white" />
+                      </>
                     )}
                   </Button>
 
-                  {/* BACK BUTTON */}
+                  <div className="flex items-center justify-between text-xs font-semibold pt-2">
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={resendCooldown > 0}
+                      className={`flex items-center gap-1 cursor-pointer transition-colors font-bold ${
+                        resendCooldown > 0 ? "text-zinc-400 dark:text-zinc-600 cursor-not-allowed" : "text-indigo-600 dark:text-indigo-400 hover:underline"
+                      }`}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend Code"}</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep(1);
-                      setOtp("");
-                      setServerError("");
-                    }}
-                    className="w-full text-center text-sm font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
-                  >
-                    Wrong email address? Go back
-                  </button>
-
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep(1);
+                        setOtp("");
+                        setServerError("");
+                      }}
+                      className="text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white cursor-pointer font-bold"
+                    >
+                      Change Email Address
+                    </button>
+                  </div>
                 </form>
 
               </div>
             )}
 
           </div>
+
+          {/* Bottom Copyright & Security Badge */}
+          <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-mono pt-4 border-t border-zinc-200 dark:border-white/10">
+            <span>© 2026 EVENTRIX</span>
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span>TLS 1.3 ENCRYPTED</span>
+            </span>
+          </div>
+
         </div>
 
         {/* =====================================================
-            RIGHT SIDE - ANIMATED VISUAL
+            RIGHT COLUMN: ARTISTIC GEOMETRIC SHOWCASE PANEL
         ====================================================== */}
-
-        <div className="hidden lg:flex w-1/2 bg-zinc-950 relative overflow-hidden items-center justify-center p-12">
-
-          {/* GLOWING ORBS */}
-
-          <div
-            className="absolute top-1/3 right-1/4 w-[450px] h-[450px] bg-violet-600/30 rounded-full blur-[120px] animate-pulse"
-            style={{
-              animationDuration: "5s",
-            }}
-          />
-
-          <div
-            className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-indigo-500/20 rounded-full blur-[100px] animate-pulse"
-            style={{
-              animationDuration: "7s",
-              animationDelay: "2s",
-            }}
-          />
-
-          {/* CONTENT CARD */}
-
-          <div className="relative z-10 w-full max-w-lg p-10 backdrop-blur-md bg-white/5 border border-white/10 rounded-3xl shadow-2xl">
-
-            {/* BADGE */}
-
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white text-sm font-medium mb-8">
-
-              <Users className="w-4 h-4 text-indigo-400" />
-
-              Join the movement
-
-            </div>
-
-            {/* TITLE */}
-
-            <h2 className="text-4xl font-bold text-white mb-6 leading-tight">
-              Connect with developers around the world.
-            </h2>
-
-            {/* FEATURES */}
-
-            <ul className="space-y-4 text-zinc-300 font-medium text-lg">
-
-              <li className="flex items-center gap-3">
-                <div className="h-2 w-2 rounded-full bg-indigo-500" />
-                Discover local meetups
-              </li>
-
-              <li className="flex items-center gap-3">
-                <div className="h-2 w-2 rounded-full bg-violet-500" />
-                Form teams for hackathons
-              </li>
-
-              <li className="flex items-center gap-3">
-                <div className="h-2 w-2 rounded-full bg-rose-500" />
-                Grow your technical network
-              </li>
-
-            </ul>
-
-          </div>
-
+        <div className="hidden lg:flex lg:w-1/2 relative min-h-screen">
+          <AuthGeometricShowcase mode="register" />
         </div>
 
       </div>

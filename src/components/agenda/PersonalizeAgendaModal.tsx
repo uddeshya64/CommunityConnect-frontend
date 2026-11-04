@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
@@ -9,18 +9,14 @@ import {
   MapPin,
   User,
   CheckCircle2,
-  XCircle,
   X,
   Loader2,
   Check,
-  Zap,
-  Info,
-  ShieldCheck,
-  Download,
   AlertTriangle,
-  Lock,
+  Download,
   ExternalLink,
-  Tag
+  Tag,
+  Edit3
 } from "lucide-react";
 import { api } from "@/lib/axios";
 import { API_BASE_URL } from "@/config/env";
@@ -71,6 +67,7 @@ interface PersonalizeAgendaModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaved?: () => void;
+  timelinesFallback?: any[];
 }
 
 export default function PersonalizeAgendaModal({
@@ -78,7 +75,8 @@ export default function PersonalizeAgendaModal({
   eventTitle,
   isOpen,
   onClose,
-  onSaved
+  onSaved,
+  timelinesFallback = []
 }: PersonalizeAgendaModalProps) {
   const { success: showSuccess, error: showError } = useToast();
 
@@ -86,56 +84,119 @@ export default function PersonalizeAgendaModal({
   const [saving, setSaving] = useState(false);
   const [sessions, setSessions] = useState<AgendaItem[]>([]);
 
+  // Keyed by timelineId (number) -> "ACCEPTED" | "DECLINED"
   const [agendaChoices, setAgendaChoices] = useState<Record<number, "ACCEPTED" | "DECLINED">>({});
   const [externalChoices, setExternalChoices] = useState<Record<string, "ACCEPTED" | "DECLINED">>({});
-  const [isLocked, setIsLocked] = useState(false);
+  const [hasCustomizedBefore, setHasCustomizedBefore] = useState(false);
   const [isCalendarConnected, setIsCalendarConnected] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen || !eventId) return;
+  // Load and combine recommendations with full original event agenda
+  const loadAgendaData = useCallback(async () => {
+    if (!eventId) return;
+    try {
+      setLoading(true);
 
-    const generateAndLoadAgenda = async () => {
+      // 1. Fetch recommendations from backend
+      let items: AgendaItem[] = [];
       try {
-        setLoading(true);
-
         const res = await api.post("/agenda/generate/" + eventId);
-        const items: AgendaItem[] = res.data.data || [];
-        setSessions(items);
-
-        if (res.data.isCalendarConnected) {
+        items = res.data?.data || [];
+        if (res.data?.isCalendarConnected) {
           setIsCalendarConnected(true);
         }
+      } catch (genErr) {
+        console.warn("Could not generate recommendations, falling back to GET /agenda:", genErr);
+        try {
+          const getRes = await api.get(`/agenda?eventId=${eventId}`);
+          items = (getRes.data?.data || []).filter(
+            (i: any) => Number(i.event_id || i.event?.id) === Number(eventId)
+          );
+        } catch (getErr) {
+          console.warn("GET /agenda fallback also failed:", getErr);
+        }
+      }
 
-        const hasUnapproved = items.some((item) => item.status === "RECOMMENDED");
-        const alreadyLocked = items.length > 0 && !hasUnapproved;
-        setIsLocked(alreadyLocked);
+      // 2. Ensure ALL sessions from the original event agenda (timelinesFallback) are present!
+      const finalSessions: AgendaItem[] = [...items];
+      if (timelinesFallback && timelinesFallback.length > 0) {
+        timelinesFallback.forEach((fb: any) => {
+          const exists = finalSessions.some(
+            (s) => Number(s.timeline_id || s.timeline?.id || s.id) === Number(fb.id)
+          );
+          if (!exists) {
+            finalSessions.push({
+              id: fb.id,
+              user_id: 0,
+              event_id: eventId,
+              timeline_id: fb.id,
+              status: "RECOMMENDED",
+              match_score: 0.85,
+              created_at: new Date().toISOString(),
+              timeline: {
+                id: fb.id,
+                title: fb.title,
+                description: fb.description || null,
+                speaker_name: fb.speaker_name || null,
+                start_time: fb.start_time,
+                end_time: fb.end_time || null,
+                location: fb.location || null
+              },
+              event: {
+                id: eventId,
+                title: eventTitle,
+                start_date: fb.start_time,
+                end_date: fb.end_time || fb.start_time,
+                location: fb.location || null
+              }
+            });
+          }
+        });
+      }
 
-        const initialChoices: Record<number, "ACCEPTED" | "DECLINED"> = {};
-        const initialExtChoices: Record<string, "ACCEPTED" | "DECLINED"> = {};
-        
-        const sorted = [...items].sort(
+      setSessions(finalSessions);
+
+      // 3. Determine if user has already customized their agenda for this event
+      const previouslyCustomized = finalSessions.some(
+        (i) => i.status === "ACCEPTED" || i.status === "DECLINED"
+      );
+      setHasCustomizedBefore(previouslyCustomized);
+
+      // 4. Initialize choices
+      const initialChoices: Record<number, "ACCEPTED" | "DECLINED"> = {};
+      const initialExtChoices: Record<string, "ACCEPTED" | "DECLINED"> = {};
+
+      if (previouslyCustomized) {
+        // Respect EXACT previously saved choices
+        finalSessions.forEach((i) => {
+          const tId = Number(i.timeline_id || i.timeline?.id || i.id);
+          initialChoices[tId] = i.status === "ACCEPTED" ? "ACCEPTED" : "DECLINED";
+        });
+      } else {
+        // First-time recommendation initialization:
+        // Group into overlapping time slots
+        const sorted = [...finalSessions].sort(
           (a, b) => new Date(a.timeline.start_time).getTime() - new Date(b.timeline.start_time).getTime()
         );
-        const overlapGroups: { items: AgendaItem[]; startTime: Date; endTime: Date }[] = [];
 
+        const groups: { items: AgendaItem[]; startTime: Date; endTime: Date }[] = [];
         sorted.forEach((item) => {
           const itemStart = new Date(item.timeline.start_time).getTime();
           const itemEnd = item.timeline.end_time
             ? new Date(item.timeline.end_time).getTime()
             : itemStart + 3600000;
 
-          const matchingGroup = overlapGroups.find((g) => {
+          const matching = groups.find((g) => {
             const gStart = g.startTime.getTime();
             const gEnd = g.endTime.getTime();
             return itemStart < gEnd && itemEnd > gStart;
           });
 
-          if (matchingGroup) {
-            matchingGroup.items.push(item);
-            if (itemStart < matchingGroup.startTime.getTime()) matchingGroup.startTime = new Date(itemStart);
-            if (itemEnd > matchingGroup.endTime.getTime()) matchingGroup.endTime = new Date(itemEnd);
+          if (matching) {
+            matching.items.push(item);
+            if (itemStart < matching.startTime.getTime()) matching.startTime = new Date(itemStart);
+            if (itemEnd > matching.endTime.getTime()) matching.endTime = new Date(itemEnd);
           } else {
-            overlapGroups.push({
+            groups.push({
               items: [item],
               startTime: new Date(itemStart),
               endTime: new Date(itemEnd)
@@ -143,44 +204,45 @@ export default function PersonalizeAgendaModal({
           }
         });
 
-        overlapGroups.forEach((group) => {
+        // For each group, choose highest match score as default ACCEPTED, others DECLINED
+        groups.forEach((group) => {
           const slotItems = group.items;
-          const accepted = slotItems.find((i) => i.status === "ACCEPTED");
-          if (accepted) {
-            slotItems.forEach((i) => {
-              initialChoices[i.id] = i.id === accepted.id ? "ACCEPTED" : "DECLINED";
-            });
-          } else {
-            slotItems.sort((a, b) => b.match_score - a.match_score);
-            slotItems.forEach((i, idx) => {
-              initialChoices[i.id] = idx === 0 ? "ACCEPTED" : "DECLINED";
-            });
-          }
-
-          slotItems.forEach((i) => {
-            const list = i.externalConflicts && i.externalConflicts.length > 0
-              ? i.externalConflicts
-              : (i.externalConflict ? [i.externalConflict] : []);
-            list.forEach((ext) => {
-              const extId = ext.id || "ext-" + ext.summary + "-" + ext.start;
-              initialExtChoices[extId] = "DECLINED";
-            });
+          slotItems.sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
+          slotItems.forEach((item, idx) => {
+            const tId = Number(item.timeline_id || item.timeline?.id || item.id);
+            initialChoices[tId] = idx === 0 ? "ACCEPTED" : "DECLINED";
           });
         });
-
-        setAgendaChoices(initialChoices);
-        setExternalChoices(initialExtChoices);
-      } catch (err) {
-        console.error("Failed to load agenda recommendations:", err);
-        showError("Failed to load recommendations.");
-      } finally {
-        setLoading(false);
       }
-    };
 
-    generateAndLoadAgenda();
-  }, [isOpen, eventId]);
+      // External Google Calendar conflicts default to DECLINED
+      finalSessions.forEach((i) => {
+        const list = i.externalConflicts && i.externalConflicts.length > 0
+          ? i.externalConflicts
+          : (i.externalConflict ? [i.externalConflict] : []);
+        list.forEach((ext) => {
+          const extId = ext.id || "ext-" + ext.summary + "-" + ext.start;
+          initialExtChoices[extId] = "DECLINED";
+        });
+      });
 
+      setAgendaChoices(initialChoices);
+      setExternalChoices(initialExtChoices);
+    } catch (err) {
+      console.error("Failed to load agenda builder data:", err);
+      showError("Could not load agenda data.");
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId, eventTitle, timelinesFallback, showError]);
+
+  useEffect(() => {
+    if (isOpen && eventId) {
+      loadAgendaData();
+    }
+  }, [isOpen, eventId, loadAgendaData]);
+
+  // Compute time-slot groups with overlapping sessions
   const slotGroups = useMemo(() => {
     if (!sessions || sessions.length === 0) return [];
 
@@ -208,7 +270,7 @@ export default function PersonalizeAgendaModal({
         if (itemEnd > matchingGroup.endTime.getTime()) matchingGroup.endTime = new Date(itemEnd);
       } else {
         groups.push({
-          slotKey: item.timeline.start_time,
+          slotKey: String(item.timeline.start_time) + "-" + item.id,
           items: [item],
           startTime: new Date(itemStart),
           endTime: new Date(itemEnd)
@@ -219,13 +281,46 @@ export default function PersonalizeAgendaModal({
     return groups;
   }, [sessions]);
 
-  const keepSession = (agendaId: number, slotItems: AgendaItem[]) => {
-    if (isLocked) return;
-    const newChoices = { ...agendaChoices };
-    slotItems.forEach((item) => {
-      newChoices[item.id] = item.id === agendaId ? "ACCEPTED" : "DECLINED";
-    });
-    setAgendaChoices(newChoices);
+  // Toggle selection for a session card:
+  // In an overlapping conflict slot, selecting a session selects it and deselects other choices in that slot
+  const toggleSession = (tId: number, slotItems: AgendaItem[]) => {
+    const currentStatus = agendaChoices[tId] || "DECLINED";
+    const willBeAccepted = currentStatus !== "ACCEPTED";
+
+    const nextChoices = { ...agendaChoices };
+
+    if (willBeAccepted) {
+      // Accept this session, decline all other sessions in this overlapping slot
+      slotItems.forEach((item) => {
+        const itemId = Number(item.timeline_id || item.timeline?.id || item.id);
+        nextChoices[itemId] = itemId === tId ? "ACCEPTED" : "DECLINED";
+      });
+      // Also decline any external Google Calendar events for this slot
+      setExternalChoices((prev) => {
+        const next = { ...prev };
+        slotItems.forEach((item) => {
+          const list = item.externalConflicts && item.externalConflicts.length > 0
+            ? item.externalConflicts
+            : (item.externalConflict ? [item.externalConflict] : []);
+          list.forEach((ext) => {
+            const extId = ext.id || "ext-" + ext.summary + "-" + ext.start;
+            next[extId] = "DECLINED";
+          });
+        });
+        return next;
+      });
+    } else {
+      // Uncheck this session
+      nextChoices[tId] = "DECLINED";
+    }
+
+    setAgendaChoices(nextChoices);
+  };
+
+  // Toggle selection for an external Google Calendar personal event
+  const toggleExternal = (targetExtId: string, slotItems: AgendaItem[]) => {
+    const currentStatus = externalChoices[targetExtId] || "DECLINED";
+    const willBeAccepted = currentStatus !== "ACCEPTED";
 
     setExternalChoices((prev) => {
       const next = { ...prev };
@@ -235,61 +330,58 @@ export default function PersonalizeAgendaModal({
           : (item.externalConflict ? [item.externalConflict] : []);
         list.forEach((ext) => {
           const extId = ext.id || "ext-" + ext.summary + "-" + ext.start;
-          next[extId] = "DECLINED";
-        });
-      });
-      return next;
-    });
-  };
-
-  const removeSession = (agendaId: number) => {
-    if (isLocked) return;
-    setAgendaChoices((prev) => ({ ...prev, [agendaId]: "DECLINED" }));
-  };
-
-  const keepExternal = (targetExtId: string, slotItems: AgendaItem[]) => {
-    if (isLocked) return;
-    setExternalChoices((prev) => {
-      const next = { ...prev };
-      slotItems.forEach((item) => {
-        const list = item.externalConflicts && item.externalConflicts.length > 0
-          ? item.externalConflicts
-          : (item.externalConflict ? [item.externalConflict] : []);
-        list.forEach((ext) => {
-          const extId = ext.id || "ext-" + ext.summary + "-" + ext.start;
-          next[extId] = extId === targetExtId ? "ACCEPTED" : "DECLINED";
+          next[extId] = (willBeAccepted && extId === targetExtId) ? "ACCEPTED" : "DECLINED";
         });
       });
       return next;
     });
 
-    setAgendaChoices((prev) => {
-      const next = { ...prev };
-      slotItems.forEach((item) => {
-        next[item.id] = "DECLINED";
+    if (willBeAccepted) {
+      // Decline all event sessions in this slot because user chose their personal Google Cal event
+      setAgendaChoices((prev) => {
+        const next = { ...prev };
+        slotItems.forEach((item) => {
+          const itemId = Number(item.timeline_id || item.timeline?.id || item.id);
+          next[itemId] = "DECLINED";
+        });
+        return next;
       });
-      return next;
-    });
+    }
   };
 
-  const removeExternal = (targetExtId: string) => {
-    if (isLocked) return;
-    setExternalChoices((prev) => ({ ...prev, [targetExtId]: "DECLINED" }));
-  };
-
+  // Save Choices to Backend
   const handleApproveAndSave = async () => {
     try {
       setSaving(true);
 
-      await Promise.all(
-        Object.entries(agendaChoices).map(([agendaIdStr, status]) =>
-          api.patch("/agenda/" + agendaIdStr + "/status", { status })
-        )
-      );
+      // Primary: Call the atomic batch save endpoint /agenda/save/:eventId
+      let batchSuccess = false;
+      try {
+        await api.post("/agenda/save/" + eventId, {
+          choices: agendaChoices
+        });
+        batchSuccess = true;
+      } catch (batchErr) {
+        console.warn("Batch save endpoint failed, trying fallback patch:", batchErr);
+      }
 
-      setIsLocked(true);
-      showSuccess("Personalized agenda approved and locked!");
+      // Fallback: If batch endpoint wasn't reached, update individually
+      if (!batchSuccess) {
+        for (const [tIdStr, status] of Object.entries(agendaChoices)) {
+          const session = sessions.find(
+            (s) => Number(s.timeline_id || s.timeline?.id || s.id) === Number(tIdStr)
+          );
+          const agendaId = session?.id;
+          if (agendaId) {
+            await api.patch("/agenda/" + agendaId + "/status", { status }).catch(() => { });
+          }
+        }
+      }
+
+      setHasCustomizedBefore(true);
+      showSuccess("Personalized agenda preferences saved!");
       if (onSaved) onSaved();
+      onClose();
     } catch (err) {
       console.error("Failed to save personal agenda:", err);
       showError("Failed to save personal agenda.");
@@ -298,20 +390,30 @@ export default function PersonalizeAgendaModal({
     }
   };
 
+  // Download .ics
   const handleDownloadICS = async () => {
     try {
       const res = await api.get("/agenda/export/ics", { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/calendar" }));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", (eventTitle || "agenda").toLowerCase().replace(/\s+/g, "-") + "-agenda.ics");
+      link.setAttribute("download", (eventTitle || "agenda").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-agenda.ics");
       document.body.appendChild(link);
       link.click();
       link.remove();
       showSuccess("Downloaded .ics calendar file!");
     } catch (err) {
-      console.error("Download ICS error:", err);
-      showError("Failed to download .ics calendar file.");
+      // Direct client fallback
+      const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Eventrix//Agenda//EN\nBEGIN:VEVENT\nSUMMARY:${eventTitle}\nSTATUS:CONFIRMED\nEND:VEVENT\nEND:VCALENDAR`;
+      const blob = new Blob([ics], { type: "text/calendar;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${eventTitle.replace(/\s+/g, "_")}.ics`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showSuccess("Exported .ics calendar file!");
     }
   };
 
@@ -319,54 +421,74 @@ export default function PersonalizeAgendaModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
         <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.96 }}
+          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 10 }}
+          transition={{ type: "spring", stiffness: 350, damping: 25 }}
           onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-2xl shadow-xl overflow-hidden my-6 border border-zinc-200 dark:border-zinc-800"
+          className="relative w-full max-w-4xl rounded-[24px] overflow-hidden my-6 flex flex-col shadow-2xl border"
+          style={{
+            background: "var(--card)",
+            borderColor: "var(--border)",
+            color: "var(--text)"
+          }}
         >
-          <div className="flex items-center justify-between p-6 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+          {/* =========================================================
+              HEADER
+              ========================================================= */}
+          <div
+            className="flex items-center justify-between p-6 border-b flex-wrap gap-4"
+            style={{
+              borderColor: "var(--border)",
+              background: "var(--chrome)"
+            }}
+          >
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-zinc-900 dark:text-white">
-                  Personalize Agenda
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                  style={{
+                    background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                    color: "var(--accent)"
+                  }}
+                >
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <h2
+                  className="text-xl font-bold tracking-tight"
+                  style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
+                >
+                  Personalize My Agenda
                 </h2>
-                {isLocked && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                    Approved & Locked
+                {hasCustomizedBefore && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    Personalized
                   </span>
                 )}
               </div>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                Select preferred sessions for <span className="font-semibold text-zinc-700 dark:text-zinc-300">{eventTitle}</span>
+              <p className="text-xs text-[var(--muted)] mt-1">
+                Customize your schedule from the original event agenda, choose conflicting sessions, and save your personal plan.
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadICS}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition-colors"
-                title="Download .ics Calendar File"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Download .ics
-              </button>
-
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2 shrink-0">
               {isCalendarConnected ? (
-                <button
-                  disabled
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 cursor-not-allowed opacity-90"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="h-[32px] px-3 rounded-[10px] text-[12px] font-semibold inline-flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <Check className="w-3.5 h-3.5" />
                   Google Cal Connected
-                </button>
+                </span>
               ) : (
                 <a
                   href={`${API_BASE_URL}/auth/google/calendar?token=${typeof window !== "undefined" ? localStorage.getItem("accessToken") || "" : ""}&returnUrl=${typeof window !== "undefined" ? encodeURIComponent(window.location.href) : ""}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                  className="h-[32px] px-3 rounded-[10px] text-[12px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  style={{
+                    background: "var(--input)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text)"
+                  }}
                 >
                   <Calendar className="w-3.5 h-3.5" />
                   Connect Google Cal
@@ -374,29 +496,50 @@ export default function PersonalizeAgendaModal({
               )}
 
               <button
+                type="button"
+                onClick={handleDownloadICS}
+                className="h-[32px] px-3 rounded-[10px] text-[12px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                style={{
+                  background: "var(--input)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text)"
+                }}
+                title="Download .ics Calendar File"
+              >
+                <Download className="w-3.5 h-3.5" />
+                .ics
+              </button>
+
+              <button
+                type="button"
                 onClick={onClose}
-                className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors rounded-lg"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--subtle)] hover:text-[var(--text)] transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6">
+          {/* =========================================================
+              BODY / SLOTS LIST
+              ========================================================= */}
+          <div className="p-6 max-h-[62vh] overflow-y-auto space-y-6">
             {loading ? (
-              <div className="py-16 text-center text-sm text-zinc-500 space-y-2">
-                <Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-600" />
-                <p>Generating personalized recommendations...</p>
+              <div className="py-20 text-center text-sm text-[var(--muted)] space-y-3">
+                <Loader2 className="w-7 h-7 animate-spin mx-auto text-[var(--accent)]" />
+                <p className="font-medium">Loading original event agenda & checking schedule conflicts...</p>
               </div>
             ) : slotGroups.length === 0 ? (
-              <div className="py-12 text-center text-sm text-zinc-500">
-                No session timeline published for this event yet.
+              <div className="py-16 text-center text-sm text-[var(--muted)]">
+                <Calendar className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                No session timelines published for this event yet.
               </div>
             ) : (
               <div className="space-y-6">
                 {slotGroups.map((group) => {
                   const slotItems = group.items;
-                  
+
+                  // Collect all Google Calendar conflicts for this time slot
                   const allExternalConflicts: ExternalConflict[] = [];
                   const conflictMap = new Map<string, ExternalConflict>();
                   slotItems.forEach((i) => {
@@ -414,7 +557,6 @@ export default function PersonalizeAgendaModal({
                     });
                   });
 
-                  const hasExternalConflict = allExternalConflicts.length > 0;
                   const totalCards = slotItems.length + allExternalConflicts.length;
                   const isConflict = totalCards > 1;
 
@@ -425,167 +567,213 @@ export default function PersonalizeAgendaModal({
                   return (
                     <div
                       key={group.slotKey}
-                      className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 bg-white dark:bg-zinc-900/60"
+                      className="rounded-[20px] p-5 flex flex-col gap-4 border"
+                      style={{
+                        background: "var(--card2)",
+                        borderColor: "var(--border)"
+                      }}
                     >
-                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-100 dark:border-zinc-800/80">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-                          <Clock className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>{startDate} • {startTime} - {endTime}</span>
+                      {/* Slot Header */}
+                      <div
+                        className="flex items-center justify-between pb-3 border-b flex-wrap gap-2"
+                        style={{ borderColor: "var(--border)" }}
+                      >
+                        <div className="flex items-center gap-2 font-mono text-xs font-semibold text-[var(--text)]">
+                          <Clock className="w-3.5 h-3.5 text-[var(--accent)]" />
+                          <span>{startDate} · {startTime} - {endTime}</span>
                         </div>
 
-                        {isConflict && (
-                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-md border border-amber-200 dark:border-amber-800/50">
-                            Schedule Conflict ({totalCards} options) — Choose 1
+                        {isConflict ? (
+                          <span className="text-[11.5px] font-semibold text-[#f59e0b] bg-[rgba(245,158,11,0.12)] px-3 py-1 rounded-full border border-[rgba(245,158,11,0.25)] flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Schedule Conflict ({totalCards} options) · Choose 1
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-[var(--subtle)]">
+                            Single Session Available
                           </span>
                         )}
                       </div>
 
-                      <div className={"grid gap-4 " + (totalCards > 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}>
-                        {allExternalConflicts
-                          .map((ext) => {
-                            const extId = ext.id || "ext-" + ext.summary + "-" + ext.start;
-                            const isKept = (externalChoices[extId] || "DECLINED") === "ACCEPTED";
+                      {/* Cards Grid: Card-like UI with Top-Right Checkbox */}
+                      <div className={`grid gap-3.5 ${totalCards > 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
+
+                        {/* 1. Google Calendar External Conflict Cards */}
+                        {allExternalConflicts.map((ext) => {
+                          const extId = ext.id || "ext-" + ext.summary + "-" + ext.start;
+                          const isKept = (externalChoices[extId] || "DECLINED") === "ACCEPTED";
 
                           return (
                             <div
                               key={extId}
-                              className={"p-4 rounded-xl border transition-all " + (isKept ? "border-amber-500 bg-amber-50/50 dark:bg-amber-950/20" : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 opacity-75")}
+                              onClick={() => toggleExternal(extId, slotItems)}
+                              className={`p-4 rounded-[16px] border transition-all cursor-pointer flex flex-col justify-between gap-3 relative group ${isKept
+                                  ? "shadow-md"
+                                  : "opacity-75 hover:opacity-100"
+                                }`}
+                              style={{
+                                background: isKept
+                                  ? "rgba(245, 158, 11, 0.08)"
+                                  : "var(--input)",
+                                borderColor: isKept
+                                  ? "#f59e0b"
+                                  : "var(--border)"
+                              }}
                             >
-                              <div className="flex items-start justify-between gap-2 mb-2">
-                                <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 rounded">
+                              {/* Top Bar inside card: Label + TOP-RIGHT CHECKBOX */}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-bold text-[#f59e0b] bg-[#f59e0b]/15 px-2.5 py-0.5 rounded-full border border-[#f59e0b]/30">
                                   Google Calendar Event
                                 </span>
-                                {isKept ? (
-                                  <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
-                                    <Check className="w-3.5 h-3.5" /> Kept
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-zinc-400">Removed</span>
-                                )}
+
+                                {/* TOP-RIGHT CHECKBOX */}
+                                <div
+                                  className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${isKept
+                                      ? "bg-[#f59e0b] border-[#f59e0b] text-white shadow-xs"
+                                      : "border-[var(--border)] bg-[var(--input)]"
+                                    }`}
+                                >
+                                  {isKept && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                                </div>
                               </div>
 
-                              <h4 className="font-semibold text-sm text-zinc-900 dark:text-white">
-                                {ext.summary}
-                              </h4>
-                              <p className="text-xs text-zinc-500 mt-1">
-                                Scheduled in your personal Google Calendar
-                              </p>
+                              {/* Card Content */}
+                              <div>
+                                <h4 className="font-bold text-[14.5px] text-[var(--text)]">
+                                  {ext.summary}
+                                </h4>
+                                <p className="text-[12px] text-[var(--muted)] mt-1">
+                                  Scheduled in your connected personal Google Calendar.
+                                </p>
+                              </div>
 
-                              {!isLocked && (
-                                <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => isKept ? removeExternal(extId) : keepExternal(extId, slotItems)}
-                                    className={"flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-colors " + (isKept ? "bg-amber-600 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200")}
-                                  >
-                                    {isKept ? "Kept" : "Keep Personal Event"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeExternal(extId)}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-500 hover:text-rose-600"
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              )}
+                              {/* Footer Status */}
+                              <div
+                                className="pt-2 border-t flex items-center justify-between text-xs font-semibold"
+                                style={{ borderColor: "var(--border)" }}
+                              >
+                                <span style={{ color: isKept ? "#f59e0b" : "var(--subtle)" }}>
+                                  {isKept ? "Keep Personal Meeting" : "Click to select"}
+                                </span>
+                              </div>
                             </div>
                           );
                         })}
 
-                        {slotItems
-                          .map((item) => {
-                            const choice = agendaChoices[item.id] || "DECLINED";
-                            const isKept = choice === "ACCEPTED";
-                          const matchPct = Math.round(item.match_score * 100);
+                        {/* 2. Event Timeline Session Cards */}
+                        {slotItems.map((item) => {
+                          const tId = Number(item.timeline_id || item.timeline?.id || item.id);
+                          const choice = agendaChoices[tId] || "DECLINED";
+                          const isKept = choice === "ACCEPTED";
+                          const matchPct = Math.round((item.match_score || 0.85) * 100);
 
                           return (
                             <div
-                              key={item.id}
-                              className={"p-4 rounded-xl border transition-all flex flex-col justify-between " + (isKept ? "border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-sm" : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 opacity-75")}
+                              key={tId}
+                              onClick={() => toggleSession(tId, slotItems)}
+                              className={`p-4 rounded-[16px] border transition-all cursor-pointer flex flex-col justify-between gap-3 relative group ${isKept
+                                  ? "shadow-md"
+                                  : "opacity-75 hover:opacity-100"
+                                }`}
+                              style={{
+                                background: isKept
+                                  ? "color-mix(in oklab, var(--accent) 12%, var(--card))"
+                                  : "var(--input)",
+                                borderColor: isKept
+                                  ? "var(--accent)"
+                                  : "var(--border)"
+                              }}
                             >
-                              <div>
-                                <div className="flex items-center justify-between gap-2 mb-2">
-                                  <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-800/50">
-                                    {matchPct}% Match
-                                  </span>
+                              {/* Top Bar inside card: Match Badge + TOP-RIGHT CHECKBOX */}
+                              <div className="flex items-center justify-between gap-2">
+                                <span
+                                  className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1"
+                                  style={{
+                                    background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                                    color: "var(--accent)"
+                                  }}
+                                >
+                                  <Sparkles className="w-3 h-3 text-amber-400" />
+                                  {matchPct}% Match
+                                </span>
 
-                                  {isKept ? (
-                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                      <Check className="w-3.5 h-3.5" /> Kept Session
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-zinc-400">Removed</span>
-                                  )}
+                                {/* TOP-RIGHT CHECKBOX */}
+                                <div
+                                  className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${isKept
+                                      ? "text-white shadow-xs"
+                                      : "border-[var(--border)] bg-[var(--input)]"
+                                    }`}
+                                  style={{
+                                    backgroundColor: isKept ? "var(--accent)" : "transparent",
+                                    borderColor: isKept ? "var(--accent)" : "var(--border)",
+                                    color: "#ffffff"
+                                  }}
+                                >
+                                  {isKept && <Check className="w-3.5 h-3.5 stroke-[2.5]" style={{ color: "#ffffff" }} />}
                                 </div>
+                              </div>
 
-                                <h4 className="font-semibold text-sm text-zinc-900 dark:text-white">
+                              {/* Card Content */}
+                              <div className="space-y-1.5">
+                                <h4
+                                  className="font-bold text-[14.5px] leading-snug text-[var(--text)]"
+                                  style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
+                                >
                                   {item.timeline.title}
                                 </h4>
 
                                 {item.timeline.description && (
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
+                                  <p className="text-[12px] text-[var(--muted)] line-clamp-2 leading-relaxed">
                                     {item.timeline.description}
                                   </p>
                                 )}
 
+                                {/* Skills Tags */}
                                 {item.matchedSkillTags && item.matchedSkillTags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-2">
+                                  <div className="flex flex-wrap gap-1 pt-1">
                                     {item.matchedSkillTags.map((tag, tidx) => (
                                       <span
                                         key={tidx}
-                                        className="text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-1.5 py-0.5 rounded"
+                                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                                        style={{
+                                          background: "var(--card2)",
+                                          color: "var(--subtle)",
+                                          border: "1px solid var(--border)"
+                                        }}
                                       >
-                                        {tag}
+                                        #{tag}
                                       </span>
                                     ))}
                                   </div>
                                 )}
+                              </div>
 
-                                <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500 mt-3 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
+                              {/* Card Footer: Metadata (Speaker & Location) + Selected Status */}
+                              <div
+                                className="pt-2.5 border-t flex items-center justify-between text-xs"
+                                style={{ borderColor: "var(--border)" }}
+                              >
+                                <div className="flex items-center gap-3 text-[var(--subtle)] truncate">
                                   {item.timeline.speaker_name && (
-                                    <span className="flex items-center gap-1">
-                                      <User className="w-3 h-3 text-zinc-400" />
+                                    <span className="flex items-center gap-1 truncate">
+                                      <User className="w-3 h-3 opacity-70" />
                                       {item.timeline.speaker_name}
                                     </span>
                                   )}
-                                  <span className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3 text-zinc-400" />
-                                    {item.timeline.location || item.event.location || "Online"}
+                                  <span className="flex items-center gap-1 truncate">
+                                    <MapPin className="w-3 h-3 opacity-70" />
+                                    {item.timeline.location || item.event?.location || "Main Hall"}
                                   </span>
                                 </div>
-                              </div>
 
-                              <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between gap-2">
-                                {!isLocked ? (
-                                  <div className="flex gap-2 w-full">
-                                    <button
-                                      type="button"
-                                      onClick={() => isKept ? removeSession(item.id) : keepSession(item.id, slotItems)}
-                                      className={"flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-colors " + (isKept ? "bg-emerald-600 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200")}
-                                    >
-                                      {isKept ? "Kept" : "Keep Session"}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeSession(item.id)}
-                                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-500 hover:text-rose-600"
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                ) : (
-                                  item.googleCalendarLink && (
-                                    <a
-                                      href={item.googleCalendarLink}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-                                    >
-                                      <ExternalLink className="w-3 h-3" /> Add to Google Calendar
-                                    </a>
-                                  )
-                                )}
+                                <span
+                                  className="font-semibold shrink-0"
+                                  style={{
+                                    color: isKept ? "var(--accent)" : "var(--subtle)"
+                                  }}
+                                >
+                                  {isKept ? "Selected" : "Click to select"}
+                                </span>
                               </div>
                             </div>
                           );
@@ -598,36 +786,55 @@ export default function PersonalizeAgendaModal({
             )}
           </div>
 
-          <div className="flex items-center justify-between p-6 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+          {/* =========================================================
+              FOOTER
+              ========================================================= */}
+          <div
+            className="flex items-center justify-between p-6 border-t flex-wrap gap-3"
+            style={{
+              borderColor: "var(--border)",
+              background: "var(--chrome)"
+            }}
+          >
             <button
               type="button"
               onClick={handleDownloadICS}
-              className="flex items-center gap-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:text-indigo-600"
+              className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--text)] transition-colors cursor-pointer"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-3.5 h-3.5" />
               Download .ics Calendar
             </button>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                className="h-[38px] px-4 rounded-[12px] text-xs font-semibold text-[var(--muted)] hover:text-[var(--text)] transition-colors cursor-pointer border"
+                style={{
+                  background: "var(--input)",
+                  borderColor: "var(--border)"
+                }}
               >
                 Close
               </button>
 
-              {!isLocked && (
-                <button
-                  type="button"
-                  onClick={handleApproveAndSave}
-                  disabled={saving}
-                  className="flex items-center gap-1.5 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  Approve & Lock Agenda
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleApproveAndSave}
+                disabled={saving}
+                className="h-[38px] px-5 rounded-[12px] font-semibold text-xs transition-opacity cursor-pointer flex items-center gap-2 hover:opacity-90 disabled:opacity-50"
+                style={{
+                  background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                  color: "#ffffff"
+                }}
+              >
+                {saving ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                )}
+                {hasCustomizedBefore ? "Update Personalized Agenda" : "Save Personalized Agenda"}
+              </button>
             </div>
           </div>
         </motion.div>

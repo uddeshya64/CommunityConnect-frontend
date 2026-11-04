@@ -33,6 +33,7 @@ import { useUser } from "@/components/providers/UserProvider";
 import PageTransition from "@/components/layout/PageTransition";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { API_BASE_URL } from "@/config/env";
+import EventCard from "@/components/events/EventCard";
 
 // ==============================
 // CREATED EVENT TYPE
@@ -289,7 +290,7 @@ export default function PublicProfilePage() {
 
         <div className="text-center space-y-2">
           <h2 className="text-xl font-semibold text-zinc-200">Oops!</h2>
-          <p className="text-zinc-600 dark:text-zinc-400">{error || "Profile not found."}</p>
+          <p className="text-[var(--muted)]">{error || "Profile not found."}</p>
         </div>
 
         <Link href="/home">
@@ -437,7 +438,7 @@ export default function PublicProfilePage() {
               <div className="flex-1 text-center md:text-left space-y-5 w-full">
                 <div>
                   <div className="flex flex-col md:flex-row items-center gap-3 mb-2">
-                    <h1 className="text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
+                    <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--text)] tracking-tight">
                       {profile.name || "Community Member"}
                     </h1>
 
@@ -481,7 +482,7 @@ export default function PublicProfilePage() {
                 {/* BIO */}
                 <p
                   className={`text-base leading-relaxed max-w-3xl ${
-                    profile.bio ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600 italic"
+                    profile.bio ? "text-[var(--muted)]" : "text-zinc-600 italic"
                   }`}
                 >
                   {profile.bio || "This user hasn't added a bio yet."}
@@ -556,7 +557,7 @@ export default function PublicProfilePage() {
             {/* EVENTS HEADER */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Events Created</h2>
+                <h2 className="text-xl font-bold text-[var(--text)]">Events Created</h2>
                 <p className="text-sm text-zinc-600 dark:text-zinc-500 mt-1">
                   Events organized by {profile.name}
                 </p>
@@ -570,62 +571,15 @@ export default function PublicProfilePage() {
                 {/* EVENT GRID */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {visibleEvents.map((event) => (
-                    <Link
+                    <EventCard
                       key={event.id}
-                      href={`/events/${event.id}`}
-                      className="group"
-                    >
-                      <div className="overflow-hidden rounded-2xl bg-zinc-950/50 border border-white/5 hover:border-indigo-500/30 transition-all">
-                        {/* EVENT BANNER */}
-                        <div className="h-40 bg-zinc-900 overflow-hidden">
-                          {event.banner_url ? (
-                            <img
-                              src={event.banner_url}
-                              alt={event.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-900/40 to-purple-900/40">
-                              <CalendarDays className="w-12 h-12 text-indigo-400/50" />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* EVENT INFORMATION */}
-                        <div className="p-5">
-                          <h3 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-indigo-400 transition-colors">
-                            {event.title}
-                          </h3>
-
-                          {/* DATE */}
-                          <div className="flex items-center gap-2 mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-                            <Calendar className="w-4 h-4 text-indigo-400" />
-                            {new Date(event.start_date).toLocaleDateString(
-                              "en-US",
-                              {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              }
-                            )}
-                          </div>
-
-                          {/* LOCATION */}
-                          {event.location && (
-                            <div className="flex items-center gap-2 mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                              <MapPin className="w-4 h-4 text-rose-400" />
-                              {event.location}
-                            </div>
-                          )}
-
-                          {/* VIEW EVENT */}
-                          <div className="mt-4 flex items-center gap-2 text-sm font-medium text-indigo-400">
-                            View Event
-                            <ExternalLink className="w-4 h-4" />
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
+                      id={String(event.id)}
+                      title={event.title}
+                      date={event.start_date}
+                      location={event.location}
+                      bannerUrl={event.banner_url}
+                      photo={event.banner_url || undefined}
+                    />
                   ))}
                 </div>
 
@@ -715,7 +669,7 @@ export default function PublicProfilePage() {
                       <Mail
                         className={`w-5 h-5 ${
                           profile.email
-                            ? "text-zinc-600 dark:text-zinc-400 group-hover:text-indigo-400"
+                            ? "text-[var(--muted)] group-hover:text-indigo-400"
                             : "text-zinc-600"
                         }`}
                       />
@@ -741,7 +695,7 @@ export default function PublicProfilePage() {
                       <Phone
                         className={`w-5 h-5 ${
                           profile.phone
-                            ? "text-zinc-600 dark:text-zinc-400 group-hover:text-emerald-400"
+                            ? "text-[var(--muted)] group-hover:text-emerald-400"
                             : "text-zinc-600"
                         }`}
                       />
@@ -784,7 +738,7 @@ export default function PublicProfilePage() {
                       className="group flex items-center justify-between p-3.5 rounded-2xl bg-white/5 hover:bg-[#0077B5]/10 border border-white/5 hover:border-[#0077B5]/20 transition-all"
                     >
                       <div className="flex items-center gap-3">
-                        <Linkedin className="w-5 h-5 text-zinc-600 dark:text-zinc-400 group-hover:text-[#0077B5]" />
+                        <Linkedin className="w-5 h-5 text-[var(--muted)] group-hover:text-[#0077B5]" />
                         <span className="text-sm font-medium text-zinc-300 group-hover:text-white">
                           LinkedIn
                         </span>
@@ -811,7 +765,7 @@ export default function PublicProfilePage() {
                       className="group flex items-center justify-between p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all"
                     >
                       <div className="flex items-center gap-3">
-                        <Github className="w-5 h-5 text-zinc-600 dark:text-zinc-400 group-hover:text-white" />
+                        <Github className="w-5 h-5 text-[var(--muted)] group-hover:text-white" />
                         <span className="text-sm font-medium text-zinc-300 group-hover:text-white">
                           GitHub
                         </span>
