@@ -125,14 +125,14 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
   }, []);
 
   return (
-    <div 
+    <div
       className="relative w-full h-full min-h-screen overflow-hidden flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-14 select-none transition-colors duration-300"
       style={{
         background: isDark ? "#07090e" : "#f6f7f9",
       }}
     >
       {/* 1. ARCHITECTURAL BLUEPRINT GRID BACKGROUND */}
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none transition-opacity duration-300"
         style={{
           opacity: isDark ? 0.14 : 0.45,
@@ -150,14 +150,14 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
       />
 
       {/* 2. AMBIENT GLOW ORBS */}
-      <div 
+      <div
         className="absolute top-1/4 left-1/4 w-[480px] h-[480px] rounded-full pointer-events-none blur-[140px] transition-all duration-1000"
         style={{
           opacity: isDark ? 0.35 : 0.22,
           background: `radial-gradient(circle, ${current.accent}, transparent 70%)`,
         }}
       />
-      <div 
+      <div
         className="absolute bottom-1/4 right-1/4 w-[440px] h-[440px] rounded-full pointer-events-none blur-[140px] transition-all duration-1000"
         style={{
           opacity: isDark ? 0.3 : 0.18,
@@ -196,15 +196,14 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
                 key={tpl.key}
                 type="button"
                 onClick={() => setSelectedIdx(idx)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
-                  isSelected
-                    ? isDark
-                      ? "bg-white text-zinc-950 shadow-lg scale-105"
-                      : "bg-zinc-950 text-white shadow-md scale-105"
-                    : isDark
-                      ? "bg-white/10 hover:bg-white/15 text-white/80 border border-white/10"
-                      : "bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-300 shadow-xs"
-                }`}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${isSelected
+                  ? isDark
+                    ? "bg-white text-zinc-950 shadow-lg scale-105"
+                    : "bg-zinc-950 text-white shadow-md scale-105"
+                  : isDark
+                    ? "bg-white/10 hover:bg-white/15 text-white/80 border border-white/10"
+                    : "bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-300 shadow-xs"
+                  }`}
               >
                 <span
                   className="w-2 h-2 rounded-full"
@@ -219,9 +218,9 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
 
       {/* 4. MAIN ARTISTIC SHOWCASE: LIVE EVENT TEMPLATE BANNER & CARD */}
       <div className="relative z-10 my-auto py-6 flex flex-col items-center justify-center">
-        
+
         {/* Outer Perspective Wrapper (Theme Adaptive: White on light, Dark slate on dark) */}
-        <div 
+        <div
           className="w-full max-w-[440px] rounded-[24px] overflow-hidden transition-all duration-500 cc-event-card border border-zinc-200/90 dark:border-white/12 bg-white dark:bg-zinc-900/90 shadow-xl dark:shadow-2xl"
           style={{
             background: isDark ? "rgba(24, 24, 27, 0.9)" : "#ffffff",
@@ -230,16 +229,16 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
               : "0 20px 45px -15px rgba(15, 23, 42, 0.12), 0 4px 16px -2px rgba(15, 23, 42, 0.06)",
           }}
         >
-          
+
           {/* A. Dynamic Thematic Hero Banner (Theme Adaptive) */}
-          <div 
+          <div
             className="relative h-44 sm:h-48 p-5 flex flex-col justify-between overflow-hidden transition-all duration-700 text-white"
             style={{
               background: isDark ? current.bgDark : current.bgLight,
             }}
           >
             {/* Thematic Watermark */}
-            <div 
+            <div
               className="absolute right-[-10px] bottom-3 pointer-events-none whitespace-nowrap italic tracking-tight transition-all duration-500"
               style={{
                 fontFamily: current.wmFont,
@@ -254,7 +253,7 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
             {/* Top row: Date Badge & Category / Event Mode Tags */}
             <div className="relative flex items-center justify-between z-10">
               <div className="flex items-center gap-2">
-                <span 
+                <span
                   className="px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider shadow-xs backdrop-blur-md"
                   style={{
                     backgroundColor: "rgba(255, 255, 255, 0.25)",
@@ -264,7 +263,7 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
                 >
                   {current.cat}
                 </span>
-                <span 
+                <span
                   className="px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider shadow-xs backdrop-blur-md flex items-center gap-1.5"
                   style={{
                     backgroundColor: "rgba(15, 23, 42, 0.85)",
@@ -278,7 +277,7 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
               </div>
 
               {/* Date Box */}
-              <div 
+              <div
                 className="px-2.5 py-1 rounded-xl text-center shadow-sm backdrop-blur-md"
                 style={{
                   backgroundColor: "rgba(255, 255, 255, 0.22)",
@@ -304,17 +303,17 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
           </div>
 
           {/* B. Card Body (Matches .cc-event-card theme adaptation in application) */}
-          <div 
+          <div
             className="p-5 sm:p-6 space-y-4 transition-colors duration-300 bg-white dark:bg-zinc-950/85 text-zinc-950 dark:text-zinc-50"
           >
             {/* Highlight Banner */}
-            <div 
+            <div
               className="p-3 rounded-2xl flex items-center justify-between text-xs transition-colors duration-300 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10"
             >
               <span className="font-medium truncate text-slate-700 dark:text-zinc-300">
                 {current.highlight}
               </span>
-              <span 
+              <span
                 className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-2 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
               >
                 {current.fee}
@@ -329,10 +328,10 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
                   {current.reg} / {current.cap} registered
                 </span>
               </div>
-              <div 
+              <div
                 className="w-full h-2 rounded-full overflow-hidden bg-slate-200 dark:bg-white/10"
               >
-                <div 
+                <div
                   className="h-full rounded-full transition-all duration-700"
                   style={{
                     width: current.pct,
@@ -355,7 +354,7 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
             </div>
 
             {/* Footer with portal preview badge */}
-            <div 
+            <div
               className="pt-3 flex items-center justify-between text-[11px] transition-colors border-t border-slate-200 dark:border-white/10 text-slate-600 dark:text-zinc-400"
             >
               <span className="flex items-center gap-1.5">
@@ -374,7 +373,7 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
       </div>
 
       {/* 5. BOTTOM SOCIAL PROOF & METRICS */}
-      <div 
+      <div
         className="relative z-10 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono transition-colors duration-300"
         style={{
           borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid #e2e8f0",
@@ -383,7 +382,7 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
       >
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-          <span 
+          <span
             className="font-bold uppercase tracking-wider text-[11px]"
             style={{ color: isDark ? "#e4e4e7" : "#1e293b" }}
           >
