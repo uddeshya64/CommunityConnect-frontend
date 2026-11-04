@@ -16,6 +16,22 @@ export interface NotificationItem {
 }
 
 export const notificationService = {
+  getUnreadCount: async (): Promise<{ count: number }> => {
+    try {
+      const response = await api.get('/notifications/unread-count');
+      return response.data?.data || response.data || { count: 0 };
+    } catch {
+      return { count: 0 };
+    }
+  },
+  markAllRead: async () => {
+    try {
+      const response = await api.post('/notifications/mark-all-read');
+      return response.data;
+    } catch {
+      return null;
+    }
+  },
   getNotifications: async (): Promise<NotificationItem[]> => {
     const response = await api.get('/notifications');
     return response.data.data;

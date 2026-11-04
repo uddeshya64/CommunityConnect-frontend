@@ -338,7 +338,7 @@ export default function EditProfilePage() {
     return (
       <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-200" : "bg-zinc-50 text-zinc-900"} relative overflow-hidden`}>
         <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
-        <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/70 border-white/5" : "bg-white/80 border-zinc-200"} border-b shadow-sm`}>
+        <nav className="sticky top-0 z-50 w-full border-b shadow-sm" style={{ background: "var(--chrome)", borderColor: "var(--border)", backdropFilter: "blur(24px)" }}>
           <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between animate-pulse">
             <div className="w-16 h-4 bg-zinc-700/40 rounded" />
             <div className="w-24 h-8 bg-zinc-700/40 rounded-full" />
@@ -388,12 +388,12 @@ export default function EditProfilePage() {
 
   return (
     <PageTransition>
-      <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-200" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 pb-24 relative overflow-hidden transition-colors duration-300`}>
+      <div className="min-h-screen font-sans pb-24 relative overflow-hidden transition-colors duration-300" style={{ background: "var(--bg)", color: "var(--text)" }}>
         {/* Ambient Background Glows */}
         <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
 
         {/* Navigation */}
-        <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/70 border-white/5" : "bg-white/80 border-zinc-200"} border-b shadow-sm`}>
+        <nav className="sticky top-0 z-50 w-full border-b shadow-sm" style={{ background: "var(--chrome)", borderColor: "var(--border)", backdropFilter: "blur(24px)" }}>
           <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
             <Link
               href="/profile/me"
@@ -437,7 +437,7 @@ export default function EditProfilePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border`}
+              className="rounded-[22px] p-6 md:p-8 border shadow-sm " style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
             >
               <div className="flex flex-col md:flex-row gap-8 items-start">
                 
@@ -494,7 +494,7 @@ export default function EditProfilePage() {
 
                 {/* Basic Info Inputs */}
                 <div className="flex-1 w-full space-y-6">
-                  <h2 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
+                  <h2 className={`text-lg font-bold ${isDark ? "text-[var(--text)] border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
                     <User className={`w-5 h-5 ${isDark ? "text-indigo-400" : "text-zinc-900"}`} />
                     Basic Information
                   </h2>
@@ -502,7 +502,7 @@ export default function EditProfilePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Name */}
                     <div className="space-y-2">
-                      <Label htmlFor="name" className="text-sm font-semibold text-zinc-400">
+                      <Label htmlFor="name" className="text-xs font-mono font-bold uppercase" style={{ color: "var(--muted)" }}>
                         Full Name
                       </Label>
                       <Input
@@ -510,7 +510,7 @@ export default function EditProfilePage() {
                         placeholder="e.g. John Doe"
                         {...form.register("name")}
                         disabled={isSaving}
-                        className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
+                        className="rounded-xl border focus-visible:ring-2 focus-visible:ring-offset-0 text-sm" style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                       />
                       {form.formState.errors.name && (
                         <p className="text-xs text-red-400">
@@ -521,7 +521,7 @@ export default function EditProfilePage() {
 
                     {/* Avatar URL (Optional manual input) */}
                     <div className="space-y-2">
-                      <Label htmlFor="avatar_url" className="text-sm font-semibold text-zinc-400 flex items-center gap-1">
+                      <Label htmlFor="avatar_url" className="text-xs font-mono font-bold uppercase flex items-center gap-1" style={{ color: "var(--muted)" }}>
                         <ImageIcon className="w-3.5 h-3.5" />
                         Image URL (Optional)
                       </Label>
@@ -530,7 +530,7 @@ export default function EditProfilePage() {
                         placeholder="https://example.com/avatar.jpg"
                         {...form.register("avatar_url")}
                         disabled={isSaving || isUploading}
-                        className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
+                        className="rounded-xl border focus-visible:ring-2 focus-visible:ring-offset-0 text-sm" style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                       />
                       {form.formState.errors.avatar_url && (
                         <p className="text-xs text-red-400">
@@ -548,9 +548,9 @@ export default function EditProfilePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.1 }}
-              className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border space-y-6`}
+              className="rounded-[22px] p-6 md:p-8 border shadow-sm  space-y-6" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
             >
-              <h2 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
+              <h2 className={`text-lg font-bold ${isDark ? "text-[var(--text)] border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
                 <Briefcase className={`w-5 h-5 ${isDark ? "text-indigo-400" : "text-zinc-900"}`} />
                 Professional Details
               </h2>
@@ -558,7 +558,7 @@ export default function EditProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Profession */}
                 <div className="space-y-2">
-                  <Label htmlFor="profession" className="text-sm font-semibold text-zinc-400">
+                  <Label htmlFor="profession" className="text-xs font-mono font-bold uppercase" style={{ color: "var(--muted)" }}>
                     Current Role / Profession
                   </Label>
                   <Input
@@ -566,7 +566,7 @@ export default function EditProfilePage() {
                     placeholder="e.g. Senior Frontend Developer"
                     {...form.register("profession")}
                     disabled={isSaving}
-                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
+                    className="rounded-xl border focus-visible:ring-2 focus-visible:ring-offset-0 text-sm" style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                   />
                   {form.formState.errors.profession && (
                     <p className="text-xs text-red-400">
@@ -577,7 +577,7 @@ export default function EditProfilePage() {
 
                 {/* Location */}
                 <div className="space-y-2">
-                  <Label htmlFor="location" className="text-sm font-semibold text-zinc-400 flex items-center gap-1">
+                  <Label htmlFor="location" className="text-xs font-mono font-bold uppercase flex items-center gap-1" style={{ color: "var(--muted)" }}>
                     <MapPin className="w-3.5 h-3.5" />
                     Location
                   </Label>
@@ -586,7 +586,7 @@ export default function EditProfilePage() {
                     placeholder="e.g. San Francisco, CA"
                     {...form.register("location")}
                     disabled={isSaving}
-                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
+                    className="rounded-xl border focus-visible:ring-2 focus-visible:ring-offset-0 text-sm" style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                   />
                   {form.formState.errors.location && (
                     <p className="text-xs text-red-400">
@@ -597,7 +597,7 @@ export default function EditProfilePage() {
 
                 {/* Phone */}
                 <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-sm font-semibold text-zinc-400 flex items-center gap-1">
+                  <Label htmlFor="phone" className="text-xs font-mono font-bold uppercase flex items-center gap-1" style={{ color: "var(--muted)" }}>
                     <Phone className="w-3.5 h-3.5" />
                     Phone Number
                   </Label>
@@ -606,7 +606,7 @@ export default function EditProfilePage() {
                     placeholder="e.g. +1 (555) 000-0000"
                     {...form.register("phone")}
                     disabled={isSaving}
-                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
+                    className="rounded-xl border focus-visible:ring-2 focus-visible:ring-offset-0 text-sm" style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                   />
                   {form.formState.errors.phone && (
                     <p className="text-xs text-red-400">
@@ -618,7 +618,7 @@ export default function EditProfilePage() {
 
               {/* Bio */}
               <div className="space-y-2 pt-2">
-                <Label htmlFor="bio" className="text-sm font-semibold text-zinc-400 flex items-center gap-1">
+                <Label htmlFor="bio" className="text-xs font-mono font-bold uppercase flex items-center gap-1" style={{ color: "var(--muted)" }}>
                   <FileText className="w-3.5 h-3.5" />
                   Professional Bio
                 </Label>
@@ -653,9 +653,9 @@ export default function EditProfilePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.2 }}
-              className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border space-y-6`}
+              className="rounded-[22px] p-6 md:p-8 border shadow-sm  space-y-6" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
             >
-              <h2 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white border-white/5" : "text-zinc-900 border-zinc-200"} border-b pb-3`}>
+              <h2 className={`text-lg font-bold ${isDark ? "text-[var(--text)] border-white/5" : "text-zinc-900 border-zinc-200"} border-b pb-3`}>
                 Skills & Expertise
               </h2>
 
@@ -711,9 +711,9 @@ export default function EditProfilePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
-              className={`rounded-[2rem] p-6 md:p-8 backdrop-blur-md ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border space-y-6`}
+              className="rounded-[22px] p-6 md:p-8 border shadow-sm  space-y-6" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
             >
-              <h2 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
+              <h2 className={`text-lg font-bold ${isDark ? "text-[var(--text)] border-white/5" : "text-zinc-900 border-zinc-200"} flex items-center gap-2 border-b pb-3`}>
                 <LinkIcon className={`w-5 h-5 ${isDark ? "text-indigo-400" : "text-zinc-900"}`} />
                 Links & Socials
               </h2>
@@ -721,7 +721,7 @@ export default function EditProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* LinkedIn */}
                 <div className="space-y-2">
-                  <Label htmlFor="linkedin" className="text-sm font-semibold text-zinc-400 flex items-center gap-1.5">
+                  <Label htmlFor="linkedin" className="text-xs font-mono font-bold uppercase flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
                     <Linkedin className="w-4 h-4 text-[#0A66C2]" />
                     LinkedIn
                   </Label>
@@ -730,7 +730,7 @@ export default function EditProfilePage() {
                     placeholder="https://linkedin.com/in/username"
                     {...form.register("linkedin")}
                     disabled={isSaving}
-                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-[#0A66C2] focus-visible:border-[#0A66C2]"
+                    className="rounded-xl border focus-visible:ring-2 focus-visible:ring-offset-0 text-sm" style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                   />
                   {form.formState.errors.linkedin && (
                     <p className="text-xs text-red-400">
@@ -741,7 +741,7 @@ export default function EditProfilePage() {
 
                 {/* GitHub */}
                 <div className="space-y-2">
-                  <Label htmlFor="github" className="text-sm font-semibold text-zinc-400 flex items-center gap-1.5">
+                  <Label htmlFor="github" className="text-xs font-mono font-bold uppercase flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
                     <Github className="w-4 h-4 text-zinc-300" />
                     GitHub
                   </Label>
@@ -750,7 +750,7 @@ export default function EditProfilePage() {
                     placeholder="https://github.com/username"
                     {...form.register("github")}
                     disabled={isSaving}
-                    className="rounded-xl bg-zinc-950/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-zinc-400 focus-visible:border-zinc-400"
+                    className="rounded-xl border focus-visible:ring-2 focus-visible:ring-offset-0 text-sm" style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                   />
                   {form.formState.errors.github && (
                     <p className="text-xs text-red-400">

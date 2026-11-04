@@ -50,7 +50,7 @@ export default function EventRegistrationPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.eventId as string;
-  const { activeAccent } = useAppearance();
+  const { activeAccent, isDark } = useAppearance();
   const { success: showSuccess, error: showError } = useToast();
 
   const [event, setEvent] = useState<any>(null);
@@ -285,7 +285,7 @@ export default function EventRegistrationPage() {
         key: RAZORPAY_KEY_ID || "rzp_test_YOUR_KEY",
         amount: result.amount,
         currency: result.currency,
-        name: "Community Connect",
+        name: "Eventrix",
         description: `Registration for ${event.title}`,
         order_id: result.razorpay_order_id,
         handler: async function (paymentResponse: any) {
@@ -392,7 +392,18 @@ export default function EventRegistrationPage() {
       />
 
       {/* Navigation Header */}
-      <header className="relative z-20 w-full p-4 border-b border-zinc-200 bg-white flex items-center justify-between shrink-0">
+      <header
+        className="sticky top-0 z-50 w-full px-4 sm:px-7 h-16 border-b transition-colors duration-300 flex items-center justify-between shrink-0"
+        style={{
+          background: "var(--chrome)",
+          borderColor: "var(--border)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          boxShadow: isDark
+            ? "0 4px 24px -2px rgba(0, 0, 0, 0.45)"
+            : "0 4px 20px -2px rgba(15, 23, 42, 0.06)",
+        }}
+      >
         <Link href={`/events/${eventId}`}>
           <Button variant="ghost" className="rounded-full hover:bg-zinc-150 font-bold text-zinc-500 hover:text-zinc-950 transition-all text-xs h-9 px-4">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Event Details
@@ -411,7 +422,7 @@ export default function EventRegistrationPage() {
           {/* LEFT COLUMN: Event branding, metadata & total price summary (sticky on desktop) */}
           <div className="lg:col-span-5 space-y-6">
             <div className="lg:sticky lg:top-8 space-y-6">
-              
+
               {/* Event card with cover / default preset */}
               <div className="bg-white rounded-3xl border border-zinc-200 overflow-hidden">
                 {event.banner_url || event.bannerUrl || event.banner ? (
@@ -421,15 +432,14 @@ export default function EventRegistrationPage() {
                     className="w-full h-48 object-cover border-b border-zinc-200"
                   />
                 ) : (
-                  <div className={`w-full h-36 ${
-                    event.type?.toLowerCase().includes("hack") || event.type?.toLowerCase().includes("code") || event.type?.toLowerCase().includes("tech")
+                  <div className={`w-full h-36 ${event.type?.toLowerCase().includes("hack") || event.type?.toLowerCase().includes("code") || event.type?.toLowerCase().includes("tech")
                       ? "bg-gradient-to-br from-indigo-900 via-purple-900 to-zinc-950"
                       : event.type?.toLowerCase().includes("meet") || event.type?.toLowerCase().includes("social") || event.type?.toLowerCase().includes("network")
-                      ? "bg-gradient-to-br from-amber-955 via-rose-900 to-zinc-950"
-                      : "bg-gradient-to-br from-teal-955 via-emerald-900 to-zinc-950"
-                  } flex items-center justify-center relative`} />
+                        ? "bg-gradient-to-br from-amber-955 via-rose-900 to-zinc-950"
+                        : "bg-gradient-to-br from-teal-955 via-emerald-900 to-zinc-950"
+                    } flex items-center justify-center relative`} />
                 )}
-                
+
                 <div className="p-6 space-y-3">
                   <span className="px-3.5 py-1 rounded-full bg-indigo-50 border border-indigo-150 text-indigo-750 text-[10px] font-black uppercase tracking-wider">
                     {event.type || "Event"}
@@ -489,7 +499,7 @@ export default function EventRegistrationPage() {
 
           {/* RIGHT COLUMN: The Registration Form block panels */}
           <div className="lg:col-span-7 space-y-8">
-            
+
             {/* Form Section 1: Profile Information */}
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 space-y-6">
               <div>
@@ -505,11 +515,10 @@ export default function EventRegistrationPage() {
                     value={formResponses.name || ""}
                     onChange={!profileData.name ? (e) => updateResponse("name", e.target.value) : undefined}
                     readOnly={!!profileData.name}
-                    className={`h-12 px-4 rounded-xl border-zinc-200 text-sm font-semibold ${
-                      profileData.name
+                    className={`h-12 px-4 rounded-xl border-zinc-200 text-sm font-semibold ${profileData.name
                         ? "bg-zinc-50 border-zinc-150 cursor-not-allowed select-none text-zinc-500"
                         : "bg-white text-zinc-900"
-                    }`}
+                      }`}
                   />
                 </div>
 
@@ -522,11 +531,10 @@ export default function EventRegistrationPage() {
                       value={formResponses.email || ""}
                       onChange={!profileData.email ? (e) => updateResponse("email", e.target.value) : undefined}
                       readOnly={!!profileData.email}
-                      className={`h-12 px-4 rounded-xl border-zinc-200 text-sm font-semibold ${
-                        profileData.email
+                      className={`h-12 px-4 rounded-xl border-zinc-200 text-sm font-semibold ${profileData.email
                           ? "bg-zinc-50 border-zinc-150 cursor-not-allowed select-none text-zinc-500"
                           : "bg-white text-zinc-900"
-                      }`}
+                        }`}
                     />
                   </div>
                   <div className="space-y-2">
@@ -536,11 +544,10 @@ export default function EventRegistrationPage() {
                       value={formResponses.phone || ""}
                       onChange={!profileData.phone ? (e) => updateResponse("phone", e.target.value) : undefined}
                       readOnly={!!profileData.phone}
-                      className={`h-12 px-4 rounded-xl border-zinc-200 text-sm font-semibold ${
-                        profileData.phone
+                      className={`h-12 px-4 rounded-xl border-zinc-200 text-sm font-semibold ${profileData.phone
                           ? "bg-zinc-50 border-zinc-150 cursor-not-allowed select-none text-zinc-500"
                           : "bg-white text-zinc-900"
-                      }`}
+                        }`}
                     />
                   </div>
                 </div>
@@ -704,22 +711,20 @@ export default function EventRegistrationPage() {
                               <button
                                 type="button"
                                 onClick={() => updateResponse(key, "true")}
-                                className={`h-11 px-6 rounded-xl border font-bold text-sm flex-1 transition-all ${
-                                  value === "true"
+                                className={`h-11 px-6 rounded-xl border font-bold text-sm flex-1 transition-all ${value === "true"
                                     ? "bg-indigo-600 text-white border-indigo-600"
                                     : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"
-                                }`}
+                                  }`}
                               >
                                 Yes
                               </button>
                               <button
                                 type="button"
                                 onClick={() => updateResponse(key, "false")}
-                                className={`h-11 px-6 rounded-xl border font-bold text-sm flex-1 transition-all ${
-                                  value === "false"
+                                className={`h-11 px-6 rounded-xl border font-bold text-sm flex-1 transition-all ${value === "false"
                                     ? "bg-indigo-600 text-white border-indigo-600"
                                     : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"
-                                }`}
+                                  }`}
                               >
                                 No
                               </button>

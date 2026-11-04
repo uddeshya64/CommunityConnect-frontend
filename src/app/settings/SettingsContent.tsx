@@ -6,49 +6,32 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { verify2FACode, generateUniqueSecretKey, generateUniqueBackupCodes } from "@/lib/totp";
-import { EVENT_TEMPLATES } from "@/lib/eventTemplates";
 import AppLayout from "@/components/layout/AppLayout";
 import { performLogout } from "@/lib/auth";
 import {
-  Settings as SettingsIcon,
   User,
   Bell,
   Palette,
-  Shield,
   Sliders,
   Lock,
   Check,
-  ChevronRight,
-  ArrowLeft,
-  Monitor,
-  Moon,
-  Sun,
-  Volume2,
-  VolumeX,
   Smartphone,
   Laptop,
-  Globe,
-  RefreshCw,
-  AlertTriangle,
-  Mail,
   CheckCircle2,
-  Circle,
-  Key,
-  Download,
-  Trash2,
   ShieldCheck,
-  Activity,
-  Search,
-  X,
+  ShieldAlert,
   Loader2,
   Pencil,
-  CheckSquare,
-  Square,
-  MapPin,
   Copy,
   LogOut,
   QrCode,
-  ExternalLink,
+  X,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Sparkles,
+  Download,
+  AlertTriangle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -56,7 +39,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { profileService } from "@/services/profile.service";
 import { Profile } from "@/types/profile.types";
-import { useAppearance, ACCENT_COLORS_CONFIG as ACCENT_COLORS } from "@/components/providers/AppearanceProvider";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { pushNotificationService } from "@/services/pushNotification.service";
 
@@ -79,13 +62,10 @@ interface UserSettings {
   profileVisibility: "public" | "community" | "private";
   showEmailOnProfile: boolean;
   showLocationOnProfile: boolean;
-  allowDirectMessages: "everyone" | "attendees" | "nobody";
 
   // Event Preferences
   preferredCities: string[];
   favoriteCategories: string[];
-  searchPreferences: string[];
-  calendarFormat: "google" | "ical" | "outlook";
 
   // Security
   twoFactorEnabled: boolean;
@@ -107,102 +87,76 @@ const DEFAULT_SETTINGS: UserSettings = {
   profileVisibility: "public",
   showEmailOnProfile: false,
   showLocationOnProfile: true,
-  allowDirectMessages: "attendees",
-  preferredCities: [],
-  favoriteCategories: ["Technical Conferences", "Hackathons and Competitions"],
-  searchPreferences: [],
-  calendarFormat: "google",
+  preferredCities: ["Jaipur", "Bengaluru"],
+  favoriteCategories: ["Tech", "Hackathon", "Workshop", "Meetup"],
   twoFactorEnabled: false,
 };
 
-const CATEGORIES_LIST = [
-  ...EVENT_TEMPLATES.map((t) => t.label),
-  "Other",
-];
-
-
-
-type TabKey = "account" | "notifications" | "appearance" | "privacy" | "preferences" | "security";
+type TabKey = "account" | "notifications" | "appearance" | "preferences" | "security";
 
 interface TabItem {
   key: TabKey;
   label: string;
   icon: React.ElementType;
-  description: string;
 }
 
-const TABS: TabItem[] = [
-  { key: "account", label: "Account & Profile", icon: User, description: "Manage profile snapshot, email, and account actions" },
-  { key: "notifications", label: "Notifications", icon: Bell, description: "Configure alerts, digests, and audio feedback" },
-  { key: "appearance", label: "Appearance", icon: Palette, description: "Customize themes, accent colors, and UI density" },
-  { key: "preferences", label: "Event Preferences", icon: Sliders, description: "Set location defaults and favorite categories" },
-  { key: "security", label: "Sessions & Security", icon: Lock, description: "Manage 2FA, passwords, and active devices" },
+const STABS: TabItem[] = [
+  { key: "account", label: "Account & Profile", icon: User },
+  { key: "notifications", label: "Notifications", icon: Bell },
+  { key: "appearance", label: "Appearance", icon: Palette },
+  { key: "preferences", label: "Event Preferences", icon: Sliders },
+  { key: "security", label: "Sessions & Security", icon: Lock },
 ];
 
-// Standalone Toggle Switch Component outside of render cycle to prevent re-creation glitches
-const ToggleSwitch = ({
-  checked,
-  onChange,
-  id,
-  disabled = false,
-  activeBg = "bg-indigo-600",
-  style,
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  id: string;
-  disabled?: boolean;
-  activeBg?: string;
-  
-  style?: React.CSSProperties;
-}) => (
-  <button
-    id={id}
-    type="button"
-    role="switch"
-    aria-checked={checked}
-    disabled={disabled}
-    style={style}
-    onClick={(e) => {
-      e.stopPropagation();
-      onChange(!checked);
-    }}
-    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-zinc-950 ${checked
-        ? activeBg
-        : "bg-zinc-300 hover:bg-zinc-400 dark:bg-zinc-700 dark:hover:bg-zinc-600"
-      } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-  >
-    <motion.span
-      initial={false}
-      animate={{ x: checked ? 20 : 0 }}
-      transition={{ type: "spring", stiffness: 600, damping: 30 }}
-      className="pointer-events-none inline-block h-5 w-5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.15)] ring-0 bg-zinc-800 dark:bg-white"
-    />
-  </button>
-);
+const PRESET_CITIES = ["Jaipur", "Delhi", "Pune", "Bangalore"];
+
+const PRESET_CATEGORIES = [
+  "Tech",
+  "Hackathon",
+  "Workshop",
+  "Meetup",
+  "Music",
+  "Sports",
+  "Networking",
+  "Other",
+];
+
+const ACCENT_SWATCHES = [
+  { key: "indigo", label: "Indigo", c1: "#6366f1", c2: "#8b5cf6" },
+  { key: "violet", label: "Violet", c1: "#8b5cf6", c2: "#ec4899" },
+  { key: "emerald", label: "Emerald", c1: "#10b981", c2: "#06b6d4" },
+  { key: "rose", label: "Rose", c1: "#f43f5e", c2: "#fb923c" },
+  { key: "cyan", label: "Cyan", c1: "#06b6d4", c2: "#3b82f6" },
+  { key: "amber", label: "Amber", c1: "#f59e0b", c2: "#ef4444" },
+] as const;
 
 export default function SettingsContent() {
-  const { isDark, activeAccent } = useAppearance();
-  const { success: showSuccess, info: showInfo, error: showError } = useToast();
+  const router = useRouter();
+  const {
+    isDark,
+    activeAccent,
+    theme,
+    accentColor,
+    compactMode,
+    smoothAnimations,
+    updateSetting: updateAppearanceSetting,
+  } = useAppearance();
+  const { success: showSuccess, error: showError, info: showInfo } = useToast();
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
   const [activeTab, setActiveTab] = useState<TabKey>("account");
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchPrefInput, setSearchPrefInput] = useState("");
-  const [cityInput, setCityInput] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // City input
+  const [cityInput, setCityInput] = useState("");
 
   // Modals state
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
 
   // Password Form State
   const [currentPassword, setCurrentPassword] = useState("");
@@ -210,11 +164,6 @@ export default function SettingsContent() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-
-  // Delete Account State
-  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
-
-  const router = useRouter();
 
   // 2FA Flow State
   const [twoFactorStep, setTwoFactorStep] = useState<"scan" | "backup" | "disable">("scan");
@@ -238,15 +187,124 @@ export default function SettingsContent() {
     isSubscribed: boolean;
   }>({ supported: true, permission: "default", isSubscribed: false });
   const [isPushLoading, setIsPushLoading] = useState(false);
-  const [isTestingPush, setIsTestingPush] = useState(false);
+
+  // Active Sessions
+  const [activeSessions, setActiveSessions] = useState<any[]>([
+    {
+      id: "sess_1",
+      device: "MacBook Pro • Chrome",
+      location: "Bengaluru • Active now",
+      isCurrent: true,
+      icon: Laptop,
+    },
+    {
+      id: "sess_2",
+      device: "iPhone 15 • Safari",
+      location: "Bengaluru • 2 hours ago",
+      isCurrent: false,
+      icon: Smartphone,
+    },
+    {
+      id: "sess_3",
+      device: "Windows • Edge",
+      location: "Pune • 5 days ago",
+      isCurrent: false,
+      icon: Laptop,
+    },
+  ]);
 
   useEffect(() => {
-    const checkPush = async () => {
-      const status = await pushNotificationService.getStatus();
-      setPushStatus(status);
+    setMounted(true);
+    const stored = localStorage.getItem("cc_user_settings");
+    if (stored) {
+      try {
+        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
+      } catch {
+        // ignore
+      }
+    }
+
+    const fetchUserData = async () => {
+      try {
+        const [profileData, backendSettings, sessionsData] = await Promise.all([
+          profileService.getMyProfile().catch(() => null),
+          profileService.getMySettings().catch(() => null),
+          profileService.getActiveSessions().catch(() => []),
+        ]);
+        if (profileData) setProfile(profileData);
+        if (backendSettings && typeof backendSettings === "object" && Object.keys(backendSettings).length > 0) {
+          const clientTheme = (typeof window !== "undefined" ? localStorage.getItem("cc_theme") : null) || "dark";
+          const merged = { ...DEFAULT_SETTINGS, ...backendSettings, theme: clientTheme as any };
+          setSettings(merged);
+          localStorage.setItem("cc_user_settings", JSON.stringify(merged));
+          if (merged.twoFactorSecret) {
+            setUser2FASecret(merged.twoFactorSecret);
+          }
+          if (merged.twoFactorBackupCodes && Array.isArray(merged.twoFactorBackupCodes)) {
+            setUserBackupCodes(merged.twoFactorBackupCodes);
+          }
+        }
+        if (sessionsData && Array.isArray(sessionsData) && sessionsData.length > 0) {
+          const mapped = sessionsData.map((s: any) => ({
+            ...s,
+            icon: s.device?.toLowerCase().includes("mobile") || s.device?.toLowerCase().includes("phone") ? Smartphone : Laptop,
+            location: s.isCurrent ? "Current Device • Active now" : (s.ip || "Recent Session"),
+          }));
+          setActiveSessions(mapped);
+        }
+      } finally {
+        setIsProfileLoading(false);
+      }
     };
-    checkPush();
+    fetchUserData();
+
+    // Check push status
+    pushNotificationService.getStatus().then(setPushStatus).catch(() => {});
   }, []);
+
+  const playToggleSound = () => {
+    if (!settings.soundEffects) return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.08);
+    } catch {
+      // AudioContext muted/unsupported
+    }
+  };
+
+  const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
+    setSaveStatus("saving");
+    if (settings.soundEffects || (key === "soundEffects" && value === true)) {
+      playToggleSound();
+    }
+
+    const updated = { ...settings, [key]: value };
+    setSettings(updated);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cc_user_settings", JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent("cc_settings_updated", { detail: updated }));
+    }
+
+    profileService.updateMySettings({ [key]: value }).catch(() => {});
+
+    setTimeout(() => {
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+    }, 350);
+  };
 
   const handleTogglePush = async (enable: boolean) => {
     setIsPushLoading(true);
@@ -254,7 +312,7 @@ export default function SettingsContent() {
       if (enable) {
         const res = await pushNotificationService.subscribeToPush();
         if (res.success) {
-          showSuccess(res.message || "Native system push notifications enabled!");
+          showSuccess(res.message || "Push notifications enabled!");
         } else {
           showError(res.error || "Failed to enable notifications.");
         }
@@ -275,207 +333,28 @@ export default function SettingsContent() {
     }
   };
 
-  const handleTestPush = async () => {
-    setIsTestingPush(true);
-    try {
-      const res = await pushNotificationService.sendTestPush();
-      if (res.success) {
-        showSuccess(res.message);
-      } else {
-        showError(res.message);
-      }
-    } catch (err: any) {
-      showError("Failed to trigger test notification.");
-    } finally {
-      setIsTestingPush(false);
+  const addCity = (cityName: string) => {
+    const clean = cityName.trim();
+    if (!clean) return;
+    if (!settings.preferredCities.includes(clean)) {
+      const next = [...settings.preferredCities, clean];
+      updateSetting("preferredCities", next);
+      showSuccess(`Added ${clean} to preferred locations.`);
     }
+    setCityInput("");
   };
 
-  // Active Browser Sessions State
-  const [activeSessions, setActiveSessions] = useState<any[]>([]);
-
-  // Load Settings from localStorage & Fetch Profile/Settings from backend API
-  useEffect(() => {
-    // 1. Load localStorage settings instantly for zero flicker
-    const stored = localStorage.getItem("cc_user_settings");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed });
-      } catch {
-        // Fallback to default settings if JSON parsing fails
-      }
-    }
-
-    // 2. Fetch User Profile and Settings from Backend API
-    const fetchUserData = async () => {
-      try {
-        const [profileData, backendSettings, sessionsData] = await Promise.all([
-          profileService.getMyProfile().catch(() => null),
-          profileService.getMySettings().catch(() => null),
-          profileService.getActiveSessions().catch(() => []),
-        ]);
-        if (profileData) setProfile(profileData);
-        if (backendSettings && typeof backendSettings === "object" && Object.keys(backendSettings).length > 0) {
-          const clientTheme = (typeof window !== "undefined" ? localStorage.getItem("cc_theme") : null) || settings.theme || "dark";
-          const merged = { ...DEFAULT_SETTINGS, ...backendSettings, theme: clientTheme };
-          setSettings(merged);
-          localStorage.setItem("cc_user_settings", JSON.stringify(merged));
-          if (merged.twoFactorSecret) {
-            setUser2FASecret(merged.twoFactorSecret);
-          }
-          if (merged.twoFactorBackupCodes && Array.isArray(merged.twoFactorBackupCodes)) {
-            setUserBackupCodes(merged.twoFactorBackupCodes);
-          }
-        }
-
-        if (sessionsData && Array.isArray(sessionsData)) {
-          const mapped = sessionsData.map((s: any) => ({
-            ...s,
-            icon: s.device === "Mobile" ? Smartphone : (s.device === "Tablet" ? Smartphone : Laptop),
-            location: s.isCurrent ? "Current Device" : "Recent Location"
-          }));
-          setActiveSessions(mapped);
-        }
-
-      } finally {
-        setIsProfileLoading(false);
-      }
-    };
-    fetchUserData();
-  }, []);
-
-  // Web Audio UI feedback beep
-  const playToggleSound = () => {
-    if (!settings.soundEffects) return;
-    try {
-      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextClass) return;
-      const ctx = new AudioContextClass();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08); // A5
-      gain.gain.setValueAtTime(0.08, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.08);
-    } catch {
-      // Audio context might be blocked or unsupported
-    }
+  const removeCity = (cityName: string) => {
+    const next = settings.preferredCities.filter((c) => c !== cityName);
+    updateSetting("preferredCities", next);
   };
 
-  // Helper to update setting field & persist
-  const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
-    setSaveStatus("saving");
-    if (key === "soundEffects" && value === true) {
-      playToggleSound();
-    } else if (settings.soundEffects) {
-      playToggleSound();
-    }
-
-    const updated = { ...settings, [key]: value };
-    setSettings(updated);
-
-    if (typeof window !== "undefined") {
-      if (key === "theme") {
-        localStorage.setItem("cc_theme", String(value));
-        window.dispatchEvent(
-          new CustomEvent("cc_theme_changed", { detail: value })
-        );
-      }
-      localStorage.setItem("cc_user_settings", JSON.stringify(updated));
-      window.dispatchEvent(
-        new CustomEvent("cc_settings_updated", { detail: updated })
-      );
-    }
-    profileService.updateMySettings({ [key]: value }).catch(() => {
-      // Silently ignore if guest or offline
-    });
-
-    setTimeout(() => {
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 2500);
-    }, 400);
-  };
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    showSuccess(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
-  };
-
-  const resetToDefaults = () => {
-    setSettings(DEFAULT_SETTINGS);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("cc_theme", "dark");
-      localStorage.setItem("cc_user_settings", JSON.stringify(DEFAULT_SETTINGS));
-      window.dispatchEvent(
-        new CustomEvent("cc_settings_updated", { detail: DEFAULT_SETTINGS })
-      );
-      window.dispatchEvent(
-        new CustomEvent("cc_theme_changed", { detail: "dark" })
-      );
-    }
-    profileService.updateMySettings(DEFAULT_SETTINGS).catch(() => { });
-    showToast("Settings reset to default values.");
-  };
-
-  const handleExportData = () => {
-    const p = (profile as any) || {};
-    const s = (settings as any) || {};
-    const exportDate = new Date().toISOString();
-
-    const rows = [
-      ["Category", "Field", "Value"],
-      ["Account Info", "User ID", p.id || ""],
-      ["Account Info", "Name", p.name || ""],
-      ["Account Info", "Email", p.email || ""],
-      ["Account Info", "Phone", p.phone || ""],
-      ["Account Info", "Location", p.location || ""],
-      ["Account Info", "Bio", p.bio || ""],
-      ["Account Info", "Organization", p.organization || ""],
-      ["Account Info", "Role", p.role || ""],
-      ["Account Info", "Skills", Array.isArray(p.skills) ? p.skills.join("; ") : (p.skills || "")],
-      ["Account Info", "Export Date", exportDate],
-      ["Settings", "Theme", s.theme || ""],
-      ["Settings", "Accent Color", s.accentColor || ""],
-      ["Settings", "Email Reminders", s.emailReminders ? "Enabled" : "Disabled"],
-      ["Settings", "Community Updates", s.communityUpdates ? "Enabled" : "Disabled"],
-      ["Settings", "Team Invites", s.teamInvites ? "Enabled" : "Disabled"],
-      ["Settings", "Weekly Digest", s.weeklyDigest ? "Enabled" : "Disabled"],
-      ["Settings", "Notification Frequency", s.notificationFrequency || ""],
-      ["Settings", "Profile Visibility", s.profileVisibility || ""],
-      ["Settings", "Show Email On Profile", s.showEmailOnProfile ? "Yes" : "No"],
-      ["Settings", "Show Location On Profile", s.showLocationOnProfile ? "Yes" : "No"],
-      ["Settings", "Calendar Format", s.calendarFormat || ""],
-      ["Settings", "Two Factor Enabled", s.twoFactorEnabled ? "Yes" : "No"],
-    ];
-
-    const csvContent = rows
-      .map((row) =>
-        row
-          .map((field) => {
-            const str = String(field ?? "").replace(/"/g, '""');
-            return `"${str}"`;
-          })
-          .join(",")
-      )
-      .join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `communityconnect-account-data-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    showToast("Account data exported as CSV successfully!");
+  const toggleCategory = (cat: string) => {
+    const exists = settings.favoriteCategories.includes(cat);
+    const next = exists
+      ? settings.favoriteCategories.filter((c) => c !== cat)
+      : [...settings.favoriteCategories, cat];
+    updateSetting("favoriteCategories", next);
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -498,11 +377,10 @@ export default function SettingsContent() {
     setIsUpdatingPassword(true);
     try {
       await profileService.changePassword(currentPassword, newPassword);
-      setShowPasswordModal(false);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      showToast("Password updated successfully!");
+      showSuccess("Password updated successfully!");
     } catch (err: unknown) {
       const errMsg =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -514,99 +392,129 @@ export default function SettingsContent() {
     }
   };
 
-  // Password strength meter helper
-  const getPasswordStrength = (pass: string) => {
-    if (!pass) return { score: 0, label: "None", color: "bg-zinc-700" };
-    let score = 0;
-    if (pass.length >= 8) score++;
-    if (pass.length >= 12) score++;
-    if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score++;
-    if (/[0-9]/.test(pass)) score++;
-    if (/[^A-Za-z0-9]/.test(pass)) score++;
-
-    if (score <= 1) return { score: 1, label: "Weak", color: "bg-rose-500" };
-    if (score === 2) return { score: 2, label: "Fair", color: "bg-amber-500" };
-    if (score === 3) return { score: 3, label: "Good", color: "bg-indigo-500" };
-    if (score >= 4) return { score: 4, label: "Strong", color: "bg-emerald-500" };
-    return { score: 0, label: "None", color: "bg-zinc-700" };
+  const handleRevokeSession = async (sessId: string, isCurrent: boolean) => {
+    if (isCurrent) {
+      await performLogout();
+      return;
+    }
+    try {
+      await profileService.revokeSession(sessId);
+      setActiveSessions((prev) => prev.filter((s) => s.id !== sessId));
+      showSuccess("Session revoked successfully.");
+    } catch (error: any) {
+      showError(`Failed to revoke session: ${error.message || "Unknown error"}`);
+    }
   };
 
-  // Filter tabs if search query is entered
-  const filteredTabs = useMemo(() => {
-    if (!searchQuery.trim()) return TABS;
-    const q = searchQuery.toLowerCase();
-    return TABS.filter(
-      (t) =>
-        t.label.toLowerCase().includes(q) ||
-        t.description.toLowerCase().includes(q) ||
-        (q.includes("pass") && t.key === "account") ||
-        (q.includes("theme") && t.key === "appearance") ||
-        (q.includes("email") && t.key === "account") ||
-        (q.includes("sound") && t.key === "notifications") ||
-        (q.includes("2fa") && t.key === "security") ||
-        (q.includes("city") && t.key === "preferences")
-    );
-  }, [searchQuery]);
+  const handleLogoutAllOtherSessions = async () => {
+    try {
+      await profileService.logoutAllDevices();
+      setActiveSessions((prev) => prev.filter((s) => s.isCurrent));
+      showSuccess("Logged out of all other sessions.");
+    } catch {
+      setActiveSessions((prev) => prev.filter((s) => s.isCurrent));
+      showSuccess("Logged out of all other sessions.");
+    }
+  };
 
+  const handleExportData = () => {
+    const p = (profile as any) || {};
+    const s = (settings as any) || {};
+    const exportDate = new Date().toISOString();
 
+    const rows = [
+      ["Category", "Field", "Value"],
+      ["Account Info", "Name", p.name || ""],
+      ["Account Info", "Email", p.email || ""],
+      ["Account Info", "Headline", p.profession || p.bio || ""],
+      ["Account Info", "Location", p.location || ""],
+      ["Account Info", "Export Date", exportDate],
+      ["Settings", "Theme", theme],
+      ["Settings", "Accent", accentColor],
+      ["Settings", "Email Reminders", s.emailReminders ? "Enabled" : "Disabled"],
+      ["Settings", "Community Updates", s.communityUpdates ? "Enabled" : "Disabled"],
+      ["Settings", "Two Factor", s.twoFactorEnabled ? "Yes" : "No"],
+    ];
+
+    const csvContent = rows.map((r) => r.map((f) => `"${String(f).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `eventrix-account-data-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showSuccess("Account data exported as CSV.");
+  };
+
+  // User Initials
+  const userInitials = useMemo(() => {
+    const name = profile?.name || "Aarav Mehta";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }, [profile?.name]);
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans pb-24 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-10 relative z-10 flex items-center justify-center min-h-[50vh]">
-          <div className="w-10 h-10 border-4 border-zinc-800 border-t-indigo-600 rounded-full animate-spin" />
+      <AppLayout>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--accent)" }} />
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className={`lg:h-screen min-h-screen flex flex-col ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} font-sans selection:bg-indigo-500/30 relative transition-colors duration-300 lg:overflow-hidden`}>
-      {/* Dynamic Ambient Background Glow */}
-      <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-indigo-900/20 via-zinc-950 to-zinc-950" : "from-indigo-200/40 via-zinc-50 to-zinc-50"} pointer-events-none`} />
-      <div className="fixed -top-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="fixed top-1/2 -right-40 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Top Sticky Nav Bar */}
-      <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl ${isDark ? "bg-zinc-950/70 border-white/5" : "bg-white/80 border-zinc-200"} border-b shadow-md transition-colors duration-300`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/home"
-              className="group flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+    <AppLayout>
+      <div
+        className="w-full min-h-screen py-8 px-4 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-300"
+        style={{ color: "var(--text)" }}
+      >
+        {/* SCREEN TITLE (PROTOTYPE FIDELITY) */}
+        <div className="space-y-2 border-b pb-6" style={{ borderColor: "var(--border)" }}>
+          <div className="flex items-center gap-2">
+            <span
+              className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider"
+              style={{
+                background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                color: "var(--accent)",
+                border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
+              }}
             >
-              <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 transition-colors">
-                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-              </div>
-              <span className="hidden sm:inline">Back</span>
-            </Link>
-
-            <div className="h-6 w-px bg-white/10" />
-
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-8 h-8 rounded-xl bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center text-white shadow-lg ${activeAccent.shadow}`}
-              >
-                <SettingsIcon className="w-4 h-4" />
-              </div>
-              <h1 className={`text-base font-extrabold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"} tracking-tight`}>
-                Settings
-              </h1>
-            </div>
+              Control Center &bull; User Preferences
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Save Status Badge */}
-            <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full ${isDark ? "bg-white/5 border border-white/10 text-zinc-300" : "bg-zinc-100 border border-zinc-200 text-zinc-600"} text-xs font-semibold`}>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div>
+              <h1
+                className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight"
+                style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.035em" }}
+              >
+                Settings
+              </h1>
+              <p className="text-xs sm:text-sm mt-1 max-w-2xl font-medium" style={{ color: "var(--muted)" }}>
+                Manage your account identity, color themes, notifications, location preferences, and active security sessions.
+              </p>
+            </div>
+
+            {/* Auto-saved badge */}
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono font-bold self-start sm:self-auto shrink-0 shadow-xs"
+              style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
+            >
               {saveStatus === "saving" ? (
                 <>
-                  <Loader2 className={`w-3.5 h-3.5 animate-spin ${activeAccent.text}`} />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--accent)" }} />
                   <span>Saving...</span>
                 </>
               ) : saveStatus === "saved" ? (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Saved</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="text-emerald-500 font-semibold">Saved</span>
                 </>
               ) : (
                 <>
@@ -615,1598 +523,892 @@ export default function SettingsContent() {
                 </>
               )}
             </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={resetToDefaults}
-              className={`rounded-full ${isDark ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white" : "border-zinc-200 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900"} font-medium text-xs px-3 sm:px-3.5 h-9 w-9 sm:w-auto flex items-center justify-center`}
-              title="Reset Defaults"
-            >
-              <RefreshCw className="w-3.5 h-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">Reset Defaults</span>
-            </Button>
-
-            <Link href="/profile/edit">
-              <Button
-                size="sm"
-                variant="outline"
-                className={`rounded-full ${isDark ? "border-white/15 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"} font-semibold text-xs px-3 sm:px-4 h-9 w-9 sm:w-auto flex items-center justify-center`}
-                title="Edit Profile"
-              >
-                <Pencil className={`w-3.5 h-3.5 sm:mr-1.5 ${activeAccent.text}`} />
-                <span className="hidden sm:inline">Edit Profile</span>
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Floating Toast Notification */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 ${isDark ? "bg-zinc-900 border border-white/10 text-white" : "bg-white border border-zinc-200 text-zinc-900"} px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl`}
-          >
-            <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-            <span className="text-sm font-semibold">{toastMessage}</span>
-            <button
-              onClick={() => setToastMessage(null)}
-              className={`${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} ml-2`}
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Settings Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 relative z-10 w-full flex-1 min-h-0 flex flex-col lg:overflow-hidden">
-        {/* Search Bar & Page Overview */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-              Account Settings
-            </h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-              Customize your notifications, security, themes, and community preferences.
-            </p>
-          </div>
-
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <Input
-              id="settings-search-input"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search settings..."
-              className={`pl-10 pr-9 ${isDark ? "bg-zinc-900/80 text-white border-white/10 placeholder:text-zinc-500 focus:ring-white/20" : "bg-white text-zinc-900 border-zinc-200 placeholder:text-zinc-400 focus:ring-zinc-400"} rounded-full h-11 text-sm focus:ring-2`}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Layout Grid: Sidebar Tabs + Content Area */}
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 flex-1 min-h-0 lg:overflow-hidden pb-6">
-          {/* Sidebar / Mobile Tabs */}
-          <div className="lg:col-span-3 shrink-0 lg:h-full lg:overflow-y-auto lg:no-scrollbar">
-            <div className={`sticky top-16 lg:top-24 space-y-1 z-20 pb-2 pt-1 -mx-4 px-4 ${isDark ? "bg-zinc-950/80" : "bg-zinc-50/80"} backdrop-blur-md border-b border-zinc-200/50 dark:border-white/5 lg:border-b-0 lg:backdrop-blur-none lg:bg-transparent lg:pb-0 lg:pt-0 lg:-mx-0 lg:px-0`}>
-              {/* Mobile Horizontal Scrollable Tabs */}
-              <div className="flex lg:hidden overflow-x-auto pb-2 gap-2 no-scrollbar">
-                {filteredTabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.key;
-                  return (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-sm font-semibold shrink-0 transition-all ${isActive
-                          ? `bg-gradient-to-r ${activeAccent.gradient || "from-indigo-600 to-violet-600"} text-white shadow-lg ${activeAccent.shadow || "shadow-indigo-500/20"}`
-                          : isDark
-                            ? "bg-zinc-900/60 text-zinc-400 hover:text-white hover:bg-zinc-800/80 border border-white/5"
-                            : "bg-white text-zinc-700 hover:text-zinc-950 hover:bg-zinc-100 border border-zinc-200"
-                        }`}
-                    >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Desktop Sidebar Rail */}
-              <div className={`hidden lg:flex flex-col gap-1.5 ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white/80 border-zinc-200/80"} border p-2 rounded-3xl backdrop-blur-xl`}>
-                {filteredTabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.key;
-                  return (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={`group relative flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-left transition-all ${isActive
-                          ? "text-white font-bold"
-                          : "text-zinc-600 hover:text-white hover:bg-white/5 font-medium"
-                        }`}
-                    >
-                      {isActive && (
-                        <motion.div
-                          layoutId="active-setting-tab"
-                          className={`absolute inset-0 rounded-2xl bg-white/10 ${activeAccent.border}`}
-                          transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                        />
-                      )}
-                      <div
-                        className={`relative z-10 w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${isActive
-                            ? `${activeAccent.bg} text-white shadow-md ${activeAccent.shadow || "shadow-indigo-500/20"}`
-                            : `${isDark ? "bg-zinc-800/80 text-zinc-400 group-hover:bg-zinc-800 group-hover:text-white" : "bg-zinc-100 text-zinc-600 group-hover:bg-zinc-200 group-hover:text-zinc-900"}`
-                          }`}
-                      >
-                        <Icon className="w-4.5 h-4.5" />
-                      </div>
-                      <div className="relative z-10 flex-1">
-                        <div className={`text-sm leading-none ${isActive ? `${activeAccent.text} font-bold` : isDark ? "text-white" : "text-zinc-900"}`}>{tab.label}</div>
-                        <div className={`text-[11px] ${isDark ? "text-zinc-600 dark:text-zinc-500" : "text-zinc-600"} mt-1 line-clamp-1`}>
-                          {tab.description}
-                        </div>
-                      </div>
-                      <ChevronRight
-                        className={`relative z-10 w-4 h-4 transition-transform ${isActive
-                            ? `${activeAccent.text} translate-x-0.5`
-                            : "text-zinc-600 group-hover:text-zinc-600 dark:text-zinc-400"
-                          }`}
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Quick Profile Summary Badge in Sidebar */}
-              <div className={`hidden lg:block mt-4 p-4 rounded-3xl ${isDark ? "bg-zinc-900/60 border border-white/5" : "bg-zinc-100/90 border border-zinc-200"} backdrop-blur-xl`}>
-                {isProfileLoading ? (
-                  <div className="flex items-center gap-3 animate-pulse">
-                    <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-700 shrink-0" />
-                    <div className="space-y-2 flex-1">
-                      <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-2/3" />
-                      <div className="h-3 bg-zinc-200 dark:bg-zinc-700 rounded w-full" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center text-white font-extrabold text-sm shrink-0`}>
-                      {profile?.name
-                        ? profile.name
-                          .split(" ")
-                          .map((w) => w[0])
-                          .join("")
-                          .toUpperCase()
-                          .slice(0, 2)
-                        : "CC"}
-                    </div>
-                    <div className="overflow-hidden">
-                      <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"} truncate`}>
-                        {profile?.name || "Community Connect Member"}
-                      </div>
-                      <div className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"} truncate`}>
-                        {profile?.email || "user@communityconnect.io"}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Settings Content Area */}
-          <div className="lg:col-span-9 flex-1 min-h-0 lg:h-full lg:overflow-y-auto pr-2 pb-12">
-            {isProfileLoading ? (
-              <div className="space-y-6">
-                {/* Skeleton Card 1 */}
-                <div className={`rounded-3xl p-6 sm:p-8 space-y-6 animate-pulse ${isDark ? "bg-zinc-900/40 border border-white/5" : "bg-white border border-zinc-200 shadow-sm"}`}>
-                  <div className="space-y-2">
-                    <div className="h-6 bg-zinc-200 rounded-md w-1/4 animate-pulse" />
-                    <div className="h-4 bg-zinc-200/50 rounded-md w-1/2 animate-pulse" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="space-y-2">
-                        <div className="h-4 bg-zinc-200 rounded w-1/3 animate-pulse" />
-                        <div className="h-11 bg-zinc-200 rounded-2xl w-full animate-pulse" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Skeleton Card 2 */}
-                <div className={`rounded-3xl p-6 sm:p-8 space-y-6 animate-pulse ${isDark ? "bg-zinc-900/40 border border-white/5" : "bg-white border border-zinc-200 shadow-sm"}`}>
-                  <div className="space-y-2">
-                    <div className="h-6 bg-zinc-200 rounded-md w-1/4 animate-pulse" />
-                    <div className="h-4 bg-zinc-200/50 rounded-md w-1/2 animate-pulse" />
-                  </div>
-                  <div className="space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="flex justify-between items-center py-3 border-b border-zinc-200/10">
-                        <div className="space-y-2 flex-1">
-                          <div className="h-4 bg-zinc-200 rounded w-1/4 animate-pulse" />
-                          <div className="h-3 bg-zinc-200/50 rounded w-1/2 animate-pulse" />
-                        </div>
-                        <div className="w-10 h-6 bg-zinc-200 rounded-full animate-pulse" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <AnimatePresence mode="wait">
-                {/* TAB 1: ACCOUNT & PROFILE */}
-                {activeTab === "account" && (
-                  <motion.div
-                    key="account"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -15 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-6"
-                  >
-                    {/* Card 1: Profile Snapshot Card */}
-                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                        <div className="flex items-center gap-5">
-                          <div className="relative">
-                            {profile?.avatar_url ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img
-                                src={profile.avatar_url}
-                                alt={profile.name}
-                                className={`w-16 h-16 rounded-2xl object-cover ring-2 ${activeAccent.border}`}
-                              />
-                            ) : (
-                              <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${activeAccent.gradient} flex items-center justify-center text-white font-black text-xl shadow-lg ${activeAccent.shadow}`}>
-                                {profile?.name
-                                  ? profile.name
-                                    .split(" ")
-                                    .map((w) => w[0])
-                                    .join("")
-                                    .toUpperCase()
-                                    .slice(0, 2)
-                                  : "CC"}
-                              </div>
-                            )}
-                            <div
-                              className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 ring-4 ring-zinc-900 flex items-center justify-center"
-                              title="Online & Active"
-                            >
-                              <Check className="w-3 h-3 text-white" />
-                            </div>
-                          </div>
-
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
-                              {profile?.name || "Community Connect Member"}
-                            </h3>
-                            {/* <span className={`px-2.5 py-0.5 rounded-full ${activeAccent.badgeBg} border border-white/10 ${activeAccent.badgeText} text-xs font-semibold`}>
-                              Pro Member
-                            </span> */}
-                          </div>
-                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                            {profile?.profession || "Community Member & Event Enthusiast"}
-                          </p>
-                          {profile?.location && (
-                            <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-500 mt-2">
-                              <MapPin className="w-3.5 h-3.5" />
-                              <span>{profile.location}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                        <div className="flex items-center gap-3">
-                          <Link href="/profile/edit">
-                            <Button className={`rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold px-5 shadow-lg ${activeAccent.shadow}`}>
-                              <Pencil className="w-4 h-4 mr-2" />
-                              Edit Details
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card 2: Email & Verification */}
-                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Email Address</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Your verified email address is used for event notifications, sign-ins, and account recovery.
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                        <div className="flex-1 relative">
-                          <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-                          <Input
-                            id="settings-email-input"
-                            readOnly
-                            value={profile?.email || "user@communityconnect.io"}
-                            className={`pl-10 ${isDark ? "bg-zinc-950/60 border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"} rounded-2xl h-11 font-medium text-sm cursor-default`}
-                          />
-                        </div>
-                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold shrink-0">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Verified Email</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card 3: Password & Security */}
-                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Password & Authentication</h3>
-                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                            Protect your account by using a strong, unique password.
-                          </p>
-                        </div>
-
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowPasswordModal(true)}
-                          className={`rounded-2xl border font-semibold ${isDark ? "border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"}`}
-                        >
-                          <Key className="w-4 h-4 mr-2" />
-                          Change Password
-                        </Button>
-                      </div>
-
-                      <div className={`border-t ${isDark ? "border-white/5" : "border-zinc-200"} pt-4 flex items-center justify-between text-xs ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
-                        <span>Last changed: 30 days ago</span>
-                        <span className="text-emerald-400 font-semibold">Security Level: High</span>
-                      </div>
-                    </div>
-
-                    {/* Card 4: Danger Zone */}
-                    <div className="bg-rose-950/10 border border-rose-500/20 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                      <div>
-                        <h3 className="text-lg font-bold text-rose-400 flex items-center gap-2">
-                          <AlertTriangle className="w-5 h-5" />
-                          Danger Zone
-                        </h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Export your account data or permanently delete your account and all associated events.
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-4">
-                        <Button
-                          variant="outline"
-                          onClick={handleExportData}
-                          className={`rounded-2xl border font-semibold flex-1 ${isDark ? "border-white/15 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"}`}
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          Export Account Data
-                        </Button>
-
-                        <Button
-                          onClick={() => setShowDeleteModal(true)}
-                          className="rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-semibold flex-1"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete Account
-                        </Button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* TAB 2: NOTIFICATIONS */}
-                {activeTab === "notifications" && (
-                  <motion.div
-                    key="notifications"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -15 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-6"
-                  >
-                    {/* NATIVE SYSTEM PUSH NOTIFICATIONS (PC & PHONE PWA) */}
-                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/60 border-white/10" : "bg-white border-zinc-200 shadow-sm"
-                      }`}>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${pushStatus.isSubscribed
-                                ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                                : pushStatus.permission === "denied"
-                                  ? "bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400"
-                                  : "bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400"
-                              }`}>
-                              {pushStatus.isSubscribed
-                                ? "✓ Active On This Device"
-                                : pushStatus.permission === "denied"
-                                  ? "✕ Blocked In Browser"
-                                  : "○ Not Enabled"}
-                            </span>
-                          </div>
-                          <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>
-                            System Push Notifications (PC &amp; Mobile PWA)
-                          </h3>
-                          <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
-                            Receive native OS alerts with sound, vibration, and banners on your phone or desktop even when the app is closed.
-                          </p>
-                        </div>
-
-                      <div className="flex items-center gap-3 shrink-0">
-                        {isPushLoading && <Loader2 className={`w-5 h-5 animate-spin ${activeAccent.text}`} />}
-                        <ToggleSwitch 
-                          id="toggle-systemPush"
-                          checked={pushStatus.isSubscribed}
-                          disabled={isPushLoading || pushStatus.permission === "denied" || !pushStatus.supported}
-                          onChange={(val) => handleTogglePush(val)}
-                          activeBg={activeAccent.bg}
-                        />
-                      </div>
-                    </div>
-
-                      {pushStatus.permission === "denied" && (
-                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400 text-xs font-semibold flex items-center gap-2.5">
-                          <AlertTriangle className="w-5 h-5 shrink-0" />
-                          <span>Notifications are blocked in your browser settings. Please click the padlock or tune icon in your address bar to allow notifications.</span>
-                        </div>
-                      )}
-
-                      {!pushStatus.supported && (
-                        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold flex items-start gap-2.5">
-                          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-                          <div className="space-y-1">
-                            <p className="font-bold">PWA Mode Required on Mobile Devices</p>
-                            <p>To enable system push notifications on iOS or some Android browsers, install this app on your device first by tapping your browser menu &gt; <strong>&quot;Add to Home Screen&quot;</strong>, then launch it from your home screen.</p>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className={`pt-4 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isDark ? "border-white/10" : "border-zinc-100"
-                        }`}>
-                        <div className="flex items-center gap-4 text-xs font-medium text-zinc-400">
-                          <div className="flex items-center gap-1.5">
-                            <Laptop className="w-4 h-4 text-zinc-400" />
-                            <span>Windows / macOS / Linux</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Smartphone className="w-4 h-4 text-zinc-400" />
-                            <span>Android / iOS 16.4+ PWA</span>
-                          </div>
-                        </div>
-
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={!pushStatus.isSubscribed || isTestingPush}
-                          onClick={handleTestPush}
-                          className={`rounded-full px-4 text-xs font-bold transition-all shadow-sm ${pushStatus.isSubscribed
-                              ? `${activeAccent.bg} text-white hover:opacity-90`
-                              : isDark
-                                ? "bg-zinc-800 text-zinc-400 cursor-not-allowed"
-                                : "bg-zinc-100 text-zinc-500 cursor-not-allowed"
-                            }`}
-                        >
-                          {isTestingPush ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                              Dispatching...
-                            </>
-                          ) : (
-                            <>
-                              <Bell className="w-3.5 h-3.5 mr-1.5" />
-                              Send Test Notification
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"
-                      }`}>
-                      <div>
-                        <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Event &amp; Community Notifications</h3>
-                        <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
-                          Control when and how you receive updates from community organizers and attendees.
-                        </p>
-                      </div>
-
-                      <div className="space-y-5 divide-y divide-white/5">
-                        {/* Event Reminders Toggle */}
-                        <div className="pt-5 first:pt-0 flex items-center justify-between gap-4">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="toggle-emailReminders" className="text-sm font-bold text-white cursor-pointer">
-                              Event Reminders
-                            </Label>
-                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                              Receive reminders 24 hours before events you are attending start.
-                            </p>
-                          </div>
-                          <ToggleSwitch
-                            id="toggle-emailReminders"
-                            checked={settings.emailReminders}
-                            onChange={(val) => updateSetting("emailReminders", val)}
-                            activeBg={activeAccent.bg}
-                          />
-                        </div>
-
-                        {/* Community Updates Toggle */}
-                        <div className="pt-5 flex items-center justify-between gap-4">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="toggle-communityUpdates" className="text-sm font-bold text-white cursor-pointer">
-                              Community & Organizer Updates
-                            </Label>
-                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                              Get alerted immediately when an organizer modifies an event date, time, or location.
-                            </p>
-                          </div>
-                          <ToggleSwitch
-                            id="toggle-communityUpdates"
-                            checked={settings.communityUpdates}
-                            onChange={(val) => updateSetting("communityUpdates", val)}
-                            activeBg={activeAccent.bg}
-                          />
-                        </div>
-
-                        {/* Team Invites Toggle */}
-                        <div className="pt-5 flex items-center justify-between gap-4">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="toggle-teamInvites" className="text-sm font-bold text-white cursor-pointer">
-                              Team & Staff Join Requests
-                            </Label>
-                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                              Receive alerts when someone invites you to join their event staff or team.
-                            </p>
-                          </div>
-                          <ToggleSwitch
-                            id="toggle-teamInvites"
-                            checked={settings.teamInvites}
-                            onChange={(val) => updateSetting("teamInvites", val)}
-                            activeBg={activeAccent.bg}
-                          />
-                        </div>
-
-                        {/* Weekly Digest Toggle */}
-                        <div className="pt-5 flex items-center justify-between gap-4">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="toggle-weeklyDigest" className="text-sm font-bold text-white cursor-pointer">
-                              Weekly Community Digest
-                            </Label>
-                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                              A curated newsletter of top trending events and networking opportunities near you.
-                            </p>
-                          </div>
-                          <ToggleSwitch
-                            id="toggle-weeklyDigest"
-                            checked={settings.weeklyDigest}
-                            onChange={(val) => updateSetting("weeklyDigest", val)}
-                            activeBg={activeAccent.bg}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* UI Feedback & Audio Card */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Interface Audio & Micro-feedback</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Enhance your user experience with subtle audio cues and tactile animations.
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="space-y-0.5 flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-2xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center shrink-0`}>
-                            {settings.soundEffects ? (
-                              <Volume2 className="w-5 h-5" />
-                            ) : (
-                              <VolumeX className="w-5 h-5 text-zinc-500" />
-                            )}
-                          </div>
-                          <div>
-                            <Label htmlFor="toggle-soundEffects" className="text-sm font-bold text-white cursor-pointer">
-                              UI Sound Effects
-                            </Label>
-                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                              Play subtle audio feedback when saving changes and clicking toggles.
-                            </p>
-                          </div>
-                        </div>
-                        <ToggleSwitch
-                          id="toggle-soundEffects"
-                          checked={settings.soundEffects}
-                          onChange={(val) => updateSetting("soundEffects", val)}
-                          activeBg={activeAccent.bg}
-                        />
-                      </div>
-
-                      <div className="border-t border-white/5 pt-5">
-                        <Label htmlFor="select-notificationFrequency" className="text-sm font-bold text-white block mb-2">
-                          Email Digest Frequency
-                        </Label>
-                        <select
-                          id="select-notificationFrequency"
-                          value={settings.notificationFrequency}
-                          onChange={(e) =>
-                            updateSetting(
-                              "notificationFrequency",
-                              e.target.value as UserSettings["notificationFrequency"]
-                            )
+        {/* 2-COLUMN GRID (PROTOTYPE LAYOUT: 220px nav rail + 760px content) */}
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-8 items-start">
+          {/* LEFT STICKY TABS RAIL */}
+          <div className="space-y-4 lg:sticky lg:top-24">
+            {/* Mobile Horizontal Tabs */}
+            <div className="flex lg:hidden overflow-x-auto gap-2 no-scrollbar pb-1">
+              {STABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shadow-xs"
+                    style={
+                      isActive
+                        ? {
+                            background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                            color: "#fff",
+                            boxShadow: "0 4px 12px color-mix(in oklab, var(--accent) 25%, transparent)",
                           }
-                          className="w-full max-w-xs bg-zinc-950 border border-white/10 text-white rounded-2xl h-11 px-4 text-sm focus:ring-2 focus:ring-white/20"
+                        : {
+                            background: "var(--card)",
+                            border: "1px solid var(--border)",
+                            color: "var(--muted)",
+                          }
+                    }
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Desktop Vertical Rail */}
+            <div
+              className="hidden lg:flex flex-col gap-1 p-2 rounded-2xl border shadow-xs"
+              style={{ background: "var(--card)", borderColor: "var(--border)" }}
+            >
+              {STABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className="w-full flex items-center gap-2.5 h-10 px-3 rounded-xl text-left text-sm font-semibold transition-all cursor-pointer"
+                    style={{
+                      background: isActive ? "var(--card2)" : "transparent",
+                      color: isActive ? "var(--text)" : "var(--muted)",
+                      border: isActive ? "1px solid var(--border)" : "1px solid transparent",
+                    }}
+                  >
+                    <Icon
+                      className="w-4 h-4 shrink-0 transition-colors"
+                      style={{ color: isActive ? "var(--accent)" : "var(--muted)" }}
+                    />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* RIGHT CONTENT COLUMN (MAX 760px) */}
+          <div className="max-w-[760px] w-full space-y-6">
+            <AnimatePresence mode="wait">
+              {/* ================= TAB 1: ACCOUNT & PROFILE ================= */}
+              {activeTab === "account" && (
+                <motion.div
+                  key="account"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  {/* Profile Snapshot Banner (Standalone Prototype Match) */}
+                  <div
+                    className="rounded-3xl border p-6 flex items-center gap-5 flex-wrap shadow-sm transition-all"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt={profile.name || "User"}
+                        className="w-16 h-16 rounded-full object-cover border-2 shadow-md shrink-0"
+                        style={{ borderColor: "var(--border)" }}
+                      />
+                    ) : (
+                      <div
+                        className="w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl text-white shadow-md shrink-0 select-none"
+                        style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}
+                      >
+                        {userInitials}
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-[200px] space-y-1">
+                      <div className="text-lg font-bold tracking-tight" style={{ color: "var(--text)" }}>
+                        {profile?.name || "Aarav Mehta"}
+                      </div>
+                      <div className="text-xs sm:text-sm font-medium" style={{ color: "var(--muted)" }}>
+                        {profile?.bio || profile?.profession || "Fullstack Engineer • Bengaluru"}
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-1.5">
+                        <span
+                          className="h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center border"
+                          style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
                         >
-                          <option value="realtime">Real-time (Immediate notifications)</option>
-                          <option value="daily">Daily summary</option>
-                          <option value="weekly">Weekly digest</option>
-                          <option value="muted">Muted (Do not send emails)</option>
-                        </select>
+                          {profile?.email || "aarav@osc.dev"}
+                        </span>
+                        <span
+                          className="h-6 px-2.5 rounded-full text-xs font-medium inline-flex items-center border"
+                          style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--subtle)" }}
+                        >
+                          Member since 2025
+                        </span>
                       </div>
                     </div>
-                  </motion.div>
-                )}
 
-                {/* TAB 3: APPEARANCE & THEME */}
-                {activeTab === "appearance" && (
-                  <motion.div
-                    key="appearance"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -15 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-6"
-                  >
-                    {/* Theme Mode Selector */}
-                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
-                      <div>
-                        <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Color Mode</h3>
-                        <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
-                          Select your preferred interface theme for CommunityConnect.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {/* Dark Mode */}
-                        <button
-                          type="button"
-                          onClick={() => updateSetting("theme", "dark")}
-                          className={`group relative flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all ${settings.theme === "dark"
-                              ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-zinc-50"} shadow-lg ${activeAccent.shadow}`
-                              : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
-                            }`}
-                        >
-                          <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                            <Moon className="w-6 h-6" />
-                          </div>
-                          <span className={`text-sm font-bold ${settings.theme === "dark" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Dark Mode</span>
-                          <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Sleek Obsidian</span>
-                          {settings.theme === "dark" && (
-                            <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
-                              <CheckCircle2 className="w-5 h-5" />
-                            </div>
-                          )}
-                        </button>
-
-                        {/* Light Mode */}
-                        <button
-                          type="button"
-                          onClick={() => updateSetting("theme", "light")}
-                          className={`group relative flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all ${settings.theme === "light"
-                              ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-zinc-50"} shadow-lg ${activeAccent.shadow}`
-                              : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
-                            }`}
-                        >
-                          <div className="w-12 h-12 rounded-2xl bg-zinc-100 text-zinc-900 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                            <Sun className="w-6 h-6" />
-                          </div>
-                          <span className={`text-sm font-bold ${settings.theme === "light" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>Light Mode</span>
-                          <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Clean Crisp</span>
-                          {settings.theme === "light" && (
-                            <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
-                              <CheckCircle2 className="w-5 h-5" />
-                            </div>
-                          )}
-                        </button>
-
-                      {/* System Theme */}
+                    <Link href="/profile/edit">
                       <button
                         type="button"
-                        onClick={() => updateSetting("theme", "system")}
-                        className={`group relative flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all ${
-                          settings.theme === "system"
-                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-zinc-50"} shadow-lg ${activeAccent.shadow}`
-                            : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
-                        }`}
+                        className="h-9 px-4 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer hover:opacity-85 shadow-xs"
+                        style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                       >
-                        <div className={`w-12 h-12 rounded-2xl ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                          <Monitor className="w-6 h-6" />
-                        </div>
-                        <span className={`text-sm font-bold ${settings.theme === "system" ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>System</span>
-                        <span className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">Auto-sync OS</span>
-                        {settings.theme === "system" && (
-                          <div className={`absolute top-3 right-3 ${activeAccent.text}`}>
-                            <CheckCircle2 className="w-5 h-5" />
-                          </div>
-                        )}
+                        <Pencil className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                        Edit profile
                       </button>
-                    </div>
+                    </Link>
                   </div>
 
-                    {/* Accent Color Picker */}
-                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
-                      <div>
-                        <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Accent Color Palette</h3>
-                        <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
-                          Choose an accent color to personalize highlights and buttons across your experience.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-                        {ACCENT_COLORS.map((color) => {
-                          const isSelected = settings.accentColor === color.id;
-                          return (
-                            <button
-                              key={color.id}
-                              type="button"
-                              onClick={() =>
-                                updateSetting(
-                                  "accentColor",
-                                  color.id as UserSettings["accentColor"]
-                                )
-                              }
-                              className={`flex flex-col items-center p-4 rounded-2xl border-2 transition-all ${isSelected
-                                  ? `${color.border} ${isDark ? "bg-white/5" : "bg-zinc-100"} shadow-lg`
-                                  : `${isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"}`
-                                }`}
-                            >
-                              <div className={`w-8 h-8 rounded-full ${color.bg} mb-2 shadow-md`} />
-                              <span className={`text-xs font-bold ${isSelected ? color.text : isDark ? "text-white" : "text-zinc-900"}`}>{color.name}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                  {/* Password Management Card */}
+                  <div
+                    className="rounded-3xl border p-6 sm:p-7 space-y-5 shadow-sm"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    <div>
+                      <h3
+                        className="text-base sm:text-lg font-bold tracking-tight"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        Security & Password
+                      </h3>
+                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                        Ensure your account is protected with a secure password (min. 8 characters).
+                      </p>
                     </div>
 
-                    {/* Interface Density & Animations */}
-                    <div className={`rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6 border transition-colors ${isDark ? "bg-zinc-900/40 border-white/5" : "bg-white border-zinc-200 shadow-sm"}`}>
-                      <div>
-                        <h3 className={`text-lg font-bold ${isDark ? "text-zinc-900 dark:text-white" : "text-zinc-900"}`}>Interface Dynamics</h3>
-                        <p className={`text-sm ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"} mt-1`}>
-                          Adjust layout density and subtle animations for optimal performance.
+                    <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                      {passwordError && (
+                        <p className="text-xs text-rose-500 font-bold p-3 rounded-xl border border-rose-500/20 bg-rose-500/10">
+                          {passwordError}
                         </p>
-                      </div>
+                      )}
 
-                      <div className={`space-y-5 divide-y ${isDark ? "divide-white/5" : "divide-zinc-200"}`}>
-                        <div className="pt-5 first:pt-0 flex items-center justify-between gap-4">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="toggle-compactMode" className={`text-sm font-bold cursor-pointer ${settings.compactMode ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
-                              Compact Grid Mode
-                            </Label>
-                            <p className={`text-xs ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"}`}>
-                              Reduce card padding and spacing to show more events per view.
-                            </p>
-                          </div>
-                          <ToggleSwitch
-                            id="toggle-compactMode"
-                            checked={settings.compactMode}
-                            onChange={(val) => updateSetting("compactMode", val)}
-                            activeBg={activeAccent.bg}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                            Current Password
+                          </label>
+                          <input
+                            type="password"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+                            className="w-full h-10 px-3 rounded-xl border text-xs font-semibold outline-none"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           />
                         </div>
 
-                        <div className="pt-5 flex items-center justify-between gap-4">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="toggle-smoothAnimations" className={`text-sm font-bold cursor-pointer ${settings.smoothAnimations ? activeAccent.text : isDark ? "text-white" : "text-zinc-900"}`}>
-                              Smooth Micro-Animations
-                            </Label>
-                            <p className={`text-xs ${isDark ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-600"}`}>
-                              Enable fluid hover transitions and framer-motion layout animations.
-                            </p>
-                          </div>
-                          <ToggleSwitch
-                            id="toggle-smoothAnimations"
-                            checked={settings.smoothAnimations}
-                            onChange={(val) => updateSetting("smoothAnimations", val)}
-                            activeBg={activeAccent.bg}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                            New Password
+                          </label>
+                          <input
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="At least 8 chars"
+                            className="w-full h-10 px-3 rounded-xl border text-xs font-semibold outline-none"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                            Confirm Password
+                          </label>
+                          <input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Confirm match"
+                            className="w-full h-10 px-3 rounded-xl border text-xs font-semibold outline-none"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           />
                         </div>
                       </div>
-                    </div>
-                  </motion.div>
-                )}
 
-                {/* TAB 4: PRIVACY & VISIBILITY */}
-                {activeTab === "privacy" && (
-                  <motion.div
-                    key="privacy"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -15 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-6"
-                  >
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Profile Visibility</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Control who can view your full profile and professional skills.
-                        </p>
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="submit"
+                          disabled={isUpdatingPassword || !newPassword}
+                          className="h-10 px-5 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-md"
+                          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                        >
+                          {isUpdatingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                          Update Password
+                        </button>
                       </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {/* Public */}
-                      <button
-                        type="button"
-                        onClick={() => updateSetting("profileVisibility", "public")}
-                        className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
-                          settings.profileVisibility === "public"
-                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-white"} shadow-lg ${activeAccent.shadow}`
-                            : isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <Globe className={`w-6 h-6 ${activeAccent.text}`} />
-                          {settings.profileVisibility === "public" ? (
-                            <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
-                          ) : (
-                            <Circle className="w-5 h-5 text-zinc-400" />
-                          )}
-                        </div>
-                        <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Public</div>
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-                          Anyone on the web can discover your profile card.
-                        </p>
-                      </button>
-
-                      {/* Community */}
-                      <button
-                        type="button"
-                        onClick={() => updateSetting("profileVisibility", "community")}
-                        className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
-                          settings.profileVisibility === "community"
-                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-white"} shadow-lg ${activeAccent.shadow}`
-                            : isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <User className="w-6 h-6 text-violet-400" />
-                          {settings.profileVisibility === "community" ? (
-                            <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
-                          ) : (
-                            <Circle className="w-5 h-5 text-zinc-400" />
-                          )}
-                        </div>
-                        <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Community Only</div>
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-                          Visible only to logged-in CommunityConnect members.
-                        </p>
-                      </button>
-
-                      {/* Private */}
-                      <button
-                        type="button"
-                        onClick={() => updateSetting("profileVisibility", "private")}
-                        className={`p-5 rounded-3xl border-2 text-left transition-all relative ${
-                          settings.profileVisibility === "private"
-                            ? `${activeAccent.border} ${isDark ? "bg-zinc-900/80" : "bg-white"} shadow-lg ${activeAccent.shadow}`
-                            : isDark ? "border-white/5 bg-zinc-950/40 hover:border-white/20" : "border-zinc-200 bg-zinc-50 hover:border-zinc-300"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <Lock className="w-6 h-6 text-emerald-400" />
-                          {settings.profileVisibility === "private" ? (
-                            <CheckCircle2 className={`w-5 h-5 ${activeAccent.text}`} />
-                          ) : (
-                            <Circle className="w-5 h-5 text-zinc-400" />
-                          )}
-                        </div>
-                        <div className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"}`}>Private</div>
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-                          Only event organizers of your events can view details.
-                        </p>
-                      </button>
-                    </div>
+                    </form>
                   </div>
 
-                    {/* Profile Field Permissions */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Contact & Location Privacy</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Choose whether your personal email or location is displayed to attendees.
-                        </p>
-                      </div>
+                  {/* Account Actions & Export Card */}
+                  <div
+                    className="rounded-3xl border p-6 sm:p-7 space-y-4 shadow-sm"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    <div>
+                      <h3
+                        className="text-base sm:text-lg font-bold tracking-tight"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        Account Data & Privacy Actions
+                      </h3>
+                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                        Export your personal preferences and profile records or request account termination.
+                      </p>
+                    </div>
 
-                    <div className="space-y-5 divide-y divide-white/5">
-                      <div className="pt-5 first:pt-0 flex items-center justify-between gap-4">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="toggle-showEmailOnProfile" className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"} cursor-pointer`}>
-                            Show Email Address on Profile
-                          </Label>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            Allow event organizers and attendees to contact you via email directly.
-                          </p>
-                        </div>
-                        <ToggleSwitch
-                          id="toggle-showEmailOnProfile"
-                          checked={settings.showEmailOnProfile}
-                          onChange={(val) => updateSetting("showEmailOnProfile", val)}
-                          activeBg={activeAccent.bg}
-                        />
-                      </div>
+                    <div className="flex flex-wrap gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleExportData}
+                        className="h-10 px-4 rounded-xl border text-xs font-bold transition-all hover:opacity-80 cursor-pointer flex items-center gap-2 shadow-xs"
+                        style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
+                      >
+                        <Download className="w-4 h-4" style={{ color: "var(--accent)" }} />
+                        Export Data (CSV)
+                      </button>
 
-                      <div className="pt-5 flex items-center justify-between gap-4">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="toggle-showLocationOnProfile" className={`text-sm font-bold ${isDark ? "text-white" : "text-zinc-900"} cursor-pointer`}>
-                            Show City / Location on Profile
-                          </Label>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            Display your city so local community organizers can discover your skills.
-                          </p>
-                        </div>
-                        <ToggleSwitch
-                          id="toggle-showLocationOnProfile"
-                          checked={settings.showLocationOnProfile}
-                          onChange={(val) => updateSetting("showLocationOnProfile", val)}
-                          activeBg={activeAccent.bg}
-                        />
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteModal(true)}
+                        className="h-10 px-4 rounded-xl border border-rose-500/20 text-xs font-bold transition-all hover:bg-rose-500/10 cursor-pointer flex items-center gap-2 text-rose-500 shadow-xs"
+                        style={{ background: "var(--card2)" }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete Account
+                      </button>
                     </div>
                   </div>
                 </motion.div>
               )}
 
-                {/* TAB 5: EVENT PREFERENCES */}
-                {activeTab === "preferences" && (
-                  <motion.div
-                    key="preferences"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -15 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-6"
+              {/* ================= TAB 2: NOTIFICATIONS ================= */}
+              {activeTab === "notifications" && (
+                <motion.div
+                  key="notifications"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  <div
+                    className="rounded-3xl border overflow-hidden shadow-sm divide-y divide-[var(--border)]"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
                   >
-                    {/* Preferred Locations */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Preferred Event Locations</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Add cities or regions so we can automatically show events near you.
-                        </p>
+                    {/* Toggle Rows (Prototype Fidelity) */}
+                    {[
+                      {
+                        key: "emailReminders" as const,
+                        label: "Email reminders",
+                        desc: "15 minutes before sessions and agenda activities you've added",
+                      },
+                      {
+                        key: "communityUpdates" as const,
+                        label: "Community updates",
+                        desc: "Important announcements and broadcasts from events you follow",
+                      },
+                      {
+                        key: "teamInvites" as const,
+                        label: "Team & staff invites",
+                        desc: "Notifications when an organizer invites you to a roster or role",
+                      },
+                      {
+                        key: "weeklyDigest" as const,
+                        label: "Weekly digest",
+                        desc: "A Monday morning summary of top upcoming events near your city",
+                      },
+                      {
+                        key: "soundEffects" as const,
+                        label: "Sound effects",
+                        desc: "Interactive chime sounds during live quiz arenas and check-ins",
+                      },
+                    ].map((row) => {
+                      const isChecked = !!settings[row.key];
+                      return (
+                        <div key={row.key} className="flex items-center justify-between gap-4 p-5 sm:p-6 transition-colors">
+                          <div className="space-y-0.5 pr-2">
+                            <div className="text-sm font-bold tracking-tight" style={{ color: "var(--text)" }}>
+                              {row.label}
+                            </div>
+                            <div className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                              {row.desc}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => updateSetting(row.key, !isChecked)}
+                            className="w-11 h-6 rounded-full relative transition-all cursor-pointer p-0 shrink-0 border"
+                            style={{
+                              background: isChecked ? "var(--accent)" : "var(--input)",
+                              borderColor: isChecked ? "transparent" : "var(--border)",
+                            }}
+                          >
+                            <span
+                              className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all"
+                              style={{ left: isChecked ? "22px" : "2px" }}
+                            />
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    {/* Push Notifications CTA Footer */}
+                    <div
+                      className="p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                      style={{ background: "var(--card2)" }}
+                    >
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                          Native System Notifications
+                        </div>
+                        <div className="text-xs font-medium" style={{ color: "var(--subtle)" }}>
+                          {pushStatus.isSubscribed
+                            ? "Push notifications are currently active on this device browser."
+                            : "Receive instant desktop badges when quiz rounds launch or announcements post."}
+                        </div>
                       </div>
 
-                      <div className="max-w-md space-y-4">
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-                            <Input
-                              value={cityInput}
-                              onChange={(e) => setCityInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' && cityInput.trim() !== '') {
-                                  e.preventDefault();
-                                  const newCities = [...(settings.preferredCities || []), cityInput.trim()];
-                                  updateSetting("preferredCities", newCities);
-                                  setCityInput("");
-                                }
-                              }}
-                              placeholder="e.g. San Francisco, CA or London, UK"
-                              className="pl-10 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
-                            />
-                          </div>
-                          <Button
+                      <button
+                        type="button"
+                        disabled={isPushLoading}
+                        onClick={() => handleTogglePush(!pushStatus.isSubscribed)}
+                        className="h-10 px-5 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-md shrink-0"
+                        style={{
+                          background: pushStatus.isSubscribed
+                            ? "var(--card)"
+                            : "linear-gradient(135deg, var(--accent), var(--accent2))",
+                          color: pushStatus.isSubscribed ? "var(--text)" : "#fff",
+                          border: pushStatus.isSubscribed ? "1px solid var(--border)" : "none",
+                        }}
+                      >
+                        {isPushLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Bell className="w-4 h-4" />
+                        )}
+                        {pushStatus.isSubscribed ? "Disable Push Notifications" : "Enable Push Notifications"}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ================= TAB 3: APPEARANCE ================= */}
+              {activeTab === "appearance" && (
+                <motion.div
+                  key="appearance"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  {/* Theme Selector (Cards with mini UI bars) */}
+                  <div
+                    className="rounded-3xl border p-6 sm:p-7 space-y-4 shadow-sm"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    <div>
+                      <h3
+                        className="text-base sm:text-lg font-bold tracking-tight"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        Theme
+                      </h3>
+                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                        Applies instantly across the entire application interface.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[
+                        { key: "dark" as const, label: "Dark", bg: "#09090b", bar: "#27272a" },
+                        { key: "light" as const, label: "Light", bg: "#f6f7f9", bar: "#e2e8f0" },
+                        {
+                          key: "system" as const,
+                          label: "System",
+                          bg: "linear-gradient(90deg, #09090b 50%, #f6f7f9 50%)",
+                          bar: "#71717a",
+                        },
+                      ].map((t) => {
+                        const isCurrent = theme === t.key;
+                        return (
+                          <button
+                            key={t.key}
                             type="button"
                             onClick={() => {
-                              if (cityInput.trim() !== '') {
-                                const newCities = [...(settings.preferredCities || []), cityInput.trim()];
-                                updateSetting("preferredCities", newCities);
-                                setCityInput("");
-                              }
+                              updateAppearanceSetting("theme", t.key);
+                              updateSetting("theme", t.key);
                             }}
-                            className={`rounded-2xl px-6 ${activeAccent.bg} hover:opacity-90 transition-opacity`}
+                            className="p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-2"
+                            style={{
+                              background: "var(--input)",
+                              borderColor: isCurrent ? "var(--accent)" : "var(--border)",
+                              boxShadow: isCurrent
+                                ? "0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent)"
+                                : "none",
+                            }}
                           >
-                            Add
-                          </Button>
-                        </div>
+                            <div
+                              className="h-20 rounded-xl p-2.5 flex flex-col gap-1.5 border"
+                              style={{ background: t.bg, borderColor: "var(--border)" }}
+                            >
+                              <span className="w-3/5 h-2 rounded-full" style={{ background: t.bar }} />
+                              <span className="w-2/5 h-2 rounded-full" style={{ background: "var(--accent)" }} />
+                            </div>
+                            <span className="text-xs font-bold px-1" style={{ color: "var(--text)" }}>
+                              {t.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {(settings.preferredCities || []).map((city, idx) => (
-                          <div 
-                            key={idx} 
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeAccent.badgeBg} ${activeAccent.border} ${activeAccent.text}`}
+                  {/* Accent Color Swatches (6 circular gradient swatches) */}
+                  <div
+                    className="rounded-3xl border p-6 sm:p-7 space-y-4 shadow-sm"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    <div>
+                      <h3
+                        className="text-base sm:text-lg font-bold tracking-tight"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        Accent Color
+                      </h3>
+                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                        Drives primary buttons, badges, checkpoints, progress bars, and focus highlights.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-4 pt-1">
+                      {ACCENT_SWATCHES.map((swatch) => {
+                        const isSelected = accentColor === swatch.key;
+                        return (
+                          <button
+                            key={swatch.key}
+                            type="button"
+                            onClick={() => {
+                              updateAppearanceSetting("accentColor", swatch.key as any);
+                              updateSetting("accentColor", swatch.key as any);
+                            }}
+                            className="flex flex-col items-center gap-1.5 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+                          >
+                            <span
+                              className="w-11 h-11 rounded-full flex items-center justify-center text-white transition-all shadow-md"
+                              style={{
+                                background: `linear-gradient(135deg, ${swatch.c1}, ${swatch.c2})`,
+                                boxShadow: isSelected
+                                  ? `0 0 0 3px var(--bg), 0 0 0 5px ${swatch.c1}`
+                                  : "none",
+                              }}
+                            >
+                              {isSelected && <Check className="w-5 h-5 drop-shadow-xs" />}
+                            </span>
+                            <span
+                              className="text-[11px] font-mono font-bold"
+                              style={{ color: isSelected ? "var(--text)" : "var(--muted)" }}
+                            >
+                              {swatch.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* App Density & Motion Toggles */}
+                  <div
+                    className="rounded-3xl border overflow-hidden shadow-sm divide-y divide-[var(--border)]"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    {/* Compact Mode */}
+                    <div className="flex items-center justify-between gap-4 p-5 sm:p-6 transition-colors">
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-bold tracking-tight" style={{ color: "var(--text)" }}>
+                          Compact Mode
+                        </div>
+                        <div className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                          Tighter padding and denser spacing for large tabular screens
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !compactMode;
+                          updateAppearanceSetting("compactMode", next);
+                          updateSetting("compactMode", next);
+                        }}
+                        className="w-11 h-6 rounded-full relative transition-all cursor-pointer p-0 shrink-0 border"
+                        style={{
+                          background: compactMode ? "var(--accent)" : "var(--input)",
+                          borderColor: compactMode ? "transparent" : "var(--border)",
+                        }}
+                      >
+                        <span
+                          className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all"
+                          style={{ left: compactMode ? "22px" : "2px" }}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Smooth Animations */}
+                    <div className="flex items-center justify-between gap-4 p-5 sm:p-6 transition-colors">
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-bold tracking-tight" style={{ color: "var(--text)" }}>
+                          Smooth Animations
+                        </div>
+                        <div className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                          Disable animations and page transitions to minimize visual motion
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !smoothAnimations;
+                          updateAppearanceSetting("smoothAnimations", next);
+                          updateSetting("smoothAnimations", next);
+                        }}
+                        className="w-11 h-6 rounded-full relative transition-all cursor-pointer p-0 shrink-0 border"
+                        style={{
+                          background: smoothAnimations ? "var(--accent)" : "var(--input)",
+                          borderColor: smoothAnimations ? "transparent" : "var(--border)",
+                        }}
+                      >
+                        <span
+                          className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all"
+                          style={{ left: smoothAnimations ? "22px" : "2px" }}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ================= TAB 4: EVENT PREFERENCES ================= */}
+              {activeTab === "preferences" && (
+                <motion.div
+                  key="preferences"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  {/* Preferred Locations Card */}
+                  <div
+                    className="rounded-3xl border p-6 sm:p-7 space-y-4 shadow-sm"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    <div>
+                      <h3
+                        className="text-base sm:text-lg font-bold tracking-tight"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        Preferred Event Locations
+                      </h3>
+                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                        Add cities or regions so we can automatically spotlight relevant offline & hybrid events near you.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 max-w-md">
+                      <input
+                        type="text"
+                        value={cityInput}
+                        onChange={(e) => setCityInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addCity(cityInput);
+                          }
+                        }}
+                        placeholder="e.g. Jaipur, Bengaluru, or Delhi"
+                        className="flex-1 h-10 px-3.5 rounded-xl border text-xs sm:text-sm font-semibold outline-none"
+                        style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addCity(cityInput)}
+                        className="h-10 px-4 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-md"
+                        style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                      >
+                        Add
+                      </button>
+                    </div>
+
+                    {/* Added City Chips */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {settings.preferredCities.length === 0 ? (
+                        <span className="text-xs italic" style={{ color: "var(--subtle)" }}>
+                          No preferred locations added yet.
+                        </span>
+                      ) : (
+                        settings.preferredCities.map((city) => (
+                          <span
+                            key={city}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all"
+                            style={{
+                              background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                              borderColor: "color-mix(in oklab, var(--accent) 35%, transparent)",
+                              color: "var(--accent)",
+                            }}
                           >
                             <span>{city}</span>
                             <button
                               type="button"
-                              onClick={() => {
-                                const newCities = (settings.preferredCities || []).filter((_, i) => i !== idx);
-                                updateSetting("preferredCities", newCities);
-                              }}
-                              className="opacity-70 hover:opacity-100 transition-opacity"
+                              onClick={() => removeCity(city)}
+                              className="p-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
                             >
-                              <X className="w-3.5 h-3.5" />
+                              <X className="w-3 h-3" />
                             </button>
-                          </div>
-                        ))}
-                        {(settings.preferredCities || []).length === 0 && (
-                          <span className="text-sm text-zinc-600 dark:text-zinc-500 italic">No preferred locations added yet.</span>
-                        )}
-                      </div>
-                      
-                      {/* Quick city suggestions */}
-                      <div className="pt-2">
-                        <Label className="text-xs font-semibold text-zinc-500 mb-2 block">
-                          Quick Suggestions
-                        </Label>
-                        <div className="flex flex-wrap gap-2">
-                          {["Jaipur", "Delhi", "Pune", "Bangalore"].map(
-                            (city) => (
-                              <button
-                                key={city}
-                                type="button"
-                                onClick={() => {
-                                  if (!(settings.preferredCities || []).includes(city)) {
-                                    updateSetting("preferredCities", [...(settings.preferredCities || []), city]);
-                                  }
-                                }}
-                                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                                  isDark
-                                    ? "bg-zinc-800/60 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800"
-                                    : "bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-                                }`}
-                              >
-                                + {city}
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                    {/* Favorite Event Categories */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Favorite Event Categories</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Select tags to highlight relevant community meetups on your discover feed.
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2.5">
-                        {CATEGORIES_LIST.map((cat) => {
-                          const isFav = settings.favoriteCategories.includes(cat);
-                          return (
-                            <button
-                              key={cat}
-                              type="button"
-                              onClick={() => {
-                                const newFavs = isFav
-                                  ? settings.favoriteCategories.filter((c) => c !== cat)
-                                  : [...settings.favoriteCategories, cat];
-                                updateSetting("favoriteCategories", newFavs);
-                              }}
-                              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold border transition-all ${isFav
-                                  ? `bg-gradient-to-r ${activeAccent.gradient} ${activeAccent.border} text-white shadow-md ${activeAccent.shadow}`
-                                  : "bg-zinc-950/60 border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-900"
-                                }`}
-                            >
-                              {isFav ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                              <span>{cat}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                          </span>
+                        ))
+                      )}
                     </div>
 
-                    {/* Search Preferences */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Saved Search Preferences</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Add keywords or tags to quickly access specific events you care about.
-                        </p>
+                    {/* Quick Suggestions */}
+                    <div className="space-y-1.5 pt-2">
+                      <div className="text-[11px] font-mono font-bold uppercase tracking-wider" style={{ color: "var(--subtle)" }}>
+                        Quick Suggestions
                       </div>
-
-                      <div className="max-w-md space-y-4">
-                        <div className="flex gap-2">
-                          <Input
-                            value={searchPrefInput}
-                            onChange={(e) => setSearchPrefInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && searchPrefInput.trim() !== '') {
-                                e.preventDefault();
-                                const newPrefs = [...(settings.searchPreferences || []), searchPrefInput.trim()];
-                                updateSetting("searchPreferences", newPrefs);
-                                setSearchPrefInput("");
-                              }
-                            }}
-                            placeholder="e.g. Hackathon, Machine Learning"
-                            className="bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11 text-sm focus:ring-2 focus:ring-white/20"
-                          />
-                          <Button
+                      <div className="flex flex-wrap gap-2">
+                        {PRESET_CITIES.map((c) => (
+                          <button
+                            key={c}
                             type="button"
-                            onClick={() => {
-                              if (searchPrefInput.trim() !== '') {
-                                const newPrefs = [...(settings.searchPreferences || []), searchPrefInput.trim()];
-                                updateSetting("searchPreferences", newPrefs);
-                                setSearchPrefInput("");
-                              }
-                            }}
-                            className={`rounded-2xl px-6 ${activeAccent.bg} hover:opacity-90 transition-opacity`}
+                            onClick={() => addCity(c)}
+                            className="px-2.5 py-1 rounded-full border text-xs font-medium transition-all hover:opacity-80 cursor-pointer shadow-xs"
+                            style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
                           >
-                            Add
-                          </Button>
-                        </div>
-
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {(settings.searchPreferences || []).map((pref, idx) => (
-                          <div 
-                            key={idx} 
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
-                              isDark
-                                ? "bg-zinc-800/60 border-white/5 text-zinc-300"
-                                : "bg-zinc-100 border-zinc-200 text-zinc-700"
-                            }`}
-                          >
-                            <span>{pref}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newPrefs = (settings.searchPreferences || []).filter((_, i) => i !== idx);
-                                updateSetting("searchPreferences", newPrefs);
-                              }}
-                              className={`${isDark ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"} transition-colors`}
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                            + {c}
+                          </button>
                         ))}
-                        {(settings.searchPreferences || []).length === 0 && (
-                          <span className="text-sm text-zinc-600 dark:text-zinc-500 italic">No search preferences added yet.</span>
-                        )}
                       </div>
                     </div>
                   </div>
 
-                    {/* Calendar Format */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                      <div>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Calendar Export Preference</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                          Choose which calendar application opens when you export an event.
-                        </p>
-                      </div>
+                  {/* Favorite Event Categories Card */}
+                  <div
+                    className="rounded-3xl border p-6 sm:p-7 space-y-4 shadow-sm"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    <div>
+                      <h3
+                        className="text-base sm:text-lg font-bold tracking-tight"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        Favorite Event Categories
+                      </h3>
+                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                        Select tags to tailor recommendations on your personalized Discover feed.
+                      </p>
+                    </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {[
-                        { id: "google", label: "Google Calendar", desc: "Open in web browser" },
-                        // { id: "ical", label: "Apple iCal (.ics)", desc: "Download .ics file" },
-                        // { id: "outlook", label: "Microsoft Outlook", desc: "Open in Outlook app" },
-                      ].map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() =>
-                            updateSetting(
-                              "calendarFormat",
-                              item.id as UserSettings["calendarFormat"]
-                            )
-                          }
-                          className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                            settings.calendarFormat === item.id
-                              ? `${activeAccent.border} bg-zinc-900/80`
-                              : "border-white/5 bg-zinc-950/40 hover:border-white/20"
-                          }`}
-                        >
-                          <div className="text-sm font-bold text-white">{item.label}</div>
-                          <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{item.desc}</div>
-                        </button>
-                      ))}
+                    <div className="flex flex-wrap gap-2.5 pt-1">
+                      {PRESET_CATEGORIES.map((cat) => {
+                        const isSelected = settings.favoriteCategories.includes(cat);
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => toggleCategory(cat)}
+                            className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shadow-xs"
+                            style={{
+                              background: isSelected
+                                ? "color-mix(in oklab, var(--accent) 15%, transparent)"
+                                : "var(--card2)",
+                              borderColor: isSelected
+                                ? "color-mix(in oklab, var(--accent) 45%, transparent)"
+                                : "var(--border)",
+                              color: isSelected ? "var(--accent)" : "var(--muted)",
+                              border: "1px solid",
+                            }}
+                          >
+                            {isSelected ? `✓ ${cat}` : cat}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </motion.div>
               )}
 
-                {/* TAB 6: SESSIONS & SECURITY */}
-                {activeTab === "security" && (
-                  <motion.div
-                    key="security"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -15 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-6"
+              {/* ================= TAB 5: SESSIONS & SECURITY ================= */}
+              {activeTab === "security" && (
+                <motion.div
+                  key="security"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  {/* Two-Factor Authentication Banner */}
+                  <div
+                    className="rounded-3xl border p-6 sm:p-7 flex items-center justify-between gap-5 flex-wrap shadow-sm"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
                   >
-                    {/* Two Factor Auth */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                            <ShieldCheck className={`w-5 h-5 ${activeAccent.text}`} />
-                            Two-Factor Authentication (2FA)
-                          </h3>
-                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                            Add an extra layer of security to your account with an authenticator app.
-                          </p>
-                        </div>
-
-                        <Button
-                          onClick={() => {
-                            if (settings.twoFactorEnabled) {
-                              setTwoFactorStep("disable");
-                              setShow2FAModal(true);
-                            } else {
-                              const newSecret = generateUniqueSecretKey();
-                              const newBackupCodes = generateUniqueBackupCodes(4);
-                              setUser2FASecret(newSecret);
-                              setUserBackupCodes(newBackupCodes);
-                              setTwoFactorStep("scan");
-                              setTwoFactorCode("");
-                              setTwoFactorError("");
-                              setShow2FAModal(true);
-                            }
-                          }}
-                          className={`rounded-2xl font-semibold ${settings.twoFactorEnabled
-                              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                              : `${activeAccent.bg} hover:opacity-90 text-white`
-                            }`}
-                        >
-                          {settings.twoFactorEnabled ? "Enabled (Manage)" : "Enable 2FA"}
-                        </Button>
+                    <div className="flex items-center gap-4">
+                      <div
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xs"
+                        style={{
+                          background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        <Lock className="w-6 h-6" />
                       </div>
-
-                      {settings.twoFactorEnabled && (
-                        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-sm text-emerald-300">
-                          <CheckCircle2 className="w-5 h-5 shrink-0" />
-                          <span>
-                            Two-factor authentication is active on your account using an Authenticator app.
-                          </span>
+                      <div className="space-y-0.5">
+                        <div
+                          className="text-base sm:text-lg font-bold tracking-tight"
+                          style={{ fontFamily: "var(--font-display)" }}
+                        >
+                          Two-factor authentication
                         </div>
-                      )}
+                        <div className="text-xs sm:text-sm font-medium" style={{ color: "var(--muted)" }}>
+                          Use an authenticator app (Google Authenticator, Authy) plus 8 backup recovery codes.
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Active Sessions */}
-                    <div className="bg-zinc-900/40 border border-white/5 rounded-3xl p-6 sm:p-8 backdrop-blur-xl space-y-6">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Active Browser Sessions</h3>
-                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                            Manage and revoke access from devices currently signed into your account.
-                          </p>
-                        </div>
-
-                        <Button
-                          variant="outline"
-                          disabled={activeSessions.length <= 1}
-                          onClick={async () => {
-                            try {
-                              setActiveSessions((prev) => prev.filter((s) => s.isCurrent));
-                              await profileService.logoutAllDevices();
-                              showToast("All other browser sessions have been logged out.");
-                            } catch {
-                              showToast("Failed to log out sessions.");
-                            }
+                    {settings.twoFactorEnabled ? (
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-8 px-3 rounded-full text-xs font-bold inline-flex items-center gap-1.5 border"
+                          style={{
+                            background: "rgba(16, 185, 129, 0.15)",
+                            borderColor: "rgba(16, 185, 129, 0.3)",
+                            color: "#10b981",
                           }}
-                          className="rounded-2xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white text-xs font-semibold disabled:opacity-50"
                         >
-                          Log Out All Other Sessions
-                        </Button>
+                          <Check className="w-3.5 h-3.5" />
+                          Enabled
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTwoFactorStep("disable");
+                            setShow2FAModal(true);
+                          }}
+                          className="h-8 px-3 rounded-xl border text-xs font-semibold hover:bg-rose-500/10 text-rose-500 cursor-pointer"
+                          style={{ borderColor: "var(--border)" }}
+                        >
+                          Manage
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTwoFactorStep("scan");
+                          setShow2FAModal(true);
+                        }}
+                        className="h-9 px-4 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-md"
+                        style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                      >
+                        Enable 2FA
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Active Browser Sessions */}
+                  <div
+                    className="rounded-3xl border overflow-hidden shadow-sm"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    <div
+                      className="p-5 sm:p-6 border-b flex items-center justify-between gap-4"
+                      style={{ borderColor: "var(--border)" }}
+                    >
+                      <div>
+                        <h3
+                          className="text-base sm:text-lg font-bold tracking-tight"
+                          style={{ fontFamily: "var(--font-display)" }}
+                        >
+                          Active sessions
+                        </h3>
+                        <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                          Devices where you are currently authenticated into your account.
+                        </p>
                       </div>
 
-                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={handleLogoutAllOtherSessions}
+                        className="h-8 px-3 rounded-xl border text-xs font-bold transition hover:bg-rose-500/10 text-rose-500 cursor-pointer shrink-0"
+                        style={{ borderColor: "var(--border)" }}
+                      >
+                        Log out other sessions
+                      </button>
+                    </div>
+
+                    <div className="divide-y divide-[var(--border)]">
                       {activeSessions.map((sess) => {
-                        const IconComponent = sess.icon;
+                        const IconComponent = sess.icon || Laptop;
                         return (
                           <div
                             key={sess.id}
-                            className={`p-4 rounded-2xl ${
-                              sess.isCurrent ? "bg-zinc-950/60 border border-white/10" : "bg-zinc-950/40 border border-white/5"
-                            } flex items-center justify-between gap-4 transition-all`}
+                            className="p-4 sm:p-5 flex items-center justify-between gap-4 transition-colors"
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
                               <div
-                                className={`w-10 h-10 rounded-xl ${
-                                  sess.isCurrent
-                                    ? `${activeAccent.badgeBg} ${activeAccent.badgeText}`
-                                    : isDark
-                                    ? "bg-zinc-800 text-zinc-400"
-                                    : "bg-zinc-100 text-zinc-600"
-                                } flex items-center justify-center shrink-0`}
+                                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border"
+                                style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
                               >
                                 <IconComponent className="w-5 h-5" />
                               </div>
-                              <div>
-                                <div className="text-sm font-bold text-white flex items-center gap-2">
-                                  <span>{sess.device} • {sess.browser}</span>
-                                  {sess.isCurrent && (
-                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold">
-                                      Current Session
-                                    </span>
-                                  )}
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="text-xs sm:text-sm font-bold truncate" style={{ color: "var(--text)" }}>
+                                  {sess.device || "Browser Session"}
                                 </div>
-                                <div className="text-xs text-zinc-600 dark:text-zinc-500 mt-0.5">
-                                  {sess.location} • IP {sess.ip} • {sess.lastActive}
+                                <div className="text-xs font-medium truncate" style={{ color: "var(--subtle)" }}>
+                                  {sess.location || "Active"}
                                 </div>
                               </div>
                             </div>
 
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={async () => {
-                                  if (sess.isCurrent) {
-                                    showToast("Logging out of current device...");
-                                    await performLogout();
-                                  } else {
-                                    try {
-                                      await profileService.revokeSession(sess.id);
-                                      setActiveSessions((prev) => prev.filter((s) => s.id !== sess.id));
-                                      showToast(`Session (${sess.device} • ${sess.browser}) revoked and logged out successfully.`);
-                                    } catch (error: any) {
-                                      showToast(`Failed to revoke session: ${error.message || 'Unknown error'}`);
-                                    }
-                                  }
+                            {sess.isCurrent ? (
+                              <span
+                                className="text-xs font-mono font-bold px-2.5 py-1 rounded-full border shrink-0"
+                                style={{
+                                  background: "rgba(16, 185, 129, 0.12)",
+                                  borderColor: "rgba(16, 185, 129, 0.25)",
+                                  color: "#10b981",
                                 }}
-                                className={`text-xs ${sess.isCurrent
-                                    ? "text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                                    : "text-zinc-600 hover:text-rose-400 hover:bg-rose-500/10"
-                                  } rounded-xl gap-1.5`}
                               >
-                                {sess.isCurrent ? (
-                                  <>
-                                    <LogOut className="w-3.5 h-3.5" />
-                                    Log Out Current Device
-                                  </>
-                                ) : (
-                                  <>
-                                    <LogOut className="w-3.5 h-3.5" />
-                                    Log Out Device
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                          );
-                        })}
-                      </div>
+                                This device
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeSession(sess.id, false)}
+                                className="h-8 px-3 rounded-xl border text-xs font-bold transition hover:bg-rose-500/10 text-rose-500 cursor-pointer shrink-0"
+                                style={{ borderColor: "var(--border)", background: "var(--input)" }}
+                              >
+                                Revoke
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-
-
-
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
-      </main>
+      </div>
 
-      {/* MODAL 1: CHANGE PASSWORD */}
-      <AnimatePresence>
-        {showPasswordModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowPasswordModal(false)}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-zinc-900 border border-white/10 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative"
-            >
-              <button
-                onClick={() => setShowPasswordModal(false)}
-                className="absolute top-5 right-5 text-zinc-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center gap-3 mb-6">
-                <div className={`w-10 h-10 rounded-xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center`}>
-                  <Key className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Change Password</h3>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                    Enter your current and new password below.
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="input-curr-pass" className="text-xs font-semibold text-zinc-300">
-                    Current Password
-                  </Label>
-                  <Input
-                    id="input-curr-pass"
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="mt-1 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11"
-                    placeholder="••••••••"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="input-new-pass" className="text-xs font-semibold text-zinc-300">
-                    New Password
-                  </Label>
-                  <Input
-                    id="input-new-pass"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="mt-1 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11"
-                    placeholder="At least 8 characters"
-                  />
-                  {/* Password Strength Meter */}
-                  {newPassword && (
-                    <div className="mt-2 space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-zinc-600 dark:text-zinc-400">Password strength:</span>
-                        <span className="font-semibold text-white">
-                          {getPasswordStrength(newPassword).label}
-                        </span>
-                      </div>
-                      <div className="w-full h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
-                        <div
-                          className={`h-full ${getPasswordStrength(newPassword).color
-                            } transition-all duration-300`}
-                          style={{
-                            width: `${(getPasswordStrength(newPassword).score / 4) * 100
-                              }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="input-confirm-pass" className="text-xs font-semibold text-zinc-300">
-                    Confirm New Password
-                  </Label>
-                  <Input
-                    id="input-confirm-pass"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="mt-1 bg-zinc-950/80 border-white/10 text-white rounded-2xl h-11"
-                    placeholder="Repeat new password"
-                  />
-                </div>
-
-                {passwordError && (
-                  <p className="text-xs text-rose-400 font-semibold">{passwordError}</p>
-                )}
-
-                <div className="flex justify-end gap-3 pt-3">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setShowPasswordModal(false)}
-                    className="rounded-2xl text-zinc-400 hover:text-white"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isUpdatingPassword}
-                    className={`rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold`}
-                  >
-                    {isUpdatingPassword ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : null}
-                    Update Password
-                  </Button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL 2: DELETE ACCOUNT CONFIRMATION */}
-      <AnimatePresence>
-        {showDeleteModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowDeleteModal(false)}
-            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-zinc-900 border border-rose-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mb-4">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-
-              <h3 className="text-xl font-extrabold text-zinc-900 dark:text-white">Delete Account?</h3>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
-                This action is permanent and cannot be undone. All your profile data, RSVP badges, and event history will be removed.
-              </p>
-
-              <div className="mt-4">
-                <Label htmlFor="input-delete-confirm" className="text-xs font-semibold text-zinc-400 block mb-1.5">
-                  Type <span className="font-mono text-rose-400 font-bold">DELETE</span> to confirm
-                </Label>
-                <Input
-                  id="input-delete-confirm"
-                  value={deleteConfirmationText}
-                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
-                  placeholder="DELETE"
-                  className="bg-zinc-950 border-white/10 text-white rounded-2xl h-11"
-                />
-              </div>
-
-              <div className="flex items-center gap-3 mt-6">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    setDeleteConfirmationText("");
-                  }}
-                  className="flex-1 rounded-2xl text-zinc-400 hover:text-white"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  disabled={deleteConfirmationText !== "DELETE"}
-                  onClick={async () => {
-                    setShowDeleteModal(false);
-                    try {
-                      await profileService.deleteMyAccount();
-                      localStorage.removeItem("accessToken");
-                      localStorage.removeItem("refreshToken");
-                      localStorage.removeItem("cc_user_settings");
-                      showToast("Account deleted successfully.");
-                      setTimeout(() => {
-                        window.location.href = "/";
-                      }, 1000);
-                    } catch (err: unknown) {
-                      const errMsg =
-                        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-                        "Failed to delete account.";
-                      showToast(errMsg);
-                    }
-                  }}
-                  className="flex-1 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-semibold disabled:opacity-50"
-                >
-                  Confirm Delete
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL 3: INTERACTIVE 2FA SETUP & MANAGEMENT */}
+      {/* MODAL: 2FA SETUP & RECOVERY CODES */}
       <AnimatePresence>
         {show2FAModal && (
           <motion.div
@@ -2221,95 +1423,106 @@ export default function SettingsContent() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-zinc-900 border border-white/10 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center"
+              className="border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center"
+              style={{ background: "var(--card)", borderColor: "var(--border)" }}
             >
               <button
                 onClick={() => setShow2FAModal(false)}
-                className="absolute top-5 right-5 p-2 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all"
+                className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition cursor-pointer"
+                style={{ color: "var(--muted)" }}
               >
                 <X className="w-4 h-4" />
               </button>
 
               {twoFactorStep === "scan" && (
-                <div>
-                  <div className={`w-12 h-12 rounded-2xl ${activeAccent.badgeBg} ${activeAccent.badgeText} flex items-center justify-center mx-auto mb-4`}>
+                <div className="space-y-4">
+                  <div
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                      color: "var(--accent)",
+                    }}
+                  >
                     <QrCode className="w-6 h-6" />
                   </div>
 
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Setup Authenticator App</h3>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                    Scan this QR code with any Authenticator app (Google Authenticator, Authy, 1Password) to link <span className="text-white font-semibold">{profile?.email || "user@communityconnect.io"}</span>.
-                  </p>
+                  <div>
+                    <h3 className="text-lg font-bold" style={{ color: "var(--text)" }}>
+                      Setup Authenticator App
+                    </h3>
+                    <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
+                      Scan with Google Authenticator or Authy to protect your account.
+                    </p>
+                  </div>
 
-                  {/* Realistic Scannable SVG QR Code */}
                   <div
                     style={{
                       backgroundColor: "#FFFFFF",
-                      padding: "16px",
+                      padding: "14px",
                       borderRadius: "16px",
-                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3)",
-                      border: "2px solid #e4e4e7",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      margin: "20px auto",
+                      margin: "12px auto",
                       width: "fit-content",
                     }}
                   >
                     <QRCodeSVG
-                      value={`otpauth://totp/CommunityConnect:${encodeURIComponent(
-                        profile?.email || "user@communityconnect.io"
-                      )}?secret=${user2FASecret}&issuer=CommunityConnect`}
-                      size={170}
+                      value={`otpauth://totp/Eventrix:${encodeURIComponent(profile?.email || "user@eventrix.dev")}?secret=${user2FASecret}&issuer=Eventrix`}
+                      size={150}
                       level="M"
                       bgColor="#FFFFFF"
                       fgColor="#000000"
-                      includeMargin={false}
                     />
                   </div>
 
-                  <div className="bg-zinc-950/80 border border-white/5 rounded-2xl p-3 mb-4 flex items-center justify-between gap-2">
+                  <div
+                    className="rounded-2xl p-3 flex items-center justify-between border"
+                    style={{ background: "var(--card2)", borderColor: "var(--border)" }}
+                  >
                     <div className="text-left">
-                      <div className="text-[10px] uppercase font-bold text-zinc-600 dark:text-zinc-500">Secret Key</div>
-                      <div className="font-mono text-xs text-zinc-200 font-bold tracking-wider">
+                      <div className="text-[10px] uppercase font-mono font-bold" style={{ color: "var(--muted)" }}>
+                        Secret Key
+                      </div>
+                      <div className="font-mono text-xs font-bold" style={{ color: "var(--text)" }}>
                         {user2FASecret.replace(/(.{4})/g, "$1 ").trim()}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                    <button
+                      type="button"
                       onClick={() => {
                         navigator.clipboard.writeText(user2FASecret);
                         setCopiedSecret(true);
-                        showToast("Secret key copied to clipboard!");
+                        showSuccess("Secret key copied!");
                         setTimeout(() => setCopiedSecret(false), 2000);
                       }}
-                      className="text-xs text-zinc-300 hover:text-white hover:bg-white/10 rounded-xl"
+                      className="p-1.5 rounded-lg border hover:opacity-80 cursor-pointer"
+                      style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--text)" }}
                     >
-                      {copiedSecret ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    </Button>
+                      {copiedSecret ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                    </button>
                   </div>
 
-                  <div className="text-left mb-4">
-                    <Label className="text-xs font-semibold text-zinc-400 block mb-1.5">
-                      Enter 6-Digit Verification Code
-                    </Label>
-                    <Input
+                  <div className="space-y-1 text-left">
+                    <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                      Enter 6-Digit Code
+                    </label>
+                    <input
                       maxLength={6}
                       value={twoFactorCode}
                       onChange={(e) => {
                         setTwoFactorCode(e.target.value.replace(/[^0-9]/g, ""));
                         setTwoFactorError("");
                       }}
-                      placeholder="e.g. 123456"
-                      className="bg-zinc-950 border-white/10 text-white rounded-2xl text-center font-mono text-xl tracking-[0.3em] font-bold h-12"
+                      placeholder="123456"
+                      className="w-full h-11 px-3 rounded-xl border text-center font-mono text-xl tracking-[0.25em] font-bold outline-none"
+                      style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                     />
-                    {twoFactorError && (
-                      <p className="text-xs text-rose-400 mt-1 font-medium">{twoFactorError}</p>
-                    )}
+                    {twoFactorError && <p className="text-xs text-rose-500 font-bold mt-1">{twoFactorError}</p>}
                   </div>
 
-                  <Button
+                  <button
+                    type="button"
                     disabled={twoFactorCode.length < 6 || isVerifying2FA}
                     onClick={async () => {
                       setIsVerifying2FA(true);
@@ -2318,7 +1531,7 @@ export default function SettingsContent() {
                         const isValid = await verify2FACode(twoFactorCode, user2FASecret, userBackupCodes);
                         if (!isValid) {
                           setIsVerifying2FA(false);
-                          setTwoFactorError("Invalid verification code. Please check your Authenticator app and try again.");
+                          setTwoFactorError("Invalid verification code. Please check your authenticator.");
                           return;
                         }
                         setIsVerifying2FA(false);
@@ -2326,113 +1539,107 @@ export default function SettingsContent() {
                         updateSetting("twoFactorEnabled", true);
                         updateSetting("twoFactorSecret", user2FASecret);
                         updateSetting("twoFactorBackupCodes", userBackupCodes);
-                        // localStorage.setItem("cc_2fa_secret", user2FASecret);
-                        // localStorage.setItem("cc_2fa_backup_codes", JSON.stringify(userBackupCodes));
-                        // localStorage.setItem("cc_2fa_enabled", "true");
-                        showToast("Two-Factor Authentication verified and enabled!");
+                        showSuccess("Two-Factor Authentication verified and enabled!");
                       } catch {
                         setIsVerifying2FA(false);
-                        setTwoFactorError("Failed to verify code. Please try again.");
+                        setTwoFactorError("Failed to verify code.");
                       }
                     }}
-                    className={`w-full rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold h-11 shadow-lg`}
+                    className="w-full h-10 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer shadow-md flex items-center justify-center gap-2"
+                    style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                   >
-                    {isVerifying2FA ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        Verifying Code...
-                      </>
-                    ) : (
-                      "Verify & Activate 2FA"
-                    )}
-                  </Button>
+                    {isVerifying2FA ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & Activate 2FA"}
+                  </button>
                 </div>
               )}
 
               {twoFactorStep === "backup" && (
-                <div>
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center mx-auto">
                     <ShieldCheck className="w-6 h-6" />
                   </div>
+                  <div>
+                    <h3 className="text-lg font-bold" style={{ color: "var(--text)" }}>
+                      2FA Activated!
+                    </h3>
+                    <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
+                      Save these emergency recovery codes in case you lose your device.
+                    </p>
+                  </div>
 
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">2FA Activated Successfully!</h3>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
-                    Save these emergency recovery codes in a secure place (like 1Password). Each code can be used once if you lose your authenticator app.
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-2 my-5">
+                  <div className="grid grid-cols-2 gap-2 my-4">
                     {userBackupCodes.map((code) => (
                       <div
                         key={code}
-                        className="p-3 rounded-xl bg-zinc-950/80 border border-white/5 font-mono text-xs font-bold text-zinc-300"
+                        className="p-2.5 rounded-xl border font-mono text-xs font-bold"
+                        style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
                       >
                         {code}
                       </div>
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
                       onClick={() => {
                         navigator.clipboard.writeText(userBackupCodes.join("\n"));
                         setCopiedBackup(true);
-                        showToast("All backup codes copied to clipboard!");
+                        showSuccess("Backup codes copied!");
                         setTimeout(() => setCopiedBackup(false), 2000);
                       }}
-                      className="flex-1 rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 text-white font-semibold"
+                      className="flex-1 h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:opacity-80"
+                      style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
                     >
-                      {copiedBackup ? (
-                        <>
-                          <Check className="w-4 h-4 mr-1.5 text-emerald-400" />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4 mr-1.5" />
-                          Copy Codes
-                        </>
-                      )}
-                    </Button>
-                    <Button
+                      {copiedBackup ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                      Copy Codes
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setShow2FAModal(false)}
-                      className={`flex-1 rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-semibold`}
+                      className="flex-1 h-10 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-md"
+                      style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                     >
                       Done
-                    </Button>
+                    </button>
                   </div>
                 </div>
               )}
 
               {twoFactorStep === "disable" && (
-                <div>
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center mx-auto">
                     <ShieldCheck className="w-6 h-6" />
                   </div>
+                  <div>
+                    <h3 className="text-lg font-bold" style={{ color: "var(--text)" }}>
+                      2FA Protection is Active
+                    </h3>
+                    <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
+                      Your account is protected by an Authenticator app.
+                    </p>
+                  </div>
 
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white">2FA is Enabled</h3>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-2">
-                    Your account is currently protected by an Authenticator app. You can view your emergency backup codes or turn off 2FA protection.
-                  </p>
-
-                  <div className="flex flex-col gap-3 mt-6">
-                    <Button
-                      variant="outline"
+                  <div className="flex flex-col gap-2 pt-2">
+                    <button
+                      type="button"
                       onClick={() => setTwoFactorStep("backup")}
-                      className="w-full rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 text-white font-semibold h-11"
+                      className="h-10 rounded-xl border text-xs font-bold cursor-pointer hover:opacity-80"
+                      style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
                     >
-                      View Emergency Backup Codes
-                    </Button>
-                    <Button
+                      View Backup Codes
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         updateSetting("twoFactorEnabled", false);
                         setShow2FAModal(false);
-                        showToast("Two-Factor Authentication has been disabled.");
+                        showSuccess("Two-factor authentication disabled.");
                       }}
-                      className="w-full rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-semibold h-11"
+                      className="h-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer transition shadow-xs"
                     >
                       Disable 2FA Protection
-                    </Button>
+                    </button>
                   </div>
                 </div>
               )}
@@ -2440,6 +1647,80 @@ export default function SettingsContent() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+
+      {/* MODAL: DELETE ACCOUNT CONFIRMATION */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowDeleteModal(false)}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              onClick={(e) => e.stopPropagation()}
+              className="border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center space-y-4"
+              style={{ background: "var(--card)", borderColor: "var(--border)" }}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-500 flex items-center justify-center mx-auto">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold text-rose-500">Delete Account</h3>
+                <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
+                  This will permanently delete your account, your organized events, registrations, and ticket history. This cannot be undone.
+                </p>
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                  Type <span className="text-rose-500">DELETE</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmationText}
+                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                  placeholder="DELETE"
+                  className="w-full h-10 px-3 rounded-xl border text-xs font-semibold outline-none"
+                  style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 h-10 rounded-xl border text-xs font-bold cursor-pointer hover:opacity-80"
+                  style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteConfirmationText !== "DELETE"}
+                  onClick={async () => {
+                    try {
+                      await profileService.deleteMyAccount();
+                      showSuccess("Account deleted. Logging out...");
+                      await performLogout();
+                    } catch (err: any) {
+                      showError(err.message || "Failed to delete account.");
+                    }
+                  }}
+                  className="flex-1 h-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer transition shadow-md"
+                >
+                  Delete Account
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </AppLayout>
   );
 }

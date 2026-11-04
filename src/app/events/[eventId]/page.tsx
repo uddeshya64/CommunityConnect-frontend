@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Calendar, MapPin, Users, ArrowLeft, Share2,
+  Calendar, MapPin, Download,
+  Users, ArrowLeft, ArrowRight, Share2,
   Ticket, Building2, UserCircle2,
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
   HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, CheckSquare, Megaphone, Send, Smile, MessageSquare, Gamepad2,
-  ChevronDown, ShieldAlert, Camera
+  ChevronDown, ShieldAlert, Camera, Check
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -68,158 +69,37 @@ interface EventTheme {
   gimmicks?: React.ReactNode;
 }
 
-const getEventTheme = (type: string, dark: boolean): EventTheme => {
-  const t = (type || "").toLowerCase();
-  if (t.includes("hack") || t.includes("code") || t.includes("compet") || t.includes("technical") || t.includes("conference") || t.includes("tech") || t.includes("developer")) {
-    return {
-      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900",
-      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white border-zinc-200 hover:border-indigo-500/30 shadow-indigo-500/5 text-zinc-800",
-      accent: dark ? "text-indigo-400" : "text-indigo-600",
-      accentBg: dark ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300" : "bg-indigo-50 border-indigo-100 text-indigo-700",
-      button: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20",
-      textMuted: dark ? "text-zinc-400" : "text-zinc-500",
-      textHeading: dark ? "text-zinc-100" : "text-zinc-900",
-      badge: dark ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-700",
-      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: dark ? "border-zinc-800" : "border-zinc-200",
-      agendaDefault: dark ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-300" : "bg-indigo-50/60 border-indigo-100/50 text-indigo-900",
-      isDark: dark,
-      gradOverlay: dark ? "from-indigo-950/30 via-zinc-950 to-zinc-950" : "from-indigo-100/20 via-zinc-50 to-zinc-50",
-      gimmicks: (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-5 select-none z-0">
-          <div className="absolute top-24 left-10 text-[10px] font-mono text-green-700 whitespace-pre">
-            {"import { hackathon } from 'community-connect';\n\nfunction init() {\n  return '🚀 code the future';\n}"}
-          </div>
-          <div className="absolute top-1/3 right-12 text-[10px] font-mono text-indigo-700 whitespace-pre">
-            {"const config = {\n  spots: 'limited',\n  prizes: '₹50K+',\n  status: 'active'\n};"}
-          </div>
-          <div className="absolute bottom-40 left-16 text-[10px] font-mono text-purple-700 whitespace-pre">
-            {"// TODO: Win the grand prize!\nconsole.log('Build, Hack, Deploy');"}
-          </div>
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
-        </div>
-      )
-    };
-  } else if (t.includes("wed") || t.includes("person") || t.includes("marry") || t.includes("marriage")) {
-    return {
-      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-rose-50/15 text-zinc-900",
-      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white/80 backdrop-blur-md border-rose-100 hover:border-rose-300 shadow-rose-500/5 text-zinc-800",
-      accent: dark ? "text-rose-400" : "text-rose-600",
-      accentBg: dark ? "bg-rose-500/10 border-rose-500/25 text-rose-300" : "bg-rose-50 border-rose-100 text-rose-700",
-      button: "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/20",
-      textMuted: dark ? "text-zinc-400" : "text-zinc-600",
-      textHeading: dark ? "text-zinc-100 font-serif" : "text-rose-950 font-serif",
-      badge: dark ? "bg-rose-500/10 border-rose-500/25 text-rose-300" : "bg-rose-50 border-rose-200 text-rose-700",
-      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-amber-50 border-amber-200 text-amber-800",
-      divider: dark ? "border-zinc-800" : "border-rose-100",
-      agendaDefault: dark ? "bg-rose-500/10 border-rose-500/25 text-rose-300" : "bg-rose-50/60 border-rose-100/50 text-rose-900",
-      isDark: dark,
-      gradOverlay: dark ? "from-rose-950/30 via-zinc-950 to-zinc-950" : "from-rose-100/20 via-zinc-50 to-zinc-50",
-      gimmicks: (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 select-none z-0">
-          <svg className="absolute top-24 right-20 w-32 h-32 text-rose-300/40 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-          </svg>
-          <svg className="absolute bottom-40 left-10 w-24 h-24 text-rose-300/30 rotate-12" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-          </svg>
-          <div className="absolute top-1/3 left-[5%] text-2xl font-serif text-rose-800/10 italic tracking-wider select-none">
-            Save the Date
-          </div>
-          <div className="absolute bottom-1/4 right-[5%] text-3xl font-serif text-rose-800/10 italic tracking-wider select-none">
-            Always & Forever
-          </div>
-        </div>
-      )
-    };
-  } else if (t.includes("sport") || t.includes("recreat") || t.includes("run") || t.includes("game") || t.includes("athle")) {
-    return {
-      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-emerald-50/15 text-zinc-900",
-      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white border-emerald-200/80 shadow-emerald-500/5 text-zinc-800",
-      accent: dark ? "text-emerald-400" : "text-emerald-600",
-      accentBg: dark ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300" : "bg-emerald-50 border-emerald-100 text-emerald-700",
-      button: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20",
-      textMuted: dark ? "text-zinc-400" : "text-zinc-600",
-      textHeading: dark ? "text-zinc-100" : "text-zinc-900",
-      badge: dark ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700",
-      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: dark ? "border-zinc-800" : "border-emerald-100",
-      agendaDefault: dark ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300" : "bg-emerald-50/60 border-emerald-100/50 text-emerald-900",
-      isDark: dark,
-      gradOverlay: dark ? "from-emerald-950/30 via-zinc-950 to-zinc-950" : "from-emerald-100/20 via-zinc-50 to-zinc-50",
-      gimmicks: (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.03] select-none z-0">
-          <div className="absolute w-[200%] h-[200%] top-[-50%] left-[-50%] border-[4px] border-emerald-700/20 rounded-full" />
-          <div className="absolute w-[100%] h-[2px] bg-emerald-700/20 top-1/2" />
-          <div className="absolute w-[2px] h-[100%] bg-emerald-700/20 left-1/2" />
-        </div>
-      )
-    };
-  } else if (t.includes("corporat") || t.includes("govern") || t.includes("civic") || t.includes("business") || t.includes("office")) {
-    return {
-      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-slate-50/50 text-slate-900",
-      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white border-slate-200/80 shadow-slate-500/5 text-zinc-800",
-      accent: dark ? "text-slate-300" : "text-slate-600",
-      accentBg: dark ? "bg-slate-500/10 border-slate-500/25 text-slate-300" : "bg-slate-50 border-slate-100 text-slate-700",
-      button: "bg-slate-700 hover:bg-slate-800 text-white shadow-slate-600/20",
-      textMuted: dark ? "text-zinc-400" : "text-zinc-600",
-      textHeading: dark ? "text-zinc-100 font-semibold" : "text-slate-900 font-semibold",
-      badge: dark ? "bg-slate-500/10 border-slate-500/25 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700",
-      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: dark ? "border-zinc-800" : "border-slate-100",
-      agendaDefault: dark ? "bg-slate-500/10 border-slate-500/25 text-slate-300" : "bg-slate-50/60 border-slate-100/50 text-slate-900",
-      isDark: dark,
-      gradOverlay: dark ? "from-slate-900/40 via-zinc-950 to-zinc-950" : "from-slate-100/20 via-zinc-50 to-zinc-50",
-      gimmicks: (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.02] select-none z-0">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] bg-[size:40px_40px]" />
-        </div>
-      )
-    };
-  } else if (t.includes("academ") || t.includes("train") || t.includes("study") || t.includes("course") || t.includes("commun") || t.includes("nonprofit") || t.includes("charity")) {
-    return {
-      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-teal-50/10 text-zinc-900",
-      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white border-teal-200/80 shadow-teal-500/5 text-zinc-800",
-      accent: dark ? "text-teal-400" : "text-teal-600",
-      accentBg: dark ? "bg-teal-500/10 border-teal-500/25 text-teal-300" : "bg-teal-50 border-teal-100 text-teal-700",
-      button: "bg-teal-600 hover:bg-teal-700 text-white shadow-teal-600/20",
-      textMuted: dark ? "text-zinc-400" : "text-zinc-600",
-      textHeading: dark ? "text-zinc-100" : "text-zinc-900",
-      badge: dark ? "bg-teal-500/10 border-teal-500/25 text-teal-300" : "bg-teal-50 border-teal-200 text-teal-700",
-      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: dark ? "border-zinc-800" : "border-zinc-200",
-      agendaDefault: dark ? "bg-teal-500/10 border-teal-500/25 text-teal-300" : "bg-teal-50/60 border-teal-100/50 text-teal-900",
-      isDark: dark,
-      gradOverlay: dark ? "from-teal-950/30 via-zinc-950 to-zinc-950" : "from-teal-100/20 via-zinc-50 to-zinc-50",
-      gimmicks: (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-5 select-none z-0">
-          <div className="absolute top-1/4 left-1/12 w-24 h-24 rounded-tr-full rounded-bl-full bg-teal-500/10" />
-          <div className="absolute bottom-1/4 right-1/12 w-32 h-32 rounded-tl-full rounded-br-full bg-teal-500/10" />
-        </div>
-      )
-    };
-  } else {
-    return {
-      bg: dark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900",
-      cardBg: dark ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-2xl" : "bg-white border-zinc-200/80 hover:border-amber-500/30 shadow-amber-500/5 text-zinc-800",
-      accent: dark ? "text-amber-400" : "text-amber-600",
-      accentBg: dark ? "bg-amber-500/10 border-amber-500/25 text-amber-300" : "bg-amber-50 border-amber-100 text-amber-700",
-      button: "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20",
-      textMuted: dark ? "text-zinc-400" : "text-zinc-600",
-      textHeading: dark ? "text-zinc-100" : "text-zinc-900",
-      badge: dark ? "bg-amber-500/10 border-amber-500/25 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-700",
-      pill: dark ? "bg-zinc-800/80 border-zinc-700 text-zinc-200" : "bg-zinc-50 border-zinc-200 text-zinc-700",
-      divider: dark ? "border-zinc-800" : "border-zinc-200",
-      agendaDefault: dark ? "bg-amber-500/10 border-amber-500/25 text-amber-300" : "bg-amber-50/60 border-amber-100/50 text-amber-900",
-      isDark: dark,
-      gradOverlay: dark ? "from-amber-950/30 via-zinc-950 to-zinc-950" : "from-amber-100/20 via-zinc-50 to-zinc-50",
-      gimmicks: (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.03] select-none z-0">
-          <div className="absolute inset-0 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]" />
-        </div>
-      )
-    };
-  }
+const getEventTheme = (dark: boolean): EventTheme => {
+  return {
+    bg: dark ? "bg-[#09090b] text-[#f4f4f5]" : "bg-[#f6f7f9] text-[#0f172a]",
+    cardBg: dark
+      ? "bg-zinc-900/70 backdrop-blur-xl border border-white/10 text-zinc-100 shadow-[0_14px_34px_-10px_rgba(0,0,0,0.55),0_2px_8px_-2px_rgba(0,0,0,0.3)]"
+      : "bg-white/95 backdrop-blur-xl border border-slate-200/80 text-slate-900 shadow-[0_14px_34px_-10px_rgba(15,23,42,0.08),0_2px_8px_-2px_rgba(15,23,42,0.04)]",
+    accent: "text-[var(--accent)]",
+    accentBg: dark
+      ? "bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] border border-[color-mix(in_oklab,var(--accent)_35%,transparent)] text-[var(--accent)]"
+      : "bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] border border-[color-mix(in_oklab,var(--accent)_30%,transparent)] text-[var(--accent)]",
+    button: "text-white shadow-lg",
+    textMuted: dark ? "text-zinc-400" : "text-slate-500",
+    textHeading: dark ? "text-zinc-100 font-bricolage" : "text-slate-900 font-bricolage",
+    badge: dark
+      ? "bg-[color-mix(in_oklab,var(--accent)_16%,transparent)] border border-[color-mix(in_oklab,var(--accent)_35%,transparent)] text-[var(--accent)]"
+      : "bg-[color-mix(in_oklab,var(--accent)_12%,transparent)] border border-[color-mix(in_oklab,var(--accent)_30%,transparent)] text-[var(--accent)]",
+    pill: dark ? "bg-white/[0.06] border border-white/10 text-zinc-200" : "bg-slate-100 border border-slate-200 text-slate-700",
+    divider: dark ? "border-white/10" : "border-slate-200",
+    agendaDefault: dark
+      ? "bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] border border-[color-mix(in_oklab,var(--accent)_30%,transparent)] text-zinc-100"
+      : "bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] border border-[color-mix(in_oklab,var(--accent)_25%,transparent)] text-slate-900",
+    isDark: dark,
+    gradOverlay: dark
+      ? "from-[color-mix(in_oklab,var(--accent2)_22%,transparent)] via-[#09090b] to-[#09090b]"
+      : "from-[color-mix(in_oklab,var(--accent2)_14%,transparent)] via-[#f6f7f9] to-[#f6f7f9]",
+    gimmicks: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-5 select-none z-0">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:28px_28px]" />
+      </div>
+    ),
+  };
 };
 
 export default function EventDetailsPage() {
@@ -271,7 +151,7 @@ export default function EventDetailsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const theme = getEventTheme(event?.type || "", isDark);
+  const theme = getEventTheme(isDark);
 
   const isStarted = event ? (currentTime >= new Date(event.startDate)) : false;
   const isConcluded = event ? (currentTime > new Date(event.endDate)) : false;
@@ -363,7 +243,7 @@ export default function EventDetailsPage() {
       if (profile?.skills && Array.isArray(profile.skills)) {
         setUserSkills(profile.skills);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const handleAddTag = (tagToAdd: string) => {
@@ -409,6 +289,9 @@ export default function EventDetailsPage() {
   // --- CHECK-IN & QR SCANNING STATES ---
   const [searchQuery, setSearchQuery] = useState("");
   const [checkInFilter, setCheckInFilter] = useState<"ALL" | "PRESENT" | "ABSENT">("ALL");
+  const [quickTicketCode, setQuickTicketCode] = useState("");
+  const [isQuickCheckingIn, setIsQuickCheckingIn] = useState(false);
+  const [quickCheckInMessage, setQuickCheckInMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isQrScanning, setIsQrScanning] = useState(false);
   const [isCameraStarting, setIsCameraStarting] = useState(true);
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string; participantName?: string } | null>(null);
@@ -470,7 +353,7 @@ export default function EventDetailsPage() {
     isOpen: false,
     title: "",
     description: "",
-    onConfirm: () => {}
+    onConfirm: () => { }
   });
 
   const requestConfirm = (title: string, description: string, onConfirm: () => void) => {
@@ -493,7 +376,7 @@ export default function EventDetailsPage() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: event?.title || "CommunityConnect Event",
+          title: event?.title || "Eventrix Event",
           url: shareUrl,
         });
         return;
@@ -694,8 +577,14 @@ export default function EventDetailsPage() {
       setIsFetchingTab(true);
       try {
         if (activeTab === "OVERVIEW") {
-          const res = await api.get(`/events/${eventId}/manage/overview`);
-          setOverviewStats(res.data.data || res.data);
+          const [overviewRes, participantsRes, tasksRes] = await Promise.all([
+            api.get(`/events/${eventId}/manage/overview`).catch(() => null),
+            api.get(`/events/${eventId}/manage/participants`).catch(() => null),
+            api.get(`/events/${eventId}/tasks`).catch(() => null)
+          ]);
+          if (overviewRes?.data) setOverviewStats(overviewRes.data.data || overviewRes.data);
+          if (participantsRes?.data) setParticipants(participantsRes.data.data || participantsRes.data || []);
+          if (tasksRes?.data) setTasksList(tasksRes.data.data || []);
         } else if (activeTab === "PARTICIPANTS" && hasPermission("MANAGE_ATTENDEES")) {
           const res = await api.get(`/events/${eventId}/manage/participants`);
           setParticipants(res.data.data || res.data || []);
@@ -967,6 +856,53 @@ export default function EventDetailsPage() {
     }
   };
 
+  const handleQuickCodeCheckIn = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const code = quickTicketCode.trim().toUpperCase();
+    if (!code) return;
+    setIsQuickCheckingIn(true);
+    setQuickCheckInMessage(null);
+    try {
+      const res = await api.post(`/events/${eventId}/manage/check-in`, { ticketCode: code });
+      const attendeeName = res.data.data?.user?.name || "Participant";
+      setQuickCheckInMessage({ type: "success", text: `Check-in verified for ${attendeeName} (${code})!` });
+      setQuickTicketCode("");
+      setParticipants(prev =>
+        prev.map(p =>
+          p.ticketCode === code ? { ...p, checkedIn: true, checkedInAt: new Date().toISOString() } : p
+        )
+      );
+    } catch (err: any) {
+      const errMsg = err.response?.data?.error || "Invalid ticket code or check-in failed.";
+      setQuickCheckInMessage({ type: "error", text: errMsg });
+    } finally {
+      setIsQuickCheckingIn(false);
+    }
+  };
+
+  const exportParticipantsCsv = () => {
+    if (!participants || participants.length === 0) {
+      alert("No attendee records found to export.");
+      return;
+    }
+    const headers = ["Name", "Email", "Ticket Code", "Checked In", "Checked In At"];
+    const rows = participants.map((p: any) => [
+      `"${(p.name || p.user?.name || "").replace(/"/g, '""')}"`,
+      `"${(p.email || p.user?.email || "").replace(/"/g, '""')}"`,
+      `"${(p.ticketCode || "").replace(/"/g, '""')}"`,
+      p.checkedIn ? "Yes" : "No",
+      p.checkedInAt ? new Date(p.checkedInAt).toISOString() : ""
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `attendees_${event?.title?.slice(0, 20) || "event"}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleQrCheckIn = async (scannedCode: string) => {
     try {
       setScanResult({ success: true, message: "Ticket scanned! Verifying..." });
@@ -1041,12 +977,12 @@ export default function EventDetailsPage() {
           stream.getTracks().forEach((track) => {
             try {
               track.stop();
-            } catch (e) {}
+            } catch (e) { }
           });
           videoEl.srcObject = null;
         }
       });
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const handleCloseScanner = () => {
@@ -1070,7 +1006,7 @@ export default function EventDetailsPage() {
           if (isCancelled) {
             try {
               html5Qrcode.clear();
-            } catch (e) {}
+            } catch (e) { }
             return;
           }
 
@@ -1084,10 +1020,10 @@ export default function EventDetailsPage() {
               isCancelled = true;
               stopVideoTracks();
               if (html5Qrcode && html5Qrcode.isScanning) {
-                await html5Qrcode.stop().catch(() => {});
+                await html5Qrcode.stop().catch(() => { });
                 try {
                   html5Qrcode.clear();
-                } catch (e) {}
+                } catch (e) { }
               }
               handleCloseScanner();
               handleQrCheckIn(qrCodeMessage);
@@ -1126,11 +1062,11 @@ export default function EventDetailsPage() {
           if (isCancelled && html5Qrcode) {
             stopVideoTracks();
             if (html5Qrcode.isScanning) {
-              await html5Qrcode.stop().catch(() => {});
+              await html5Qrcode.stop().catch(() => { });
             }
             try {
               html5Qrcode.clear();
-            } catch (e) {}
+            } catch (e) { }
           }
         } catch (err: any) {
           console.error("Failed to start QR scanner:", err);
@@ -1152,12 +1088,12 @@ export default function EventDetailsPage() {
             html5Qrcode.stop().then(() => {
               try {
                 html5Qrcode?.clear();
-              } catch (e) {}
-            }).catch(() => {});
+              } catch (e) { }
+            }).catch(() => { });
           } else {
             try {
               html5Qrcode.clear();
-            } catch (e) {}
+            } catch (e) { }
           }
         }
       };
@@ -1559,300 +1495,688 @@ export default function EventDetailsPage() {
   // VIEW 1: STAFF DASHBOARD
   // ==========================================
   if (isStaff && viewMode === "DASHBOARD") {
-    return (
-      <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} flex flex-col md:flex-row transition-colors duration-300 relative`}>
-        {/* Sidebar spacer placeholder */}
-        <div className="hidden md:block w-64 h-screen shrink-0" />
+    const totalReg = overviewStats?.total_registrations || overviewStats?.totalRegistrations || participants.length || 0;
+    const totalCap = event.capacity || 0;
+    const capPct = totalCap > 0 ? Math.min(100, Math.round((totalReg / totalCap) * 100)) : 100;
+    const checkedCount = overviewStats?.checked_in_count ?? overviewStats?.checkedInCount ?? participants.filter((p: any) => p.checkedIn || p.checked_in).length;
+    const checkInPct = totalReg > 0 ? Math.round((checkedCount / totalReg) * 100) : 0;
+    const revenueVal = overviewStats?.revenue ?? overviewStats?.totalRevenue ?? 0;
+    const pendingTasksCount = overviewStats?.pending_tasks_count ?? overviewStats?.pendingTasksCount ?? tasksList.filter(t => t.status === "pending").length;
 
-        {/* Sidebar - fixed to full viewport height on desktop from top-0 */}
-        <aside className={`w-full md:w-64 ${isDark ? "bg-zinc-950/90 text-zinc-400 border-white/10" : "bg-white text-zinc-600 border-zinc-200 shadow-sm"} flex flex-col p-3 md:p-4 sticky top-0 md:fixed md:top-0 md:left-0 md:bottom-0 md:h-screen md:z-30 shrink-0 overflow-hidden no-scrollbar border-b md:border-b-0 md:border-r`}>
-          <div className="mb-2 md:mb-8 p-2 md:p-4 flex md:flex-col justify-between items-center md:items-start gap-4">
-            <div className="min-w-0">
-              <Link href="/home" className={`flex items-center gap-2 ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors text-xs md:text-sm font-semibold mb-1 md:mb-6`}>
-                <ArrowLeft className="w-4 h-4" /> Back
-              </Link>
-              <h2 className={`${isDark ? "text-white" : "text-zinc-900"} font-bold text-sm md:text-lg leading-tight line-clamp-1 md:line-clamp-2`}>{event.title}</h2>
-              <p className={`text-[10px] font-semibold ${activeAccent.text} uppercase tracking-widest mt-1 hidden md:block`}>Organizer Dashboard</p>
+    const manageTabs = [
+      { id: "OVERVIEW", label: "Overview", icon: LayoutDashboard, show: hasPermission("VIEW_DASHBOARD") || hasPermission("MANAGE_EVENT") || isOwner },
+      { id: "PARTICIPANTS", label: "Attendees", icon: Users, badge: totalReg, show: hasPermission("MANAGE_ATTENDEES") || hasPermission("MANAGE_CHECK_IN") || isOwner },
+      { id: "EDIT", label: "Edit Details", icon: Pencil, show: hasPermission("MANAGE_EVENT") || isOwner },
+      { id: "AGENDA", label: "Event Agenda", icon: Calendar, badge: timelinesList.length, show: hasPermission("MANAGE_AGENDA") || hasPermission("MANAGE_CONTENT") || hasPermission("MANAGE_EVENT") || isOwner },
+      { id: "STAFF", label: "Staff & Roles", icon: Shield, badge: staffList.length, show: hasPermission("MANAGE_STAFF") || isOwner },
+      { id: "TASKS", label: "Event Tasks", icon: CheckSquare, badge: pendingTasksCount, show: hasPermission("VIEW_DASHBOARD") || hasPermission("MANAGE_STAFF") || isStaff || isOwner },
+      { id: "ANNOUNCEMENTS", label: "Announcements", icon: Megaphone, badge: announcementsList.length, show: hasPermission("VIEW_DASHBOARD") || isStaff || isOwner || hasPermission("MANAGE_COMMUNICATIONS") },
+      { id: "ACTIVITIES", label: "Activities & Quizzes", icon: Gamepad2, show: hasPermission("MANAGE_AGENDA") || hasPermission("MANAGE_CONTENT") || hasPermission("MANAGE_EVENT") || isStaff || isOwner },
+      { id: "ORGANIZER_SETTINGS", label: "Org Settings", icon: Building2, show: isOwner && !!event?.organizerId },
+      { id: "SETTINGS", label: "Event Settings", icon: Settings, show: isOwner },
+    ];
+
+    return (
+      <AppLayout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 space-y-6">
+          {/* Top Breadcrumb */}
+          <div className="flex items-center gap-2 text-xs sm:text-sm font-medium" style={{ color: "var(--subtle)" }}>
+            <Link href="/home" className="hover:underline flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
+              <ArrowLeft className="w-3.5 h-3.5" /> Workspace
+            </Link>
+            <span>/</span>
+            <span className="font-semibold line-clamp-1" style={{ color: "var(--text)" }}>{event.title}</span>
+            <span>/</span>
+            <span>Organizer Console</span>
+          </div>
+
+          {/* Organizer Hero Banner */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 p-6 rounded-[24px] border shadow-xs" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
+            <div className="flex items-start sm:items-center gap-4 min-w-0">
+              {/* Event Cover Image or Initials Avatar */}
+              <div
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl shrink-0 border overflow-hidden shadow-md flex items-center justify-center font-black text-xl text-white relative"
+                style={{
+                  background: event.bannerUrl || bannerPreview
+                    ? `url(${event.bannerUrl || bannerPreview}) center/cover no-repeat`
+                    : "linear-gradient(135deg, var(--accent), var(--accent2))",
+                  borderColor: "var(--border)"
+                }}
+              >
+                {!event.bannerUrl && !bannerPreview && (
+                  <span>{event.title.slice(0, 2).toUpperCase()}</span>
+                )}
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                    {event.title}
+                  </h1>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shrink-0" style={{ background: "color-mix(in oklab, var(--accent) 12%, transparent)", borderColor: "color-mix(in oklab, var(--accent) 30%, transparent)", color: "var(--accent)" }}>
+                    <Shield className="w-3.5 h-3.5" />
+                    {isOwner ? "Host Organizer" : "Staff Console"}
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm font-medium mt-1.5 flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
+                  <span>{formatFullDate(event.startDate)}</span>
+                  <span>•</span>
+                  <span>{event.location || "Online"}</span>
+                  <span>•</span>
+                  <span className="capitalize">{event.mode || "Hybrid"}</span>
+                  <span>•</span>
+                  <span>{totalReg} registered</span>
+                </p>
+              </div>
             </div>
 
-            {/* On mobile, place Scan QR and Preview Event actions in a compact row */}
-            <div className="flex md:hidden gap-1.5 shrink-0">
-              {hasPermission("MANAGE_ATTENDEES") && (
-                <Button 
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+              <Button
+                onClick={() => setViewMode("PREVIEW")}
+                variant="outline"
+                className="rounded-xl text-xs sm:text-sm font-bold px-4 py-2.5 flex items-center gap-2 shadow-xs transition-all hover:scale-[1.02]"
+                style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
+              >
+                <Eye className="w-4 h-4" /> Public page
+              </Button>
+              {(hasPermission("MANAGE_ATTENDEES") || hasPermission("MANAGE_CHECK_IN") || isOwner) && (
+                <Button
                   onClick={() => {
                     setScanResult(null);
                     setIsQrScanning(true);
                   }}
-                  size="sm"
-                  className={`rounded-lg ${activeAccent.bg} hover:opacity-90 text-white font-bold text-xs`}
+                  className="rounded-xl text-xs sm:text-sm font-bold px-4 py-2.5 text-white shadow-md flex items-center gap-2 transition-all hover:scale-[1.02]"
+                  style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                 >
-                  <QrCode className="w-4 h-4" />
+                  <QrCode className="w-4 h-4" /> Scan ticket
                 </Button>
               )}
-              <Button 
-                onClick={() => setViewMode("PREVIEW")}
-                size="sm"
-                className="rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs"
-              >
-                <Eye className="w-4 h-4" />
-              </Button>
             </div>
           </div>
 
-          {/* Navigation links: horizontal scroll on mobile, vertical list on desktop */}
-          <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-y-auto no-scrollbar pb-2 md:pb-0 flex-1 min-w-0">
-            {(hasPermission("VIEW_DASHBOARD") || hasPermission("MANAGE_EVENT") || isOwner) && (
-              <button onClick={() => setActiveTab("OVERVIEW")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "OVERVIEW" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-                <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" /> Overview
-              </button>
-            )}
-
-            {(hasPermission("MANAGE_ATTENDEES") || hasPermission("MANAGE_CHECK_IN") || hasPermission("MANAGE_FORMS") || isOwner) && (
-              <button onClick={() => setActiveTab("PARTICIPANTS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "PARTICIPANTS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-                <List className="w-4 h-4 md:w-5 md:h-5" /> Participants
-              </button>
-            )}
-
-            {/* Scan QR Button on Desktop only */}
-            {(hasPermission("MANAGE_ATTENDEES") || hasPermission("MANAGE_CHECK_IN") || isOwner) && (
-              <button
-                onClick={() => {
-                  setScanResult(null);
-                  setIsQrScanning(true);
-                }}
-                type="button"
-                className={`hidden md:flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}
-              >
-                <QrCode className="w-5 h-5" /> Scan Ticket QR
-              </button>
-            )}
-
-            {(hasPermission("MANAGE_EVENT") || isOwner) && (
-              <button onClick={() => setActiveTab("EDIT")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "EDIT" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-                <Pencil className="w-4 h-4 md:w-5 md:h-5" /> Edit Details
-              </button>
-            )}
-
-            {(hasPermission("MANAGE_AGENDA") || hasPermission("MANAGE_CONTENT") || hasPermission("MANAGE_EVENT") || hasPermission("VIEW_DASHBOARD") || isOwner) && (
-              <button onClick={() => setActiveTab("AGENDA")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "AGENDA" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-                <Calendar className="w-4 h-4 md:w-5 md:h-5" /> Event Agenda
-              </button>
-            )}
-
-            {(hasPermission("MANAGE_STAFF") || isOwner) && (
-              <button onClick={() => setActiveTab("STAFF")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "STAFF" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-                <Shield className="w-4 h-4 md:w-5 md:h-5" /> Staff & Roles
-              </button>
-            )}
-
-            {(hasPermission("VIEW_DASHBOARD") || hasPermission("MANAGE_STAFF") || isStaff || isOwner) && (
-              <button onClick={() => setActiveTab("TASKS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "TASKS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-                <CheckSquare className="w-4 h-4 md:w-5 md:h-5" /> Event Tasks
-              </button>
-            )}
-
-            {(hasPermission("VIEW_DASHBOARD") || isStaff || isOwner || hasPermission("MANAGE_COMMUNICATIONS") || hasPermission("MANAGE_EVENT")) && (
-              <button onClick={() => setActiveTab("ANNOUNCEMENTS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "ANNOUNCEMENTS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-                <Megaphone className="w-4 h-4 md:w-5 md:h-5" /> Announcements
-              </button>
-            )}
-
-            {(hasPermission("MANAGE_AGENDA") || hasPermission("MANAGE_CONTENT") || hasPermission("MANAGE_EVENT") || hasPermission("VIEW_DASHBOARD") || isStaff || isOwner) && (
-              <button onClick={() => setActiveTab("ACTIVITIES")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "ACTIVITIES" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-                <Gamepad2 className="w-4 h-4 md:w-5 md:h-5" /> Activities & Quizzes
-              </button>
-            )}
-
-            {isOwner && (
-              <button onClick={() => setActiveTab("ORGANIZER_SETTINGS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "ORGANIZER_SETTINGS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-                <Building2 className="w-4 h-4 md:w-5 md:h-5" /> Org Settings
-              </button>
-            )}
-
-            {isOwner && (
-              <button onClick={() => setActiveTab("SETTINGS")} className={`flex items-center gap-2 px-3 py-2 md:py-3 rounded-xl font-medium text-xs md:text-sm shrink-0 transition-all ${activeTab === "SETTINGS" ? `${activeAccent.badgeBg} ${activeAccent.text} font-bold` : isDark ? "hover:bg-zinc-900 hover:text-white" : "hover:bg-zinc-100 hover:text-zinc-900"}`}>
-                <Settings className="w-4 h-4 md:w-5 md:h-5" /> Settings
-              </button>
-            )}
-          </nav>
-
-          <div className="hidden md:block p-4 mt-auto">
-            <Button onClick={() => setViewMode("PREVIEW")} className="w-full rounded-xl bg-white text-zinc-900 hover:bg-zinc-200 font-bold py-6">
-              <Eye className="w-4 h-4 mr-2" /> Preview Event
-            </Button>
+          {/* Horizontal Manage Tabs Bar */}
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar border-b pb-1" style={{ borderColor: "var(--border)" }}>
+            {manageTabs.filter(t => t.show).map(t => {
+              const Icon = t.icon;
+              const isActive = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id as any)}
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative shrink-0"
+                  style={{
+                    color: isActive ? "var(--accent)" : "var(--muted)",
+                    background: isActive ? "color-mix(in oklab, var(--accent) 12%, transparent)" : "transparent",
+                    borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+                  }}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{t.label}</span>
+                  {typeof t.badge === "number" && t.badge > 0 && (
+                    <span
+                      className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full"
+                      style={{
+                        background: isActive ? "var(--accent)" : "var(--card2)",
+                        color: isActive ? "#fff" : "var(--muted)"
+                      }}
+                    >
+                      {t.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-        </aside>
 
-        {/* Right Content Area with Navbar on top */}
-        <div className="flex-1 flex flex-col min-w-0 relative">
-          <Navbar />
-          <div className="flex-1 p-3.5 sm:p-6 md:p-12 overflow-y-auto min-w-0">
-          <div className="max-w-4xl mx-auto">
-
+          {/* Tab Content Display Area */}
+          <div className="w-full min-w-0">
             {isFetchingTab ? (
               <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>
             ) : (
               <>
                 {/* 1. OVERVIEW TAB */}
-                {activeTab === "OVERVIEW" && (
-                  <div className="animate-in fade-in duration-500">
-                    <h1 className={`text-3xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} mb-8`}>Dashboard Overview</h1>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                      <div className={`${isDark ? "bg-zinc-900/60 border-white/10 text-zinc-100" : "bg-white border-zinc-200 text-zinc-900 shadow-sm"} p-6 rounded-3xl border`}>
-                        <Users className={`w-8 h-8 ${activeAccent.text} mb-4`} />
-                        <p className="text-sm font-bold text-zinc-400 uppercase">Registrations</p>
-                        <p className={`text-4xl font-black ${isDark ? "text-white" : "text-zinc-900"} mt-1`}>{overviewStats?.total_registrations || 0} <span className="text-lg text-zinc-400">/ {event.capacity || '∞'}</span></p>
+                {activeTab === "OVERVIEW" && (() => {
+                  // Real 7-day registration velocity calculation
+                  const now = new Date();
+                  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                  const velocityDays = Array.from({ length: 7 }, (_, i) => {
+                    const d = new Date(now);
+                    d.setDate(d.getDate() - (6 - i));
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, "0");
+                    const day = String(d.getDate()).padStart(2, "0");
+                    const dateKey = `${year}-${month}-${day}`;
+
+                    const count = (participants || []).filter((p: any) => {
+                      const pDateStr = p.registeredAt || p.created_at || p.createdAt;
+                      if (!pDateStr) return false;
+                      return new Date(pDateStr).toISOString().slice(0, 10) === dateKey;
+                    }).length;
+
+                    return {
+                      day: dayNames[d.getDay()],
+                      dateStr: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                      count,
+                      isToday: i === 6
+                    };
+                  });
+
+                  const registeredToday = velocityDays[6]?.count || 0;
+                  const maxVelocity = Math.max(...velocityDays.map(v => v.count), 1);
+                  const totalWeekReg = velocityDays.reduce((sum, v) => sum + v.count, 0);
+
+                  return (
+                    <div className="animate-in fade-in duration-300 space-y-6">
+                      {/* 4 STATS CARDS */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Total Registrations */}
+                        <div className="p-5 rounded-[20px] border shadow-xs transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-mono font-bold uppercase" style={{ color: "var(--muted)" }}>Total Registrations</span>
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)" }}>
+                              <Users className="w-4 h-4" style={{ color: "var(--accent)" }} />
+                            </div>
+                          </div>
+                          <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                            {totalReg.toLocaleString("en-IN")}
+                          </p>
+                          <div className="mt-3 flex items-center justify-between text-xs" style={{ color: "var(--subtle)" }}>
+                            <span>{totalCap ? `${capPct}% of ${totalCap} cap` : "Unlimited capacity"}</span>
+                            <span className="font-semibold" style={{ color: "var(--accent)" }}>{capPct}%</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background: "var(--card2)" }}>
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, capPct)}%`, background: "linear-gradient(90deg, var(--accent), var(--accent2))" }} />
+                          </div>
+                        </div>
+
+                        {/* Gate Check-Ins */}
+                        <div className="p-5 rounded-[20px] border shadow-xs transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-mono font-bold uppercase" style={{ color: "var(--muted)" }}>Gate Check-Ins</span>
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-500/10">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            </div>
+                          </div>
+                          <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                            {checkedCount.toLocaleString("en-IN")}
+                          </p>
+                          <div className="mt-3 flex items-center justify-between text-xs" style={{ color: "var(--subtle)" }}>
+                            <span>{checkInPct}% verified at gate</span>
+                            <span className="font-semibold text-emerald-500">{checkInPct}%</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background: "var(--card2)" }}>
+                            <div className="h-full rounded-full transition-all duration-500 bg-emerald-500" style={{ width: `${Math.min(100, checkInPct)}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Ticket Revenue */}
+                        <div className="p-5 rounded-[20px] border shadow-xs transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-mono font-bold uppercase" style={{ color: "var(--muted)" }}>Ticket Revenue</span>
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-amber-500/10">
+                              <Ticket className="w-4 h-4 text-amber-500" />
+                            </div>
+                          </div>
+                          <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                            {revenueVal ? `₹${revenueVal.toLocaleString("en-IN")}` : "Free"}
+                          </p>
+                          <div className="mt-3 flex items-center justify-between text-xs" style={{ color: "var(--subtle)" }}>
+                            <span>{revenueVal ? "via Payments" : "Free admission"}</span>
+                            <span className="font-semibold" style={{ color: "var(--accent)" }}>{revenueVal ? "Active" : "Standard"}</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background: "var(--card2)" }}>
+                            <div className="h-full rounded-full bg-amber-500" style={{ width: revenueVal ? "100%" : "0%" }} />
+                          </div>
+                        </div>
+
+                        {/* Pending Tasks */}
+                        <div className="p-5 rounded-[20px] border shadow-xs transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-mono font-bold uppercase" style={{ color: "var(--muted)" }}>Pending Tasks</span>
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-cyan-500/10">
+                              <CheckSquare className="w-4 h-4 text-cyan-500" />
+                            </div>
+                          </div>
+                          <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                            {pendingTasksCount.toLocaleString("en-IN")}
+                          </p>
+                          <div className="mt-3 flex items-center justify-between text-xs" style={{ color: "var(--subtle)" }}>
+                            <span>{pendingTasksCount === 1 ? "1 task pending" : `${pendingTasksCount} tasks pending`}</span>
+                            <span className="font-semibold text-cyan-500">{tasksList.length > 0 ? `${tasksList.length - pendingTasksCount}/${tasksList.length} done` : "Open"}</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background: "var(--card2)" }}>
+                            <div className="h-full rounded-full bg-cyan-500 transition-all duration-500" style={{ width: tasksList.length > 0 ? `${Math.round(((tasksList.length - pendingTasksCount) / tasksList.length) * 100)}%` : "0%" }} />
+                          </div>
+                        </div>
                       </div>
-                      <div className={`${isDark ? "bg-zinc-900/60 border-white/10 text-zinc-100" : "bg-white border-zinc-200 text-zinc-900 shadow-sm"} p-6 rounded-3xl border`}>
-                        <Ticket className="w-8 h-8 text-emerald-500 mb-4" />
-                        <p className="text-sm font-bold text-zinc-400 uppercase">Revenue</p>
-                        <p className={`text-4xl font-black ${isDark ? "text-white" : "text-zinc-900"} mt-1`}>₹{overviewStats?.revenue || 0}</p>
+
+                      {/* 2 COLUMNS: REGISTRATION VELOCITY & QUICK ACTIONS */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left: Authentic 7-Day Registration Velocity */}
+                        <div className="p-6 rounded-[22px] border shadow-xs flex flex-col justify-between" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
+                          <div>
+                            <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: "var(--border)" }}>
+                              <div>
+                                <h3 className="font-extrabold text-base tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                                  Registrations · last 7 days
+                                </h3>
+                                <p className="text-xs font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                                  Verified sign-ups calculated from live attendee registrations
+                                </p>
+                              </div>
+                              <span className={`text-[11px] font-mono font-bold px-2.5 py-1 rounded-full border ${registeredToday > 0 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500" : ""}`} style={registeredToday === 0 ? { background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" } : {}}>
+                                +{registeredToday} today
+                              </span>
+                            </div>
+
+                            {/* Velocity Bars */}
+                            <div className="mt-6 flex items-end justify-between gap-2.5 h-44 pt-6 pb-2 px-3 rounded-xl border" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                              {velocityDays.map((v) => {
+                                const isPeak = v.count > 0 && v.count === maxVelocity;
+                                const barH = v.count === 0 ? 8 : Math.max(16, Math.round((v.count / maxVelocity) * 100));
+
+                                return (
+                                  <div key={v.day + v.dateStr} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group relative">
+                                    {/* Hover Tooltip */}
+                                    <div className="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none px-2 py-0.5 rounded-md text-[10px] font-mono font-bold whitespace-nowrap shadow-md z-10" style={{ background: "var(--text)", color: "var(--bg)" }}>
+                                      {v.count} signup{v.count === 1 ? "" : "s"} on {v.dateStr}
+                                    </div>
+
+                                    <div
+                                      className="w-full rounded-t-lg transition-all duration-300 group-hover:brightness-110"
+                                      style={{
+                                        height: `${barH}%`,
+                                        background: isPeak
+                                          ? "linear-gradient(180deg, var(--accent), var(--accent2))"
+                                          : v.count > 0
+                                            ? "color-mix(in oklab, var(--accent) 55%, transparent)"
+                                            : "var(--border)",
+                                        boxShadow: isPeak ? "0 4px 12px color-mix(in oklab, var(--accent) 30%, transparent)" : "none"
+                                      }}
+                                    />
+                                    <span className="text-[10px] font-mono font-bold uppercase" style={{ color: isPeak ? "var(--accent)" : v.isToday ? "var(--text)" : "var(--subtle)" }}>
+                                      {v.day}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="pt-4 mt-4 border-t flex items-center justify-between text-xs" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+                            <span>Peak velocity: <strong style={{ color: "var(--text)" }}>{maxVelocity > 1 || velocityDays.some(d => d.count > 0) ? `${maxVelocity} signups/day` : "0 signups/day"}</strong></span>
+                            <span>Total this week: <strong style={{ color: "var(--accent)" }}>{totalWeekReg} sign-ups</strong></span>
+                          </div>
+                        </div>
+
+                        {/* Right: Quick Actions */}
+                        <div className="p-6 rounded-[22px] border shadow-xs flex flex-col justify-between" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
+                          <div>
+                            <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: "var(--border)" }}>
+                              <div>
+                                <h3 className="font-extrabold text-base tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                                  Quick Actions
+                                </h3>
+                                <p className="text-xs font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                                  Shortcuts to core event operations and management desks
+                                </p>
+                              </div>
+                              <span className="text-xs font-mono font-bold uppercase px-2.5 py-1 rounded-full border" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}>
+                                Fast Access
+                              </span>
+                            </div>
+
+                            <div className="flex flex-col gap-2.5 mt-5">
+                              {[
+                                { label: "Attendee Check-in Desk", tab: "PARTICIPANTS", icon: Users, color: "var(--accent)", desc: "View attendee list and scan gate passes" },
+                                { label: "Add Session to Agenda", tab: "AGENDA", icon: Calendar, color: "#10b981", desc: "Design event timeline and session schedule" },
+                                { label: "Broadcast Announcement", tab: "ANNOUNCEMENTS", icon: Megaphone, color: "#06b6d4", desc: "Send immediate push notifications to participants" },
+                                { label: "Staff Team & Roles", tab: "STAFF", icon: Shield, color: "#8b5cf6", desc: "Assign permissions and invite crew members" },
+                                { label: "Live Quizzes & Activities", tab: "ACTIVITIES", icon: Gamepad2, color: "#f59e0b", desc: "Host interactive arena and gamified sessions" },
+                              ].map((q) => {
+                                const QIcon = q.icon;
+                                return (
+                                  <button
+                                    key={q.tab}
+                                    onClick={() => setActiveTab(q.tab as any)}
+                                    className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all hover:scale-[1.01]"
+                                    style={{ background: "var(--card2)", borderColor: "var(--border)" }}
+                                  >
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--input)" }}>
+                                      <QIcon className="w-4 h-4" style={{ color: q.color }} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-bold tracking-tight" style={{ color: "var(--text)" }}>{q.label}</p>
+                                      <p className="text-xs truncate" style={{ color: "var(--muted)" }}>{q.desc}</p>
+                                    </div>
+                                    <span className="text-xs font-bold" style={{ color: "var(--subtle)" }}>→</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className={`${isDark ? "bg-zinc-900/60 border-white/10 text-zinc-100" : "bg-white border-zinc-200 text-zinc-900 shadow-sm"} p-6 rounded-3xl border`}>
-                        <UserPlus className="w-8 h-8 text-amber-500 mb-4" />
-                        <p className="text-sm font-bold text-zinc-400 uppercase">Teams Created</p>
-                        <p className={`text-4xl font-black ${isDark ? "text-white" : "text-zinc-900"} mt-1`}>{overviewStats?.teams_count || 0}</p>
+
+                      {/* Check-in Desk Card */}
+                      <div className="p-6 rounded-[22px] border shadow-xs" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4" style={{ borderColor: "var(--border)" }}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)" }}>
+                              <QrCode className="w-5 h-5" style={{ color: "var(--accent)" }} />
+                            </div>
+                            <div>
+                              <h3 className="font-extrabold text-base tracking-tight" style={{ color: "var(--text)" }}>Check-in Desk & Gate Verification</h3>
+                              <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>Instant ticket lookup & QR camera verification</p>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-mono font-bold uppercase px-2.5 py-1 rounded-full border self-start sm:self-auto" style={{ background: "color-mix(in oklab, var(--accent) 10%, transparent)", borderColor: "color-mix(in oklab, var(--accent) 25%, transparent)", color: "var(--accent)" }}>
+                            Gate Active
+                          </span>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="mt-5 p-4 rounded-xl border" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                          <div className="flex items-center justify-between text-xs font-bold mb-2">
+                            <span style={{ color: "var(--muted)" }}>Attendance Progress</span>
+                            <span style={{ color: "var(--text)" }}>{checkedCount} / {totalReg} checked in ({checkInPct}%)</span>
+                          </div>
+                          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, checkInPct)}%`, background: "linear-gradient(90deg, var(--accent), var(--accent2))" }} />
+                          </div>
+                        </div>
+
+                        {/* Fast ticket input form */}
+                        <form onSubmit={handleQuickCodeCheckIn} className="mt-5 space-y-3">
+                          <label className="text-xs font-mono font-bold uppercase block" style={{ color: "var(--muted)" }}>
+                            Fast Ticket Lookup
+                          </label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={quickTicketCode}
+                              onChange={(e) => setQuickTicketCode(e.target.value)}
+                              placeholder="e.g. TCK-8F29A or attendee code..."
+                              className="font-mono text-xs rounded-xl py-5"
+                              style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+                            />
+                            <Button
+                              type="submit"
+                              disabled={isQuickCheckingIn || !quickTicketCode.trim()}
+                              className="rounded-xl font-bold px-5 text-white shrink-0 shadow-xs"
+                              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                            >
+                              {isQuickCheckingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : "Check In"}
+                            </Button>
+                          </div>
+                          {quickCheckInMessage && (
+                            <p className={`text-xs font-semibold mt-2 ${quickCheckInMessage.type === "success" ? "text-emerald-500" : "text-red-500"}`}>
+                              {quickCheckInMessage.text}
+                            </p>
+                          )}
+                        </form>
+
+                        <div className="pt-5 mt-5 border-t flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderColor: "var(--border)" }}>
+                          <Button
+                            onClick={() => {
+                              setScanResult(null);
+                              setIsQrScanning(true);
+                            }}
+                            variant="outline"
+                            className="w-full sm:w-auto rounded-xl text-xs font-bold py-5 flex items-center justify-center gap-2"
+                            style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
+                          >
+                            <QrCode className="w-4 h-4" /> Camera Scan
+                          </Button>
+                          <button
+                            onClick={() => setActiveTab("PARTICIPANTS")}
+                            className="text-xs font-bold hover:underline py-2"
+                            style={{ color: "var(--accent)" }}
+                          >
+                            Manage full attendee list ({participants.length}) →
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 2. PARTICIPANTS TAB */}
                 {activeTab === "PARTICIPANTS" && hasPermission("MANAGE_ATTENDEES") && (
-                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-8">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-100 pb-6">
-                      <div>
-                        <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Attendee Check-In</h1>
-                        <p className="text-zinc-500 font-medium mt-1">Manage event registrations, track attendance, or scan ticket QRs.</p>
-                      </div>
-                      <Button
-                        onClick={() => {
-                          setScanResult(null);
-                          setIsQrScanning(true);
-                        }}
-                        className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-6 shadow-lg shadow-indigo-600/25 flex items-center gap-2 self-start md:self-auto transition-transform hover:scale-[1.02]"
-                      >
-                        <QrCode className="w-5 h-5" /> Scan Ticket QR
-                      </Button>
-                    </div>
-
-                    <div className="flex flex-col md:flex-row gap-4 items-center">
-                      <div className="relative w-full flex-1">
-                        <Input
-                          placeholder="Search participants by name, email or ticket code..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="py-6 pl-10 rounded-xl bg-zinc-50 border-zinc-200"
-                        />
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold text-sm">🔍</span>
-                      </div>
-                      <div className="flex p-1 bg-zinc-100 rounded-xl w-full md:w-auto shrink-0">
-                        {(["ALL", "PRESENT", "ABSENT"] as const).map((filter) => (
-                          <button
-                            key={filter}
-                            onClick={() => setCheckInFilter(filter)}
-                            type="button"
-                            className={`flex-1 md:flex-none px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${checkInFilter === filter ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"}`}
+                  <div className="animate-in fade-in duration-300 space-y-6">
+                    {/* Header & Actions */}
+                    <div className="p-6 md:p-8 rounded-[24px] border shadow-xs" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6" style={{ borderColor: "var(--border)" }}>
+                        <div>
+                          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                            Attendees & Gate Check-In
+                          </h1>
+                          <p className="text-xs sm:text-sm font-medium mt-1" style={{ color: "var(--muted)" }}>
+                            Manage registered participants, verify ticket codes, and record attendance.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <Button
+                            onClick={exportParticipantsCsv}
+                            variant="outline"
+                            className="rounded-xl text-xs font-bold px-4 py-2.5 flex items-center gap-2"
+                            style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
                           >
-                            {filter}
-                          </button>
-                        ))}
+                            <Download className="w-4 h-4" /> Export CSV
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setScanResult(null);
+                              setIsQrScanning(true);
+                            }}
+                            className="rounded-xl text-xs font-bold text-white px-5 py-2.5 shadow-md flex items-center gap-2 transition-all hover:scale-[1.02]"
+                            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                          >
+                            <QrCode className="w-4 h-4" /> Scan ticket
+                          </Button>
+                        </div>
                       </div>
-                    </div>
 
-                    {participants.length === 0 ? (
-                      <p className="text-zinc-500 font-medium py-10 text-center">No participants registered yet.</p>
-                    ) : (
-                      <div className="space-y-4">
-                        {participants
-                          .filter((p) => {
-                            const query = searchQuery.toLowerCase().trim();
-                            const pName = p.name || p.user?.name || "";
-                            const pEmail = p.email || p.user?.email || "";
-                            const pTicket = p.ticketCode || "";
-                            const matchesSearch =
-                              pName.toLowerCase().includes(query) ||
-                              pEmail.toLowerCase().includes(query) ||
-                              pTicket.toLowerCase().includes(query);
-
-                            if (checkInFilter === "PRESENT") {
-                              return matchesSearch && !!p.checkedIn;
-                            }
-                            if (checkInFilter === "ABSENT") {
-                              return matchesSearch && !p.checkedIn;
-                            }
-                            return matchesSearch;
-                          })
-                          .map((p, i) => {
-                            const isPresent = !!p.checkedIn;
-                            const isChecking = isPerformingCheckIn === p.registrationId;
-                            const displayName = p.name || p.user?.name || "Unknown User";
-                            const displayEmail = p.email || p.user?.email || "";
-                            const displayTicket = p.ticketCode || "N/A";
+                      {/* Search & Status Filters */}
+                      <div className="flex flex-col md:flex-row gap-3 items-center mt-6">
+                        <div className="relative w-full flex-1">
+                          <Input
+                            placeholder="Search attendee by name, email, or ticket code..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="py-5 pl-10 rounded-xl text-xs font-medium"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+                          />
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--subtle)" }}>🔍</span>
+                        </div>
+                        <div className="flex p-1 rounded-xl w-full md:w-auto shrink-0 border" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                          {(["ALL", "PRESENT", "ABSENT"] as const).map((filter) => {
+                            const count = filter === "ALL"
+                              ? participants.length
+                              : filter === "PRESENT"
+                                ? checkedCount
+                                : Math.max(0, participants.length - checkedCount);
 
                             return (
-                              <div
-                                key={p.registrationId || i}
-                                className="flex flex-col md:flex-row md:items-center justify-between p-6 rounded-2xl bg-zinc-50 border border-zinc-200/50 gap-4 hover:border-zinc-200/80 transition-colors"
+                              <button
+                                key={filter}
+                                onClick={() => setCheckInFilter(filter)}
+                                type="button"
+                                className="flex-1 md:flex-none px-3.5 py-1.5 text-xs font-bold uppercase rounded-lg transition-all"
+                                style={{
+                                  background: checkInFilter === filter ? "var(--card)" : "transparent",
+                                  color: checkInFilter === filter ? "var(--text)" : "var(--muted)",
+                                  boxShadow: checkInFilter === filter ? "0 1px 3px rgba(0,0,0,0.1)" : "none"
+                                }}
                               >
-                                <div className="flex items-center gap-4">
-                                  <div className={`w-3 h-3 rounded-full shrink-0 ${isPresent ? "bg-emerald-500" : "bg-zinc-300"}`} />
-                                  <div>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <p className="font-extrabold text-zinc-900 text-base leading-tight">{displayName}</p>
-                                      {isPresent && (
-                                        <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                                          Present
+                                {filter} ({count})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Fast Manual Check-In Bar */}
+                      <form onSubmit={handleQuickCodeCheckIn} className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center p-3.5 rounded-2xl border border-dashed mt-4" style={{ background: "var(--input)", borderColor: "var(--border)" }}>
+                        <span className="text-xs font-mono font-bold uppercase whitespace-nowrap" style={{ color: "var(--muted)" }}>
+                          Manual Check-in:
+                        </span>
+                        <Input
+                          value={quickTicketCode}
+                          onChange={(e) => setQuickTicketCode(e.target.value)}
+                          placeholder="Enter ticket code, e.g. TCK-8F29A..."
+                          className="font-mono text-xs rounded-xl flex-1 h-9"
+                          style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--text)" }}
+                        />
+                        <Button
+                          type="submit"
+                          disabled={isQuickCheckingIn || !quickTicketCode.trim()}
+                          className="rounded-xl font-bold px-4 h-9 text-xs text-white shrink-0 shadow-xs"
+                          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                        >
+                          {isQuickCheckingIn ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Check in"}
+                        </Button>
+                      </form>
+                      {quickCheckInMessage && (
+                        <p className={`text-xs font-semibold mt-2 ${quickCheckInMessage.type === "success" ? "text-emerald-500" : "text-red-500"}`}>
+                          {quickCheckInMessage.text}
+                        </p>
+                      )}
+
+                      {/* Attendees Table */}
+                      <div className="mt-6 rounded-2xl border overflow-hidden" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+                        {/* Table Header */}
+                        <div className="hidden md:grid grid-cols-[minmax(0,2fr)_minmax(140px,1.2fr)_120px_90px_110px] gap-4 px-5 py-3 border-b text-[11px] font-mono font-bold uppercase tracking-wider" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--subtle)" }}>
+                          <span>Attendee</span>
+                          <span>Ticket Code</span>
+                          <span>Status</span>
+                          <span>Registered</span>
+                          <span className="text-right">Action</span>
+                        </div>
+
+                        {/* Table Rows */}
+                        {participants.length === 0 ? (
+                          <p className="font-medium py-12 text-center text-sm" style={{ color: "var(--muted)" }}>No participants registered yet.</p>
+                        ) : (
+                          <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+                            {participants
+                              .filter((p) => {
+                                const query = searchQuery.toLowerCase().trim();
+                                const pName = p.name || p.user?.name || "";
+                                const pEmail = p.email || p.user?.email || "";
+                                const pTicket = p.ticketCode || "";
+                                const matchesSearch =
+                                  pName.toLowerCase().includes(query) ||
+                                  pEmail.toLowerCase().includes(query) ||
+                                  pTicket.toLowerCase().includes(query);
+
+                                if (checkInFilter === "PRESENT") {
+                                  return matchesSearch && !!(p.checkedIn || p.checked_in);
+                                }
+                                if (checkInFilter === "ABSENT") {
+                                  return matchesSearch && !(p.checkedIn || p.checked_in);
+                                }
+                                return matchesSearch;
+                              })
+                              .map((p, i) => {
+                                const isPresent = !!(p.checkedIn || p.checked_in);
+                                const isChecking = isPerformingCheckIn === p.registrationId;
+                                const displayName = p.name || p.user?.name || "Participant";
+                                const displayEmail = p.email || p.user?.email || "";
+                                const displayTicket = p.ticketCode || "N/A";
+                                const regDate = p.registeredAt || p.created_at || p.createdAt;
+
+                                return (
+                                  <div
+                                    key={p.registrationId || i}
+                                    className="flex flex-col md:grid md:grid-cols-[minmax(0,2fr)_minmax(140px,1.2fr)_120px_90px_110px] gap-3 md:gap-4 items-start md:items-center px-5 py-3.5 transition-colors hover:bg-white/[0.02]"
+                                    style={{ borderColor: "var(--border)" }}
+                                  >
+                                    {/* Attendee Info */}
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)", color: "var(--accent)" }}>
+                                        {displayName.slice(0, 2).toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-sm truncate" style={{ color: "var(--text)" }}>{displayName}</p>
+                                        <p className="text-xs truncate" style={{ color: "var(--muted)" }}>{displayEmail}</p>
+                                      </div>
+                                    </div>
+
+                                    {/* Ticket Code */}
+                                    <div className="min-w-0 w-full flex items-center overflow-hidden">
+                                      <code
+                                        className="font-mono text-xs px-2.5 py-1 rounded-md border truncate max-w-full inline-block select-all cursor-pointer hover:border-[var(--accent)] transition-colors"
+                                        style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
+                                        title={`Ticket Code: ${displayTicket} (click to copy)`}
+                                        onClick={() => {
+                                          if (displayTicket && displayTicket !== "N/A") {
+                                            navigator.clipboard?.writeText(displayTicket);
+                                            showSuccess("Ticket code copied!");
+                                          }
+                                        }}
+                                      >
+                                        {displayTicket}
+                                      </code>
+                                    </div>
+
+                                    {/* Status Badge */}
+                                    <div className="min-w-0 shrink-0">
+                                      {isPresent ? (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
+                                          <CheckCircle2 className="w-3.5 h-3.5" /> Checked In
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/25">
+                                          <Clock className="w-3.5 h-3.5" /> Pending
                                         </span>
                                       )}
                                     </div>
-                                    <p className="text-sm text-zinc-500 font-medium mt-1">{displayEmail}</p>
-                                    <p className="text-xs text-zinc-400 font-medium mt-1">Ticket Code: <code className="font-mono bg-zinc-200/50 px-1 py-0.5 rounded text-[10px] text-zinc-600 font-extrabold">{displayTicket}</code></p>
-                                  </div>
-                                </div>
 
-                                <div className="flex items-center gap-3">
-                                  {isPresent ? (
-                                    <div className="text-right">
-                                      <span className="text-xs font-bold text-zinc-400">Checked In At</span>
-                                      <p className="text-xs font-black text-zinc-600 mt-0.5">
-                                        {new Date(p.checkedInAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                      </p>
+                                    {/* Registered Date */}
+                                    <div className="text-xs font-mono" style={{ color: "var(--subtle)" }}>
+                                      {regDate ? new Date(regDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
                                     </div>
-                                  ) : (
-                                    <Button
-                                      onClick={() => handleManualCheckIn(p)}
-                                      disabled={isChecking}
-                                      className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 text-xs flex items-center gap-1.5 shadow-sm"
-                                    >
-                                      {isChecking ? (
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+
+                                    {/* Action Button */}
+                                    <div className="md:text-right w-full md:w-auto">
+                                      {isPresent ? (
+                                        <span className="text-xs font-semibold text-emerald-500 flex items-center md:justify-end gap-1">
+                                          <Check className="w-3.5 h-3.5" /> Verified
+                                        </span>
                                       ) : (
-                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <Button
+                                          onClick={() => handleManualCheckIn(p)}
+                                          disabled={isChecking}
+                                          className="rounded-lg text-white font-bold px-3 py-1.5 text-xs flex items-center gap-1.5 shadow-xs w-full md:w-auto justify-center"
+                                          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                                        >
+                                          {isChecking ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                                          Check In
+                                        </Button>
                                       )}
-                                      Mark Present
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
 
                 {/* 3. EDIT TAB (FULLY STRUCTURED FILE UPLOAD, FILE DETAILS & PREVIEW) */}
                 {activeTab === "EDIT" && (
-                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-6">
+                  <div className="animate-in fade-in duration-500 p-6 md:p-8 rounded-[20px] border shadow-sm space-y-6" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
                     <div>
-                      <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Edit Event Details</h1>
-                      <p className="text-zinc-500 font-medium mt-1">Update your event banner, details, schedule, and pricing.</p>
+                      <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>Edit Event Details</h1>
+                      <p className="text-xs sm:text-sm font-medium mt-1" style={{ color: "var(--muted)" }}>Update your event banner, details, schedule, and pricing.</p>
                     </div>
 
                     {updateMessage.text && (
-                      <div className={`p-4 rounded-2xl flex items-center gap-3 font-semibold text-sm ${updateMessage.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
-                        {updateMessage.type === "success" ? <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />}
+                      <div className={`p-4 rounded-2xl flex items-center gap-3 font-semibold text-sm ${updateMessage.type === "success" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/25" : "bg-red-500/10 text-red-500 border border-red-500/25"}`}>
+                        {updateMessage.type === "success" ? <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /> : <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />}
                         <span>{updateMessage.text}</span>
                       </div>
                     )}
@@ -1861,18 +2185,18 @@ export default function EventDetailsPage() {
 
                       {/* BANNER / IMAGE UPLOAD FIELD (FILE UPLOAD, FILE DETAILS, AND PREVIEW IMAGE) */}
                       <div className="space-y-4">
-                        <Label className="font-bold text-zinc-700">Event Cover Banner</Label>
+                        <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Event Cover Banner</Label>
 
                         {/* STEP A: FILE UPLOAD DROPZONE */}
-                        <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-zinc-300 hover:border-indigo-500 rounded-2xl cursor-pointer bg-zinc-50 hover:bg-indigo-50/30 transition-all">
+                        <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-2xl cursor-pointer transition-all hover:border-[var(--accent)]" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
                           <div className="flex flex-col items-center justify-center text-center px-4">
-                            <div className="p-2.5 bg-zinc-200/60 rounded-xl text-zinc-600 mb-2">
+                            <div className="p-2.5 rounded-xl mb-2" style={{ background: "var(--input)", color: "var(--accent)" }}>
                               <UploadCloud className="w-5 h-5" />
                             </div>
-                            <p className="text-sm font-bold text-zinc-800">
+                            <p className="text-sm font-bold" style={{ color: "var(--text)" }}>
                               {bannerFile ? "Choose a different banner" : "Click to select or drag event banner"}
                             </p>
-                            <p className="text-xs text-zinc-400 font-medium mt-1">Supports PNG, JPG, or WEBP (Max 5MB)</p>
+                            <p className="text-xs font-medium mt-1" style={{ color: "var(--subtle)" }}>Supports PNG, JPG, or WEBP (Max 5MB)</p>
                           </div>
                           <input
                             type="file"
@@ -1884,14 +2208,14 @@ export default function EventDetailsPage() {
 
                         {/* STEP B: SHOW SELECTED FILE DETAILS & NAME */}
                         {bannerFile && (
-                          <div className="flex items-center justify-between p-3.5 bg-indigo-50/60 rounded-xl border border-indigo-100">
+                          <div className="flex items-center justify-between p-3.5 rounded-xl border" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
                             <div className="flex items-center gap-3 overflow-hidden">
-                              <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg shrink-0">
+                              <div className="p-2 rounded-lg shrink-0" style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)", color: "var(--accent)" }}>
                                 <ImageIcon className="w-4 h-4" />
                               </div>
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-zinc-900 truncate">{bannerFile.name}</p>
-                                <p className="text-[11px] font-medium text-zinc-500">
+                                <p className="text-xs font-bold truncate" style={{ color: "var(--text)" }}>{bannerFile.name}</p>
+                                <p className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
                                   {(bannerFile.size / (1024 * 1024)).toFixed(2)} MB
                                 </p>
                               </div>
@@ -1899,7 +2223,7 @@ export default function EventDetailsPage() {
                             <button
                               type="button"
                               onClick={handleRemoveBanner}
-                              className="text-xs font-bold text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors shrink-0"
+                              className="text-xs font-bold text-red-500 hover:text-red-600 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition-colors shrink-0"
                             >
                               Remove
                             </button>
@@ -1909,10 +2233,10 @@ export default function EventDetailsPage() {
                         {/* STEP C: SHOW LIVE IMAGE PREVIEW */}
                         {bannerPreview && (
                           <div className="space-y-1.5">
-                            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
                               Banner Image Preview
                             </span>
-                            <div className="relative w-full h-56 rounded-2xl overflow-hidden border border-zinc-200 bg-zinc-900 group">
+                            <div className="relative w-full h-56 rounded-2xl overflow-hidden border bg-zinc-900 group" style={{ borderColor: "var(--border)" }}>
                               <img
                                 src={bannerPreview}
                                 alt="Event Banner Preview"
@@ -1942,155 +2266,173 @@ export default function EventDetailsPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="font-bold text-zinc-700">Event Title</Label>
+                        <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Event Title</Label>
                         <Input
                           value={editData.title || ""}
                           onChange={(e) => setEditData({ ...editData, title: e.target.value })}
                           required
-                          className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
+                          className="py-6 rounded-xl text-xs font-medium"
+                          style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                         />
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label className="font-bold text-zinc-700">Event Type</Label>
+                          <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Event Type</Label>
                           <select
                             value={customTypeEditMode ? "other" : editData.type}
                             onChange={(e) => handleTypeSelectChange(e.target.value)}
-                            className="w-full h-12 px-3 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full h-12 px-3 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)] border"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           >
                             {eventTypes.map((t) => (
-                              <option key={t.id} value={t.name.toLowerCase()}>
+                              <option key={t.id} value={t.name.toLowerCase()} style={{ background: "var(--card)", color: "var(--text)" }}>
                                 {t.name}
                               </option>
                             ))}
-                            <option value="other">Other (Specify dynamic type)</option>
+                            <option value="other" style={{ background: "var(--card)", color: "var(--text)" }}>Other (Specify dynamic type)</option>
                           </select>
                           {customTypeEditMode && (
                             <Input
                               placeholder="Enter custom type..."
                               value={customType}
                               onChange={(e) => setCustomType(e.target.value)}
-                              className="mt-2 py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                              className="mt-2 py-5 rounded-xl text-xs"
+                              style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                               required
                             />
                           )}
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="font-bold text-zinc-700">Mode</Label>
+                          <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Mode</Label>
                           <select
                             value={editData.mode || "offline"}
                             onChange={(e) => setEditData({ ...editData, mode: e.target.value })}
-                            className="w-full h-12 px-3 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full h-12 px-3 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)] border"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           >
                             {MODES.map((m) => (
-                              <option key={m} value={m}>{m.toUpperCase()}</option>
+                              <option key={m} value={m} style={{ background: "var(--card)", color: "var(--text)" }}>{m.toUpperCase()}</option>
                             ))}
                           </select>
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="font-bold text-zinc-700">Location</Label>
+                        <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Location</Label>
                         <Input
                           value={editData.mode === "online" ? "Online" : editData.location || ""}
                           onChange={(e) => setEditData({ ...editData, location: e.target.value })}
                           disabled={editData.mode === "online"}
-                          className="py-6 rounded-xl bg-zinc-50 border-zinc-200 disabled:opacity-50"
+                          className="py-6 rounded-xl text-xs disabled:opacity-50"
+                          style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                         />
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label className="font-bold text-zinc-700">Start Date & Time</Label>
+                          <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Start Date & Time</Label>
                           <Input
                             type="datetime-local"
                             value={editData.start_date || ""}
                             onChange={(e) => setEditData({ ...editData, start_date: e.target.value })}
                             required
-                            className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
+                            className="py-6 rounded-xl text-xs font-mono"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="font-bold text-zinc-700">End Date & Time</Label>
+                          <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>End Date & Time</Label>
                           <Input
                             type="datetime-local"
                             value={editData.end_date || ""}
                             onChange={(e) => setEditData({ ...editData, end_date: e.target.value })}
                             required
-                            className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
+                            className="py-6 rounded-xl text-xs font-mono"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
-                          <Label className="font-bold text-zinc-700">Capacity</Label>
+                          <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Capacity</Label>
                           <Input
                             type="number"
                             value={editData.capacity || "0"}
                             onChange={(e) => setEditData({ ...editData, capacity: e.target.value })}
-                            className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
+                            className="py-6 rounded-xl text-xs"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="font-bold text-zinc-700">Registration Fee (₹)</Label>
+                          <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Registration Fee (₹)</Label>
                           <Input
                             type="number"
                             value={editData.registration_fee || "0"}
                             onChange={(e) => setEditData({ ...editData, registration_fee: e.target.value })}
-                            className="py-6 rounded-xl bg-zinc-50 border-zinc-200"
+                            className="py-6 rounded-xl text-xs"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="font-bold text-zinc-700">Registration Type</Label>
+                          <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Registration Type</Label>
                           <select
                             value={editData.registration_type || "solo"}
                             onChange={(e) => setEditData({ ...editData, registration_type: e.target.value })}
-                            className="w-full h-12 px-3 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full h-12 px-3 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)] border"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           >
                             {REG_TYPES.map((rt) => (
-                              <option key={rt} value={rt}>{rt.toUpperCase()}</option>
+                              <option key={rt} value={rt} style={{ background: "var(--card)", color: "var(--text)" }}>{rt.toUpperCase()}</option>
                             ))}
                           </select>
                         </div>
                       </div>
 
                       {editData.registration_type === "team" && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50 p-6 rounded-2xl border border-zinc-200">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-2xl border" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
                           <div className="space-y-2">
-                            <Label className="font-bold text-zinc-700">Min Team Size</Label>
+                            <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Min Team Size</Label>
                             <Input
                               type="number"
                               value={editData.min_team_size || "1"}
                               onChange={(e) => setEditData({ ...editData, min_team_size: e.target.value })}
-                              className="py-6 rounded-xl bg-white border-zinc-200"
+                              className="py-6 rounded-xl text-xs"
+                              style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label className="font-bold text-zinc-700">Max Team Size</Label>
+                            <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Max Team Size</Label>
                             <Input
                               type="number"
                               value={editData.max_team_size || "1"}
                               onChange={(e) => setEditData({ ...editData, max_team_size: e.target.value })}
-                              className="py-6 rounded-xl bg-white border-zinc-200"
+                              className="py-6 rounded-xl text-xs"
+                              style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                             />
                           </div>
                         </div>
                       )}
 
                       <div className="space-y-2">
-                        <Label className="font-bold text-zinc-700">Description</Label>
+                        <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Description</Label>
                         <textarea
                           rows={5}
                           value={editData.description || ""}
                           onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                          className="w-full p-4 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full p-4 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[var(--accent)] border"
+                          style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                         />
                       </div>
 
-                      <Button className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-6 shadow-lg shadow-indigo-600/25" disabled={isUpdating} type="submit">
+                      <Button
+                        className="w-full rounded-2xl font-bold py-6 text-white shadow-lg transition-transform hover:scale-[1.01]"
+                        style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                        disabled={isUpdating}
+                        type="submit"
+                      >
                         {isUpdating ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save Event Changes"}
                       </Button>
                     </form>
@@ -2099,23 +2441,25 @@ export default function EventDetailsPage() {
 
                 {/* 3.5. AGENDA TAB */}
                 {activeTab === "AGENDA" && hasPermission("MANAGE_EVENT") && (
-                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-6">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-100 pb-6">
+                  <div className="animate-in fade-in duration-500 p-6 md:p-8 rounded-[20px] border shadow-sm space-y-6" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6" style={{ borderColor: "var(--border)" }}>
                       <div>
-                        <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Event Agenda</h1>
-                        <p className="text-zinc-500 font-medium mt-1">Design a creative schedule and session timeline for your event.</p>
+                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>Event Agenda</h1>
+                        <p className="text-xs sm:text-sm font-medium mt-1" style={{ color: "var(--muted)" }}>Design a creative schedule and session timeline for your event.</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
                         <Button
                           onClick={() => setIsAiAgendaModalOpen(true)}
-                          className="rounded-2xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-500 hover:via-indigo-500 hover:to-purple-500 text-white font-extrabold px-6 py-6 shadow-lg shadow-indigo-600/25 flex items-center gap-2 self-start md:self-auto transition-transform hover:scale-[1.02]"
+                          className="rounded-2xl text-white font-extrabold px-6 py-6 shadow-lg flex items-center gap-2 self-start md:self-auto transition-transform hover:scale-[1.02]"
+                          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                         >
                           <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" /> AI Agenda Builder
                         </Button>
                         <Button
                           onClick={handleOpenAddAgenda}
                           variant="outline"
-                          className="rounded-2xl border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-bold px-6 py-6 shadow-sm flex items-center gap-2 self-start md:self-auto"
+                          className="rounded-2xl font-bold px-6 py-6 shadow-sm flex items-center gap-2 self-start md:self-auto"
+                          style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
                         >
                           <Plus className="w-5 h-5" /> Manual Session
                         </Button>
@@ -2123,20 +2467,22 @@ export default function EventDetailsPage() {
                     </div>
 
                     {timelinesList.length === 0 ? (
-                      <div className="text-center py-16 border-2 border-dashed border-zinc-200 rounded-3xl bg-zinc-50">
-                        <Clock className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
-                        <h3 className="font-extrabold text-zinc-800 text-lg">No sessions added yet</h3>
-                        <p className="text-zinc-500 text-sm font-medium mt-1">Add sessions manually or let AI structure an agenda from your voice prompt.</p>
+                      <div className="text-center py-16 border-2 border-dashed rounded-3xl" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                        <Clock className="w-12 h-12 mx-auto mb-4" style={{ color: "var(--subtle)" }} />
+                        <h3 className="font-extrabold text-lg" style={{ color: "var(--text)" }}>No sessions added yet</h3>
+                        <p className="text-sm font-medium mt-1" style={{ color: "var(--muted)" }}>Add sessions manually or let AI structure an agenda from your voice prompt.</p>
                         <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
                           <Button
                             onClick={() => setIsAiAgendaModalOpen(true)}
-                            className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold px-6 py-3 shadow-md shadow-indigo-600/20 flex items-center gap-2"
+                            className="rounded-xl text-white font-bold px-6 py-3 shadow-md flex items-center gap-2"
+                            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                           >
                             <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" /> Build with AI
                           </Button>
                           <Button
                             onClick={handleOpenAddAgenda}
-                            className="rounded-xl bg-white border border-zinc-200 text-zinc-800 font-bold px-6 py-3 hover:bg-zinc-50 shadow-sm flex items-center gap-2"
+                            className="rounded-xl font-bold px-6 py-3 shadow-sm flex items-center gap-2"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           >
                             <Plus className="w-4 h-4" /> Manual Session
                           </Button>
@@ -2144,107 +2490,111 @@ export default function EventDetailsPage() {
                       </div>
                     ) : (
                       <div className="space-y-6">
-                        <div className="relative border-l border-zinc-200 ml-4 pl-8 space-y-8 py-4">
-                        {timelinesList.slice(0, visibleAgendaCount).map((timeline) => {
-                          const start = new Date(timeline.start_time);
-                          const end = timeline.end_time ? new Date(timeline.end_time) : null;
-                          return (
-                            <div key={timeline.id} className="relative group">
-                              {/* Timeline Point */}
-                              <div className="absolute -left-[41px] top-1.5 w-6 h-6 rounded-full bg-white border-4 border-indigo-600 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform" />
+                        <div className="relative border-l ml-4 pl-8 space-y-8 py-4" style={{ borderColor: "var(--border)" }}>
+                          {timelinesList.slice(0, visibleAgendaCount).map((timeline) => {
+                            const start = new Date(timeline.start_time);
+                            const end = timeline.end_time ? new Date(timeline.end_time) : null;
+                            return (
+                              <div key={timeline.id} className="relative group">
+                                {/* Timeline Point */}
+                                <div className="absolute -left-[41px] top-1.5 w-6 h-6 rounded-full border-4 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform" style={{ background: "var(--bg)", borderColor: "var(--accent)" }} />
 
-                              <div className="bg-zinc-50 border border-zinc-200/60 p-6 rounded-3xl hover:border-zinc-300 hover:bg-white hover:shadow-md transition-all duration-300 space-y-4">
-                                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center gap-3 text-xs font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-xl w-fit">
-                                      <Clock className="w-3.5 h-3.5" />
-                                      <span>
-                                        {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        {end && ` - ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-                                      </span>
-                                      <span className="text-zinc-300">|</span>
-                                      <span>
-                                        {start.toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                                      </span>
+                                <div className="border p-6 rounded-3xl hover:shadow-md transition-all duration-300 space-y-4" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center gap-3 text-xs font-black uppercase tracking-widest px-3 py-1 rounded-xl w-fit border" style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)", borderColor: "color-mix(in oklab, var(--accent) 30%, transparent)", color: "var(--accent)" }}>
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span>
+                                          {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                          {end && ` - ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                                        </span>
+                                        <span style={{ color: "var(--subtle)" }}>|</span>
+                                        <span>
+                                          {start.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                        </span>
+                                      </div>
+                                      <h3 className="text-xl font-extrabold leading-snug" style={{ color: "var(--text)" }}>{timeline.title}</h3>
                                     </div>
-                                    <h3 className="text-xl font-extrabold text-zinc-950 leading-snug">{timeline.title}</h3>
-                                  </div>
 
-                                  <div className="flex items-center gap-2 self-end md:self-start">
-                                    <Button
-                                      onClick={() => handleOpenEditAgenda(timeline)}
-                                      variant="ghost"
-                                      size="icon"
-                                      className="rounded-xl hover:bg-zinc-200/70 text-zinc-600 w-9 h-9"
-                                      title="Edit"
-                                      type="button"
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      onClick={() => handleDeleteAgenda(timeline.id)}
-                                      variant="ghost"
-                                      size="icon"
-                                      className="rounded-xl hover:bg-red-50 text-red-600 w-9 h-9"
-                                      title="Delete"
-                                      type="button"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-
-                                <div className="flex flex-wrap gap-4 text-xs font-bold text-zinc-500">
-                                  {timeline.speaker_name && (
-                                    <span className="flex items-center gap-1.5 bg-zinc-200/50 px-2.5 py-1 rounded-lg">
-                                      <UserCircle2 className="w-3.5 h-3.5 text-zinc-600" />
-                                      Speaker: <strong className="text-zinc-700">{timeline.speaker_name}</strong>
-                                    </span>
-                                  )}
-                                  {timeline.location && (
-                                    <span className="flex items-center gap-1.5 bg-zinc-200/50 px-2.5 py-1 rounded-lg">
-                                      <MapPin className="w-3.5 h-3.5 text-zinc-600" />
-                                      Room/Location: <strong className="text-zinc-700">{timeline.location}</strong>
-                                    </span>
-                                  )}
-                                </div>
-
-                                {timeline.tags && Array.isArray(timeline.tags) && timeline.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1.5 pt-1">
-                                    {timeline.tags.map((tag: string) => (
-                                      <span
-                                        key={tag}
-                                        className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center gap-1"
+                                    <div className="flex items-center gap-2 self-end md:self-start">
+                                      <Button
+                                        onClick={() => handleOpenEditAgenda(timeline)}
+                                        variant="ghost"
+                                        size="icon"
+                                        className="rounded-xl w-9 h-9"
+                                        style={{ color: "var(--muted)" }}
+                                        title="Edit"
+                                        type="button"
                                       >
-                                        <Tag className="w-3 h-3 text-indigo-500" />
-                                        #{tag}
-                                      </span>
-                                    ))}
+                                        <Pencil className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        onClick={() => handleDeleteAgenda(timeline.id)}
+                                        variant="ghost"
+                                        size="icon"
+                                        className="rounded-xl hover:bg-red-500/10 text-red-500 w-9 h-9"
+                                        title="Delete"
+                                        type="button"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </div>
                                   </div>
-                                )}
 
-                                {timeline.description && (
-                                  <div
-                                    className="text-zinc-600 text-sm font-medium leading-relaxed border-t border-zinc-150 pt-3 prose prose-zinc prose-sm max-w-none"
-                                    dangerouslySetInnerHTML={{ __html: timeline.description }}
-                                  />
-                                )}
+                                  <div className="flex flex-wrap gap-4 text-xs font-bold" style={{ color: "var(--muted)" }}>
+                                    {timeline.speaker_name && (
+                                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border" style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}>
+                                        <UserCircle2 className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                                        Speaker: <strong style={{ color: "var(--text)" }}>{timeline.speaker_name}</strong>
+                                      </span>
+                                    )}
+                                    {timeline.location && (
+                                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border" style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}>
+                                        <MapPin className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                                        Room/Location: <strong style={{ color: "var(--text)" }}>{timeline.location}</strong>
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {timeline.tags && Array.isArray(timeline.tags) && timeline.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                      {timeline.tags.map((tag: string) => (
+                                        <span
+                                          key={tag}
+                                          className="px-2.5 py-0.5 rounded-full text-[11px] font-bold border flex items-center gap-1"
+                                          style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--text)" }}
+                                        >
+                                          <Tag className="w-3 h-3" style={{ color: "var(--accent)" }} />
+                                          #{tag}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {timeline.description && (
+                                    <div
+                                      className="text-sm font-medium leading-relaxed border-t pt-3 max-w-none"
+                                      style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                                      dangerouslySetInnerHTML={{ __html: timeline.description }}
+                                    />
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
                         </div>
                         {timelinesList.length > visibleAgendaCount && (
                           <div className="flex flex-col items-center gap-2">
                             <Button
                               onClick={() => setVisibleAgendaCount((c) => c + 20)}
                               variant="outline"
-                              className="rounded-2xl border-zinc-200 bg-white text-zinc-800 font-bold px-6 py-6 hover:bg-zinc-50 shadow-sm flex items-center gap-2"
+                              className="rounded-2xl font-bold px-6 py-6 shadow-sm flex items-center gap-2"
+                              style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
                             >
-                              <ChevronDown className="w-5 h-5 text-indigo-600" />
+                              <ChevronDown className="w-5 h-5" style={{ color: "var(--accent)" }} />
                               Show More Sessions
                             </Button>
-                            <p className="text-xs font-semibold text-zinc-400">
+                            <p className="text-xs font-semibold" style={{ color: "var(--subtle)" }}>
                               Showing {Math.min(visibleAgendaCount, timelinesList.length)} of {timelinesList.length} sessions
                             </p>
                           </div>
@@ -2256,18 +2606,19 @@ export default function EventDetailsPage() {
 
                 {/* 4. STAFF & ROLES TAB */}
                 {activeTab === "STAFF" && hasPermission("MANAGE_STAFF") && (
-                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-8">
+                  <div className="animate-in fade-in duration-500 p-6 md:p-8 rounded-[20px] border shadow-sm space-y-8" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div>
-                        <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Organization Staff & Roles</h1>
-                        <p className="text-zinc-500 font-medium mt-1">Categorized organization members, RBAC roles, and granular permission controls.</p>
+                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>Organization Staff & Roles</h1>
+                        <p className="text-xs sm:text-sm font-medium mt-1" style={{ color: "var(--muted)" }}>Categorized organization members, RBAC roles, and granular permission controls.</p>
                       </div>
                       <Button
                         onClick={() => {
                           const el = document.getElementById("invite-form");
                           el?.scrollIntoView({ behavior: "smooth" });
                         }}
-                        className={`rounded-full ${activeAccent.bg} hover:opacity-90 text-white font-bold px-6 py-2.5 shadow-md flex items-center gap-2 text-sm`}
+                        className="rounded-full text-white font-bold px-6 py-2.5 shadow-md flex items-center gap-2 text-sm transition-transform hover:scale-[1.02]"
+                        style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                       >
                         <UserPlus className="w-4 h-4" /> Add Staff Member
                       </Button>
@@ -2278,33 +2629,41 @@ export default function EventDetailsPage() {
                       const getRoleCount = (name: string) => staffList.filter(s => (s.role?.name || "") === name).length;
 
                       const categories = [
-                        { id: "ALL", label: "All Members", count: staffList.length, color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-                        { id: "Admin", label: "Admins", count: getRoleCount("Admin"), color: "bg-purple-50 text-purple-700 border-purple-200" },
-                        { id: "Registration Manager", label: "Registration Managers", count: getRoleCount("Registration Manager"), color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-                        { id: "Program Manager", label: "Program Managers", count: getRoleCount("Program Manager"), color: "bg-blue-50 text-blue-700 border-blue-200" },
-                        { id: "Volunteer", label: "Volunteers", count: getRoleCount("Volunteer"), color: "bg-amber-50 text-amber-700 border-amber-200" },
-                        { id: "Guest", label: "Guests", count: getRoleCount("Guest"), color: "bg-zinc-100 text-zinc-700 border-zinc-200" },
-                        { id: "PENDING", label: "Pending Invites", count: pendingInvites.length, color: "bg-orange-50 text-orange-700 border-orange-200" },
+                        { id: "ALL", label: "All Members", count: staffList.length },
+                        { id: "Admin", label: "Admins", count: getRoleCount("Admin") },
+                        { id: "Registration Manager", label: "Registration Managers", count: getRoleCount("Registration Manager") },
+                        { id: "Program Manager", label: "Program Managers", count: getRoleCount("Program Manager") },
+                        { id: "Volunteer", label: "Volunteers", count: getRoleCount("Volunteer") },
+                        { id: "Guest", label: "Guests", count: getRoleCount("Guest") },
+                        { id: "PENDING", label: "Pending Invites", count: pendingInvites.length },
                       ];
 
                       return (
-                        <div className="flex flex-wrap items-center gap-2.5 pb-2 border-b border-zinc-100">
+                        <div className="flex flex-wrap items-center gap-2.5 pb-2 border-b" style={{ borderColor: "var(--border)" }}>
                           {categories.map((cat) => {
                             const isSelected = selectedRoleCategory === cat.id;
                             return (
                               <button
                                 key={cat.id}
                                 onClick={() => setSelectedRoleCategory(cat.id)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all border ${
-                                  isSelected
-                                    ? `${activeAccent.bg} text-white border-transparent shadow-sm scale-105`
-                                    : `${cat.color} hover:opacity-85`
-                                }`}
+                                className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all border cursor-pointer"
+                                style={{
+                                  background: isSelected ? "linear-gradient(135deg, var(--accent), var(--accent2))" : "var(--card2)",
+                                  borderColor: isSelected ? "transparent" : "var(--border)",
+                                  color: isSelected ? "#ffffff" : "var(--text)",
+                                  boxShadow: isSelected ? "0 4px 12px color-mix(in oklab, var(--accent) 30%, transparent)" : "none",
+                                  transform: isSelected ? "scale(1.04)" : "none",
+                                }}
                               >
                                 <span>{cat.label}</span>
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                                  isSelected ? "bg-white/20 text-white" : "bg-white/80 text-zinc-900 shadow-2xs"
-                                }`}>
+                                <span
+                                  className="px-2 py-0.5 rounded-full text-[10px] font-black border"
+                                  style={{
+                                    background: isSelected ? "rgba(255, 255, 255, 0.25)" : "var(--input)",
+                                    borderColor: isSelected ? "transparent" : "var(--border)",
+                                    color: isSelected ? "#ffffff" : "var(--muted)",
+                                  }}
+                                >
                                   {cat.count}
                                 </span>
                               </button>
@@ -2315,9 +2674,9 @@ export default function EventDetailsPage() {
                     })()}
 
                     {/* Invite Staff Form */}
-                    <form id="invite-form" onSubmit={handleInviteStaff} className="bg-zinc-50 p-6 rounded-3xl border border-zinc-200 space-y-4 shadow-2xs">
-                      <h3 className="font-extrabold text-zinc-900 text-base flex items-center gap-2">
-                        <UserPlus className="w-4 h-4 text-indigo-600" /> Invite Organization Member
+                    <form id="invite-form" onSubmit={handleInviteStaff} className="p-6 rounded-3xl border space-y-4 shadow-2xs" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                      <h3 className="font-extrabold text-base flex items-center gap-2" style={{ color: "var(--text)" }}>
+                        <UserPlus className="w-4 h-4" style={{ color: "var(--accent)" }} /> Invite Organization Member
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <Input
@@ -2325,22 +2684,29 @@ export default function EventDetailsPage() {
                           type="email"
                           value={inviteEmail}
                           onChange={(e) => setInviteEmail(e.target.value)}
-                          className="py-6 bg-white border-zinc-200 rounded-2xl md:col-span-2"
+                          className="py-6 rounded-2xl md:col-span-2 text-xs"
+                          style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           required
                         />
                         <select
                           value={inviteRoleId}
                           onChange={(e) => setInviteRoleId(e.target.value)}
-                          className="h-12 px-4 rounded-2xl bg-white border border-zinc-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="h-12 px-4 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--accent)] border"
+                          style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           required
                         >
-                          <option value="">Assign Role (5 Options)...</option>
+                          <option value="" style={{ background: "var(--card)", color: "var(--text)" }}>Assign Role (5 Options)...</option>
                           {roles.map((r) => (
-                            <option key={r.id} value={r.id}>{r.name}</option>
+                            <option key={r.id} value={r.id} style={{ background: "var(--card)", color: "var(--text)" }}>{r.name}</option>
                           ))}
                         </select>
                       </div>
-                      <Button className={`rounded-2xl ${activeAccent.bg} hover:opacity-90 text-white font-bold px-6 py-5 shadow-sm`} disabled={isInviting} type="submit">
+                      <Button
+                        className="rounded-2xl text-white font-bold px-6 py-5 shadow-sm transition-transform hover:scale-[1.01]"
+                        style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                        disabled={isInviting}
+                        type="submit"
+                      >
                         {isInviting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Role Invitation"}
                       </Button>
                     </form>
@@ -2348,18 +2714,18 @@ export default function EventDetailsPage() {
                     {/* CATEGORIZED MEMBERS LISTING */}
                     {(() => {
                       const rolesOrder = ["Admin", "Registration Manager", "Program Manager", "Volunteer", "Guest"];
-                      
+
                       const filteredStaff = selectedRoleCategory === "ALL"
                         ? staffList
                         : selectedRoleCategory === "PENDING"
-                        ? []
-                        : staffList.filter(st => (st.role?.name || "") === selectedRoleCategory);
+                          ? []
+                          : staffList.filter(st => (st.role?.name || "") === selectedRoleCategory);
 
                       const activeRolesToDisplay = selectedRoleCategory === "ALL"
                         ? rolesOrder
                         : selectedRoleCategory === "PENDING"
-                        ? []
-                        : [selectedRoleCategory];
+                          ? []
+                          : [selectedRoleCategory];
 
                       return (
                         <div className="space-y-8">
@@ -2369,29 +2735,29 @@ export default function EventDetailsPage() {
 
                             const getRoleBadgeStyle = (name: string) => {
                               switch (name) {
-                                case "Admin": return "bg-purple-100 text-purple-800 border-purple-300";
-                                case "Registration Manager": return "bg-emerald-100 text-emerald-800 border-emerald-300";
-                                case "Program Manager": return "bg-blue-100 text-blue-800 border-blue-300";
-                                case "Volunteer": return "bg-amber-100 text-amber-800 border-amber-300";
-                                default: return "bg-zinc-100 text-zinc-800 border-zinc-300";
+                                case "Admin": return "bg-purple-500/10 text-purple-400 border-purple-500/30";
+                                case "Registration Manager": return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+                                case "Program Manager": return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+                                case "Volunteer": return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+                                default: return "bg-zinc-500/10 text-zinc-400 border-zinc-500/30";
                               }
                             };
 
                             return (
                               <div key={roleCategoryName} className="space-y-4">
-                                <div className="flex items-center justify-between border-b border-zinc-100 pb-2">
+                                <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--border)" }}>
                                   <div className="flex items-center gap-2.5">
                                     <span className={`text-xs font-black px-3 py-1 rounded-full border uppercase tracking-wider ${getRoleBadgeStyle(roleCategoryName)}`}>
                                       {roleCategoryName}
                                     </span>
-                                    <span className="text-xs font-semibold text-zinc-400">
+                                    <span className="text-xs font-semibold" style={{ color: "var(--subtle)" }}>
                                       ({membersInGroup.length} {membersInGroup.length === 1 ? "member" : "members"})
                                     </span>
                                   </div>
                                 </div>
 
                                 {membersInGroup.length === 0 ? (
-                                  <p className="text-zinc-400 text-xs font-medium italic pl-2">No members assigned to {roleCategoryName} role yet.</p>
+                                  <p className="text-xs font-medium italic pl-2" style={{ color: "var(--subtle)" }}>No members assigned to {roleCategoryName} role yet.</p>
                                 ) : (
                                   <div className="grid grid-cols-1 gap-3">
                                     {membersInGroup.map((st, idx) => {
@@ -2402,7 +2768,7 @@ export default function EventDetailsPage() {
                                         : (st.role?.permissions || []);
 
                                       return (
-                                        <div key={idx} className="p-5 bg-zinc-50/80 hover:bg-zinc-50 rounded-3xl border border-zinc-200/80 transition-all shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div key={idx} className="p-5 rounded-3xl border transition-all shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
                                           <div className="flex items-start gap-4">
                                             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-rose-500 flex items-center justify-center text-white font-black text-base shrink-0 shadow-sm">
                                               {st.user?.avatar_url ? (
@@ -2413,9 +2779,9 @@ export default function EventDetailsPage() {
                                             </div>
                                             <div className="space-y-1.5">
                                               <div className="flex flex-wrap items-center gap-2">
-                                                <h4 className="font-extrabold text-zinc-900 text-base">{st.user?.name || "Organization Member"}</h4>
+                                                <h4 className="font-extrabold text-base" style={{ color: "var(--text)" }}>{st.user?.name || "Organization Member"}</h4>
                                                 {isCreator && (
-                                                  <span className="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-full">
+                                                  <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
                                                     Event Creator / Owner
                                                   </span>
                                                 )}
@@ -2423,24 +2789,24 @@ export default function EventDetailsPage() {
                                                   {roleCategoryName}
                                                 </span>
                                               </div>
-                                              <p className="text-xs text-zinc-500 font-semibold">{st.user?.email}</p>
-                                              
+                                              <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>{st.user?.email}</p>
+
                                               {/* PERMISSIONS PILLS */}
                                               <div className="pt-2 flex flex-wrap items-center gap-1.5">
-                                                <span className="text-[10px] font-bold text-zinc-400 uppercase mr-1">Permissions:</span>
+                                                <span className="text-[10px] font-bold uppercase mr-1" style={{ color: "var(--subtle)" }}>Permissions:</span>
                                                 {allUserPermissions.length === 0 ? (
-                                                  <span className="text-[10px] text-zinc-400 italic">None assigned</span>
+                                                  <span className="text-[10px] italic" style={{ color: "var(--subtle)" }}>None assigned</span>
                                                 ) : (
                                                   allUserPermissions.map((permKey) => {
                                                     const isOverride = Array.isArray(userOverrides) && userOverrides.includes(permKey);
                                                     return (
                                                       <span
                                                         key={permKey}
-                                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                                                          isOverride
-                                                            ? "bg-purple-100 text-purple-800 border-purple-300 font-extrabold"
-                                                            : "bg-white text-zinc-700 border-zinc-200"
-                                                        }`}
+                                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${isOverride
+                                                            ? "bg-purple-500/15 text-purple-400 border-purple-500/30 font-extrabold"
+                                                            : ""
+                                                          }`}
+                                                        style={!isOverride ? { background: "var(--input)", borderColor: "var(--border)", color: "var(--muted)" } : {}}
                                                         title={isOverride ? "Custom permission override granted" : "Base role permission"}
                                                       >
                                                         {isOverride ? `+ ${permKey}` : permKey}
@@ -2453,14 +2819,15 @@ export default function EventDetailsPage() {
                                           </div>
 
                                           {/* ADMIN ACTION CONTROLS */}
-                                          <div className="flex items-center gap-2 shrink-0 md:self-center border-t md:border-t-0 pt-3 md:pt-0">
+                                          <div className="flex items-center gap-2 shrink-0 md:self-center border-t md:border-t-0 pt-3 md:pt-0" style={{ borderColor: "var(--border)" }}>
                                             <Button
                                               onClick={() => handleOpenEditStaffModal(st)}
                                               variant="outline"
                                               size="sm"
-                                              className="rounded-xl border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-800 text-xs font-bold flex items-center gap-1.5 py-2 px-3 shadow-2xs"
+                                              className="rounded-xl text-xs font-bold flex items-center gap-1.5 py-2 px-3 shadow-2xs"
+                                              style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                                             >
-                                              <Pencil className="w-3.5 h-3.5 text-indigo-600" /> Edit Role & Permissions
+                                              <Pencil className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} /> Edit Role & Permissions
                                             </Button>
 
                                             {!isCreator && (
@@ -2469,7 +2836,8 @@ export default function EventDetailsPage() {
                                                 disabled={isRemovingStaffId === st.user.id}
                                                 variant="outline"
                                                 size="sm"
-                                                className="rounded-xl border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center gap-1.5 py-2 px-3 shadow-2xs"
+                                                className="rounded-xl text-xs font-bold flex items-center gap-1.5 py-2 px-3 shadow-2xs hover:bg-red-500/10 text-red-500"
+                                                style={{ borderColor: "color-mix(in oklab, #ef4444 30%, var(--border))" }}
                                               >
                                                 {isRemovingStaffId === st.user.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                                                 Remove
@@ -2487,23 +2855,23 @@ export default function EventDetailsPage() {
 
                           {/* PENDING INVITATIONS LIST */}
                           {(selectedRoleCategory === "ALL" || selectedRoleCategory === "PENDING") && pendingInvites.length > 0 && (
-                            <div className="space-y-4 pt-6 border-t border-zinc-200">
+                            <div className="space-y-4 pt-6 border-t" style={{ borderColor: "var(--border)" }}>
                               <div className="flex items-center justify-between">
-                                <h3 className="font-extrabold text-zinc-900 text-base flex items-center gap-2">
+                                <h3 className="font-extrabold text-base flex items-center gap-2" style={{ color: "var(--text)" }}>
                                   <Mail className="w-4.5 h-4.5 text-orange-500" /> Pending Invitations ({pendingInvites.length})
                                 </h3>
                               </div>
                               <div className="grid grid-cols-1 gap-3">
                                 {pendingInvites.map((invite) => (
-                                  <div key={invite.id} className="p-4 bg-orange-50/40 rounded-2xl border border-orange-200/80 flex items-center justify-between gap-4">
+                                  <div key={invite.id} className="p-4 rounded-2xl border flex items-center justify-between gap-4" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
                                     <div>
-                                      <p className="font-extrabold text-zinc-900 text-sm">{invite.email}</p>
-                                      <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                                        Invited as <span className="font-bold text-orange-800 bg-orange-100 px-2 py-0.5 rounded-md border border-orange-200">{invite.role?.name || "Staff"}</span>
+                                      <p className="font-extrabold text-sm" style={{ color: "var(--text)" }}>{invite.email}</p>
+                                      <p className="text-xs font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                                        Invited as <span className="font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-md border border-orange-500/25">{invite.role?.name || "Staff"}</span>
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                      <span className="text-xs font-bold text-orange-700 bg-orange-100 px-3 py-1 rounded-full border border-orange-200">
+                                      <span className="text-xs font-bold text-orange-400 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/25">
                                         Pending Accept
                                       </span>
                                       <Button
@@ -2511,7 +2879,7 @@ export default function EventDetailsPage() {
                                         disabled={isCancellingInviteId === invite.id}
                                         variant="ghost"
                                         size="sm"
-                                        className="text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded-xl font-bold"
+                                        className="text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10 rounded-xl font-bold"
                                       >
                                         {isCancellingInviteId === invite.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Cancel Invite"}
                                       </Button>
@@ -2534,7 +2902,7 @@ export default function EventDetailsPage() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-50 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+                      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
                       onClick={() => !isUpdatingStaff && setEditingMember(null)}
                     >
                       <motion.div
@@ -2542,18 +2910,20 @@ export default function EventDetailsPage() {
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.95, opacity: 0, y: 15 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-white max-w-2xl w-full rounded-[2.5rem] border border-zinc-200 shadow-2xl p-6 sm:p-8 my-8 space-y-6"
+                        className="max-w-2xl w-full rounded-[2.5rem] border shadow-2xl p-6 sm:p-8 my-8 space-y-6"
+                        style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--text)" }}
                       >
-                        <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
+                        <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: "var(--border)" }}>
                           <div>
-                            <h2 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Adjust Role & Permissions</h2>
-                            <p className="text-xs text-zinc-500 font-semibold mt-1">
-                              Updating settings for <span className="text-indigo-600 font-extrabold">{editingMember.user?.name || editingMember.user?.email}</span>
+                            <h2 className="text-2xl font-extrabold tracking-tight" style={{ color: "var(--text)" }}>Adjust Role & Permissions</h2>
+                            <p className="text-xs font-semibold mt-1" style={{ color: "var(--muted)" }}>
+                              Updating settings for <span className="font-extrabold" style={{ color: "var(--accent)" }}>{editingMember.user?.name || editingMember.user?.email}</span>
                             </p>
                           </div>
                           <button
                             onClick={() => setEditingMember(null)}
-                            className="w-9 h-9 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-500 hover:text-zinc-900"
+                            className="w-9 h-9 rounded-full flex items-center justify-center border transition-colors cursor-pointer"
+                            style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -2561,14 +2931,15 @@ export default function EventDetailsPage() {
 
                         {/* SELECT ROLE */}
                         <div className="space-y-2">
-                          <label className="text-sm font-extrabold text-zinc-900">Assigned Role</label>
+                          <label className="text-sm font-extrabold" style={{ color: "var(--text)" }}>Assigned Role</label>
                           <select
                             value={editMemberRoleId}
                             onChange={(e) => handleRoleSelectChange(e.target.value)}
-                            className="w-full h-12 px-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full h-12 px-4 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[var(--accent)] border"
+                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                           >
                             {roles.map((r) => (
-                              <option key={r.id} value={r.id}>{r.name}</option>
+                              <option key={r.id} value={r.id} style={{ background: "var(--card)", color: "var(--text)" }}>{r.name}</option>
                             ))}
                           </select>
                         </div>
@@ -2577,10 +2948,10 @@ export default function EventDetailsPage() {
                         <div className="space-y-4 pt-1">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h3 className="text-sm font-extrabold text-zinc-900">Configure Member Permissions</h3>
-                              <p className="text-xs text-zinc-500 mt-0.5">Toggle any system permission below to customize access for this member.</p>
+                              <h3 className="text-sm font-extrabold" style={{ color: "var(--text)" }}>Configure Member Permissions</h3>
+                              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>Toggle any system permission below to customize access for this member.</p>
                             </div>
-                            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full shrink-0">
+                            <span className="text-xs font-bold px-3 py-1 rounded-full shrink-0 border" style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)", borderColor: "color-mix(in oklab, var(--accent) 30%, transparent)", color: "var(--accent)" }}>
                               {editMemberOverrides.length} / {ALL_PERMISSIONS_LIST.length} Granted
                             </span>
                           </div>
@@ -2590,14 +2961,16 @@ export default function EventDetailsPage() {
                             <button
                               type="button"
                               onClick={handleSelectAllPermissions}
-                              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-lg border border-indigo-200 transition-colors"
+                              className="text-xs font-bold px-3 py-1 rounded-lg border transition-colors cursor-pointer"
+                              style={{ background: "color-mix(in oklab, var(--accent) 10%, transparent)", borderColor: "color-mix(in oklab, var(--accent) 25%, transparent)", color: "var(--accent)" }}
                             >
                               Select All
                             </button>
                             <button
                               type="button"
                               onClick={handleClearAllPermissions}
-                              className="text-xs font-bold text-zinc-600 hover:text-zinc-800 bg-zinc-100 hover:bg-zinc-200 px-3 py-1 rounded-lg border border-zinc-200 transition-colors"
+                              className="text-xs font-bold px-3 py-1 rounded-lg border transition-colors cursor-pointer"
+                              style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
                             >
                               Clear All
                             </button>
@@ -2611,31 +2984,30 @@ export default function EventDetailsPage() {
                                 <div
                                   key={perm.key}
                                   onClick={() => handleTogglePermissionOverride(perm.key)}
-                                  className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                                    isChecked
-                                      ? "bg-indigo-50/80 border-indigo-300 shadow-2xs"
-                                      : "bg-zinc-50 hover:bg-zinc-100/70 border-zinc-200"
-                                  }`}
+                                  className="flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all"
+                                  style={{
+                                    background: isChecked ? "color-mix(in oklab, var(--accent) 8%, var(--card))" : "var(--card2)",
+                                    borderColor: isChecked ? "var(--accent)" : "var(--border)",
+                                  }}
                                 >
                                   <input
                                     type="checkbox"
                                     checked={isChecked}
-                                    onChange={() => {}}
-                                    className="mt-1 rounded text-indigo-600 focus:ring-indigo-500"
+                                    onChange={() => { }}
+                                    className="mt-1 rounded"
                                   />
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2">
                                       <div className="flex items-center gap-2">
-                                        <span className="font-extrabold text-zinc-900 text-xs">{perm.label}</span>
-                                        <span className="text-[10px] font-mono font-bold text-zinc-400">({perm.key})</span>
+                                        <span className="font-extrabold text-xs" style={{ color: "var(--text)" }}>{perm.label}</span>
+                                        <span className="text-[10px] font-mono font-bold" style={{ color: "var(--subtle)" }}>({perm.key})</span>
                                       </div>
-                                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                                        isChecked ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-zinc-200 text-zinc-600"
-                                      }`}>
+                                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${isChecked ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" : ""
+                                        }`} style={!isChecked ? { background: "var(--input)", color: "var(--subtle)" } : {}}>
                                         {isChecked ? "Granted" : "Disabled"}
                                       </span>
                                     </div>
-                                    <p className="text-[11px] text-zinc-500 font-medium mt-0.5">{perm.desc}</p>
+                                    <p className="text-[11px] font-medium mt-0.5" style={{ color: "var(--muted)" }}>{perm.desc}</p>
                                   </div>
                                 </div>
                               );
@@ -2644,18 +3016,20 @@ export default function EventDetailsPage() {
                         </div>
 
                         {/* FOOTER BUTTONS */}
-                        <div className="flex items-center justify-end gap-3 border-t border-zinc-100 pt-4">
+                        <div className="flex items-center justify-end gap-3 border-t pt-4" style={{ borderColor: "var(--border)" }}>
                           <Button
                             onClick={() => setEditingMember(null)}
                             variant="outline"
-                            className="rounded-xl border-zinc-200 text-zinc-700 font-bold px-5"
+                            className="rounded-xl font-bold px-5"
+                            style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
                           >
                             Cancel
                           </Button>
                           <Button
                             onClick={handleSaveStaffPermissions}
                             disabled={isUpdatingStaff}
-                            className={`rounded-xl ${activeAccent.bg} text-white font-bold px-6 shadow-sm`}
+                            className="rounded-xl text-white font-bold px-6 shadow-sm"
+                            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                           >
                             {isUpdatingStaff ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Role & Permissions"}
                           </Button>
@@ -2669,15 +3043,15 @@ export default function EventDetailsPage() {
                 {activeTab === "TASKS" && (
                   <div className="animate-in fade-in duration-500 space-y-6">
                     {/* TOP HEADER & COUNTERS */}
-                    <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-zinc-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="p-6 sm:p-8 rounded-[20px] border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
                       <div>
                         <div className="flex items-center gap-3">
-                          <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight">Event Tasks & Assignments</h1>
-                          <span className="bg-indigo-50 text-indigo-700 text-xs font-black uppercase px-3 py-1 rounded-full border border-indigo-200">
+                          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>Event Tasks & Assignments</h1>
+                          <span className="text-xs font-black uppercase px-3 py-1 rounded-full border" style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)", borderColor: "color-mix(in oklab, var(--accent) 30%, transparent)", color: "var(--accent)" }}>
                             {tasksList.length} Total
                           </span>
                         </div>
-                        <p className="text-zinc-500 font-medium text-xs sm:text-sm mt-1">
+                        <p className="text-xs sm:text-sm font-medium mt-1" style={{ color: "var(--muted)" }}>
                           Track assigned tasks, monitor completion progress, and assign responsibilities to staff members.
                         </p>
                       </div>
@@ -2692,7 +3066,8 @@ export default function EventDetailsPage() {
                             }
                             setIsTaskModalOpen(true);
                           }}
-                          className={`rounded-2xl ${activeAccent.bg} text-white font-bold px-6 h-12 shadow-md hover:scale-105 transition-transform flex items-center gap-2 shrink-0`}
+                          className="rounded-2xl text-white font-bold px-6 h-12 shadow-md hover:scale-105 transition-transform flex items-center gap-2 shrink-0"
+                          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                         >
                           <Plus className="w-5 h-5" /> Assign New Task
                         </Button>
@@ -2700,35 +3075,41 @@ export default function EventDetailsPage() {
                     </div>
 
                     {/* STATUS FILTERS BAR */}
-                    <div className="flex flex-wrap items-center justify-between gap-4 bg-zinc-50 p-2.5 rounded-2xl border border-zinc-200/80">
+                    <div className="flex flex-wrap items-center justify-between gap-4 p-2.5 rounded-2xl border" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setTaskStatusFilter("ALL")}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                            taskStatusFilter === "ALL"
-                              ? "bg-white text-zinc-900 shadow-xs border border-zinc-200"
-                              : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
-                          }`}
+                          className="px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer"
+                          style={{
+                            background: taskStatusFilter === "ALL" ? "var(--card)" : "transparent",
+                            borderColor: taskStatusFilter === "ALL" ? "var(--border)" : "transparent",
+                            color: taskStatusFilter === "ALL" ? "var(--text)" : "var(--muted)",
+                            boxShadow: taskStatusFilter === "ALL" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                          }}
                         >
                           All Tasks ({tasksList.length})
                         </button>
                         <button
                           onClick={() => setTaskStatusFilter("PENDING")}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                            taskStatusFilter === "PENDING"
-                              ? "bg-amber-50 text-amber-900 shadow-xs border border-amber-200"
-                              : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
-                          }`}
+                          className="px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer"
+                          style={{
+                            background: taskStatusFilter === "PENDING" ? "var(--card)" : "transparent",
+                            borderColor: taskStatusFilter === "PENDING" ? "var(--border)" : "transparent",
+                            color: taskStatusFilter === "PENDING" ? "#f59e0b" : "var(--muted)",
+                            boxShadow: taskStatusFilter === "PENDING" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                          }}
                         >
                           Pending ({tasksList.filter(t => t.status === 'pending').length})
                         </button>
                         <button
                           onClick={() => setTaskStatusFilter("COMPLETED")}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                            taskStatusFilter === "COMPLETED"
-                              ? "bg-emerald-50 text-emerald-900 shadow-xs border border-emerald-200"
-                              : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
-                          }`}
+                          className="px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer"
+                          style={{
+                            background: taskStatusFilter === "COMPLETED" ? "var(--card)" : "transparent",
+                            borderColor: taskStatusFilter === "COMPLETED" ? "var(--border)" : "transparent",
+                            color: taskStatusFilter === "COMPLETED" ? "#10b981" : "var(--muted)",
+                            boxShadow: taskStatusFilter === "COMPLETED" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                          }}
                         >
                           Completed ({tasksList.filter(t => t.status === 'completed').length})
                         </button>
@@ -2745,21 +3126,21 @@ export default function EventDetailsPage() {
 
                       if (isFetchingTab) {
                         return (
-                          <div className="p-12 text-center bg-white rounded-3xl border border-zinc-200">
-                            <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-600 mb-3" />
-                            <p className="text-zinc-500 text-sm font-semibold">Loading assigned tasks...</p>
+                          <div className="p-12 text-center rounded-3xl border" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+                            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3" style={{ color: "var(--accent)" }} />
+                            <p className="text-sm font-semibold" style={{ color: "var(--muted)" }}>Loading assigned tasks...</p>
                           </div>
                         );
                       }
 
                       if (filteredTasks.length === 0) {
                         return (
-                          <div className="p-12 text-center bg-white rounded-3xl border border-zinc-200 space-y-3">
-                            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                          <div className="p-12 text-center rounded-3xl border space-y-3" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto" style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)", color: "var(--accent)" }}>
                               <CheckSquare className="w-7 h-7" />
                             </div>
-                            <h3 className="text-lg font-extrabold text-zinc-900">No Tasks Found</h3>
-                            <p className="text-xs text-zinc-500 font-medium max-w-md mx-auto">
+                            <h3 className="text-lg font-extrabold" style={{ color: "var(--text)" }}>No Tasks Found</h3>
+                            <p className="text-xs font-medium max-w-md mx-auto" style={{ color: "var(--muted)" }}>
                               {taskStatusFilter === "ALL"
                                 ? "No tasks have been assigned for this event yet."
                                 : `No ${taskStatusFilter.toLowerCase()} tasks found.`}
@@ -2774,21 +3155,22 @@ export default function EventDetailsPage() {
                             const isCompleted = task.status === 'completed';
                             const priorityColor =
                               task.priority === 'urgent'
-                                ? 'bg-red-50 text-red-700 border-red-200'
+                                ? 'bg-red-500/15 text-red-400 border-red-500/30'
                                 : task.priority === 'high'
-                                ? 'bg-orange-50 text-orange-700 border-orange-200'
-                                : task.priority === 'medium'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                : 'bg-blue-50 text-blue-700 border-blue-200';
+                                  ? 'bg-orange-500/15 text-orange-400 border-orange-500/30'
+                                  : task.priority === 'medium'
+                                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                    : 'bg-blue-500/15 text-blue-400 border-blue-500/30';
 
                             return (
                               <div
                                 key={task.id}
-                                className={`p-5 rounded-3xl border transition-all shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                                  isCompleted
-                                    ? "bg-zinc-50/60 border-zinc-200 opacity-85"
-                                    : "bg-white border-zinc-200 hover:border-indigo-200 hover:shadow-md"
-                                }`}
+                                className="p-5 rounded-3xl border transition-all shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
+                                style={{
+                                  background: isCompleted ? "var(--card2)" : "var(--card)",
+                                  borderColor: "var(--border)",
+                                  opacity: isCompleted ? 0.8 : 1,
+                                }}
                               >
                                 <div className="flex items-start gap-4 min-w-0">
                                   {/* TOGGLE CHECKBOX */}
@@ -2796,11 +3178,11 @@ export default function EventDetailsPage() {
                                     type="button"
                                     onClick={() => handleToggleTaskStatus(task)}
                                     disabled={isUpdatingTaskId === task.id}
-                                    className={`w-7 h-7 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                                      isCompleted
+                                    className={`w-7 h-7 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 transition-all cursor-pointer ${isCompleted
                                         ? "bg-emerald-500 border-emerald-600 text-white"
-                                        : "bg-white border-zinc-300 hover:border-indigo-500 text-transparent"
-                                    }`}
+                                        : "hover:border-[var(--accent)] text-transparent"
+                                      }`}
+                                    style={!isCompleted ? { background: "var(--input)", borderColor: "var(--border)" } : {}}
                                   >
                                     {isUpdatingTaskId === task.id ? (
                                       <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
@@ -2811,42 +3193,44 @@ export default function EventDetailsPage() {
 
                                   <div className="space-y-1.5 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <h4 className={`font-extrabold text-base ${isCompleted ? "line-through text-zinc-400" : "text-zinc-900"}`}>
+                                      <h4
+                                        className={`font-extrabold text-base ${isCompleted ? "line-through" : ""}`}
+                                        style={{ color: isCompleted ? "var(--subtle)" : "var(--text)" }}
+                                      >
                                         {task.title}
                                       </h4>
                                       <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${priorityColor}`}>
                                         {task.priority} Priority
                                       </span>
-                                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                                        isCompleted ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
-                                      }`}>
+                                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${isCompleted ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                                        }`}>
                                         {isCompleted ? "Completed" : "Pending"}
                                       </span>
                                     </div>
 
                                     {task.description && (
-                                      <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+                                      <p className="text-xs font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
                                         {task.description}
                                       </p>
                                     )}
 
-                                    <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 font-semibold pt-1">
+                                    <div className="flex flex-wrap items-center gap-4 text-xs font-semibold pt-1" style={{ color: "var(--subtle)" }}>
                                       {/* Assigned To Badge */}
-                                      <div className="flex items-center gap-1.5 bg-zinc-100 px-2.5 py-1 rounded-xl text-zinc-700">
+                                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl border" style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}>
                                         <div className="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] font-black flex items-center justify-center shrink-0">
                                           {task.assigned_to?.name ? task.assigned_to.name[0].toUpperCase() : "U"}
                                         </div>
-                                        <span>Assigned to: <strong className="text-zinc-900">{task.assigned_to?.name || task.assigned_to?.email}</strong></span>
+                                        <span>Assigned to: <strong style={{ color: "var(--text)" }}>{task.assigned_to?.name || task.assigned_to?.email}</strong></span>
                                       </div>
 
                                       {/* Creator Badge */}
                                       {task.created_by && (
-                                        <span>By: <span className="text-zinc-600 font-bold">{task.created_by.name}</span></span>
+                                        <span>By: <span className="font-bold" style={{ color: "var(--text)" }}>{task.created_by.name}</span></span>
                                       )}
 
                                       {/* Due Date */}
                                       {task.due_date && (
-                                        <span className="flex items-center gap-1 text-zinc-500 font-bold">
+                                        <span className="flex items-center gap-1 font-bold" style={{ color: "var(--muted)" }}>
                                           <Clock className="w-3.5 h-3.5" /> Due {new Date(task.due_date).toLocaleDateString()}
                                         </span>
                                       )}
@@ -2862,11 +3246,10 @@ export default function EventDetailsPage() {
                                     disabled={isUpdatingTaskId === task.id}
                                     variant="outline"
                                     size="sm"
-                                    className={`rounded-xl text-xs font-bold px-4 py-2 border ${
-                                      isCompleted
+                                    className={`rounded-xl text-xs font-bold px-4 py-2 border ${isCompleted
                                         ? "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100"
                                         : "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                                    }`}
+                                      }`}
                                   >
                                     {isCompleted ? "Mark Pending" : "Mark Completed"}
                                   </Button>
@@ -3016,7 +3399,7 @@ export default function EventDetailsPage() {
                 {activeTab === "ANNOUNCEMENTS" && (
                   <div className="animate-in fade-in duration-500 space-y-6">
                     {/* TOP BROADCAST FORM CARD */}
-                    <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-6">
+                    <div className="p-6 sm:p-8 rounded-[20px] border shadow-sm space-y-6" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
                       <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
                         <div>
                           <div className="flex items-center gap-3">
@@ -3158,11 +3541,10 @@ export default function EventDetailsPage() {
                                       type="button"
                                       onClick={() => handleToggleEmojiReaction(ann.id, emoji)}
                                       disabled={reactingAnnId === ann.id}
-                                      className={`px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
-                                        hasReacted
+                                      className={`px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all border ${hasReacted
                                           ? "bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs scale-105"
                                           : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:scale-105"
-                                      }`}
+                                        }`}
                                     >
                                       <span>{emoji}</span>
                                       {count > 0 && <span>{count}</span>}
@@ -3180,19 +3562,19 @@ export default function EventDetailsPage() {
 
                 {/* ACTIVITIES & GAMIFICATION TAB */}
                 {activeTab === "ACTIVITIES" && (
-                  <ActivityManagerTab 
-                    eventId={eventId as string} 
+                  <ActivityManagerTab
+                    eventId={eventId as string}
                     eventTitle={event?.title || "Event"}
-                    isOwner={isOwner} 
-                    hasPermission={hasPermission} 
-                    activeAccent={activeAccent} 
-                    isDark={isDark} 
+                    isOwner={isOwner}
+                    hasPermission={hasPermission}
+                    activeAccent={activeAccent}
+                    isDark={isDark}
                   />
                 )}
 
                 {/* 7. ORGANIZER SETTINGS TAB */}
                 {activeTab === "ORGANIZER_SETTINGS" && isOwner && (
-                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-8">
+                  <div className="animate-in fade-in duration-500 p-6 md:p-8 rounded-[20px] border shadow-sm space-y-8" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
                     <div>
                       <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Organization & Tenant Settings</h1>
                       <p className="text-zinc-500 font-medium mt-1">Configure tenant policies, multi-tenant branding, and subscription tier.</p>
@@ -3294,7 +3676,7 @@ export default function EventDetailsPage() {
 
                 {/* 6. SETTINGS (DANGER ZONE) TAB */}
                 {activeTab === "SETTINGS" && isOwner && (
-                  <div className="animate-in fade-in duration-500 bg-white p-8 md:p-10 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-6">
+                  <div className="animate-in fade-in duration-500 p-6 md:p-8 rounded-[20px] border shadow-sm space-y-6" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
                     <div>
                       <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tight">Event Settings</h1>
                       <p className="text-zinc-500 font-medium mt-1">Manage destructive actions and administrative settings.</p>
@@ -3334,16 +3716,14 @@ export default function EventDetailsPage() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 15 }}
                 transition={{ type: "spring", duration: 0.35, bounce: 0.1 }}
-                className={`w-full max-w-md rounded-3xl p-6 shadow-2xl relative border ${
-                  isDark ? "bg-zinc-950 border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"
-                }`}
+                className={`w-full max-w-md rounded-3xl p-6 shadow-2xl relative border ${isDark ? "bg-zinc-950 border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"
+                  }`}
               >
                 <button
                   onClick={handleCloseScanner}
                   type="button"
-                  className={`absolute right-4 top-4 p-2 rounded-full transition-colors ${
-                    isDark ? "text-zinc-400 hover:text-white hover:bg-zinc-900" : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
-                  }`}
+                  className={`absolute right-4 top-4 p-2 rounded-full transition-colors ${isDark ? "text-zinc-400 hover:text-white hover:bg-zinc-900" : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
+                    }`}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -3360,8 +3740,8 @@ export default function EventDetailsPage() {
 
                 {/* Camera Viewport with smooth loader overlay */}
                 <div className="overflow-hidden rounded-2xl border-2 border-zinc-800 bg-zinc-950 aspect-square flex items-center justify-center relative shadow-inner">
-                  <div 
-                    id="qr-scanner-element" 
+                  <div
+                    id="qr-scanner-element"
                     className="w-full h-full relative [&_video]:w-full [&_video]:h-full [&_video]:object-cover [&_video]:rounded-2xl [&_canvas]:hidden [&_img]:hidden [&_select]:hidden [&_button]:hidden"
                   />
 
@@ -3409,9 +3789,8 @@ export default function EventDetailsPage() {
                 <Button
                   onClick={handleCloseScanner}
                   type="button"
-                  className={`w-full mt-4 rounded-xl font-bold py-3 transition-colors ${
-                    isDark ? "bg-zinc-900 hover:bg-zinc-800 text-white" : "bg-zinc-100 hover:bg-zinc-200 text-zinc-900"
-                  }`}
+                  className={`w-full mt-4 rounded-xl font-bold py-3 transition-colors ${isDark ? "bg-zinc-900 hover:bg-zinc-800 text-white" : "bg-zinc-100 hover:bg-zinc-200 text-zinc-900"
+                    }`}
                 >
                   Close Scanner
                 </Button>
@@ -3601,11 +3980,10 @@ export default function EventDetailsPage() {
                               type="button"
                               disabled={isSelected}
                               onClick={() => handleAddTag(suggestion)}
-                              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
-                                isSelected
+                              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${isSelected
                                   ? "bg-indigo-600 text-white border-indigo-600 opacity-40 cursor-not-allowed"
                                   : "bg-white text-zinc-700 border-zinc-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50"
-                              }`}
+                                }`}
                             >
                               + {suggestion}
                             </button>
@@ -3801,9 +4179,9 @@ export default function EventDetailsPage() {
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold py-5 shadow-md shadow-red-600/20 disabled:opacity-50" 
-                    disabled={isDeleting || deleteConfirmText.trim().toLowerCase() !== (event?.title || "").trim().toLowerCase()} 
+                  <Button
+                    className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold py-5 shadow-md shadow-red-600/20 disabled:opacity-50"
+                    disabled={isDeleting || deleteConfirmText.trim().toLowerCase() !== (event?.title || "").trim().toLowerCase()}
                     onClick={handleConfirmDelete}
                   >
                     {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
@@ -3836,9 +4214,9 @@ export default function EventDetailsPage() {
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold py-5 shadow-md shadow-red-600/20" 
-                    disabled={isDeletingAgenda} 
+                  <Button
+                    className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold py-5 shadow-md shadow-red-600/20"
+                    disabled={isDeletingAgenda}
                     onClick={handleConfirmDeleteAgenda}
                   >
                     {isDeletingAgenda ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
@@ -3922,9 +4300,7 @@ export default function EventDetailsPage() {
             </motion.div>
           )}
         </AnimatePresence>
-
-        </div>
-      </div>
+      </AppLayout>
     );
   }
 
@@ -3932,234 +4308,173 @@ export default function EventDetailsPage() {
   // VIEW 2: PUBLIC / ATTENDEE PREVIEW VIEW
   // ==========================================
   return (
-    <div className={`min-h-screen transition-colors duration-500 w-full min-w-0 overflow-x-hidden ${theme.bg}`}>
+    <div className={`min-h-screen transition-colors duration-500 w-full min-w-0 ${theme.bg}`}>
       <AppLayout>
         <div className="flex-1 pb-20 relative select-none min-w-0">
-      
-      {/* BACKGROUND EFFECTS */}
-      <div className={`absolute top-0 left-0 w-full h-[60vh] bg-gradient-to-b ${theme.gradOverlay} pointer-events-none z-0`} />
 
-      {/* CUSTOM THEME GIMMICKS */}
-      {theme.gimmicks}
+          {/* BACKGROUND EFFECTS */}
+          <div className={`absolute top-0 left-0 w-full h-[60vh] bg-gradient-to-b ${theme.gradOverlay} pointer-events-none z-0`} />
 
-      {/* TOP NAVIGATION BAR */}
-      <header className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex justify-between items-center relative z-25">
-        <Link href="/home">
-          <Button variant="ghost" className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-3 sm:px-4 ${
-            theme.isDark 
-              ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-200 hover:text-white" 
-              : "bg-white/80 hover:bg-white border-zinc-200 text-zinc-700 hover:text-zinc-950"
-          }`}>
-            <ArrowLeft className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Back to Feed</span>
-            <span className="sm:hidden ml-1">Back</span>
-          </Button>
-        </Link>
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleToggleSave}
-            variant="ghost" 
-            className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-3 sm:px-4 ${
-              event?.is_saved 
-                ? theme.isDark ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/20" : "bg-indigo-50 text-indigo-600 border border-indigo-200" 
-                : theme.isDark 
-                  ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-200 hover:text-white" 
-                  : "bg-white/80 hover:bg-white border border-zinc-200 text-zinc-700 hover:text-zinc-950"
-            }`}
-          >
-            <Bookmark className={`w-4 h-4 sm:mr-2 ${event?.is_saved ? "fill-current" : ""}`} /> 
-            <span className="hidden sm:inline">{event?.is_saved ? "Saved" : "Save Event"}</span>
-            <span className="sm:hidden ml-1">{event?.is_saved ? "Saved" : "Save"}</span>
-          </Button>
+          {/* CUSTOM THEME GIMMICKS */}
+          {theme.gimmicks}
 
-          <Button 
-            onClick={() => setIsShareModalOpen(true)}
-            variant="ghost" 
-            className={`rounded-full shadow-xs font-bold transition-all text-xs h-10 px-3 sm:px-4 ${
-              theme.isDark 
-                ? "bg-zinc-900/80 hover:bg-zinc-900 border-zinc-800 text-zinc-200 hover:text-white" 
-                : "bg-white/80 hover:bg-white border-zinc-200 text-zinc-700 hover:text-zinc-950"
-            }`}
-          >
-            <Share2 className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Share Event</span>
-            <span className="sm:hidden ml-1">Share</span>
-          </Button>
-        </div>
-      </header>
+          {/* TOP NAVIGATION BAR */}
+          <header className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex justify-between items-center relative z-25">
+            <Link href="/home">
+              <Button
+                variant="ghost"
+                className="rounded-full shadow-xs font-bold transition-all text-xs h-9 px-4 border border-border bg-card/80 hover:bg-card text-foreground flex items-center gap-2 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Back to Feed</span>
+                <span className="sm:hidden">Back</span>
+              </Button>
+            </Link>
+            <div className="flex items-center gap-2.5">
+              <Button
+                onClick={handleToggleSave}
+                variant="ghost"
+                className={`rounded-full shadow-xs font-bold transition-all text-xs h-9 px-4 border flex items-center gap-2 cursor-pointer ${event?.is_saved
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : "border-border bg-card/80 hover:bg-card text-foreground"
+                  }`}
+              >
+                <Bookmark className={`w-3.5 h-3.5 ${event?.is_saved ? "fill-current text-emerald-500" : ""}`} />
+                <span className="hidden sm:inline">{event?.is_saved ? "Saved" : "Save Event"}</span>
+                <span className="sm:hidden">{event?.is_saved ? "Saved" : "Save"}</span>
+              </Button>
 
-      {/* SPLIT-HERO SECTION */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 relative z-20 items-stretch">
-        {/* Left hero banner image */}
-        <div className={`lg:col-span-7 rounded-3xl overflow-hidden border shadow-xl relative w-full h-48 sm:h-64 lg:h-auto lg:min-h-[350px] ${
-          theme.isDark ? "border-zinc-800 bg-zinc-900" : "border-zinc-200 bg-white"
-        }`}>
-          {event.bannerUrl ? (
-            <img
-              src={event.bannerUrl}
-              alt={event.title}
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 hover:scale-[1.01]"
-            />
-          ) : (
-            <div className={`absolute inset-0 ${
-              event.type.toLowerCase().includes("hack") || event.type.toLowerCase().includes("code") || event.type.toLowerCase().includes("tech")
-                ? "bg-gradient-to-br from-indigo-900 via-purple-900 to-zinc-950"
-                : event.type.toLowerCase().includes("meet") || event.type.toLowerCase().includes("social") || event.type.toLowerCase().includes("network")
-                ? "bg-gradient-to-br from-amber-955 via-rose-900 to-zinc-950"
-                : "bg-gradient-to-br from-teal-955 via-emerald-900 to-zinc-950"
-            } flex items-center justify-center`} />
-          )}
-        </div>
-
-        {/* Right hero main details panel */}
-        <div className={`lg:col-span-5 p-6 sm:p-8 rounded-3xl border shadow-xl flex flex-col justify-between space-y-6 ${theme.cardBg}`}>
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${theme.badge}`}>
-                {event.type}
-              </span>
-              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 border ${theme.pill}`}>
-                {event.mode === 'online' ? <Laptop className="w-3.5 h-3.5" /> : event.mode === 'hybrid' ? <MonitorSmartphone className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
-                {event.mode} Event
-              </span>
+              <Button
+                onClick={() => setIsShareModalOpen(true)}
+                variant="ghost"
+                className="rounded-full shadow-xs font-bold transition-all text-xs h-9 px-4 border border-border bg-card/80 hover:bg-card text-foreground flex items-center gap-2 cursor-pointer"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Share Event</span>
+                <span className="sm:hidden">Share</span>
+              </Button>
             </div>
+          </header>
 
-            <h1 className={`text-2xl sm:text-3xl font-black tracking-tight leading-tight break-words ${theme.textHeading}`}>
-              {event.title}
-            </h1>
+          {/* MAIN 2-COLUMN WORKSPACE GRID (UNIFIED REDESIGN LAYOUT WITH STICKY SCROLL) */}
+          <section className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 relative z-20 items-start">
 
-            {/* COLLECTIVE EVENT TAGS */}
-            {event.tags && Array.isArray(event.tags) && event.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {event.tags.map((tag: string) => (
-                  <span
-                    key={tag}
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
-                      theme.isDark
-                        ? "bg-indigo-500/10 border-indigo-500/25 text-indigo-400"
-                        : "bg-indigo-50 border-indigo-200 text-indigo-700"
-                    }`}
-                  >
-                    #{tag}
-                  </span>
-                ))}
+            {/* LEFT COLUMN: Media Banner + Details + Guidelines + Agenda + Location */}
+            <div className="lg:col-span-7 space-y-6 lg:space-y-8 min-w-0">
+
+              {/* Cover Media Banner (16:9 responsive) */}
+              <div className="rounded-[26px] overflow-hidden border border-border shadow-lg relative w-full aspect-[16/9] min-h-[220px] max-h-[400px] bg-zinc-950">
+                {event.bannerUrl ? (
+                  <img
+                    src={event.bannerUrl}
+                    alt={event.title}
+                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.01]"
+                  />
+                ) : (
+                  <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-[#0c2e22] via-[#051c14] to-[#020a07] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-500/25 via-transparent to-transparent pointer-events-none" />
+                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          <div className={`space-y-4 border-t pt-6 ${theme.divider}`}>
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 ${
-                theme.isDark ? "bg-zinc-800/80 border-zinc-700" : "bg-zinc-50 border-zinc-200"
-              }`}>
-                <UserCircle2 className="w-6 h-6 text-zinc-400" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Hosted by</p>
-                <p className={`text-base font-bold ${theme.isDark ? "text-zinc-200" : "text-zinc-800"}`}>{event.organizerName || "Community Connect Admin"}</p>
-              </div>
-            </div>
+              {/* Card Block 1: About this event */}
+              <div className="p-6 sm:p-8 rounded-[24px] border shadow-sm space-y-5 transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)", boxShadow: isDark ? "0 14px 34px -10px rgba(0,0,0,0.5), 0 2px 8px -2px rgba(0,0,0,0.3)" : "0 14px 34px -10px rgba(15,23,42,0.07), 0 2px 8px -2px rgba(15,23,42,0.04)" }}>
+                <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5 text-foreground">
+                  <Building2 className="w-5 h-5 shrink-0" style={{ color: "var(--accent)" }} />
+                  <span>About this Event</span>
+                </h2>
 
-            {timeLeftStr && (
-              <div className={`flex items-center gap-2 text-xs font-bold w-fit px-3 py-1.5 rounded-xl border ${theme.badge}`}>
-                <Clock className="w-4 h-4 animate-pulse" />
-                <span>{timeLeftStr}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* MAIN BODY WORKSPACE GRID */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 mt-10 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 relative z-20">
-        
-        {/* LEFT COLUMN: Block designs */}
-        <div className="lg:col-span-7 space-y-6 lg:space-y-8">
-          
-          {/* Card Block 1: About this event */}
-          <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 max-w-full overflow-hidden ${theme.cardBg}`}>
-            <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
-              <Building2 className={`w-5 h-5 ${theme.accent}`} /> About this Event
-            </h2>
-            <div className={`prose prose-base leading-relaxed font-medium whitespace-pre-wrap break-words ${
-              theme.isDark ? "text-zinc-300 prose-invert" : "text-zinc-700"
-            }`}>
-              {event.description.length > 600 && !isDescExpanded ? (
-                <>
-                  {event.description.slice(0, 600)}...{" "}
-                  <button
-                    type="button"
-                    onClick={() => setIsDescExpanded(true)}
-                    className="text-indigo-400 hover:underline font-bold text-sm inline-block ml-1"
-                  >
-                    Read More
-                  </button>
-                </>
-              ) : (
-                <>
-                  {event.description}
-                  {event.description.length > 600 && (
-                    <button
-                      type="button"
-                      onClick={() => setIsDescExpanded(false)}
-                      className="text-indigo-400 hover:underline font-bold text-sm block mt-3"
-                    >
-                      Read Less
-                    </button>
+                <div className="text-muted-foreground font-medium text-sm sm:text-[15px] leading-relaxed break-words [overflow-wrap:anywhere]">
+                  {event.description.length > 500 && !isDescExpanded ? (
+                    <>
+                      <div
+                        dangerouslySetInnerHTML={{
+                          __html: event.description.slice(0, 480) + "...",
+                        }}
+                      />
+                      <button
+                        onClick={() => setIsDescExpanded(true)}
+                        className="mt-2.5 text-xs font-bold text-accent hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        Read More
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div dangerouslySetInnerHTML={{ __html: event.description }} />
+                      {event.description.length > 500 && (
+                        <button
+                          onClick={() => setIsDescExpanded(false)}
+                          className="mt-2.5 text-xs font-bold text-accent hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          Read Less
+                        </button>
+                      )}
+                    </>
                   )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Card Block 2: Participation Guidelines */}
-          <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
-            <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
-              <Users className={`w-5 h-5 ${theme.accent}`} /> Participation Guidelines
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className={`p-4 rounded-2xl border flex flex-col gap-2 ${
-                theme.isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-zinc-50/50 border-zinc-200"
-              }`}>
-                <Users className="w-5 h-5 text-indigo-505 shrink-0" />
-                <div>
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Format</p>
-                  <p className={`font-extrabold text-sm capitalize ${theme.isDark ? "text-zinc-200" : "text-zinc-900"}`}>{event.regType} Entry</p>
                 </div>
+
+                {event.tags && Array.isArray(event.tags) && event.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
+                    {event.tags.map((tag: string) => (
+                      <span
+                        key={tag}
+                        className="px-3 py-1 rounded-full text-xs font-bold border text-xs font-bold"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              {event.regType === 'team' && (
-                <div className={`p-4 rounded-2xl border flex flex-col gap-2 ${
-                  theme.isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-zinc-50/50 border-zinc-200"
-                }`}>
-                  <Users className="w-5 h-5 text-rose-500 shrink-0" />
-                  <div>
-                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Team Size</p>
-                    <p className={`font-extrabold text-sm ${theme.isDark ? "text-zinc-200" : "text-zinc-900"}`}>{event.minTeam} - {event.maxTeam} members</p>
+
+              {/* Card Block 2: Participation Guidelines */}
+              <div className="p-6 sm:p-8 rounded-[24px] border shadow-sm space-y-5 transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)", boxShadow: isDark ? "0 14px 34px -10px rgba(0,0,0,0.5), 0 2px 8px -2px rgba(0,0,0,0.3)" : "0 14px 34px -10px rgba(15,23,42,0.07), 0 2px 8px -2px rgba(15,23,42,0.04)" }}>
+                <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5 text-foreground">
+                  <Users className="w-5 h-5 shrink-0" style={{ color: "var(--accent)" }} />
+                  <span>Participation Guidelines</span>
+                </h2>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-4 rounded-2xl border flex flex-col gap-2 transition-all" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                    <Users className="w-5 h-5 text-indigo-500 shrink-0" />
+                    <div>
+                      <p className="font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Format</p>
+                      <p className="font-extrabold text-sm capitalize text-foreground mt-0.5">{event.regType} Entry</p>
+                    </div>
+                  </div>
+
+                  {event.regType === 'team' && (
+                    <div className="p-4 rounded-2xl border flex flex-col gap-2 transition-all" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                      <Users className="w-5 h-5 text-rose-500 shrink-0" />
+                      <div>
+                        <p className="font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Team Size</p>
+                        <p className="font-extrabold text-sm text-foreground mt-0.5">{event.minTeam} - {event.maxTeam} members</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-4 rounded-2xl border flex flex-col gap-2 transition-all" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                    <Ticket className="w-5 h-5 text-amber-500 shrink-0" />
+                    <div>
+                      <p className="font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Capacity Limit</p>
+                      <p className="font-extrabold text-sm text-foreground mt-0.5">
+                        {event.capacity === 0 ? "Unlimited Seats" : `${event.capacity} Spots Max`}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              )}
-              <div className={`p-4 rounded-2xl border flex flex-col gap-2 ${
-                theme.isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-zinc-50/50 border-zinc-200"
-              }`}>
-                <Ticket className="w-5 h-5 text-amber-500 shrink-0" />
-                <div>
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Capacity Limit</p>
-                  <p className={`font-extrabold text-sm ${theme.isDark ? "text-zinc-200" : "text-zinc-900"}`}>
-                    {event.capacity === 0 ? "Unlimited Seats" : `${event.capacity} Spots Max`}
-                  </p>
-                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Card Block 3: Schedule & Agenda */}
-          {event?.timelines && event.timelines.length > 0 && (
-            <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
-              <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
-                <Calendar className={`w-5 h-5 ${theme.accent}`} /> Event Agenda & Schedule
-              </h2>
+              {/* Card Block 3: Schedule & Agenda */}
+              {event?.timelines && event.timelines.length > 0 && (
+                <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
+                  <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
+                    <Calendar className={`w-5 h-5 ${theme.accent}`} /> Event Agenda & Schedule
+                  </h2>
 
-              <style>{`
+                  <style>{`
                 @keyframes sway {
                   0%, 100% { transform: translateY(0) rotate(0deg); }
                   50% { transform: translateY(-4px) rotate(4deg); }
@@ -4176,421 +4491,558 @@ export default function EventDetailsPage() {
                 }
               `}</style>
 
-              <div className="space-y-6 pl-1">
-                {(() => {
-                  const groups: { [key: string]: any[] } = {};
-                  event.timelines.forEach((item: any) => {
-                    const dateStr = new Date(item.start_time).toDateString();
-                    if (!groups[dateStr]) groups[dateStr] = [];
-                    groups[dateStr].push(item);
-                  });
-                  const sortedGroups = Object.entries(groups).sort(
-                    (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
-                  );
+                  <div className="space-y-6 pl-1">
+                    {(() => {
+                      const groups: { [key: string]: any[] } = {};
+                      event.timelines.forEach((item: any) => {
+                        const dateStr = new Date(item.start_time).toDateString();
+                        if (!groups[dateStr]) groups[dateStr] = [];
+                        groups[dateStr].push(item);
+                      });
+                      const sortedGroups = Object.entries(groups).sort(
+                        (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
+                      );
 
-                  const allItems = sortedGroups.flatMap(([, items]) => items);
-                  const visibleIdSet = new Set(
-                    allItems.slice(0, visibleEventAgendaCount).map((it: any) => it.id)
-                  );
+                      const allItems = sortedGroups.flatMap(([, items]) => items);
+                      const visibleIdSet = new Set(
+                        allItems.slice(0, visibleEventAgendaCount).map((it: any) => it.id)
+                      );
 
-                  return sortedGroups
-                    .map(([dateStr, items]) => [dateStr, items.filter((it: any) => visibleIdSet.has(it.id))] as [string, any[]])
-                    .filter(([, items]) => items.length > 0)
-                    .map(([dateStr, items]) => {
-                    const d = new Date(dateStr);
-                    const month = d.toLocaleDateString("en-US", { month: "short" });
-                    const day = d.getDate();
+                      return sortedGroups
+                        .map(([dateStr, items]) => [dateStr, items.filter((it: any) => visibleIdSet.has(it.id))] as [string, any[]])
+                        .filter(([, items]) => items.length > 0)
+                        .map(([dateStr, items]) => {
+                          const d = new Date(dateStr);
+                          const month = d.toLocaleDateString("en-US", { month: "short" });
+                          const day = d.getDate();
 
-                    return (
-                      <div key={dateStr} className="flex gap-4 items-start">
-                        <div className={`w-12 flex flex-col items-center shrink-0 py-2 border-r pr-3 ${theme.divider}`}>
-                          <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">{month}</span>
-                          <span className={`text-2xl font-black mt-0.5 ${theme.isDark ? "text-zinc-200" : "text-zinc-900"}`}>{day}</span>
-                        </div>
-
-                        <div className="flex-1 space-y-3">
-                          {items.map((timeline: any) => {
-                            const tTitle = timeline.title.toLowerCase();
-                            let agendaTheme = theme.agendaDefault;
-
-                            if (tTitle.includes("tea") || tTitle.includes("coffee") || tTitle.includes("networking") || tTitle.includes("break") || tTitle.includes("snack")) {
-                              agendaTheme = "bg-amber-500/10 border-amber-550/20 text-amber-300";
-                            } else if (tTitle.includes("lunch") || tTitle.includes("dinner") || tTitle.includes("food") || tTitle.includes("meal") || tTitle.includes("brunch")) {
-                              agendaTheme = "bg-rose-500/10 border-rose-550/20 text-rose-350";
-                            } else if (tTitle.includes("party") || tTitle.includes("celebration") || tTitle.includes("social") || tTitle.includes("afterparty") || tTitle.includes("dj")) {
-                              agendaTheme = "bg-purple-500/10 border-purple-550/20 text-purple-300";
-                            } else if (tTitle.includes("register") || tTitle.includes("registration") || tTitle.includes("welcome") || tTitle.includes("check-in") || tTitle.includes("checkin")) {
-                              agendaTheme = "bg-emerald-500/10 border-emerald-550/20 text-emerald-300";
-                            }
-
-                            const start = new Date(timeline.start_time);
-                            const end = timeline.end_time ? new Date(timeline.end_time) : null;
-                            const formattedTime = `${start.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}${end ? ` - ${end.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}` : ''}`;
-                            const isLive = start <= currentTime && (end === null || currentTime <= end);
-                            const isExpanded = expandedTimelineId === timeline.id;
-
-                            return (
-                              <div
-                                key={timeline.id}
-                                onClick={() => setExpandedTimelineId(isExpanded ? null : timeline.id)}
-                                className={`relative overflow-hidden p-4 rounded-2xl border shadow-xs cursor-pointer transition-all duration-300 hover:scale-[1.01] ${agendaTheme}`}
-                              >
-                                {isLive && (
-                                  <div className="absolute top-3.5 right-3.5 flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500 text-red-500 text-[8px] font-black tracking-widest uppercase animate-pulse">
-                                    <span className="w-1 h-1 rounded-full bg-red-500 animate-ping" />
-                                    <span>Live</span>
-                                  </div>
-                                )}
-
-                                <div className="relative z-10 space-y-0.5">
-                                  <h4 className="font-extrabold text-sm leading-tight pr-12">{timeline.title}</h4>
-                                  <p className="text-[10px] font-bold opacity-80">
-                                    {formattedTime}
-                                  </p>
-                                  {(timeline.speaker_name || timeline.location) && (
-                                    <p className="text-[10px] font-medium mt-1 flex flex-wrap gap-2 opacity-90">
-                                      {timeline.speaker_name && <span>Speaker: {timeline.speaker_name}</span>}
-                                      {timeline.location && <span>Room: {timeline.location}</span>}
-                                    </p>
-                                  )}
-
-                                  {/* Bubble UI Tags with Profile Skill Match Highlighting */}
-                                  {timeline.tags && Array.isArray(timeline.tags) && timeline.tags.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5 pt-1.5 pb-0.5">
-                                      {timeline.tags.map((tag: string) => {
-                                        const isMatch = userSkills.some(
-                                          (skill) =>
-                                            skill.toLowerCase() === tag.toLowerCase() ||
-                                            tag.toLowerCase().includes(skill.toLowerCase()) ||
-                                            skill.toLowerCase().includes(tag.toLowerCase())
-                                        );
-                                        return (
-                                          <span
-                                            key={tag}
-                                            className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition-all duration-300 ${
-                                              isMatch
-                                                ? "bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-rose-500/25 border border-amber-500/50 text-amber-300 shadow-2xs shadow-amber-500/20 animate-pulse"
-                                                : "bg-black/15 dark:bg-white/10 border border-current/15 text-current/90 backdrop-blur-xs"
-                                            }`}
-                                          >
-                                            {isMatch ? (
-                                              <Sparkles className="w-2.5 h-2.5 text-amber-400 shrink-0" />
-                                            ) : (
-                                              <Tag className="w-2.5 h-2.5 opacity-70 shrink-0" />
-                                            )}
-                                            <span>#{tag}</span>
-                                            {isMatch && (
-                                              <span className="text-[8px] font-black uppercase tracking-wider text-amber-400 bg-amber-950/60 px-1 py-0.2 rounded border border-amber-500/30">
-                                                Match
-                                              </span>
-                                            )}
-                                          </span>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                  
-                                  {isExpanded && timeline.description && (
-                                    <div
-                                      className="text-[11px] font-semibold opacity-95 pt-2 mt-2 border-t border-current/10 prose prose-sm max-w-none prose-current leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] overflow-hidden"
-                                      dangerouslySetInnerHTML={{ __html: timeline.description }}
-                                    />
-                                  )}
-                                  {!isExpanded && timeline.description && (
-                                    <p className="text-[10px] font-bold opacity-60 mt-1.5 flex items-center gap-1">
-                                      Click to view details <span className="text-[8px]">▼</span>
-                                    </p>
-                                  )}
-                                </div>
+                          return (
+                            <div key={dateStr} className="flex gap-4 items-start">
+                              <div className={`w-12 flex flex-col items-center shrink-0 py-2 border-r pr-3 ${theme.divider}`}>
+                                <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">{month}</span>
+                                <span className={`text-2xl font-black mt-0.5 ${theme.isDark ? "text-zinc-200" : "text-zinc-900"}`}>{day}</span>
                               </div>
-                            );
-                          })}
+
+                              <div className="flex-1 space-y-3">
+                                {items.map((timeline: any) => {
+                                  const tTitle = timeline.title.toLowerCase();
+                                  let sessionStyle = {
+                                    label: "Keynote / Session",
+                                    leftBorder: "var(--accent)",
+                                    badgeBg: isDark ? "rgba(99, 102, 241, 0.18)" : "rgba(99, 102, 241, 0.12)",
+                                    badgeBorder: isDark ? "rgba(99, 102, 241, 0.35)" : "rgba(99, 102, 241, 0.28)",
+                                    badgeText: isDark ? "#c7d2fe" : "#4338ca",
+                                    cardBg: isDark ? "rgba(24, 24, 27, 0.65)" : "#f8fafc",
+                                  };
+
+                                  if (tTitle.includes("tea") || tTitle.includes("coffee") || tTitle.includes("networking") || tTitle.includes("break") || tTitle.includes("snack")) {
+                                    sessionStyle = {
+                                      label: "Break & Networking",
+                                      leftBorder: "#f59e0b",
+                                      badgeBg: isDark ? "rgba(245, 158, 11, 0.18)" : "rgba(245, 158, 11, 0.14)",
+                                      badgeBorder: isDark ? "rgba(245, 158, 11, 0.4)" : "rgba(245, 158, 11, 0.35)",
+                                      badgeText: isDark ? "#fde68a" : "#b45309",
+                                      cardBg: isDark ? "rgba(24, 24, 27, 0.65)" : "#fffbeb",
+                                    };
+                                  } else if (tTitle.includes("lunch") || tTitle.includes("dinner") || tTitle.includes("food") || tTitle.includes("meal") || tTitle.includes("brunch")) {
+                                    sessionStyle = {
+                                      label: "Meal & Refreshment",
+                                      leftBorder: "#f43f5e",
+                                      badgeBg: isDark ? "rgba(244, 63, 94, 0.18)" : "rgba(244, 63, 94, 0.14)",
+                                      badgeBorder: isDark ? "rgba(244, 63, 94, 0.4)" : "rgba(244, 63, 94, 0.35)",
+                                      badgeText: isDark ? "#fecdd3" : "#be123c",
+                                      cardBg: isDark ? "rgba(24, 24, 27, 0.65)" : "#fff1f2",
+                                    };
+                                  } else if (tTitle.includes("party") || tTitle.includes("celebration") || tTitle.includes("social") || tTitle.includes("afterparty") || tTitle.includes("dj")) {
+                                    sessionStyle = {
+                                      label: "Social / Celebration",
+                                      leftBorder: "#a855f7",
+                                      badgeBg: isDark ? "rgba(168, 85, 247, 0.18)" : "rgba(168, 85, 247, 0.14)",
+                                      badgeBorder: isDark ? "rgba(168, 85, 247, 0.4)" : "rgba(168, 85, 247, 0.35)",
+                                      badgeText: isDark ? "#e9d5ff" : "#7e22ce",
+                                      cardBg: isDark ? "rgba(24, 24, 27, 0.65)" : "#faf5ff",
+                                    };
+                                  } else if (tTitle.includes("register") || tTitle.includes("registration") || tTitle.includes("welcome") || tTitle.includes("check-in") || tTitle.includes("checkin")) {
+                                    sessionStyle = {
+                                      label: "Check-in & Welcome",
+                                      leftBorder: "#10b981",
+                                      badgeBg: isDark ? "rgba(16, 185, 129, 0.18)" : "rgba(16, 185, 129, 0.14)",
+                                      badgeBorder: isDark ? "rgba(16, 185, 129, 0.4)" : "rgba(16, 185, 129, 0.35)",
+                                      badgeText: isDark ? "#a7f3d0" : "#047857",
+                                      cardBg: isDark ? "rgba(24, 24, 27, 0.65)" : "#ecfdf5",
+                                    };
+                                  }
+
+                                  const start = new Date(timeline.start_time);
+                                  const end = timeline.end_time ? new Date(timeline.end_time) : null;
+                                  const formattedTime = `${start.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}${end ? ` - ${end.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}` : ''}`;
+                                  const isLive = start <= currentTime && (end === null || currentTime <= end);
+                                  const isExpanded = expandedTimelineId === timeline.id;
+
+                                  return (
+                                    <div
+                                      key={timeline.id}
+                                      onClick={() => setExpandedTimelineId(isExpanded ? null : timeline.id)}
+                                      className="relative overflow-hidden p-4.5 sm:p-5 rounded-2xl border cursor-pointer transition-all duration-300 hover:scale-[1.01] shadow-xs border-l-4"
+                                      style={{
+                                        background: sessionStyle.cardBg,
+                                        borderColor: "var(--border)",
+                                        borderLeftColor: sessionStyle.leftBorder,
+                                      }}
+                                    >
+                                      {isLive && (
+                                        <div className="absolute top-3.5 right-3.5 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-500/20 border border-red-500 text-red-500 text-[9px] font-black tracking-widest uppercase animate-pulse">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                                          <span>Live</span>
+                                        </div>
+                                      )}
+
+                                      <div className="relative z-10 space-y-1">
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                          <span
+                                            className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border"
+                                            style={{
+                                              background: sessionStyle.badgeBg,
+                                              borderColor: sessionStyle.badgeBorder,
+                                              color: sessionStyle.badgeText,
+                                            }}
+                                          >
+                                            {sessionStyle.label}
+                                          </span>
+                                          <span className="font-mono text-xs font-semibold" style={{ color: "var(--muted)" }}>
+                                            {formattedTime}
+                                          </span>
+                                        </div>
+                                        <h4 className="font-extrabold text-base leading-snug tracking-tight pr-12" style={{ color: "var(--text)" }}>
+                                          {timeline.title}
+                                        </h4>
+                                        {(timeline.speaker_name || timeline.location) && (
+                                          <p className="text-xs font-medium mt-1 flex flex-wrap gap-3" style={{ color: "var(--subtle)" }}>
+                                            {timeline.speaker_name && <span>Speaker: <strong style={{ color: "var(--text)" }}>{timeline.speaker_name}</strong></span>}
+                                            {timeline.location && <span>Room: <strong style={{ color: "var(--text)" }}>{timeline.location}</strong></span>}
+                                          </p>
+                                        )}
+
+                                        {/* Bubble UI Tags with Profile Skill Match Highlighting */}
+                                        {timeline.tags && Array.isArray(timeline.tags) && timeline.tags.length > 0 && (
+                                          <div className="flex flex-wrap gap-1.5 pt-1.5 pb-0.5">
+                                            {timeline.tags.map((tag: string) => {
+                                              const isMatch = userSkills.some(
+                                                (skill) =>
+                                                  skill.toLowerCase() === tag.toLowerCase() ||
+                                                  tag.toLowerCase().includes(skill.toLowerCase()) ||
+                                                  skill.toLowerCase().includes(tag.toLowerCase())
+                                              );
+                                              return (
+                                                <span
+                                                  key={tag}
+                                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition-all duration-300 ${isMatch
+                                                      ? "bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-rose-500/25 border border-amber-500/50 text-amber-300 shadow-2xs shadow-amber-500/20 animate-pulse"
+                                                      : "bg-black/15 dark:bg-white/10 border border-current/15 text-current/90 backdrop-blur-xs"
+                                                    }`}
+                                                >
+                                                  {isMatch ? (
+                                                    <Sparkles className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                                                  ) : (
+                                                    <Tag className="w-2.5 h-2.5 opacity-70 shrink-0" />
+                                                  )}
+                                                  <span>#{tag}</span>
+                                                  {isMatch && (
+                                                    <span className="text-[8px] font-black uppercase tracking-wider text-amber-400 bg-amber-950/60 px-1 py-0.2 rounded border border-amber-500/30">
+                                                      Match
+                                                    </span>
+                                                  )}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+
+                                        {isExpanded && timeline.description && (
+                                          <div
+                                            className="text-[11px] font-semibold opacity-95 pt-2 mt-2 border-t border-current/10 prose prose-sm max-w-none prose-current leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] overflow-hidden"
+                                            dangerouslySetInnerHTML={{ __html: timeline.description }}
+                                          />
+                                        )}
+                                        {!isExpanded && timeline.description && (
+                                          <p className="text-[10px] font-bold opacity-60 mt-1.5 flex items-center gap-1">
+                                            Click to view details <span className="text-[8px]">▼</span>
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        });
+                    })()}
+
+                    {event.timelines.length > visibleEventAgendaCount && (
+                      <div className="flex flex-col items-center gap-2 pt-2">
+                        <Button
+                          onClick={() => setVisibleEventAgendaCount((c) => c + 20)}
+                          variant="outline"
+                          className="rounded-2xl border-current/20 bg-transparent text-current font-bold px-6 py-5 hover:opacity-80 shadow-sm flex items-center gap-2"
+                        >
+                          <ChevronDown className="w-5 h-5" />
+                          Show More Sessions
+                        </Button>
+                        <p className="text-[10px] font-semibold opacity-60">
+                          Showing {Math.min(visibleEventAgendaCount, event.timelines.length)} of {event.timelines.length} sessions
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+
+
+              {/* Card Block 4: Map Location Card with iframe embed */}
+              <div className="p-6 sm:p-8 rounded-[24px] border shadow-sm space-y-5 transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)", boxShadow: isDark ? "0 14px 34px -10px rgba(0,0,0,0.5), 0 2px 8px -2px rgba(0,0,0,0.3)" : "0 14px 34px -10px rgba(15,23,42,0.07), 0 2px 8px -2px rgba(15,23,42,0.04)" }}>
+                <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5 text-foreground">
+                  <MapPin className="w-5 h-5 text-rose-500 shrink-0" />
+                  <span>Location Details</span>
+                </h2>
+
+                <div className="flex flex-col gap-5">
+                  <div className="space-y-1.5">
+                    <h3 className="font-bricolage font-bold text-base capitalize text-foreground">{event.mode} Venue</h3>
+                    <p className="text-muted-foreground font-medium text-sm leading-relaxed">{event.location}</p>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-accent hover:underline font-bold text-xs underline-offset-4 mt-1 cursor-pointer"
+                    >
+                      <span>View on Google Maps</span>
+                      <span>→</span>
+                    </a>
+                  </div>
+
+                  {/* Real Google Maps embed iframe preview */}
+                  <div className="w-full h-64 rounded-2xl overflow-hidden border border-border relative shadow-sm shrink-0 bg-muted/20">
+                    <iframe
+                      title="Event Location Map"
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(event.location)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* RIGHT COLUMN: STICKY CARDS (Sticky scroll design matching video & screenshot) */}
+            <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-6 self-start min-w-0">
+
+              {/* Right Card 1: Event Summary & Host Card */}
+              <div className="p-6 sm:p-7 rounded-[24px] border shadow-sm space-y-4 transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)", boxShadow: isDark ? "0 14px 34px -10px rgba(0,0,0,0.5), 0 2px 8px -2px rgba(0,0,0,0.3)" : "0 14px 34px -10px rgba(15,23,42,0.07), 0 2px 8px -2px rgba(15,23,42,0.04)" }}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-[10.5px] font-black uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
+                    {event.type}
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider flex items-center gap-1.5 border border-border bg-input/50 text-muted-foreground">
+                    {event.mode === 'online' ? <Laptop className="w-3.5 h-3.5" /> : event.mode === 'hybrid' ? <MonitorSmartphone className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
+                    {event.mode} Event
+                  </span>
+                </div>
+
+                <h1 className="font-bricolage text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground leading-tight break-words">
+                  {event.title}
+                </h1>
+
+                <div className="flex items-center gap-3.5 pt-1">
+                  <div className="w-11 h-11 rounded-full border border-border bg-input/50 flex items-center justify-center shrink-0 text-muted-foreground">
+                    <UserCircle2 className="w-7 h-7" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-mono text-[10px] font-black text-muted-foreground uppercase tracking-widest">HOSTED BY</p>
+                    <p className="font-bold text-sm sm:text-base text-foreground truncate">
+                      {event.organizerName || "Eventrix Organizer"}
+                    </p>
+                  </div>
+                </div>
+
+                {timeLeftStr && (
+                  <div className="flex items-center gap-2 text-xs font-bold w-fit px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300">
+                    <Clock className="w-3.5 h-3.5 animate-pulse" />
+                    <span>{timeLeftStr}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Card 2: Ticket Pricing, Schedule, Venue & Registration CTAs */}
+              <div className="p-6 sm:p-7 rounded-[24px] border shadow-xl space-y-6 transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)", boxShadow: isDark ? "0 16px 36px -10px rgba(0,0,0,0.55), 0 2px 8px -2px rgba(0,0,0,0.3)" : "0 16px 36px -10px rgba(15,23,42,0.09), 0 2px 8px -2px rgba(15,23,42,0.04)" }}>
+                {/* Pricing Tag */}
+                <div className="text-center pb-5 border-b border-dashed border-border">
+                  <p className="font-mono text-[10.5px] font-black uppercase tracking-widest text-muted-foreground">TICKET PRICING</p>
+                  <h2 className="font-bricolage text-4xl sm:text-5xl font-black tracking-tight text-foreground mt-2">
+                    {event.fee === 0 ? "₹0" : `₹${event.fee}`}
+                  </h2>
+                </div>
+
+                {/* Time & location lists */}
+                <div className="space-y-4">
+                  <div className="flex gap-3.5 items-start">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm leading-snug text-foreground">
+                        {formatFullDate(event.startDate)}
+                      </h4>
+                      <p className="text-muted-foreground text-xs font-medium mt-0.5">
+                        {formatTime(event.startDate)} - {formatTime(event.endDate)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3.5 items-start">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                      <MapPin className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-sm leading-snug truncate max-w-[220px] sm:max-w-[280px] text-foreground">
+                        {event.location}
+                      </h4>
+                      <p className="text-muted-foreground text-xs font-medium capitalize mt-0.5">
+                        {event.mode} Event
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Capacity Status progress card */}
+                <div className="p-4.5 rounded-2xl border space-y-3 transition-all" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                  <div className="flex justify-between items-center font-mono text-[10.5px] font-black uppercase tracking-wider">
+                    <span className="text-muted-foreground">Capacity Status</span>
+                    {timeLeftStr && (
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-bold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        {timeLeftStr}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    {event.capacity > 0 ? (
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs font-bold text-muted-foreground">
+                          <span>Seats Capacity</span>
+                          <span className="text-primary font-black">
+                            {event.capacity - registeredCount > 0
+                              ? `${event.capacity - registeredCount} spots left`
+                              : "Sold Out"}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${Math.min(100, Math.round((registeredCount / event.capacity) * 100))}%`,
+                              background: "linear-gradient(90deg, var(--accent), var(--accent2, #8b5cf6))",
+                            }}
+                          />
                         </div>
                       </div>
-                    );
-                  });
-                })()}
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Ticket className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/25">
+                          Unlimited Spots Available
+                        </span>
+                      </div>
+                    )}
 
-                {event.timelines.length > visibleEventAgendaCount && (
-                  <div className="flex flex-col items-center gap-2 pt-2">
-                    <Button
-                      onClick={() => setVisibleEventAgendaCount((c) => c + 20)}
-                      variant="outline"
-                      className="rounded-2xl border-current/20 bg-transparent text-current font-bold px-6 py-5 hover:opacity-80 shadow-sm flex items-center gap-2"
-                    >
-                      <ChevronDown className="w-5 h-5" />
-                      Show More Sessions
-                    </Button>
-                    <p className="text-[10px] font-semibold opacity-60">
-                      Showing {Math.min(visibleEventAgendaCount, event.timelines.length)} of {event.timelines.length} sessions
-                    </p>
+                    <div className="flex items-center gap-2 text-muted-foreground font-medium text-xs border-t border-border/50 pt-2.5">
+                      <Users className="w-3.5 h-3.5 shrink-0" />
+                      <span>{registeredCount} participants registered</span>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Card Block 4: Map Location Card with iframe embed */}
-          <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
-            <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
-              <MapPin className={`w-5 h-5 ${theme.accent}`} /> Location Details
-            </h2>
-
-            <div className="flex flex-col gap-6">
-              <div className="space-y-2.5">
-                <h3 className={`font-extrabold text-base capitalize ${theme.textHeading}`}>{event.mode} Venue</h3>
-                <p className={`${theme.textMuted} font-semibold text-sm leading-relaxed`}>{event.location}</p>
-                <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-block text-indigo-400 hover:underline font-bold text-xs underline-offset-4 mt-2"
-                >
-                  View on Google Maps →
-                </a>
-              </div>
-
-              {/* Real Google Maps embed iframe preview */}
-              <div className="w-full h-64 rounded-2xl overflow-hidden border border-zinc-200 relative shadow-sm shrink-0 bg-zinc-150">
-                <iframe
-                  title="Event Location Map"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  loading="lazy"
-                  allowFullScreen
-                  referrerPolicy="no-referrer-when-downgrade"
-                  src={`https://maps.google.com/maps?q=${encodeURIComponent(event.location)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
-                />
-              </div>
-            </div>
-          </div>
-
-
-
-        </div>
-
-        {/* RIGHT COLUMN: Sticky Ticket sidebar */}
-        <div className="lg:col-span-5 relative">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className={`lg:sticky lg:top-8 p-6 sm:p-8 rounded-3xl shadow-xl border space-y-6 ${theme.cardBg}`}
-          >
-            {/* Pricing Tag */}
-            <div className={`text-center pb-6 border-b ${theme.divider}`}>
-              <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mb-1.5">Ticket Pricing</p>
-              <h2 className={`text-4xl font-black tracking-tight ${theme.textHeading}`}>
-                {event.fee === 0 ? "Free" : `₹${event.fee}`}
-              </h2>
-            </div>
-
-            {/* Time & location lists */}
-            <div className="space-y-5">
-              <div className="flex gap-3.5 items-start">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                  theme.isDark ? "bg-indigo-950/60 border-indigo-900" : "bg-indigo-50 border-indigo-100"
-                }`}>
-                  <Calendar className="w-4 h-4 text-indigo-400" />
                 </div>
-                <div>
-                  <h4 className={`font-bold text-sm leading-snug ${theme.textHeading}`}>{formatFullDate(event.startDate)}</h4>
-                  <p className={`${theme.textMuted} text-xs font-semibold mt-0.5`}>
-                    {formatTime(event.startDate)} - {formatTime(event.endDate)}
-                  </p>
-                </div>
-              </div>
 
-              <div className="flex gap-3.5 items-start">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                  theme.isDark ? "bg-rose-950/60 border-rose-900" : "bg-rose-50 border-rose-100"
-                }`}>
-                  <MapPin className="w-4 h-4 text-rose-400" />
-                </div>
-                <div>
-                  <h4 className={`font-bold text-sm leading-snug truncate max-w-[200px] sm:max-w-[240px] ${theme.textHeading}`}>{event.location}</h4>
-                  <p className={`${theme.textMuted} text-xs font-semibold capitalize mt-0.5`}>{event.mode} Event</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Live widget statistics */}
-            <div className={`p-4.5 rounded-2xl border space-y-3.5 ${
-              theme.isDark ? "bg-zinc-900/40 border-zinc-800" : "bg-zinc-50 border-zinc-200/80"
-            }`}>
-              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-wider text-zinc-400">
-                <span>Capacity Status</span>
-                {timeLeftStr.includes("Ongoing") && (
-                  <span className="flex items-center gap-1 text-red-500 animate-pulse">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Live
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                {event.capacity > 0 ? (
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-bold text-zinc-400">
-                      <span>Seats Capacity</span>
-                      <span className="text-indigo-400 font-black">
-                        {event.capacity - registeredCount > 0 
-                          ? `${event.capacity - registeredCount} spots left` 
-                          : "Sold Out"}
-                      </span>
+                {/* Action CTAs */}
+                {isStaff || isOwner ? (
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-2xl flex items-start gap-3 border bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300">
+                      <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-extrabold text-xs">Organizer Preview Mode</p>
+                        <p className="opacity-85 text-[11px] font-semibold mt-0.5 leading-relaxed">
+                          You are previewing this event as an organizer or staff member. Registration is restricted to regular participants.
+                        </p>
+                      </div>
                     </div>
-                    <div className="w-full h-1.5 bg-zinc-850 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          (registeredCount / event.capacity) > 0.85 ? "bg-red-500" : "bg-indigo-500"
-                        }`}
-                        style={{ width: `${Math.min(100, (registeredCount / event.capacity) * 100)}%` }}
-                      />
+                    <Button
+                      disabled
+                      className="w-full rounded-2xl py-6 bg-muted text-muted-foreground font-bold text-sm cursor-not-allowed shadow-none border border-border"
+                    >
+                      Registration Disabled (Preview Mode)
+                    </Button>
+                    {viewMode === "PREVIEW" && (
+                      <Button
+                        onClick={() => setViewMode("DASHBOARD")}
+                        className="w-full rounded-2xl py-6 font-bold text-sm flex items-center justify-center gap-2 text-white shadow-lg transition-transform hover:-translate-y-0.5 cursor-pointer"
+                        style={{
+                          background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
+                        }}
+                      >
+                        <LayoutDashboard className="w-4 h-4" /> Return to Event Dashboard
+                      </Button>
+                    )}
+                  </div>
+                ) : isRegistered ? (
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-2xl flex items-start gap-3 border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-extrabold text-xs">You are registered!</p>
+                        <p className="opacity-80 text-[11px] font-semibold mt-0.5">Your ticket check details are confirmed.</p>
+                      </div>
                     </div>
+                    <Link href={`/dashboard/team/${userDashboardId}`} className="block">
+                      <Button
+                        className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-xl transition-all hover:-translate-y-0.5 font-bricolage text-[15px] cursor-pointer"
+                        style={{
+                          background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
+                        }}
+                      >
+                        Go to Participant Dashboard
+                      </Button>
+                    </Link>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <Ticket className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span className="text-xs font-black uppercase text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-900/50">
-                      Unlimited Spots Available
-                    </span>
-                  </div>
+                  <Link href={`/events/${eventId}/register`} className="block">
+                    <Button
+                      disabled={isRegistrationBlocked}
+                      className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-xl transition-all hover:-translate-y-0.5 font-bricolage text-[15px] flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                      style={{
+                        background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
+                      }}
+                    >
+                      <span>{ctaText}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </Link>
                 )}
 
-                <div className="flex items-center gap-2 text-zinc-400 font-bold text-[10px] border-t border-zinc-800/60 pt-2">
-                  <Users className="w-4 h-4 shrink-0" />
-                  <span>{registeredCount} participants registered</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ACTION CTA CHECKS */}
-            {isStaff || isOwner ? (
-              <div className="space-y-3">
-                <div className={`p-4 rounded-2xl flex items-start gap-3 border ${
-                  isDark ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-900"
-                }`}>
-                  <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-extrabold text-xs">Organizer Preview Mode</p>
-                    <p className="opacity-85 text-[11px] font-semibold mt-0.5 leading-relaxed">
-                      You are previewing this event as an organizer or staff member. Registration is restricted to regular participants.
-                    </p>
-                  </div>
-                </div>
-                <Button 
-                  disabled
-                  className="w-full rounded-2xl py-6 bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-bold text-sm cursor-not-allowed shadow-none border border-zinc-300 dark:border-zinc-700"
-                >
-                  Registration Disabled (Preview Mode)
-                </Button>
-                {viewMode === "PREVIEW" && (
+                {/* Quick action save and share buttons */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
                   <Button
-                    onClick={() => setViewMode("DASHBOARD")}
+                    onClick={handleToggleSave}
                     variant="outline"
-                    className="w-full rounded-2xl py-5 font-bold text-xs flex items-center justify-center gap-2 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-850 transition-all text-zinc-700 dark:text-zinc-300"
+                    className="rounded-full border border-border text-foreground font-bold text-xs h-10 flex items-center justify-center gap-2 hover:bg-muted/50 cursor-pointer"
                   >
-                    <LayoutDashboard className="w-4 h-4 text-indigo-500" /> Return to Event Dashboard
+                    <Bookmark className={`w-4 h-4 ${event?.is_saved ? "fill-current text-primary" : ""}`} />
+                    <span>{event?.is_saved ? "Saved" : "Save Event"}</span>
                   </Button>
-                )}
-              </div>
-            ) : isRegistered ? (
-              <div className="space-y-3">
-                <div className={`p-4.5 rounded-2xl flex items-start gap-3 border ${activeAccent.badgeBg} ${activeAccent.border} ${activeAccent.text}`}>
-                  <CheckCircle2 className={`w-5 h-5 ${activeAccent.text} shrink-0 mt-0.5`} />
-                  <div>
-                    <p className="font-extrabold text-xs">You are registered!</p>
-                    <p className="opacity-80 text-[10px] font-semibold mt-0.5">Your ticket check details are confirmed.</p>
-                  </div>
+                  <Button
+                    onClick={() => setIsShareModalOpen(true)}
+                    variant="outline"
+                    className="rounded-full border border-border text-foreground font-bold text-xs h-10 flex items-center justify-center gap-2 hover:bg-muted/50 cursor-pointer"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span>Share Event</span>
+                  </Button>
                 </div>
-                <Link href={`/dashboard/team/${userDashboardId}`} className="block">
-                  <Button className={`w-full rounded-2xl py-6 ${activeAccent.bg} hover:opacity-90 text-white font-bold text-sm shadow-xl ${activeAccent.shadow} transition-all`}>
-                    Go to Participant Dashboard
-                  </Button>
-                </Link>
               </div>
-            ) : (
-              <Link href={`/events/${eventId}/register`} className="block">
-                <Button 
-                  disabled={isRegistrationBlocked}
-                  className={`w-full rounded-2xl py-6 text-white font-bold text-sm shadow-xl transition-all ${theme.button}`}
-                >
-                  {ctaText}
-                </Button>
-              </Link>
-            )}
-          </motion.div>
-        </div>
-      </section>
 
-      {/* SHARE MODAL COMPONENT */}
-      <AnimatePresence>
-        {isShareModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative space-y-4 text-zinc-900"
-            >
-              <button 
-                type="button"
-                onClick={() => setIsShareModalOpen(false)}
-                className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-900 p-1.5 hover:bg-zinc-100 rounded-full transition-all"
+              {/* Quick link to Dashboard if host */}
+              {(isOwner || isStaff) && viewMode === "PREVIEW" && (
+                <div
+                  onClick={() => setViewMode("DASHBOARD")}
+                  className="p-4 rounded-2xl border border-border bg-card hover:border-primary/50 transition-all cursor-pointer flex items-center gap-3 shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-input/50 flex items-center justify-center text-primary shrink-0">
+                    <LayoutDashboard className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-foreground">Event Dashboard</p>
+                    <p className="text-xs text-muted-foreground truncate">You’re managing this event</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                </div>
+              )}
+
+            </div>
+          </section>
+
+          {/* SHARE MODAL COMPONENT */}
+          <AnimatePresence>
+            {isShareModalOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
               >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="space-y-1">
-                <h3 className="text-lg font-black tracking-tight">Share Event</h3>
-                <p className="text-zinc-400 text-xs font-semibold">Copy link below to invite participants.</p>
-              </div>
-
-              <div className="flex gap-2 items-center bg-zinc-50 p-2.5 rounded-xl border border-zinc-200">
-                <input 
-                  type="text" 
-                  value={typeof window !== "undefined" ? window.location.href : ""} 
-                  readOnly 
-                  className="flex-1 bg-transparent text-xs font-semibold text-zinc-600 focus:outline-none select-all min-w-0"
-                />
-                <Button 
-                  onClick={handleCopyLink}
-                  size="sm" 
-                  className={`rounded-lg ${activeAccent.bg} hover:opacity-90 text-white font-bold text-[10px] shrink-0`}
+                <motion.div
+                  initial={{ scale: 0.95, y: 15 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.95, y: 15 }}
+                  className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative space-y-4 text-zinc-900"
                 >
-                  {copied ? "Copied!" : "Copy Link"}
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                  <button
+                    type="button"
+                    onClick={() => setIsShareModalOpen(false)}
+                    className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-900 p-1.5 hover:bg-zinc-100 rounded-full transition-all"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
 
-      {/* STAFF PREVIEW TOOLBAR */}
-      {isStaff && viewMode === "PREVIEW" && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-zinc-950/95 text-white px-4 py-3 sm:px-6 sm:py-4 rounded-2xl sm:rounded-3xl border border-zinc-850 shadow-2xl backdrop-blur-md flex items-center gap-2.5 sm:gap-4 animate-in fade-in slide-in-from-bottom-5 max-w-[92vw] w-auto">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <p className="text-[10px] sm:text-xs font-bold text-zinc-200 whitespace-nowrap">
-              <span className="hidden sm:inline">Preview Mode: Organizer view</span>
-              <span className="sm:hidden">Organizer Preview</span>
-            </p>
-          </div>
-          <div className="w-px h-4 bg-zinc-800 shrink-0" />
-          <button
-            onClick={() => setViewMode("DASHBOARD")}
-            className="text-[9px] sm:text-xs font-black bg-rose-600 hover:bg-rose-500 text-white px-2.5 py-1.5 rounded-xl transition-all uppercase tracking-wider cursor-pointer shadow-sm hover:scale-105 active:scale-95 whitespace-nowrap"
-            type="button"
-          >
-            Exit Preview
-          </button>
-        </div>
-      )}
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black tracking-tight">Share Event</h3>
+                    <p className="text-zinc-400 text-xs font-semibold">Copy link below to invite participants.</p>
+                  </div>
+
+                  <div className="flex gap-2 items-center bg-zinc-50 p-2.5 rounded-xl border border-zinc-200">
+                    <input
+                      type="text"
+                      value={typeof window !== "undefined" ? window.location.href : ""}
+                      readOnly
+                      className="flex-1 bg-transparent text-xs font-semibold text-zinc-600 focus:outline-none select-all min-w-0"
+                    />
+                    <Button
+                      onClick={handleCopyLink}
+                      size="sm"
+                      className={`rounded-lg ${activeAccent.bg} hover:opacity-90 text-white font-bold text-[10px] shrink-0`}
+                    >
+                      {copied ? "Copied!" : "Copy Link"}
+                    </Button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* STAFF PREVIEW TOOLBAR */}
+          {isStaff && viewMode === "PREVIEW" && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-zinc-950/95 text-white px-4 py-3 sm:px-6 sm:py-4 rounded-2xl sm:rounded-3xl border border-zinc-850 shadow-2xl backdrop-blur-md flex items-center gap-2.5 sm:gap-4 animate-in fade-in slide-in-from-bottom-5 max-w-[92vw] w-auto">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <p className="text-[10px] sm:text-xs font-bold text-zinc-200 whitespace-nowrap">
+                  <span className="hidden sm:inline">Preview Mode: Organizer view</span>
+                  <span className="sm:hidden">Organizer Preview</span>
+                </p>
+              </div>
+              <div className="w-px h-4 bg-zinc-800 shrink-0" />
+              <button
+                onClick={() => setViewMode("DASHBOARD")}
+                className="text-[9px] sm:text-xs font-black bg-rose-600 hover:bg-rose-500 text-white px-2.5 py-1.5 rounded-xl transition-all uppercase tracking-wider cursor-pointer shadow-sm hover:scale-105 active:scale-95 whitespace-nowrap"
+                type="button"
+              >
+                Exit Preview
+              </button>
+            </div>
+          )}
         </div>
       </AppLayout>
     </div>

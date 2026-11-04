@@ -11,34 +11,34 @@ import {
   Bookmark,
   Bell,
   PlusCircle,
+  LayoutDashboard,
+  Zap,
   Settings,
   LogOut,
-  Menu,
-  X,
   ChevronsLeft,
   ChevronsRight,
-  Loader2,
-  AlertTriangle,
   Sun,
   Moon,
+  AlertTriangle,
+  Loader2,
+  X,
 } from "lucide-react";
 import { useUser } from "@/components/providers/UserProvider";
 import { useLogout } from "@/hooks/authHooks";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import { notificationService } from "@/services/notification.service";
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
-  disabled?: boolean;
+  badge?: number;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: "Home", href: "/home", icon: Home },
-  { label: "Discover", href: "/discover", icon: Compass },
-  { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
-  { label: "Saved", href: "/events/saved", icon: Bookmark },
-];
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -53,12 +53,13 @@ export default function Sidebar({
   mobileOpen: propMobileOpen,
   setMobileOpen: propSetMobileOpen,
 }: SidebarProps = {}) {
-  const { isDark, activeAccent, toggleTheme } = useAppearance();
+  const { isDark, activeAccent, toggleTheme, theme } = useAppearance();
   const pathname = usePathname();
   const router = useRouter();
 
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const mobileOpen = propMobileOpen ?? internalMobileOpen;
   const setMobileOpen = propSetMobileOpen ?? setInternalMobileOpen;
@@ -71,15 +72,32 @@ export default function Sidebar({
   const { profile, clearProfile } = useUser();
   const { logout, isLoading: isLoggingOut } = useLogout();
 
-  const userName = profile?.name || "there";
+  // Fetch unread notifications count
+  useEffect(() => {
+    let isSubscribed = true;
+    const fetchUnread = async () => {
+      try {
+        const res = await notificationService.getUnreadCount();
+        if (isSubscribed && typeof (res as any)?.count === "number") {
+          setUnreadCount((res as any).count);
+        }
+      } catch (e) {
+        // Fallback default
+      }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleConfirmLogout = async () => {
     try {
       await logout();
       clearProfile();
     } catch {
-      // Tokens are cleared inside the hook on success; still redirect
-      // even on failure so the user isn't stuck.
       clearProfile();
     } finally {
       setShowLogoutConfirm(false);
@@ -87,255 +105,323 @@ export default function Sidebar({
     }
   };
 
-  // `collapsed` only ever applies to the desktop rail — the mobile drawer
-  // always renders expanded since it's already hidden until opened.
-  const renderSidebarContent = (isCollapsed: boolean) => (
-    <div className="flex h-full flex-col justify-between">
-      {/* Logo + Nav */}
-      <div>
-        <div className={`flex items-center mb-10 ${isCollapsed ? "flex-col gap-3" : "justify-between px-2"}`}>
-          <Link
-            href="/home"
-            className={`flex items-center gap-2 font-extrabold text-xl ${isDark ? "text-white" : "text-zinc-900"} hover:opacity-80 transition-opacity`}
-          >
-            <div className={`w-8 h-8 shrink-0 rounded-xl bg-gradient-to-br ${activeAccent.gradient} shadow-sm flex items-center justify-center`}>
-              <span className="text-white text-xs font-black">CC</span>
-            </div>
-          </Link>
+  const navGroups: NavGroup[] = [
+    {
+      label: "Explore",
+      items: [
+        { label: "Home", href: "/home", icon: Home },
+        { label: "Discover", href: "/discover", icon: Compass },
+        { label: "My Events", href: "/events/mine/myEvents", icon: CalendarDays },
+        { label: "Saved Events", href: "/events/saved", icon: Bookmark },
+      ],
+    },
+  ];
 
-          {/* Collapse toggle — desktop only, hidden inside the mobile drawer copy */}
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="hidden md:flex w-8 h-8 shrink-0 rounded-full items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
-          >
-            {isCollapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
-          </button>
-        </div>
-
-        <nav className="flex flex-col gap-1.5">
-          {NAV_ITEMS.map((item) => {
-            const isActive =
-              pathname === item.href || pathname?.startsWith(`${item.href}/`);
-            const isDisabled = item.disabled;
-            const Icon = item.icon;
-
-            if (isDisabled) {
-              return (
-                <div key={item.href} title={isCollapsed ? item.label : undefined}>
-                  <div
-                    className={`relative flex items-center rounded-full text-sm font-semibold text-zinc-400 cursor-not-allowed opacity-60 ${isCollapsed ? "justify-center px-0 py-2.5 w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
-                      }`}
-                  >
-                    <Icon className="w-4.5 h-4.5 relative z-10 shrink-0" strokeWidth={2.2} />
-                    {!isCollapsed && <span className="relative z-10">{item.label}</span>}
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} title={isCollapsed ? item.label : undefined}>
-                <div
-                  className={`relative flex items-center rounded-full text-sm font-semibold transition-colors ${isCollapsed ? "justify-center px-0 py-2.5 w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
-                    } ${isActive
-                      ? `${activeAccent.text} font-bold`
-                      : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"}`
-                    }`}
-                >
-                  {isActive && (
-                    <motion.div
-                      layoutId="sidebar-active-pill"
-                      className={`absolute inset-0 rounded-full ${isDark ? "bg-white/10" : activeAccent.badgeBg} ${activeAccent.border} shadow-sm`}
-                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                    />
-                  )}
-                  <Icon className="w-4.5 h-4.5 relative z-10 shrink-0" strokeWidth={2.2} />
-                  {!isCollapsed && <span className="relative z-10">{item.label}</span>}
-                </div>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <Link href="/events/create" onClick={() => setMobileOpen(false)} title={isCollapsed ? "Create Event" : undefined}>
-          <button
-            className={`mt-6 flex items-center justify-center gap-2 rounded-full ${activeAccent.bg} text-white hover:opacity-90 shadow-md ${activeAccent.shadow} text-sm font-semibold transition-all hover:scale-[1.02] ${isCollapsed ? "w-11 h-11 mx-auto p-0" : "w-full px-4 py-3"
-              }`}
-          >
-            <PlusCircle className="w-4 h-4 shrink-0" />
-            {!isCollapsed && "Create Event"}
-          </button>
-        </Link>
-      </div>
-
-      {/* Footer: theme switcher/settings/logout */}
-      <div className="border-t border-zinc-200/70 dark:border-white/10 pt-4 flex flex-col gap-1">
-        {/* Quick Theme Switcher */}
-        <button
-          type="button"
-          onClick={toggleTheme}
-          title={isCollapsed ? (isDark ? "Switch to Light Mode" : "Switch to Dark Mode") : undefined}
-          className={`relative flex items-center rounded-full text-sm font-semibold transition-colors cursor-pointer ${
-            isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5 justify-between"
-          } ${
-            isDark
-              ? "text-zinc-300 hover:text-white hover:bg-white/5"
-              : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+  const renderContent = (isCollapsed: boolean) => (
+    <div className="flex h-full flex-col justify-between overflow-y-auto overflow-x-hidden no-scrollbar">
+      {/* Top brand + Navigation */}
+      <div className="flex flex-col gap-1">
+        {/* Brand Logo */}
+        <div
+          className={`flex items-center h-10 px-2 mb-3 ${
+            isCollapsed ? "justify-center" : "justify-between"
           }`}
         >
-          <div className="flex items-center gap-3">
-            {isDark ? (
-              <Moon className="w-4.5 h-4.5 shrink-0 text-indigo-400" strokeWidth={2.2} />
-            ) : (
-              <Sun className="w-4.5 h-4.5 shrink-0 text-amber-500" strokeWidth={2.2} />
-            )}
-            {!isCollapsed && <span>{isDark ? "Dark Theme" : "Light Theme"}</span>}
-          </div>
-          {!isCollapsed && (
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                isDark ? "bg-white/10 text-zinc-300" : "bg-zinc-200 text-zinc-700"
-              }`}
+          <Link
+            href="/home"
+            className="flex items-center gap-2.5 font-extrabold text-base tracking-tight hover:opacity-90 transition-opacity"
+          >
+            <div
+              className="w-8 h-8 shrink-0 rounded-[10px] flex items-center justify-center text-white font-extrabold text-sm shadow-md transition-transform hover:scale-105"
+              style={{
+                background: `linear-gradient(135deg, var(--accent), var(--accent2))`,
+                boxShadow: `0 6px 18px -6px var(--accent)`,
+              }}
             >
-              {isDark ? "Dark" : "Light"}
-            </span>
-          )}
-        </button>
+              <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 5h14M5 12h9M5 19h14" />
+                <circle cx="18" cy="12" r="1.5" fill="currentColor" />
+              </svg>
+            </div>
+            {!isCollapsed && (
+              <span
+                className="font-bricolage text-[17px] font-bold tracking-tight whitespace-nowrap"
+                style={{ color: "var(--text)" }}
+              >
+                Event<span style={{ color: "var(--accent)" }}>rix</span>
+              </span>
+            )}
+          </Link>
+        </div>
 
+        {/* Navigation Groups */}
+        {navGroups.map((group, gIdx) => (
+          <div key={group.label} className={gIdx > 0 ? "mt-4" : ""}>
+            {!isCollapsed && (
+              <div
+                className="text-[10.5px] font-bold uppercase tracking-wider px-3.5 py-1.5 font-mono"
+                style={{ color: "var(--subtle)" }}
+              >
+                {group.label}
+              </div>
+            )}
+            <div className="flex flex-col gap-1">
+              {group.items.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/home" && pathname?.startsWith(`${item.href}`));
+                const Icon = item.icon;
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    title={item.label}
+                    className={`flex items-center gap-3 h-10 px-3.5 rounded-full text-sm font-medium transition-all ${
+                      isCollapsed ? "justify-center px-0" : ""
+                    }`}
+                    style={
+                      isActive
+                        ? {
+                            background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                            color: "var(--accent)",
+                            fontWeight: 600,
+                          }
+                        : {
+                            background: "transparent",
+                            color: "var(--muted)",
+                          }
+                    }
+                  >
+                    <Icon
+                      className="w-5 h-5 shrink-0 transition-colors"
+                      style={isActive ? { color: "var(--accent)" } : undefined}
+                    />
+                    {!isCollapsed && (
+                      <span className="flex-1 truncate">{item.label}</span>
+                    )}
+                    {!isCollapsed && item.badge !== undefined && (
+                      <span
+                        className="min-w-[18px] h-[18px] px-1.5 rounded-full text-[11px] font-bold text-white flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: "var(--accent)" }}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                    {isCollapsed && item.badge !== undefined && (
+                      <span
+                        className="absolute top-2 right-2 w-2 h-2 rounded-full"
+                        style={{ backgroundColor: "var(--accent)" }}
+                      />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* Create Event CTA Pill */}
+        <div className="mt-4 px-1">
+          <Link
+            href="/events/create"
+            title="Create Event"
+            className={`flex items-center justify-center gap-2 h-11 rounded-full text-sm font-semibold text-white shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-transform ${
+              isCollapsed ? "w-10 h-10 mx-auto p-0" : "w-full px-4"
+            }`}
+            style={{
+              background: `linear-gradient(135deg, var(--accent), var(--accent2))`,
+              boxShadow: `0 8px 20px -8px var(--accent)`,
+            }}
+          >
+            <PlusCircle className="w-5 h-5 shrink-0" />
+            {!isCollapsed && <span>Create Event</span>}
+          </Link>
+        </div>
+      </div>
+
+      {/* Bottom Controls: Settings, Logout, Collapse */}
+      <div
+        className="pt-3 border-t flex flex-col gap-1 mt-auto"
+        style={{ borderColor: "var(--border)" }}
+      >
+        {/* Settings */}
         <Link
           href="/settings"
-          onClick={() => setMobileOpen(false)}
-          title={isCollapsed ? "Settings" : undefined}
+          title="Settings"
+          className={`flex items-center gap-3 h-10 px-3.5 rounded-full text-sm font-medium transition-colors ${
+            isCollapsed ? "justify-center px-0" : ""
+          }`}
+          style={
+            pathname?.startsWith("/settings")
+              ? {
+                  background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                  color: "var(--accent)",
+                  fontWeight: 600,
+                }
+              : {
+                  background: "transparent",
+                  color: "var(--muted)",
+                }
+          }
         >
-          <div
-            className={`relative flex items-center rounded-full text-sm font-semibold transition-colors ${isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
-              } ${pathname === "/settings"
-                ? `${activeAccent.text} font-bold ${isDark ? "bg-white/10" : activeAccent.badgeBg} ${activeAccent.border}`
-                : `${isDark ? "text-zinc-400 hover:text-white hover:bg-white/5" : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"}`
-              }`}
-          >
-            <Settings className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
-            {!isCollapsed && "Settings"}
-          </div>
+          <Settings className="w-5 h-5 shrink-0" />
+          {!isCollapsed && <span className="flex-1 truncate">Settings</span>}
         </Link>
+
+        {/* Log Out */}
         <button
-          title={isCollapsed ? "Log out" : undefined}
-          className={`flex items-center rounded-full text-sm font-semibold transition-colors ${isCollapsed ? "justify-center w-11 h-11 mx-auto" : "gap-3 px-4 py-2.5"
-            } ${isDark
-              ? "text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 hover:text-rose-300"
-              : "text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700"
-            }`}
-          onClick={() => {
-            setMobileOpen(false);
-            setShowLogoutConfirm(true);
-          }}
+          onClick={() => setShowLogoutConfirm(true)}
+          title="Log out"
+          className={`flex items-center gap-3 h-10 px-3.5 rounded-full text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors ${
+            isCollapsed ? "justify-center px-0" : ""
+          }`}
         >
-          <LogOut className="w-4.5 h-4.5 shrink-0" strokeWidth={2.2} />
-          {!isCollapsed && "Log out"}
+          <LogOut className="w-5 h-5 shrink-0" />
+          {!isCollapsed && <span className="flex-1 text-left truncate">Log out</span>}
         </button>
 
+        {/* Collapse Sidebar Button (Desktop Only) */}
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={`hidden md:flex items-center justify-center w-8 h-8 mt-1 rounded-full transition-colors ${
+            isCollapsed ? "self-center" : "self-end mr-1"
+          }`}
+          style={{ color: "var(--subtle)" }}
+        >
+          {isCollapsed ? (
+            <ChevronsRight className="w-4 h-4" />
+          ) : (
+            <ChevronsLeft className="w-4 h-4" />
+          )}
+        </button>
       </div>
     </div>
   );
 
   return (
     <>
-      {/* Desktop sidebar placeholder spacer */}
-      <motion.div
-        animate={{ width: collapsed ? 88 : 256 }}
-        transition={{ type: "spring", stiffness: 320, damping: 32 }}
-        className="hidden md:block shrink-0 h-screen"
+      {/* Desktop Fixed Sidebar (Stationary across all pages) */}
+      <aside
+        className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 h-screen shrink-0 border-r p-3 z-40 transition-[width] duration-250 ease-out"
+        style={{
+          width: collapsed ? "76px" : "248px",
+          background: "var(--chrome)",
+          borderColor: "var(--border)",
+          backdropFilter: "blur(24px)",
+        }}
+      >
+        {renderContent(collapsed)}
+      </aside>
+
+      {/* Desktop spacer to preserve layout flow and prevent content overlap */}
+      <div
+        className="hidden md:block shrink-0 transition-[width] duration-250 ease-out"
+        style={{
+          width: collapsed ? "76px" : "248px",
+        }}
+        aria-hidden="true"
       />
 
-      {/* Desktop sidebar - fixed to viewport */}
-      <motion.aside
-        animate={{ width: collapsed ? 88 : 256 }}
-        transition={{ type: "spring", stiffness: 320, damping: 32 }}
-        className={`hidden md:flex md:flex-col fixed top-0 left-0 bottom-0 z-30 px-4 py-6 border-r ${isDark ? "border-white/5 bg-zinc-950/80 text-white" : "border-zinc-200/70 bg-white/70 text-zinc-900"} backdrop-blur-xl overflow-y-auto overflow-x-hidden transition-colors duration-300`}
-      >
-        {renderSidebarContent(collapsed)}
-      </motion.aside>
-
-      {/* Mobile drawer — always renders expanded, regardless of desktop collapsed state */}
+      {/* Mobile Drawer Overlay & Sliding Panel */}
       <AnimatePresence>
         {mobileOpen && (
-          <>
+          <div className="fixed inset-0 z-[60] md:hidden flex">
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
-              className="md:hidden fixed inset-0 z-50 bg-zinc-900/40 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
             />
-            <motion.aside
+
+            {/* Drawer */}
+            <motion.div
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 32 }}
-              className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] ${isDark ? "bg-zinc-950 text-white border-r border-white/10" : "bg-white text-zinc-900"} px-4 py-6 shadow-2xl overflow-y-auto overflow-x-hidden transition-colors duration-300`}
+              transition={{ type: "spring", damping: 25, stiffness: 280 }}
+              className="relative w-72 max-w-[85vw] h-full border-r p-4 z-50 flex flex-col justify-between shadow-2xl"
+              style={{
+                background: "var(--chrome)",
+                borderColor: "var(--border)",
+                backdropFilter: "blur(24px)",
+              }}
             >
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="absolute top-5 right-4 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:bg-zinc-100"
+              <div
+                className="flex items-center justify-between pb-3 border-b mb-2"
+                style={{ borderColor: "var(--border)" }}
               >
-                <X className="w-4 h-4" />
-              </button>
-              {renderSidebarContent(false)}
-            </motion.aside>
-          </>
+                <span
+                  className="font-bricolage text-sm font-bold"
+                  style={{ color: "var(--text)" }}
+                >
+                  Navigation
+                </span>
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                  style={{ color: "var(--muted)" }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">{renderContent(false)}</div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* Logout Confirmation Dialog */}
       <AnimatePresence>
         {showLogoutConfirm && (
-          <>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => !isLoggingOut && setShowLogoutConfirm(false)}
-              className="fixed inset-0 z-[60] bg-zinc-900/50 backdrop-blur-sm flex items-center justify-center p-4"
+              onClick={() => setShowLogoutConfirm(false)}
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative z-10 w-full max-w-sm rounded-2xl bg-zinc-900 border border-white/10 p-6 shadow-2xl"
             >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                transition={{ duration: 0.15 }}
-                onClick={(e) => e.stopPropagation()}
-                className={`w-full max-w-sm ${isDark ? "bg-zinc-900 border border-white/10 text-white" : "bg-white text-zinc-900"} rounded-3xl shadow-2xl p-6`}
-              >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${isDark ? "bg-rose-500/10 text-rose-400" : "bg-rose-50 text-rose-600"
-                  }`}>
-                  <AlertTriangle className="w-6 h-6" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
                 </div>
-
-                <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"} mb-2`}>Log out?</h2>
-                <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-600"} font-medium mb-6`}>
-                  Are you sure you want to log out of your account? You&apos;ll need to sign in again to continue.
-                </p>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowLogoutConfirm(false)}
-                    disabled={isLoggingOut}
-                    className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-60 cursor-pointer ${isDark ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                      }`}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleConfirmLogout}
-                    disabled={isLoggingOut}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-60 cursor-pointer"
-                  >
-                    {isLoggingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : "Log out"}
-                  </button>
+                <div>
+                  <h3 className="font-bricolage text-lg font-bold text-white">
+                    Sign Out?
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Are you sure you want to end your session?
+                  </p>
                 </div>
-              </motion.div>
+              </div>
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmLogout}
+                  disabled={isLoggingOut}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  {isLoggingOut && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Sign Out
+                </button>
+              </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
     </>

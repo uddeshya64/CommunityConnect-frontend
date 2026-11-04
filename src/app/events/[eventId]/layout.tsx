@@ -18,10 +18,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const data = await res.json();
     const event = data?.data?.event || data?.data || data?.event || data;
 
-    const title = event?.title ? `${event.title} | CommunityConnect` : "Event Details | CommunityConnect";
+    const title = event?.title ? `${event.title} | Eventrix` : "Event Details | Eventrix";
     const rawDescription = event?.description || "";
     const cleanDescription = rawDescription.replace(/<[^>]*>?/gm, "").slice(0, 160);
-    const description = cleanDescription || "Join this event on CommunityConnect!";
+    const description = cleanDescription || "Join this event on Eventrix!";
     
     let rawBannerUrl = event?.banner_url || event?.bannerUrl || event?.banner;
     let bannerUrl = rawBannerUrl;
@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         title,
         description,
         url: eventUrl,
-        siteName: "CommunityConnect",
+        siteName: "Eventrix",
         images: [
           {
             url: bannerUrl,
@@ -66,12 +66,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const fallbackBanner = `${appBaseUrl}/icon.png`;
     return {
       metadataBase: new URL(appBaseUrl),
-      title: "Event Details | CommunityConnect",
-      description: "Join tech events and hackathons on CommunityConnect.",
+      title: "Event Details | Eventrix",
+      description: "Join tech events and hackathons on Eventrix.",
       openGraph: {
-        title: "Event Details | CommunityConnect",
-        description: "Join tech events and hackathons on CommunityConnect.",
-        images: [{ url: fallbackBanner, width: 1200, height: 630, alt: "CommunityConnect" }],
+        title: "Event Details | Eventrix",
+        description: "Join tech events and hackathons on Eventrix.",
+        images: [{ url: fallbackBanner, width: 1200, height: 630, alt: "Eventrix" }],
       },
     };
   }

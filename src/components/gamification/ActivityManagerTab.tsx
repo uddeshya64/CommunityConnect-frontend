@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Gamepad2, Plus, Play, Loader2, Sparkles, CheckCircle2, 
-  Clock, HelpCircle, ChevronDown, ChevronUp, Trophy, Trash2 
+import {
+  Gamepad2, Plus, Play, Loader2, Sparkles, CheckCircle2,
+  Clock, HelpCircle, ChevronDown, ChevronUp, Trophy, Trash2,
+  Pencil, X
 } from "lucide-react";
 import { api } from "@/lib/axios";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -59,6 +60,24 @@ export default function ActivityManagerTab({
   // Accordion for viewing questions
   const [expandedQuizId, setExpandedQuizId] = useState<number | null>(null);
   const [deletingQuizId, setDeletingQuizId] = useState<number | null>(null);
+
+  // Edit Question Modal State
+  const [editingQuestion, setEditingQuestion] = useState<{
+    quizId: number;
+    questionId: number;
+    text: string;
+    timeLimit: number;
+    options: Array<{ id?: number; text: string; is_correct: boolean }>;
+  } | null>(null);
+  const [submittingEditQuestion, setSubmittingEditQuestion] = useState(false);
+
+  // Edit Quiz (Title/Description) Modal State
+  const [editingQuiz, setEditingQuiz] = useState<{
+    id: number;
+    title: string;
+    description: string;
+  } | null>(null);
+  const [submittingEditQuiz, setSubmittingEditQuiz] = useState(false);
 
   useEffect(() => {
     fetchQuizzes();
@@ -161,6 +180,123 @@ export default function ActivityManagerTab({
     }
   };
 
+  const handleOpenEditQuestion = (quizId: number, question: any) => {
+    setEditingQuestion({
+      quizId,
+      questionId: question.id,
+      text: question.text || "",
+      timeLimit: question.time_limit || 20,
+      options: (question.options && question.options.length > 0)
+        ? question.options.map((opt: any) => ({
+            id: opt.id,
+            text: opt.text || "",
+            is_correct: !!opt.is_correct
+          }))
+        : [
+            { text: "Option A", is_correct: true },
+            { text: "Option B", is_correct: false },
+            { text: "Option C", is_correct: false },
+            { text: "Option D", is_correct: false }
+          ]
+    });
+  };
+
+  const updateEditingOptionText = (idx: number, val: string) => {
+    if (!editingQuestion) return;
+    const nextOptions = [...editingQuestion.options];
+    nextOptions[idx] = { ...nextOptions[idx], text: val };
+    setEditingQuestion({ ...editingQuestion, options: nextOptions });
+  };
+
+  const setEditingCorrectOption = (idx: number) => {
+    if (!editingQuestion) return;
+    const nextOptions = editingQuestion.options.map((opt, i) => ({
+      ...opt,
+      is_correct: i === idx
+    }));
+    setEditingQuestion({ ...editingQuestion, options: nextOptions });
+  };
+
+  const addOptionToEditing = () => {
+    if (!editingQuestion || editingQuestion.options.length >= 6) return;
+    setEditingQuestion({
+      ...editingQuestion,
+      options: [
+        ...editingQuestion.options,
+        { text: `Option ${String.fromCharCode(65 + editingQuestion.options.length)}`, is_correct: false }
+      ]
+    });
+  };
+
+  const removeOptionFromEditing = (idx: number) => {
+    if (!editingQuestion || editingQuestion.options.length <= 2) return;
+    const wasCorrect = editingQuestion.options[idx].is_correct;
+    const nextOptions = editingQuestion.options.filter((_, i) => i !== idx);
+    if (wasCorrect && nextOptions.length > 0) {
+      nextOptions[0].is_correct = true;
+    }
+    setEditingQuestion({ ...editingQuestion, options: nextOptions });
+  };
+
+  const handleSaveEditedQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuestion) return;
+    if (!editingQuestion.text.trim()) {
+      showToast("Question text cannot be empty", "error");
+      return;
+    }
+    if (!editingQuestion.options.some((o) => o.is_correct)) {
+      showToast("Please mark at least one option as correct", "error");
+      return;
+    }
+
+    try {
+      setSubmittingEditQuestion(true);
+      await api.put(
+        `/events/${eventId}/quizzes/${editingQuestion.quizId}/questions/${editingQuestion.questionId}`,
+        {
+          text: editingQuestion.text.trim(),
+          time_limit: Number(editingQuestion.timeLimit),
+          options: editingQuestion.options.map((opt, i) => ({
+            text: opt.text.trim() || `Option ${String.fromCharCode(65 + i)}`,
+            is_correct: opt.is_correct
+          }))
+        }
+      );
+      showToast("Question updated successfully!", "success");
+      setEditingQuestion(null);
+      fetchQuizzes();
+    } catch (error: any) {
+      showToast(error.response?.data?.message || error.response?.data?.error || "Failed to update question", "error");
+    } finally {
+      setSubmittingEditQuestion(false);
+    }
+  };
+
+  const handleSaveEditedQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuiz) return;
+    if (!editingQuiz.title.trim()) {
+      showToast("Activity title cannot be empty", "error");
+      return;
+    }
+
+    try {
+      setSubmittingEditQuiz(true);
+      await api.put(`/events/${eventId}/quizzes/${editingQuiz.id}`, {
+        title: editingQuiz.title.trim(),
+        description: editingQuiz.description.trim()
+      });
+      showToast("Activity details updated!", "success");
+      setEditingQuiz(null);
+      fetchQuizzes();
+    } catch (error: any) {
+      showToast(error.response?.data?.message || error.response?.data?.error || "Failed to update activity", "error");
+    } finally {
+      setSubmittingEditQuiz(false);
+    }
+  };
+
   const handleStartQuiz = async (quizId: number) => {
     try {
       await api.post(`/events/${eventId}/quizzes/${quizId}/start`);
@@ -180,55 +316,75 @@ export default function ActivityManagerTab({
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-        <p className="text-sm font-medium text-zinc-500">Loading activities & gamification...</p>
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--accent)" }} />
+        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>Loading activities & quizzes...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      {/* HEADER BANNER */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900 via-purple-900 to-zinc-900 p-6 md:p-8 text-white shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-indigo-200 text-xs font-bold uppercase tracking-wider border border-white/10">
-              <Sparkles className="w-3.5 h-3.5 text-yellow-400" /> Kahoot-Style Live Gamification
-            </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Event Activities & Quizzes</h1>
-            <p className="text-indigo-200 text-xs md:text-sm">
-              Design interactive quizzes, add questions, and launch live real-time activities for participants during your event sessions.
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* 1. TOP AI BANNER (MATCHING STANDALONE PROTOTYPE) */}
+      <div
+        className="rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all"
+        style={{
+          background: "linear-gradient(135deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card))",
+          border: "1px solid color-mix(in oklab, var(--accent) 30%, var(--border))",
+          boxShadow: "0 2px 12px color-mix(in oklab, var(--accent) 8%, transparent)"
+        }}
+      >
+        <div className="flex items-center gap-3.5">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs"
+            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))", color: "#fff" }}
+          >
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2
+              className="text-base sm:text-lg font-bold tracking-tight"
+              style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}
+            >
+              Generate a quiz with AI
+            </h2>
+            <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--muted)" }}>
+              Describe a topic — get questions, distractors, and timings.
             </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <button
-              onClick={() => setIsAiQuizModalOpen(true)}
-              className="px-5 py-3 rounded-xl bg-gradient-to-r from-purple-500 via-indigo-500 to-pink-500 hover:from-purple-600 hover:via-indigo-600 hover:to-pink-600 text-white font-bold text-xs md:text-sm transition-all shadow-lg shadow-purple-500/25 flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95"
-            >
-              <Sparkles className="w-4 h-4 text-yellow-300" /> AI Quiz Builder
-            </button>
-            <button
-              onClick={() => setIsCreatingQuiz(true)}
-              className="px-5 py-3 rounded-xl bg-white text-indigo-950 font-bold text-xs md:text-sm hover:bg-indigo-50 transition-all shadow-lg flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95"
-            >
-              <Plus className="w-4 h-4 text-indigo-600" /> Create Activity
-            </button>
-          </div>
         </div>
-        <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
+          <button
+            onClick={() => setIsAiQuizModalOpen(true)}
+            className="h-9 px-4 rounded-xl font-semibold text-xs sm:text-sm transition-all hover:opacity-90 active:scale-95 cursor-pointer shadow-xs flex items-center gap-2"
+            style={{ background: "var(--text)", color: "var(--bg)" }}
+          >
+            <Sparkles className="w-3.5 h-3.5" /> Generate
+          </button>
+          <button
+            onClick={() => setIsCreatingQuiz(true)}
+            className="h-9 px-4 rounded-xl font-semibold text-xs sm:text-sm border transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 cursor-pointer flex items-center gap-1.5"
+            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+          >
+            <Plus className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} /> Manual Activity
+          </button>
+        </div>
       </div>
 
       {/* CREATE QUIZ FORM / MODAL */}
       {isCreatingQuiz && (
-        <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-md space-y-4 animate-in slide-in-from-top-4">
-          <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-            <h3 className="font-extrabold text-lg text-zinc-900 dark:text-white flex items-center gap-2">
-              <Gamepad2 className="w-5 h-5 text-indigo-600" /> Plan New Activity / Quiz
+        <div
+          className="p-6 rounded-2xl border shadow-md space-y-4 animate-in slide-in-from-top-4"
+          style={{ background: "var(--card)", borderColor: "var(--border)" }}
+        >
+          <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--border)" }}>
+            <h3 className="font-extrabold text-base flex items-center gap-2" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+              <Gamepad2 className="w-5 h-5" style={{ color: "var(--accent)" }} /> Plan New Activity / Quiz
             </h3>
-            <button 
+            <button
               onClick={() => setIsCreatingQuiz(false)}
-              className="text-xs font-bold text-zinc-400 hover:text-zinc-600"
+              className="text-xs font-bold hover:underline cursor-pointer"
+              style={{ color: "var(--muted)" }}
             >
               Cancel
             </button>
@@ -236,7 +392,7 @@ export default function ActivityManagerTab({
 
           <form onSubmit={handleCreateQuiz} className="space-y-4">
             <div>
-              <label className="block text-xs font-extrabold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted)" }}>
                 Activity Title *
               </label>
               <input
@@ -244,12 +400,13 @@ export default function ActivityManagerTab({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Keynote Trivia Blitz or Tech Quiz Round 1"
-                className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full px-4 py-2.5 rounded-xl text-sm font-medium outline-none"
+                style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)", border: "1px solid var(--border)" }}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted)" }}>
                 Description (Optional)
               </label>
               <textarea
@@ -257,7 +414,8 @@ export default function ActivityManagerTab({
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
                 placeholder="Brief guidelines or rules for attendees..."
-                className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                className="w-full px-4 py-2.5 rounded-xl text-sm font-medium outline-none resize-none"
+                style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)", border: "1px solid var(--border)" }}
               />
             </div>
 
@@ -265,14 +423,16 @@ export default function ActivityManagerTab({
               <button
                 type="button"
                 onClick={() => setIsCreatingQuiz(false)}
-                className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100"
+                className="px-4 py-2 rounded-xl border text-xs font-bold cursor-pointer"
+                style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
               >
                 Dismiss
               </button>
               <button
                 type="submit"
                 disabled={submittingQuiz}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50"
+                className="px-5 py-2 rounded-xl text-white text-xs font-bold shadow-xs flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
               >
                 {submittingQuiz ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 Save Activity
@@ -284,17 +444,21 @@ export default function ActivityManagerTab({
 
       {/* ADD QUESTION MODAL */}
       {selectedQuizId && (
-        <div className="p-6 bg-white dark:bg-zinc-900 rounded-3xl border-2 border-indigo-500/30 dark:border-indigo-500/30 shadow-xl space-y-5 animate-in slide-in-from-top-4">
-          <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+        <div
+          className="p-6 rounded-2xl border shadow-xl space-y-5 animate-in slide-in-from-top-4"
+          style={{ background: "var(--card)", borderColor: "var(--accent)" }}
+        >
+          <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--border)" }}>
             <div>
-              <h3 className="font-extrabold text-lg text-zinc-900 dark:text-white flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-indigo-600" /> Add Question to Activity
+              <h3 className="font-extrabold text-base flex items-center gap-2" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                <HelpCircle className="w-5 h-5" style={{ color: "var(--accent)" }} /> Add Question to Activity
               </h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Define options and select the correct answer.</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>Define options and select the correct answer.</p>
             </div>
-            <button 
+            <button
               onClick={() => setSelectedQuizId(null)}
-              className="text-xs font-bold text-zinc-400 hover:text-zinc-600"
+              className="text-xs font-bold hover:underline cursor-pointer"
+              style={{ color: "var(--muted)" }}
             >
               Cancel
             </button>
@@ -302,7 +466,7 @@ export default function ActivityManagerTab({
 
           <form onSubmit={handleAddQuestion} className="space-y-4">
             <div>
-              <label className="block text-xs font-extrabold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted)" }}>
                 Question Text *
               </label>
               <input
@@ -310,18 +474,20 @@ export default function ActivityManagerTab({
                 value={questionText}
                 onChange={(e) => setQuestionText(e.target.value)}
                 placeholder="e.g. Which framework is widely used for frontend web apps?"
-                className="w-full px-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full px-4 py-2.5 rounded-xl text-sm font-medium outline-none"
+                style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)", border: "1px solid var(--border)" }}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted)" }}>
                 Time Limit (Seconds)
               </label>
               <select
                 value={timeLimit}
                 onChange={(e) => setTimeLimit(Number(e.target.value))}
-                className="w-full px-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full px-4 py-2 rounded-xl text-xs font-bold outline-none"
+                style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)", border: "1px solid var(--border)" }}
               >
                 <option value={10}>10 Seconds</option>
                 <option value={15}>15 Seconds</option>
@@ -332,24 +498,30 @@ export default function ActivityManagerTab({
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-extrabold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+              <label className="block text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
                 Options & Correct Choice *
               </label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {options.map((opt, idx) => {
+                  const isCorrect = idx === correctIndex;
                   return (
-                    <div 
-                      key={idx} 
-                      className={`p-3 rounded-2xl border flex items-center gap-3 transition-all ${idx === correctIndex ? "ring-2 ring-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/20" : "bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700"}`}
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl border flex items-center gap-3 transition-all"
+                      style={{
+                        background: isCorrect ? "color-mix(in oklab, var(--accent) 10%, var(--card))" : "var(--card2)",
+                        borderColor: isCorrect ? "var(--accent)" : "var(--border)"
+                      }}
                     >
                       <input
                         type="radio"
                         name="correctAnswer"
-                        checked={correctIndex === idx}
+                        checked={isCorrect}
                         onChange={() => setCorrectIndex(idx)}
-                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        className="w-4 h-4 cursor-pointer"
+                        style={{ accentColor: "var(--accent)" }}
                       />
-                      <span className="text-xs font-black px-2 py-1 rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200">
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md" style={{ background: "var(--input)", color: "var(--text)" }}>
                         {String.fromCharCode(65 + idx)}
                       </span>
                       <input
@@ -357,9 +529,10 @@ export default function ActivityManagerTab({
                         value={opt}
                         onChange={(e) => updateOptionText(idx, e.target.value)}
                         placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                        className="flex-1 bg-transparent border-none text-xs font-medium focus:outline-none dark:text-white"
+                        className="flex-1 bg-transparent border-none text-xs font-medium focus:outline-none"
+                        style={{ color: "var(--text)" }}
                       />
-                      {idx === correctIndex && (
+                      {isCorrect && (
                         <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                       )}
                     </div>
@@ -372,14 +545,16 @@ export default function ActivityManagerTab({
               <button
                 type="button"
                 onClick={() => setSelectedQuizId(null)}
-                className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-600 dark:text-zinc-300"
+                className="px-4 py-2 rounded-xl border text-xs font-bold cursor-pointer"
+                style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submittingQuestion}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md flex items-center gap-2 disabled:opacity-50"
+                className="px-5 py-2 rounded-xl text-white text-xs font-bold shadow-xs flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
               >
                 {submittingQuestion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 Add Question
@@ -389,148 +564,204 @@ export default function ActivityManagerTab({
         </div>
       )}
 
-      {/* QUIZZES LIST */}
+      {/* 2. QUIZZES GRID / EMPTY STATE (MATCHING STANDALONE PROTOTYPE) */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white flex items-center gap-2">
-            Planned Activities ({quizzes.length})
-          </h2>
-        </div>
-
         {quizzes.length === 0 ? (
-          <div className="text-center py-12 px-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-3xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center mx-auto">
+          <div
+            className="text-center py-12 px-4 rounded-2xl border border-dashed space-y-3"
+            style={{ background: "var(--card)", borderColor: "var(--border)" }}
+          >
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
+              style={{ background: "var(--card2)", color: "var(--accent)" }}
+            >
               <Gamepad2 className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-zinc-900 dark:text-white text-base">No Activities Planned Yet</h3>
-            <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+            <h3
+              className="font-bold text-base"
+              style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}
+            >
+              No Activities Planned Yet
+            </h3>
+            <p className="text-xs max-w-sm mx-auto" style={{ color: "var(--muted)" }}>
               Program Managers and Event Admins can plan trivia games or session quizzes to boost attendee engagement.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
                 onClick={() => setIsAiQuizModalOpen(true)}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:via-indigo-700 hover:to-pink-700 text-white font-bold text-xs shadow-md shadow-purple-600/20 inline-flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                className="px-4 py-2.5 rounded-xl text-white font-bold text-xs shadow-md inline-flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
               >
-                <Sparkles className="w-4 h-4 text-yellow-300" /> Generate with AI
+                <Sparkles className="w-4 h-4 text-white" /> Generate with AI
               </button>
               <button
                 onClick={() => setIsCreatingQuiz(true)}
-                className="px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs shadow-sm transition-all inline-flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border text-xs font-bold shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-all hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
               >
-                <Plus className="w-4 h-4 text-indigo-600" /> Manual Activity
+                <Plus className="w-4 h-4" style={{ color: "var(--accent)" }} /> Manual Activity
               </button>
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {quizzes.map((quiz) => {
               const questionCount = quiz.questions?.length || 0;
               const isExpanded = expandedQuizId === quiz.id;
+              const isLive = quiz.status === "LIVE";
 
               return (
                 <div
                   key={quiz.id}
-                  className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden transition-all"
+                  className="rounded-2xl border shadow-xs flex flex-col justify-between overflow-hidden transition-all duration-200"
+                  style={{
+                    background: "var(--card)",
+                    borderColor: isLive ? "color-mix(in oklab, #10b981 50%, var(--border))" : "var(--border)",
+                    backdropFilter: "blur(20px)"
+                  }}
                 >
-                  <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="space-y-1.5 flex-1 min-w-0">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white truncate">
-                          {quiz.title}
-                        </h3>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                          quiz.status === "LIVE" 
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 animate-pulse" 
+                  <div className="p-5 space-y-3.5">
+                    {/* Top Row: Status Badge & Card Tools */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
+                        style={
+                          isLive
+                            ? { background: "rgba(16, 185, 129, 0.12)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)" }
                             : quiz.status === "COMPLETED"
-                            ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                            : "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300"
-                        }`}>
-                          {quiz.status || "DRAFT"}
-                        </span>
-                        <span className="text-xs font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                          <HelpCircle className="w-3 h-3 text-indigo-500" /> {questionCount} {questionCount === 1 ? "Question" : "Questions"}
-                        </span>
+                              ? { background: "color-mix(in oklab, var(--accent) 15%, transparent)", color: "var(--accent)", border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)" }
+                              : { background: "var(--card2)", color: "var(--muted)", border: "1px solid var(--border)" }
+                        }
+                      >
+                        {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+                        {quiz.status || "DRAFT"}
+                      </span>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setEditingQuiz({ id: quiz.id, title: quiz.title, description: quiz.description || "" })}
+                          className="p-1.5 rounded-lg border text-xs font-medium hover:opacity-80 transition cursor-pointer"
+                          style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--muted)" }}
+                          title="Edit Activity Details"
+                        >
+                          <Pencil className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                        </button>
+                        <button
+                          onClick={() => setSelectedQuizId(quiz.id)}
+                          className="p-1.5 rounded-lg border text-xs font-medium hover:opacity-80 transition cursor-pointer"
+                          style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--muted)" }}
+                          title="Add Question"
+                        >
+                          <Plus className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                        </button>
+                        <button
+                          onClick={() => setExpandedQuizId(isExpanded ? null : quiz.id)}
+                          className="p-1.5 rounded-lg border text-xs font-medium hover:opacity-80 transition cursor-pointer"
+                          style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--muted)" }}
+                          title={isExpanded ? "Hide Questions" : "View Questions"}
+                        >
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteQuiz(quiz.id)}
+                          disabled={deletingQuizId === quiz.id}
+                          className="p-1.5 rounded-lg border text-xs font-medium text-red-500 hover:bg-red-500/10 transition cursor-pointer"
+                          style={{ borderColor: "rgba(239, 68, 68, 0.3)" }}
+                          title="Delete Activity"
+                        >
+                          {deletingQuizId === quiz.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        </button>
                       </div>
+                    </div>
+
+                    {/* Title & Question Count */}
+                    <div>
+                      <h3
+                        className="text-base sm:text-lg font-bold tracking-tight line-clamp-1"
+                        style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}
+                      >
+                        {quiz.title}
+                      </h3>
+                      <p className="text-xs mt-1" style={{ color: "var(--subtle)" }}>
+                        {questionCount} {questionCount === 1 ? "question" : "questions"}
+                      </p>
                       {quiz.description && (
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
+                        <p className="text-xs mt-1.5 line-clamp-2" style={{ color: "var(--muted)" }}>
                           {quiz.description}
                         </p>
                       )}
                     </div>
-
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                      <button
-                        onClick={() => setSelectedQuizId(quiz.id)}
-                        className="px-3.5 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-600 dark:text-indigo-300 text-xs font-bold transition flex items-center gap-1.5"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Question
-                      </button>
-
-                      <button
-                        onClick={() => setExpandedQuizId(isExpanded ? null : quiz.id)}
-                        className="px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition flex items-center gap-1"
-                      >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        Questions ({questionCount})
-                      </button>
-
-                      <button
-                        onClick={() => handleDeleteQuiz(quiz.id)}
-                        disabled={deletingQuizId === quiz.id}
-                        className="p-2 rounded-xl border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/50 text-red-600 dark:text-red-400 transition"
-                        title="Delete Activity"
-                      >
-                        {deletingQuizId === quiz.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      </button>
-
-                      <button
-                        onClick={() => handleStartQuiz(quiz.id)}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" /> Push Live 🚀
-                      </button>
-                    </div>
                   </div>
 
-                  {/* EXPANDED QUESTIONS LIST */}
+                  {/* Bottom Action Button: Open live arena */}
+                  <div className="p-5 pt-0">
+                    <button
+                      onClick={() => handleStartQuiz(quiz.id)}
+                      className="w-full h-9 rounded-xl border flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm cursor-pointer transition-all hover:scale-[1.01] active:scale-95"
+                      style={
+                        isLive
+                          ? { background: "rgba(16, 185, 129, 0.15)", borderColor: "rgba(16, 185, 129, 0.4)", color: "#10b981" }
+                          : { background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }
+                      }
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" /> Open live arena
+                    </button>
+                  </div>
+
+                  {/* Expanded Questions Accordion */}
                   {isExpanded && (
-                    <div className="bg-zinc-50 dark:bg-zinc-950/50 p-6 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
-                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-400 mb-2">
-                        Questions Preview ({questionCount})
-                      </h4>
+                    <div className="p-4 border-t space-y-3" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                      <div className="flex items-center justify-between text-xs font-mono font-bold uppercase" style={{ color: "var(--muted)" }}>
+                        <span>Questions ({questionCount})</span>
+                      </div>
                       {questionCount === 0 ? (
-                        <p className="text-xs text-zinc-400 italic">No questions added yet. Click &quot;Add Question&quot; above to create options.</p>
+                        <p className="text-xs italic" style={{ color: "var(--subtle)" }}>
+                          No questions added yet. Click &quot;+&quot; above to add questions.
+                        </p>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-2 max-h-60 overflow-y-auto no-scrollbar">
                           {quiz.questions.map((q: any, qIdx: number) => (
-                            <div key={q.id || qIdx} className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-2">
-                              <div className="flex items-center justify-between text-xs font-bold text-zinc-900 dark:text-white">
+                            <div
+                              key={q.id || qIdx}
+                              className="p-3 rounded-xl border text-xs space-y-1.5"
+                              style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                            >
+                              <div className="flex items-center justify-between font-bold" style={{ color: "var(--text)" }}>
                                 <span>{qIdx + 1}. {q.text}</span>
-                                <div className="flex items-center gap-3">
-                                  <span className="text-[10px] text-zinc-400 flex items-center gap-1">
-                                    <Clock className="w-3 h-3 text-indigo-500" /> {q.time_limit || 20}s
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-[10px]" style={{ color: "var(--subtle)" }}>
+                                    {q.time_limit || 20}s
                                   </span>
                                   <button
+                                    onClick={() => handleOpenEditQuestion(quiz.id, q)}
+                                    className="p-1 rounded-md hover:opacity-80 transition cursor-pointer"
+                                    style={{ color: "var(--accent)" }}
+                                    title="Edit Question & Choices"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                  <button
                                     onClick={() => handleDeleteQuestion(quiz.id, q.id)}
-                                    className="text-zinc-400 hover:text-red-600 transition"
+                                    className="text-red-500 hover:opacity-80 cursor-pointer p-1 rounded-md"
                                     title="Delete Question"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-3 h-3" />
                                   </button>
                                 </div>
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                              <div className="grid grid-cols-2 gap-1.5 pt-1">
                                 {q.options?.map((opt: any, optIdx: number) => (
-                                  <div 
-                                    key={opt.id || optIdx} 
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center justify-between ${
-                                      opt.is_correct 
-                                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold" 
-                                        : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-                                    }`}
+                                  <div
+                                    key={opt.id || optIdx}
+                                    className="px-2 py-1 rounded-md text-[11px] truncate flex items-center justify-between"
+                                    style={
+                                      opt.is_correct
+                                        ? { background: "rgba(16, 185, 129, 0.12)", color: "#10b981", fontWeight: 600 }
+                                        : { background: "var(--card2)", color: "var(--muted)" }
+                                    }
                                   >
-                                    <span className="truncate pr-1">{String.fromCharCode(65 + optIdx)}. {opt.text}</span>
-                                    {opt.is_correct && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                                    <span className="truncate">{String.fromCharCode(65 + optIdx)}. {opt.text}</span>
+                                    {opt.is_correct && <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />}
                                   </div>
                                 ))}
                               </div>
@@ -561,6 +792,261 @@ export default function ActivityManagerTab({
           }
         }}
       />
+
+      {/* EDIT QUESTION & OPTIONS MODAL */}
+      {editingQuestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className="w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            style={{ background: "var(--card)", borderColor: "var(--border)" }}
+          >
+            {/* Header */}
+            <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)", color: "var(--accent)" }}
+                >
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                    Edit Question & Choices
+                  </h3>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    Update question wording, timings, and answer choices.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingQuestion(null)}
+                className="p-1.5 rounded-lg border transition hover:opacity-80 cursor-pointer"
+                style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <form onSubmit={handleSaveEditedQuestion} className="p-5 space-y-4 overflow-y-auto no-scrollbar flex-1">
+              <div>
+                <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted)" }}>
+                  Question Text *
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingQuestion.text}
+                  onChange={(e) => setEditingQuestion({ ...editingQuestion, text: e.target.value })}
+                  placeholder="Enter the question text..."
+                  className="w-full px-4 py-2.5 rounded-xl text-sm font-medium outline-none resize-none"
+                  style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)", border: "1px solid var(--border)" }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted)" }}>
+                  Time Limit (Seconds)
+                </label>
+                <select
+                  value={editingQuestion.timeLimit}
+                  onChange={(e) => setEditingQuestion({ ...editingQuestion, timeLimit: Number(e.target.value) })}
+                  className="w-full px-4 py-2 rounded-xl text-xs font-bold outline-none cursor-pointer"
+                  style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)", border: "1px solid var(--border)" }}
+                >
+                  <option value={10}>10 Seconds</option>
+                  <option value={15}>15 Seconds</option>
+                  <option value={20}>20 Seconds</option>
+                  <option value={30}>30 Seconds</option>
+                  <option value={45}>45 Seconds</option>
+                  <option value={60}>60 Seconds</option>
+                  <option value={90}>90 Seconds</option>
+                  <option value={120}>120 Seconds</option>
+                </select>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                    Options & Correct Choice *
+                  </label>
+                  {editingQuestion.options.length < 6 && (
+                    <button
+                      type="button"
+                      onClick={addOptionToEditing}
+                      className="text-xs font-bold flex items-center gap-1 cursor-pointer hover:underline"
+                      style={{ color: "var(--accent)" }}
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Option
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2.5">
+                  {editingQuestion.options.map((opt, idx) => {
+                    const isCorrect = opt.is_correct;
+                    return (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-xl border flex items-center gap-3 transition-all"
+                        style={{
+                          background: isCorrect ? "color-mix(in oklab, var(--accent) 10%, var(--card))" : "var(--card2)",
+                          borderColor: isCorrect ? "var(--accent)" : "var(--border)"
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="editCorrectAnswer"
+                          checked={isCorrect}
+                          onChange={() => setEditingCorrectOption(idx)}
+                          className="w-4 h-4 cursor-pointer shrink-0"
+                          style={{ accentColor: "var(--accent)" }}
+                          title="Mark as correct answer"
+                        />
+                        <span
+                          className="text-xs font-mono font-bold px-2 py-0.5 rounded-md shrink-0"
+                          style={{ background: "var(--input)", color: "var(--text)" }}
+                        >
+                          {String.fromCharCode(65 + idx)}
+                        </span>
+                        <input
+                          type="text"
+                          value={opt.text}
+                          onChange={(e) => updateEditingOptionText(idx, e.target.value)}
+                          placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                          className="flex-1 bg-transparent border-none text-xs font-medium focus:outline-none"
+                          style={{ color: "var(--text)" }}
+                        />
+                        {isCorrect && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 shrink-0">
+                            Correct
+                          </span>
+                        )}
+                        {editingQuestion.options.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => removeOptionFromEditing(idx)}
+                            className="text-red-500 hover:opacity-80 p-1 rounded transition cursor-pointer shrink-0"
+                            title="Remove choice"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingQuestion(null)}
+                  className="px-4 py-2 rounded-xl border text-xs font-bold cursor-pointer"
+                  style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingEditQuestion}
+                  className="px-5 py-2 rounded-xl text-white text-xs font-bold shadow-xs flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                  style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                >
+                  {submittingEditQuestion ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT ACTIVITY DETAILS MODAL */}
+      {editingQuiz && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className="w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            style={{ background: "var(--card)", borderColor: "var(--border)" }}
+          >
+            <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)", color: "var(--accent)" }}
+                >
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                    Edit Activity Details
+                  </h3>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    Update the title or description for this activity.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingQuiz(null)}
+                className="p-1.5 rounded-lg border transition hover:opacity-80 cursor-pointer"
+                style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedQuiz} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted)" }}>
+                  Activity Title *
+                </label>
+                <input
+                  type="text"
+                  value={editingQuiz.title}
+                  onChange={(e) => setEditingQuiz({ ...editingQuiz, title: e.target.value })}
+                  placeholder="e.g. Keynote Trivia Blitz"
+                  className="w-full px-4 py-2.5 rounded-xl text-sm font-medium outline-none"
+                  style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)", border: "1px solid var(--border)" }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted)" }}>
+                  Description (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={editingQuiz.description}
+                  onChange={(e) => setEditingQuiz({ ...editingQuiz, description: e.target.value })}
+                  placeholder="Brief guidelines or rules for attendees..."
+                  className="w-full px-4 py-2.5 rounded-xl text-sm font-medium outline-none resize-none"
+                  style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)", border: "1px solid var(--border)" }}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingQuiz(null)}
+                  className="px-4 py-2 rounded-xl border text-xs font-bold cursor-pointer"
+                  style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingEditQuiz}
+                  className="px-5 py-2 rounded-xl text-white text-xs font-bold shadow-xs flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                  style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                >
+                  {submittingEditQuiz ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
