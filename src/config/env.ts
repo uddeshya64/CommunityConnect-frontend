@@ -1,5 +1,5 @@
 /**
- * Centralized Environment Configuration for CommunityConnect Frontend
+ * Centralized Environment Configuration for Eventrix Frontend
  *
  * All URLs and environment variables are centralized here.
  * DO NOT hardcode backend, socket, or frontend URLs anywhere in the app.

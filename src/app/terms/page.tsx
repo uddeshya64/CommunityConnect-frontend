@@ -32,27 +32,27 @@ export default function TermsOfService() {
           <div className={`prose ${isDark ? "prose-invert" : ""} max-w-none`}>
             <h3>1. Terms</h3>
             <p>
-              By accessing the website at CommunityConnect, you are agreeing to be bound by these terms of service, all applicable laws and regulations, and agree that you are responsible for compliance with any applicable local laws.
+              By accessing the website at Eventrix, you are agreeing to be bound by these terms of service, all applicable laws and regulations, and agree that you are responsible for compliance with any applicable local laws.
             </p>
 
             <h3>2. Use License</h3>
             <p>
-              Permission is granted to temporarily download one copy of the materials (information or software) on CommunityConnect's website for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title.
+              Permission is granted to temporarily download one copy of the materials (information or software) on Eventrix's website for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title.
             </p>
 
             <h3>3. Disclaimer</h3>
             <p>
-              The materials on CommunityConnect's website are provided on an 'as is' basis. CommunityConnect makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
+              The materials on Eventrix's website are provided on an 'as is' basis. Eventrix makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
             </p>
 
             <h3>4. Limitations</h3>
             <p>
-              In no event shall CommunityConnect or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on CommunityConnect's website.
+              In no event shall Eventrix or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on Eventrix's website.
             </p>
 
             <h3>5. Revisions and Errata</h3>
             <p>
-              The materials appearing on CommunityConnect's website could include technical, typographical, or photographic errors. CommunityConnect does not warrant that any of the materials on its website are accurate, complete or current.
+              The materials appearing on Eventrix's website could include technical, typographical, or photographic errors. Eventrix does not warrant that any of the materials on its website are accurate, complete or current.
             </p>
 
             <h3>6. Governing Law</h3>

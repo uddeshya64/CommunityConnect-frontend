@@ -1,4 +1,4 @@
-// CommunityConnect PWA Service Worker for Native Push Notifications
+// Eventrix PWA Service Worker for Native Push Notifications
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -19,9 +19,9 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const title = data.title || 'CommunityConnect';
+  const title = data.title || 'Eventrix';
   const options = {
-    body: data.body || 'You have a new update from CommunityConnect.',
+    body: data.body || 'You have a new update from Eventrix.',
     icon: data.icon || '/icons/icon-192x192.png',
     badge: data.badge || '/icons/badge-72x72.png',
     vibrate: [100, 50, 100, 50, 100],
@@ -33,7 +33,7 @@ self.addEventListener('push', (event) => {
     actions: data.actions || [
       { action: 'open', title: 'Open' }
     ],
-    tag: data.tag || 'community-connect-notification',
+    tag: data.tag || 'eventrix-notification',
     renotify: true,
   };
 

@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Bell, Menu, Sun, Moon } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  Sun,
+  Moon,
+  Bell,
+  ChevronRight,
+  Menu,
+} from "lucide-react";
 import { useUser } from "@/components/providers/UserProvider";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { notificationService } from "@/services/notification.service";
@@ -13,15 +19,57 @@ interface NavbarProps {
   onToggleMobile?: () => void;
 }
 
+const ROUTE_TITLES: Record<string, string> = {
+  "/home": "Home",
+  "/discover": "Discover",
+  "/events/create": "Create Event",
+  "/events/create/ai": "Create with AI",
+  "/events/create/new": "Manual Event Form",
+  "/events/mine/myEvents": "My Events",
+  "/events/saved": "Saved Events",
+  "/notifications": "Notifications",
+  "/settings": "Settings",
+  "/profile": "Profile",
+  "/dashboard/events": "Event Dashboard",
+};
+
 export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProps) {
   const { isDark, activeAccent, toggleTheme } = useAppearance();
   const pathname = usePathname();
+  const router = useRouter();
   const { profile } = useUser();
   const [hasNotifications, setHasNotifications] = useState(false);
 
+  // Compute breadcrumb screen title
+  let screenTitle = "Home";
+  if (ROUTE_TITLES[pathname]) {
+    screenTitle = ROUTE_TITLES[pathname];
+  } else if (pathname?.startsWith("/events/create")) {
+    screenTitle = "Create Event";
+  } else if (pathname?.startsWith("/events/") && pathname?.includes("/quiz")) {
+    screenTitle = "Live Quiz";
+  } else if (pathname?.startsWith("/events/")) {
+    screenTitle = "Event Details";
+  } else if (pathname?.startsWith("/dashboard/")) {
+    screenTitle = "Event Dashboard";
+  } else if (pathname?.startsWith("/profile/")) {
+    screenTitle = "User Profile";
+  }
+
+  // Keyboard shortcut ⌘K / Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        router.push("/discover");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [router]);
+
   useEffect(() => {
     let isMounted = true;
-
     const checkUnreadNotifications = async () => {
       if (!profile) return;
       if (pathname === "/notifications") {
@@ -35,15 +83,15 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
       try {
         const notifs = await notificationService.getNotifications();
         if (isMounted && Array.isArray(notifs)) {
-          const lastViewedStr = typeof window !== "undefined" ? localStorage.getItem("cc_notifications_last_viewed") : null;
+          const lastViewedStr =
+            typeof window !== "undefined"
+              ? localStorage.getItem("cc_notifications_last_viewed")
+              : null;
           const lastViewedTime = lastViewedStr ? new Date(lastViewedStr).getTime() : 0;
-
-          // Only show red dot if there are notifications created AFTER last viewed time
           const hasUnreadNew = notifs.some((n: any) => {
             const notifTime = new Date(n.created_at || Date.now()).getTime();
             return notifTime > lastViewedTime;
           });
-
           setHasNotifications(hasUnreadNew);
         }
       } catch (err) {
@@ -52,15 +100,12 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
     };
 
     checkUnreadNotifications();
-
     const handleNotificationsRead = () => {
       if (isMounted) setHasNotifications(false);
     };
-
     if (typeof window !== "undefined") {
       window.addEventListener("cc_notifications_read", handleNotificationsRead);
     }
-
     return () => {
       isMounted = false;
       if (typeof window !== "undefined") {
@@ -78,128 +123,110 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
 
   const avatarUrl = profile?.avatar_url || (profile as any)?.avatarUrl || null;
   const profileHref = profile?.id ? `/profile/${profile.id}` : "/profile";
-  const isNotificationsActive = pathname === "/notifications";
 
   return (
     <header
-      className={`sticky top-0 z-40 w-full h-16 border-b backdrop-blur-xl transition-all duration-300 ${isDark
-        ? "bg-zinc-950/80 border-white/10 text-white"
-        : "bg-white/80 border-zinc-200/70 text-zinc-900"
-        }`}
+      className="sticky top-0 z-50 h-16 w-full flex items-center justify-between gap-4 px-4 md:px-7 border-b transition-colors duration-300"
+      style={{
+        background: "var(--chrome)",
+        borderColor: "var(--border)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        boxShadow: isDark
+          ? "0 4px 24px -2px rgba(0, 0, 0, 0.45)"
+          : "0 4px 20px -2px rgba(15, 23, 42, 0.06)",
+      }}
     >
-      <div className="h-full px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4">
-        {/* LEFT SECTION */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {/* Mobile view: Hamburger Menu trigger */}
-          {onToggleMobile && (
-            <button
-              onClick={onToggleMobile}
-              className={`md:hidden p-2 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isDark
-                ? "text-zinc-300 hover:text-white hover:bg-white/10"
-                : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
-                }`}
-              title="Open menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-          )}
-
-          {/* Mobile view: Project Logo */}
-          <Link
-            href="/home"
-            className="md:hidden flex items-center gap-2 font-extrabold text-base sm:text-lg group min-w-0"
-          >
-            <div
-              className={`w-8 h-8 rounded-xl bg-gradient-to-br ${activeAccent.gradient} shadow-sm flex items-center justify-center shrink-0`}
-            >
-              <span className="text-white text-xs font-black">CC</span>
-            </div>
-            <span className={`font-bold truncate hidden min-[360px]:inline ${isDark ? "text-white" : "text-zinc-900"}`}>
-              CommunityConnect
-            </span>
-          </Link>
-
-          {/* Desktop Website view: Project Name */}
-          <div className="hidden md:flex items-center gap-2.5">
-            <Link
-              href="/home"
-              className="flex items-center gap-2.5 group transition-opacity hover:opacity-90"
-            >
-              <span
-                className={`font-black text-xl tracking-tight ${isDark ? "text-white" : "text-zinc-900"
-                  }`}
-              >
-                Community<span className={activeAccent.text}>Connect 360</span>
-              </span>
-            </Link>
-          </div>
-        </div>
-
-        {/* RIGHT SECTION: Notification Bell + Profile Icon */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          {/* Quick Theme Toggle (Moon / Sun) */}
+      {/* LEFT: Mobile Menu + Breadcrumbs */}
+      <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
+        {onToggleMobile && (
           <button
-            type="button"
-            onClick={toggleTheme}
-            className={`p-2.5 rounded-full border transition-all hover:scale-105 cursor-pointer ${
-              isDark
-                ? "text-zinc-200 border-white/10 bg-white/5 hover:text-yellow-300 hover:bg-white/15"
-                : "text-zinc-700 border-zinc-200 bg-zinc-100 hover:text-indigo-600 hover:bg-zinc-200"
-            }`}
-            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            aria-label={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            onClick={onToggleMobile}
+            className="md:hidden p-2 rounded-xl transition-colors"
+            style={{ color: "var(--muted)" }}
+            title="Open menu"
           >
-            {isDark ? (
-              <Moon className="w-5 h-5 transition-transform hover:-rotate-12" strokeWidth={2.2} />
-            ) : (
-              <Sun className="w-5 h-5 text-amber-500 transition-transform hover:rotate-45" strokeWidth={2.2} />
-            )}
+            <Menu className="w-5 h-5" />
           </button>
+        )}
 
-          {/* Notification Bell */}
-          <Link href="/notifications">
-            <div
-              className={`relative p-2.5 rounded-full border transition-all ${
-                isNotificationsActive
-                  ? `${activeAccent.text} ${isDark ? "bg-white/10 border-white/20" : "bg-indigo-50 border-indigo-200"}`
-                  : isDark
-                    ? "text-zinc-200 border-white/10 bg-white/5 hover:text-white hover:bg-white/15"
-                    : "text-zinc-700 border-zinc-200 bg-zinc-100 hover:text-zinc-950 hover:bg-zinc-200"
-              }`}
-              title="Notifications"
-            >
-              <Bell className="w-5 h-5" strokeWidth={2.2} />
-              {/* Notification dot indicator: only rendered if there are unread/pending notifications */}
-              {hasNotifications && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950" />
-              )}
-            </div>
-          </Link>
-
-          {/* Profile Icon / Avatar */}
-          <Link href={profileHref}>
-            <div
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 ${isDark
-                ? "border-zinc-700 hover:border-white"
-                : "border-white hover:border-indigo-400"
-                } shadow-md transition-all hover:scale-105 bg-gradient-to-br ${activeAccent.gradient
-                } flex items-center justify-center shrink-0`}
-              title={profile?.name || "Profile"}
-            >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={profile?.name || "Profile"}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-white font-bold text-xs sm:text-sm">
-                  {getInitials(profile?.name)}
-                </span>
-              )}
-            </div>
-          </Link>
+        <div className="flex items-center gap-2 text-sm whitespace-nowrap">
+          <span className="hidden sm:inline font-medium" style={{ color: "var(--subtle)" }}>
+            Workspace
+          </span>
+          <ChevronRight className="hidden sm:inline w-4 h-4" style={{ color: "var(--subtle)" }} />
+          <span
+            className="font-bricolage font-bold tracking-tight"
+            style={{ color: "var(--text)" }}
+          >
+            {screenTitle}
+          </span>
         </div>
+      </div>
+
+      {/* RIGHT: Theme Toggle, Notifications, Avatar */}
+      <div className="flex items-center gap-2 md:gap-3 shrink-0">
+
+        {/* Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          className="w-9 h-9 rounded-xl border flex items-center justify-center transition-colors"
+          style={{
+            background: "var(--input)",
+            borderColor: "var(--border)",
+            color: "var(--muted)",
+          }}
+        >
+          {isDark ? (
+            <Sun className="w-4 h-4 text-amber-400" />
+          ) : (
+            <Moon className="w-4 h-4" style={{ color: "var(--accent)" }} />
+          )}
+        </button>
+
+        {/* Notifications Bell */}
+        <Link
+          href="/notifications"
+          title="Notifications"
+          className="relative w-9 h-9 rounded-xl border flex items-center justify-center transition-colors"
+          style={{
+            background: "var(--input)",
+            borderColor: "var(--border)",
+            color: "var(--muted)",
+          }}
+        >
+          <Bell className="w-4 h-4" />
+          {hasNotifications && (
+            <span
+              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
+              style={{ backgroundColor: "var(--accent)", boxShadow: "0 0 0 2px var(--bg)" }}
+            />
+          )}
+        </Link>
+
+        {/* Profile Avatar */}
+        <Link
+          href={profileHref}
+          title={profile?.name || "View Profile"}
+          className="w-9 h-9 rounded-full overflow-hidden border flex items-center justify-center shrink-0 hover:scale-105 transition-transform"
+          style={{
+            background: `linear-gradient(135deg, var(--accent), var(--accent2))`,
+            borderColor: "var(--border)",
+          }}
+        >
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={profile?.name || "User"}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-white text-xs font-bold">
+              {getInitials(profile?.name)}
+            </span>
+          )}
+        </Link>
       </div>
     </header>
   );

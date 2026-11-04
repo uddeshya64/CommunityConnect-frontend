@@ -32,7 +32,7 @@ export default function PrivacyPolicy() {
           <div className={`prose ${isDark ? "prose-invert" : ""} max-w-none`}>
             <h3>1. Introduction</h3>
             <p>
-              Welcome to CommunityConnect. We respect your privacy and are committed to protecting your personal data. This privacy policy will inform you as to how we look after your personal data when you visit our website (regardless of where you visit it from) and tell you about your privacy rights and how the law protects you.
+              Welcome to Eventrix. We respect your privacy and are committed to protecting your personal data. This privacy policy will inform you as to how we look after your personal data when you visit our website (regardless of where you visit it from) and tell you about your privacy rights and how the law protects you.
             </p>
 
             <h3>2. The Data We Collect About You</h3>
@@ -62,7 +62,7 @@ export default function PrivacyPolicy() {
 
             <h3>5. Contact Us</h3>
             <p>
-              If you have any questions about this privacy policy or our privacy practices, please contact us at privacy@communityconnect.io.
+              If you have any questions about this privacy policy or our privacy practices, please contact us at privacy@eventrix.io.
             </p>
           </div>
         </div>

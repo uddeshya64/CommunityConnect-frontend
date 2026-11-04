@@ -2,6 +2,7 @@ import { api } from '@/lib/axios';
 
 export const eventService = {
   // Fetch all events for the home feed (passes limit=100 to override backend default limit of 8)
+  getAllEvents: async (params?: any) => eventService.getFeed(params),
   getFeed: async (params?: { page?: number; limit?: number }) => {
     const limit = params?.limit || 100;
     const page = params?.page || 1;
