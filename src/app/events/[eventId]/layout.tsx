@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const rawDescription = event?.description || "";
     const cleanDescription = rawDescription.replace(/<[^>]*>?/gm, "").slice(0, 160);
     const description = cleanDescription || "Join this event on Eventrix!";
-    
+
     let rawBannerUrl = event?.banner_url || event?.bannerUrl || event?.banner;
     let bannerUrl = rawBannerUrl;
 
