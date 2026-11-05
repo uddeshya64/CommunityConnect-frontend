@@ -63,6 +63,7 @@ const SAMPLE_AGENDA_PROMPTS = [
   "🍕 Networking Dinner Party from 8:30 PM to 10:00 PM with live acoustic music",
   "🎙️ Opening Keynote: Future of AI & Cloud from 10:00 AM to 11:30 AM by Dr. Sarah Smith",
   "⚡ Hands-on Coding Lab on Modern Fullstack from 2:00 PM to 4:00 PM in Room 204",
+  "📅 3-Part Agenda: 9am Registration, 10am Keynote, 12pm Lunch & Networking",
 ];
 
 function isoToLocalDateTimeInput(val?: string | null): string {
@@ -152,21 +153,29 @@ export default function AiAgendaBuilderModal({
     onClose();
   };
 
-  // Initialize with 1 blank draft when modal opens
+  // Initialize with 1 draft when modal opens
   useEffect(() => {
     if (isOpen) {
       setSpeechError("");
       setInterimTranscript("");
       if (sessions.length === 0) {
+        const defaultStart =
+          isoToLocalDateTimeInput(eventStartDate) ||
+          `${new Date().toISOString().split("T")[0]}T10:00`;
+        const startD = new Date(defaultStart);
+        const endD = new Date(startD.getTime() + 60 * 60 * 1000);
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const defaultEnd = `${endD.getFullYear()}-${pad(endD.getMonth() + 1)}-${pad(endD.getDate())}T${pad(endD.getHours())}:${pad(endD.getMinutes())}`;
+
         setSessions([
           {
             id: `draft_${Date.now()}_0`,
             prompt: "",
             title: "",
             speaker_name: "",
-            start_time: "",
-            end_time: "",
-            location: "",
+            start_time: defaultStart,
+            end_time: defaultEnd,
+            location: eventLocation || "",
             tags: [],
             description: "",
           },
@@ -178,7 +187,7 @@ export default function AiAgendaBuilderModal({
     } else {
       stopListening();
     }
-  }, [isOpen]);
+  }, [isOpen, eventStartDate, eventLocation]);
 
   /* ------------------------- Web Speech API Recording ------------------------- */
 
@@ -341,13 +350,31 @@ export default function AiAgendaBuilderModal({
 
       setAiReply(result.reply);
 
-      const gen = result.sessions && result.sessions.length > 0 ? result.sessions[0] : null;
+      if (result.sessions && result.sessions.length > 1) {
+        // Multi-session generation: populate all sessions as drafts!
+        const newDrafts: GeneratedSessionDraft[] = result.sessions.map((s, idx) => ({
+          id: `draft_${Date.now()}_${idx}`,
+          prompt: idx === 0 ? textToRun : "",
+          title: s.title || `Session ${idx + 1}`,
+          speaker_name: s.speaker_name || "",
+          start_time: isoToLocalDateTimeInput(s.start_time),
+          end_time: isoToLocalDateTimeInput(s.end_time),
+          location: s.location || "",
+          tags: Array.isArray(s.tags) ? s.tags : [],
+          description: s.description || "",
+        }));
 
-      if (gen) {
+        setSessions(newDrafts);
+        setSelectedSessionIndex(0);
+        setPrompt(textToRun);
+        showSuccess(`Generated ${newDrafts.length} agenda sessions from your prompt!`);
+      } else if (result.sessions && result.sessions.length === 1) {
+        // Single session generation: update current draft!
+        const gen = result.sessions[0];
         const currentDraft = sessions[selectedSessionIndex];
         const updatedDraft: GeneratedSessionDraft = {
           id: currentDraft?.id || `draft_${Date.now()}`,
-          prompt: textToRun, // PERSISTS PROMPT FOR THIS DRAFT
+          prompt: textToRun,
           title: gen.title || "",
           speaker_name: gen.speaker_name || "",
           start_time: isoToLocalDateTimeInput(gen.start_time),
@@ -362,9 +389,7 @@ export default function AiAgendaBuilderModal({
           return prev.map((item, idx) => (idx === selectedSessionIndex ? updatedDraft : item));
         });
 
-        // Keep prompt in textarea so user can see it and edit it
         setPrompt(textToRun);
-
         showSuccess(`Draft ${selectedSessionIndex + 1} updated with AI details!`);
       } else {
         showError("No session details could be generated. Please try a more descriptive prompt.");
@@ -412,14 +437,27 @@ export default function AiAgendaBuilderModal({
       prev.map((s, i) => (i === selectedSessionIndex ? { ...s, prompt } : s))
     );
     const newIdx = sessions.length;
+    const prevSession = sessions[sessions.length - 1];
+    const newStart =
+      prevSession?.end_time ||
+      isoToLocalDateTimeInput(eventStartDate) ||
+      `${new Date().toISOString().split("T")[0]}T10:00`;
+    let newEnd = "";
+    if (newStart) {
+      const sD = new Date(newStart);
+      const eD = new Date(sD.getTime() + 60 * 60 * 1000);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      newEnd = `${eD.getFullYear()}-${pad(eD.getMonth() + 1)}-${pad(eD.getDate())}T${pad(eD.getHours())}:${pad(eD.getMinutes())}`;
+    }
+
     const newSession: GeneratedSessionDraft = {
       id: `draft_${Date.now()}_${newIdx}`,
       prompt: "",
       title: "",
       speaker_name: "",
-      start_time: "",
-      end_time: "",
-      location: "",
+      start_time: newStart,
+      end_time: newEnd,
+      location: eventLocation || "",
       tags: [],
       description: "",
     };
@@ -427,7 +465,7 @@ export default function AiAgendaBuilderModal({
     setSelectedSessionIndex(newIdx);
     setPrompt("");
     setAiReply(null);
-    showSuccess(`Added Draft ${newIdx + 1}. You can now enter a new prompt for this session!`);
+    showSuccess(`Added Draft ${newIdx + 1}. You can now enter a prompt for this session!`);
   };
 
   const handleDeleteSession = (indexToDelete: number) => {
@@ -536,7 +574,7 @@ export default function AiAgendaBuilderModal({
             <button
               onClick={handleClose}
               type="button"
-              className={`p-2 rounded-full transition-colors ${
+              className={`p-2 rounded-full transition-colors cursor-pointer ${
                 isDark ? "text-zinc-400 hover:text-white hover:bg-zinc-900" : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
               }`}
             >
@@ -546,7 +584,6 @@ export default function AiAgendaBuilderModal({
 
           {/* Main Content Area: Split View */}
           <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 min-h-0 divide-y lg:divide-y-0 lg:divide-x divide-inherit">
-            
             {/* LEFT / TOP COLUMN: Prompt & Voice Input (5 cols) */}
             <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between space-y-6 overflow-y-auto bg-inherit">
               <div className="space-y-4">
@@ -576,7 +613,7 @@ export default function AiAgendaBuilderModal({
                         )
                       );
                     }}
-                    placeholder="Describe this session (e.g. 🎉 Grand celebration kickoff with cake cutting from 6 PM to 7 PM, or tech keynote from 10 to 11:30 AM)..."
+                    placeholder="Describe a session or full schedule (e.g. 1. Keynote by Dr. Sarah from 10 to 11 AM, 2. Workshop from 11:30 to 1 PM, 3. Lunch & Networking)..."
                     rows={4}
                     className="w-full bg-transparent text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-500 leading-relaxed text-white"
                   />
@@ -601,7 +638,7 @@ export default function AiAgendaBuilderModal({
                     <Button
                       type="button"
                       onClick={startListening}
-                      className={`rounded-xl px-4 py-2 font-bold text-xs flex items-center gap-2 transition-all ${
+                      className={`rounded-xl px-4 py-2 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
                         isListening
                           ? "bg-red-600 hover:bg-red-700 text-white animate-pulse shadow-lg shadow-red-600/30"
                           : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
@@ -623,15 +660,15 @@ export default function AiAgendaBuilderModal({
                       type="button"
                       onClick={() => handleGenerateAgenda()}
                       disabled={isGenerating || !prompt.trim()}
-                      className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold text-xs px-5 py-2 shadow-lg shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50"
+                      className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold text-xs px-5 py-2 shadow-lg shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                     >
                       {isGenerating ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin" /> Structuring Draft {selectedSessionIndex + 1}...
+                          <Loader2 className="w-4 h-4 animate-spin" /> Structuring with AI...
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-4 h-4" /> Generate Draft {selectedSessionIndex + 1}
+                          <Sparkles className="w-4 h-4" /> Generate with AI
                         </>
                       )}
                     </Button>
@@ -664,7 +701,7 @@ export default function AiAgendaBuilderModal({
                           setPrompt(p);
                           handleGenerateAgenda(p);
                         }}
-                        className={`text-left text-xs p-3 rounded-xl border transition-all text-zinc-300 hover:text-white ${
+                        className={`text-left text-xs p-3 rounded-xl border transition-all text-zinc-300 hover:text-white cursor-pointer ${
                           isDark ? "bg-zinc-900/40 border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900" : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100"
                         }`}
                       >
@@ -701,7 +738,7 @@ export default function AiAgendaBuilderModal({
                           key={s.id}
                           type="button"
                           onClick={() => handleSelectSession(idx)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-extrabold shrink-0 transition-all flex items-center gap-1.5 ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-extrabold shrink-0 transition-all flex items-center gap-1.5 cursor-pointer ${
                             selectedSessionIndex === idx
                               ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
                               : isDark
@@ -719,7 +756,7 @@ export default function AiAgendaBuilderModal({
                         onClick={handleAddNewBlankSession}
                         variant="ghost"
                         size="sm"
-                        className="rounded-xl text-xs font-bold text-indigo-400 hover:bg-indigo-500/10 flex items-center gap-1 shrink-0"
+                        className="rounded-xl text-xs font-bold text-indigo-400 hover:bg-indigo-500/10 flex items-center gap-1 shrink-0 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" /> New Draft
                       </Button>
@@ -730,7 +767,7 @@ export default function AiAgendaBuilderModal({
                       onClick={() => handleDeleteSession(selectedSessionIndex)}
                       variant="ghost"
                       size="sm"
-                      className="text-red-400 hover:bg-red-500/10 rounded-xl text-xs font-bold flex items-center gap-1"
+                      className="text-red-400 hover:bg-red-500/10 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" /> Remove
                     </Button>
@@ -824,7 +861,7 @@ export default function AiAgendaBuilderModal({
                               <button
                                 type="button"
                                 onClick={() => handleRemoveTag(tag)}
-                                className="text-indigo-400 hover:text-white"
+                                className="text-indigo-400 hover:text-white cursor-pointer"
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -861,10 +898,10 @@ export default function AiAgendaBuilderModal({
 
           {/* Modal Footer Actions */}
           <div className="flex items-center justify-between px-6 sm:px-8 py-4 border-t border-inherit bg-inherit shrink-0">
-            <div className="text-xs font-semibold text-zinc-400">
+            <div className={`text-xs font-semibold ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
               {sessions.length > 0 ? (
                 <span>
-                  <strong className="text-white">{sessions.length}</strong> session(s) ready to add to event
+                  <strong className={isDark ? "text-white font-bold" : "text-zinc-900 font-extrabold"}>{sessions.length}</strong> session(s) ready to add to event
                 </span>
               ) : (
                 <span>Prompt or record above to start</span>
@@ -876,7 +913,7 @@ export default function AiAgendaBuilderModal({
                 type="button"
                 onClick={handleClose}
                 variant="outline"
-                className="rounded-xl border-zinc-700 text-zinc-300 hover:bg-zinc-800 font-bold px-5"
+                className="rounded-xl border-zinc-700 text-zinc-300 hover:bg-zinc-800 font-bold px-5 cursor-pointer"
               >
                 Cancel
               </Button>
@@ -885,7 +922,7 @@ export default function AiAgendaBuilderModal({
                 type="button"
                 onClick={handleSaveAllToAgenda}
                 disabled={isSaving || sessions.length === 0}
-                className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold px-6 py-2.5 shadow-lg shadow-emerald-600/20 flex items-center gap-2 disabled:opacity-50"
+                className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold px-6 py-2.5 shadow-lg shadow-emerald-600/20 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {isSaving ? (
                   <>
