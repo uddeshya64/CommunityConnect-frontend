@@ -128,8 +128,9 @@ export default function Sidebar({
           }`}
         >
           <Link
-            href="/home"
+            href="/"
             className="flex items-center gap-2.5 font-extrabold text-base tracking-tight hover:opacity-90 transition-opacity"
+            title="Go to Eventrix Landing Page"
           >
             <div
               className="w-8 h-8 shrink-0 rounded-[10px] flex items-center justify-center text-white font-extrabold text-sm shadow-md transition-transform hover:scale-105"

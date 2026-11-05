@@ -1086,7 +1086,7 @@ export default function HomeContent() {
         <footer className="mt-12 sm:mt-14 pt-8 border-t flex flex-col gap-6 sm:gap-8" style={{ borderColor: "var(--border)" }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
             <div className="sm:col-span-2 flex flex-col gap-3">
-              <div className="flex items-center gap-2 font-bricolage text-lg font-bold" style={{ color: "var(--text)" }}>
+              <Link href="/" className="flex items-center gap-2 font-bricolage text-lg font-bold hover:opacity-90 transition-opacity w-fit" style={{ color: "var(--text)" }}>
                 <div
                   className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-xs font-black"
                   style={{
@@ -1099,7 +1099,7 @@ export default function HomeContent() {
                   </svg>
                 </div>
                 <span>Event<span style={{ color: "var(--accent)" }}>rix</span></span>
-              </div>
+              </Link>
               <p className="text-xs sm:text-sm max-w-sm leading-relaxed" style={{ color: "var(--muted)" }}>
                 The modern platform for discovering, hosting, and managing local tech events, hackathons, and meetups.
               </p>

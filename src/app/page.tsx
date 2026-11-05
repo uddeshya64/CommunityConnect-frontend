@@ -333,7 +333,7 @@ export default function LandingPage() {
           }}
         >
           <div className="max-w-7xl mx-auto h-full px-4 sm:px-7 flex items-center justify-between gap-3 sm:gap-6">
-            
+
             {/* Left: Brand Wordmark Block (Modern geometric vector mark + Eventrix) */}
             <Link href="/" className="flex items-center gap-2.5 group shrink-0">
               <div
@@ -358,7 +358,7 @@ export default function LandingPage() {
 
             {/* Right: Controls & Actions (Host event 36px pill, Theme toggle 36px square, Notifications 36px square, Auth) */}
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-              
+
               {/* 1. Host Event Gradient Pill Button (Hidden on tiny phone screens to prevent header cutoff) */}
               <Link
                 href={isLoggedIn ? "/events/create" : "/login"}
@@ -444,7 +444,7 @@ export default function LandingPage() {
             SECTION 3 & CT1-CT2: HERO SECTION
             ========================================================= */}
         <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 pt-16 sm:pt-24 pb-20 flex flex-col items-center text-center">
-          
+
           {/* Eyebrow Label (JetBrains Mono, uppercase, letter-spacing .08em) */}
           <div
             className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full font-mono text-[9px] sm:text-[11px] font-bold uppercase tracking-normal sm:tracking-widest shadow-xs mb-6 transition-colors max-w-full text-center"
@@ -669,13 +669,12 @@ export default function LandingPage() {
                     key={tpl.key}
                     type="button"
                     onClick={() => setActiveThemeIdx(idx)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
-                      isSelected
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${isSelected
                         ? isDark
                           ? "bg-white text-zinc-950 shadow-lg scale-105"
                           : "bg-zinc-950 text-white shadow-md scale-105"
                         : "border hover:border-[var(--accent)]"
-                    }`}
+                      }`}
                     style={{
                       background: isSelected ? undefined : "var(--input)",
                       borderColor: isSelected ? undefined : "var(--border)",
@@ -1153,9 +1152,8 @@ export default function LandingPage() {
                     key={opt.id}
                     type="button"
                     onClick={() => updateSetting("accentColor", opt.id)}
-                    className={`h-11 px-4 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-2.5 cursor-pointer shadow-xs ${
-                      isActive ? "ring-2 ring-offset-2 scale-105" : "hover:scale-102"
-                    }`}
+                    className={`h-11 px-4 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-2.5 cursor-pointer shadow-xs ${isActive ? "ring-2 ring-offset-2 scale-105" : "hover:scale-102"
+                      }`}
                     style={{
                       background: "var(--input)",
                       border: "1px solid var(--border)",
@@ -1213,177 +1211,176 @@ export default function LandingPage() {
               }}
             >
               {/* Top Bar inside Video Card */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b" style={{ borderColor: "var(--border)" }}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wide shrink-0"
-                    style={{
-                      background: "color-mix(in oklab, var(--accent) 15%, transparent)",
-                      color: "var(--accent)",
-                      border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
-                    }}
-                  >
-                    {activeVideo.badge}
-                  </span>
-                  <span className="font-bricolage font-bold text-xs sm:text-sm truncate" style={{ color: "var(--text)" }}>
-                    {activeVideo.title}
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b" style={{ borderColor: "var(--border)" }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wide shrink-0"
+                      style={{
+                        background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                        color: "var(--accent)",
+                        border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
+                      }}
+                    >
+                      {activeVideo.badge}
+                    </span>
+                    <span className="font-bricolage font-bold text-xs sm:text-sm truncate" style={{ color: "var(--text)" }}>
+                      {activeVideo.title}
+                    </span>
+                  </div>
+
+                  {/* Quick Switch to Full Overview */}
+                  {activeVideo.id !== "full" ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedVideoId("full")}
+                      className="text-xs font-mono font-bold flex items-center gap-1.5 hover:underline cursor-pointer transition-colors shrink-0"
+                      style={{ color: "var(--accent)" }}
+                    >
+                      <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                      <span>Watch Full Overview</span>
+                    </button>
+                  ) : (
+                    <span className="text-[11px] font-mono font-semibold" style={{ color: "var(--muted)" }}>
+                      Full Walkthrough
+                    </span>
+                  )}
                 </div>
 
-                {/* Quick Switch to Full Overview */}
-                {activeVideo.id !== "full" ? (
+                {/* Seamless Video Frame: strictly aspect-[16/9] with object-cover, zero black borders */}
+                <div
+                  className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border flex-1"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <video
+                    key={activeVideo.src}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-cover rounded-2xl"
+                  >
+                    <source src={activeVideo.src} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              </div>
+
+              {/* Right: Three Tour Cards (Part 1 Organizer, Part 2 Volunteer, Part 3 Participant) */}
+              <div className="lg:col-span-5 xl:col-span-4 flex flex-col justify-between gap-3 h-full">
+                {/* Quick switch to Full Overview if not currently playing */}
+                {activeVideo.id !== "full" && (
                   <button
                     type="button"
                     onClick={() => setSelectedVideoId("full")}
-                    className="text-xs font-mono font-bold flex items-center gap-1.5 hover:underline cursor-pointer transition-colors shrink-0"
-                    style={{ color: "var(--accent)" }}
-                  >
-                    <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-                    <span>Watch Full Overview</span>
-                  </button>
-                ) : (
-                  <span className="text-[11px] font-mono font-semibold" style={{ color: "var(--muted)" }}>
-                    Full Walkthrough
-                  </span>
-                )}
-              </div>
-
-              {/* Seamless Video Frame: strictly aspect-[16/9] with object-cover, zero black borders */}
-              <div
-                className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border flex-1"
-                style={{ borderColor: "var(--border)" }}
-              >
-                <video
-                  key={activeVideo.src}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="w-full h-full object-cover rounded-2xl"
-                >
-                  <source src={activeVideo.src} type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
-              </div>
-            </div>
-
-            {/* Right: Three Tour Cards (Part 1 Organizer, Part 2 Volunteer, Part 3 Participant) */}
-            <div className="lg:col-span-5 xl:col-span-4 flex flex-col justify-between gap-3 h-full">
-              {/* Quick switch to Full Overview if not currently playing */}
-              {activeVideo.id !== "full" && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedVideoId("full")}
-                  className="rounded-2xl px-4 py-2.5 border transition-all flex items-center justify-between group cursor-pointer hover:scale-[1.01]"
-                  style={{
-                    background: "var(--card2)",
-                    borderColor: "var(--border)",
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <PlayCircle className="w-4 h-4 text-emerald-400 animate-pulse" />
-                    <span className="font-bricolage text-xs font-bold" style={{ color: "var(--text)" }}>
-                      Full Overview Demo
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono font-semibold" style={{ color: "var(--accent)" }}>
-                    Play Overview →
-                  </span>
-                </button>
-              )}
-
-              {/* 3 Tour Part Cards */}
-              {DEMO_VIDEOS.slice(1).map((part) => {
-                const isCurrent = activeVideo.id === part.id;
-                return (
-                  <button
-                    key={part.id}
-                    type="button"
-                    onClick={() => setSelectedVideoId(part.id)}
-                    className={`relative overflow-hidden rounded-[20px] p-4 sm:p-5 text-left transition-all duration-300 cursor-pointer flex flex-col justify-between flex-1 group ${
-                      isCurrent
-                        ? "scale-[1.02] shadow-xl"
-                        : "hover:scale-[1.01] hover:border-[var(--accent)]"
-                    }`}
+                    className="rounded-2xl px-4 py-2.5 border transition-all flex items-center justify-between group cursor-pointer hover:scale-[1.01]"
                     style={{
-                      background: isCurrent
-                        ? "color-mix(in oklab, var(--accent) 12%, var(--card))"
-                        : "var(--card)",
-                      border: isCurrent
-                        ? "2px solid var(--accent)"
-                        : "1px solid var(--border)",
-                      boxShadow: isCurrent
-                        ? "0 12px 30px -10px var(--accent)"
-                        : undefined,
+                      background: "var(--card2)",
+                      borderColor: "var(--border)",
                     }}
                   >
-                    {/* Big Watermark Number with low opacity to fit card */}
-                    <span
-                      className="absolute right-3 -bottom-3 sm:-bottom-2 font-mono font-black text-6xl sm:text-7xl select-none pointer-events-none transition-all duration-300"
+                    <div className="flex items-center gap-2">
+                      <PlayCircle className="w-4 h-4 text-emerald-400 animate-pulse" />
+                      <span className="font-bricolage text-xs font-bold" style={{ color: "var(--text)" }}>
+                        Full Overview Demo
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono font-semibold" style={{ color: "var(--accent)" }}>
+                      Play Overview →
+                    </span>
+                  </button>
+                )}
+
+                {/* 3 Tour Part Cards */}
+                {DEMO_VIDEOS.slice(1).map((part) => {
+                  const isCurrent = activeVideo.id === part.id;
+                  return (
+                    <button
+                      key={part.id}
+                      type="button"
+                      onClick={() => setSelectedVideoId(part.id)}
+                      className={`relative overflow-hidden rounded-[20px] p-4 sm:p-5 text-left transition-all duration-300 cursor-pointer flex flex-col justify-between flex-1 group ${isCurrent
+                          ? "scale-[1.02] shadow-xl"
+                          : "hover:scale-[1.01] hover:border-[var(--accent)]"
+                        }`}
                       style={{
-                        color: isCurrent ? "var(--accent)" : "var(--text)",
-                        opacity: isCurrent ? 0.22 : 0.08,
+                        background: isCurrent
+                          ? "color-mix(in oklab, var(--accent) 12%, var(--card))"
+                          : "var(--card)",
+                        border: isCurrent
+                          ? "2px solid var(--accent)"
+                          : "1px solid var(--border)",
+                        boxShadow: isCurrent
+                          ? "0 12px 30px -10px var(--accent)"
+                          : undefined,
                       }}
                     >
-                      {part.num}
-                    </span>
+                      {/* Big Watermark Number with low opacity to fit card */}
+                      <span
+                        className="absolute right-3 -bottom-3 sm:-bottom-2 font-mono font-black text-6xl sm:text-7xl select-none pointer-events-none transition-all duration-300"
+                        style={{
+                          color: isCurrent ? "var(--accent)" : "var(--text)",
+                          opacity: isCurrent ? 0.22 : 0.08,
+                        }}
+                      >
+                        {part.num}
+                      </span>
 
-                    {/* Card Content: Name of part above */}
-                    <div className="relative z-10 space-y-1.5 w-full">
-                      <div className="flex items-center justify-between gap-2">
-                        <h4
-                          className="font-bricolage text-base sm:text-lg font-black tracking-tight"
-                          style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}
-                        >
-                          {part.title}
-                        </h4>
+                      {/* Card Content: Name of part above */}
+                      <div className="relative z-10 space-y-1.5 w-full">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4
+                            className="font-bricolage text-base sm:text-lg font-black tracking-tight"
+                            style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}
+                          >
+                            {part.title}
+                          </h4>
 
-                        {isCurrent ? (
-                          <span
-                            className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-xs"
-                            style={{
-                              background: "var(--accent)",
-                              color: "#fff",
-                            }}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                            <span>Now Playing</span>
-                          </span>
-                        ) : (
-                          <div
-                            className="w-7 h-7 rounded-lg flex items-center justify-center opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all"
-                            style={{ background: "var(--card2)", color: "var(--muted)" }}
-                          >
-                            <part.icon className="w-3.5 h-3.5" />
-                          </div>
-                        )}
+                          {isCurrent ? (
+                            <span
+                              className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-xs"
+                              style={{
+                                background: "var(--accent)",
+                                color: "#fff",
+                              }}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                              <span>Now Playing</span>
+                            </span>
+                          ) : (
+                            <div
+                              className="w-7 h-7 rounded-lg flex items-center justify-center opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all"
+                              style={{ background: "var(--card2)", color: "var(--muted)" }}
+                            >
+                              <part.icon className="w-3.5 h-3.5" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Subtitle / Role */}
+                        <p className="text-xs font-semibold" style={{ color: isCurrent ? "var(--text)" : "var(--muted)" }}>
+                          {part.role}
+                        </p>
+
+                        {/* Description */}
+                        <p className="text-[11px] leading-relaxed line-clamp-2 max-w-[85%]" style={{ color: "var(--muted)" }}>
+                          {part.desc}
+                        </p>
                       </div>
 
-                      {/* Subtitle / Role */}
-                      <p className="text-xs font-semibold" style={{ color: isCurrent ? "var(--text)" : "var(--muted)" }}>
-                        {part.role}
-                      </p>
-
-                      {/* Description */}
-                      <p className="text-[11px] leading-relaxed line-clamp-2 max-w-[85%]" style={{ color: "var(--muted)" }}>
-                        {part.desc}
-                      </p>
-                    </div>
-
-                    {/* Bottom Status / Action */}
-                    <div className="relative z-10 mt-3 pt-2.5 border-t flex items-center justify-between text-[10px] font-mono" style={{ borderColor: isCurrent ? "color-mix(in oklab, var(--accent) 30%, transparent)" : "var(--border)" }}>
-                      <span style={{ color: isCurrent ? "var(--accent)" : "var(--muted)" }}>
-                        Interactive Tour Segment
-                      </span>
-                      <span className="font-bold flex items-center gap-1" style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}>
-                        <span>{isCurrent ? "Playing Video" : "Click to View"}</span>
-                        <span>→</span>
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+                      {/* Bottom Status / Action */}
+                      <div className="relative z-10 mt-3 pt-2.5 border-t flex items-center justify-between text-[10px] font-mono" style={{ borderColor: isCurrent ? "color-mix(in oklab, var(--accent) 30%, transparent)" : "var(--border)" }}>
+                        <span style={{ color: isCurrent ? "var(--accent)" : "var(--muted)" }}>
+                          Interactive Tour Segment
+                        </span>
+                        <span className="font-bold flex items-center gap-1" style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}>
+                          <span>{isCurrent ? "Playing Video" : "Click to View"}</span>
+                          <span>→</span>
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
         </section>
 
         {/* =========================================================
