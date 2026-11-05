@@ -457,21 +457,21 @@ export default function AiQuizBuilderModal({
       <div className="relative w-full max-w-6xl max-h-[92vh] flex flex-col bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden">
         
         {/* MODAL HEADER */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800/80 bg-gradient-to-r from-indigo-50/50 via-purple-50/30 to-white dark:from-zinc-900/60 dark:via-zinc-900/30 dark:to-zinc-950">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25">
-              <Sparkles className="w-5 h-5" />
+        <div className="flex items-start sm:items-center justify-between p-4 sm:px-6 sm:py-4 border-b border-zinc-100 dark:border-zinc-800/80 bg-gradient-to-r from-indigo-50/50 via-purple-50/30 to-white dark:from-zinc-900/60 dark:via-zinc-900/30 dark:to-zinc-950">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0 mt-0.5 sm:mt-0">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-extrabold text-zinc-900 dark:text-white">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <h2 className="text-base sm:text-lg font-extrabold text-zinc-900 dark:text-white">
                   AI Quiz & Activity Builder
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                  Kahoot-Style Gamification
+                <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                  Interactive Live Trivia
                 </span>
               </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1 sm:line-clamp-none mt-0.5">
                 Craft engaging multiple-choice trivia and live challenges for <span className="font-semibold text-zinc-700 dark:text-zinc-300">"{eventTitle}"</span>
               </p>
             </div>
@@ -916,8 +916,8 @@ export default function AiQuizBuilderModal({
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-4 sm:px-6 py-3.5 sm:py-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+          <div className="flex items-center gap-2 text-xs text-zinc-500 justify-center sm:justify-start">
             <span className="font-bold text-zinc-700 dark:text-zinc-300">
               {questions.length} Question{questions.length === 1 ? "" : "s"}
             </span>
@@ -927,13 +927,13 @@ export default function AiQuizBuilderModal({
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
               disabled={isSaving}
-              className="rounded-xl text-xs font-bold"
+              className="flex-1 sm:flex-initial rounded-xl text-xs font-bold"
             >
               Cancel
             </Button>
@@ -942,17 +942,17 @@ export default function AiQuizBuilderModal({
               type="button"
               onClick={handleSaveQuiz}
               disabled={isSaving || !quizTitle.trim() || questions.length === 0}
-              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 shadow-md shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50"
+              className="flex-1 sm:flex-initial rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 sm:px-5 shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSaving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Saving Activity...</span>
+                  <span>Saving...</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-yellow-300" />
-                  <span>Add AI-Generated Activity</span>
+                  <span>Add AI Activity</span>
                 </>
               )}
             </Button>

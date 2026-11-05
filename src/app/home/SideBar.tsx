@@ -377,7 +377,7 @@ export default function Sidebar({
       {/* Logout Confirmation Dialog */}
       <AnimatePresence>
         {showLogoutConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -389,17 +389,22 @@ export default function Sidebar({
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative z-10 w-full max-w-sm rounded-2xl bg-zinc-900 border border-white/10 p-6 shadow-2xl"
+              className="relative z-10 w-full max-w-sm rounded-2xl p-6 shadow-2xl transition-colors"
+              style={{
+                background: "var(--card)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
             >
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bricolage text-lg font-bold text-white">
+                  <h3 className="font-bricolage text-lg font-bold" style={{ color: "var(--text)" }}>
                     Sign Out?
                   </h3>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
                     Are you sure you want to end your session?
                   </p>
                 </div>
@@ -407,14 +412,15 @@ export default function Sidebar({
               <div className="flex items-center justify-end gap-3 mt-6">
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                  className="px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:opacity-80"
+                  style={{ color: "var(--muted)", background: "var(--card2)" }}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmLogout}
                   disabled={isLoggingOut}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-2 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-2 transition-colors disabled:opacity-50 shadow-sm"
                 >
                   {isLoggingOut && <Loader2 className="w-4 h-4 animate-spin" />}
                   Sign Out

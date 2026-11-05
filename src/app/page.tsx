@@ -297,12 +297,12 @@ export default function LandingPage() {
             </Link>
 
             {/* Right: Controls & Actions (Host event 36px pill, Theme toggle 36px square, Notifications 36px square, Auth) */}
-            <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
               
-              {/* 1. Host Event Gradient Pill Button (36px, Section 6.1) */}
+              {/* 1. Host Event Gradient Pill Button (Hidden on tiny phone screens to prevent header cutoff) */}
               <Link
                 href={isLoggedIn ? "/events/create" : "/login"}
-                className="h-9 px-3.5 rounded-full text-[13px] font-semibold !text-white flex items-center gap-1.5 transition-all hover:translate-y-[-1px] active:translate-y-0 cursor-pointer shadow-sm hover:shadow-md"
+                className="hidden sm:inline-flex h-9 px-3.5 rounded-full text-[13px] font-semibold !text-white items-center gap-1.5 transition-all hover:translate-y-[-1px] active:translate-y-0 cursor-pointer shadow-sm hover:shadow-md"
                 style={{
                   background: "linear-gradient(135deg, var(--accent), var(--accent2))",
                   boxShadow: "0 8px 20px -8px var(--accent)",
@@ -312,27 +312,27 @@ export default function LandingPage() {
                 <span className="!text-white font-semibold">Host event</span>
               </Link>
 
-              {/* 2. Theme Toggle (36px Square, Radius 10px, Section 5-L3 & 6.1) */}
+              {/* 2. Theme Toggle (32px-36px, Section 5-L3 & 6.1) */}
               <button
                 type="button"
                 onClick={toggleTheme}
                 title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                className="w-9 h-9 rounded-[10px] border border-[var(--border)] bg-[var(--input)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--accent)] flex items-center justify-center transition-all cursor-pointer shadow-xs"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-[10px] border border-[var(--border)] bg-[var(--input)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--accent)] flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
               >
                 {isDark ? (
-                  <Sun className="w-4 h-4 text-amber-400" />
+                  <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
                 ) : (
-                  <Moon className="w-4 h-4 text-indigo-600" />
+                  <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
                 )}
               </button>
 
-              {/* 3. Notifications Button (36px Square, Radius 10px, with 8px #ef4444 unread dot) */}
+              {/* 3. Notifications Button (32px-36px, with 8px #ef4444 unread dot) */}
               <Link
                 href={isLoggedIn ? "/notifications" : "/login"}
                 title="Notifications"
-                className="relative w-9 h-9 rounded-[10px] border border-[var(--border)] bg-[var(--input)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--accent)] flex items-center justify-center transition-all cursor-pointer shadow-xs"
+                className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-[10px] border border-[var(--border)] bg-[var(--input)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--accent)] flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
               >
-                <Bell className="w-4 h-4" />
+                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span
                   className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#ef4444]"
                   style={{
@@ -345,26 +345,26 @@ export default function LandingPage() {
               {isLoggedIn ? (
                 <Link
                   href="/home"
-                  className="h-9 px-3.5 rounded-full text-xs font-bold !text-white flex items-center gap-1.5 transition-all hover:scale-[1.02] cursor-pointer"
+                  className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full text-xs font-bold !text-white flex items-center gap-1.5 transition-all hover:scale-[1.02] cursor-pointer shrink-0"
                   style={{
                     background: "linear-gradient(135deg, var(--accent), var(--accent2))",
                     boxShadow: "0 8px 20px -8px var(--accent)",
                   }}
                 >
                   <span>Dashboard</span>
-                  <ArrowRight className="w-3.5 h-3.5 !text-white" />
+                  <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 !text-white" />
                 </Link>
               ) : (
                 <>
                   <Link
                     href="/login"
-                    className="h-9 px-3 rounded-[10px] text-xs font-semibold border border-[var(--border)] bg-[var(--input)] hover:bg-[var(--card2)] text-[var(--text)] flex items-center justify-center transition-all cursor-pointer"
+                    className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-[10px] text-xs font-semibold border border-[var(--border)] bg-[var(--input)] hover:bg-[var(--card2)] text-[var(--text)] flex items-center justify-center transition-all cursor-pointer shrink-0"
                   >
                     Log In
                   </Link>
                   <Link
                     href="/register"
-                    className="hidden sm:inline-flex h-9 px-3.5 rounded-full text-xs font-bold !text-white items-center gap-1 transition-all hover:scale-[1.02] cursor-pointer shadow-xs"
+                    className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full text-xs font-bold !text-white inline-flex items-center gap-1 transition-all hover:scale-[1.02] cursor-pointer shadow-xs shrink-0"
                     style={{
                       background: "linear-gradient(135deg, var(--accent), var(--accent2))",
                       boxShadow: "0 8px 20px -8px var(--accent)",
@@ -387,15 +387,15 @@ export default function LandingPage() {
           
           {/* Eyebrow Label (JetBrains Mono, uppercase, letter-spacing .08em) */}
           <div
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full font-mono text-[11px] font-bold uppercase tracking-widest shadow-xs mb-6 transition-colors"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full font-mono text-[9px] sm:text-[11px] font-bold uppercase tracking-normal sm:tracking-widest shadow-xs mb-6 transition-colors max-w-full text-center"
             style={{
               background: "var(--card2)",
               border: "1px solid var(--border)",
               color: "var(--accent)",
             }}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
-            <span>EVENTRIX // THE NEXT-GEN EVENT OPERATING SYSTEM</span>
+            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+            <span className="whitespace-normal">EVENTRIX // THE NEXT-GEN EVENT OPERATING SYSTEM</span>
           </div>
 
           {/* Page H1: Bricolage Grotesque, bold 700, negative tracking -.04em */}
