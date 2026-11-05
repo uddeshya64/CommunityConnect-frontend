@@ -45,7 +45,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   let targetUrl = `${self.location.origin}/notifications`;
-  
+
   if (event.notification.data && event.notification.data.url) {
     let rawUrl = event.notification.data.url;
     try {
@@ -71,7 +71,7 @@ self.addEventListener('notificationclick', (event) => {
             }
             return;
           }
-        } catch {}
+        } catch { }
       }
 
       // If no same-origin tab is open, open a new window to the target URL directly

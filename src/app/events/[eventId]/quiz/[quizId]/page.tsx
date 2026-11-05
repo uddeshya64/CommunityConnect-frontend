@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { getSocketBaseUrl } from "@/lib/socket";
 import ConfettiEffect from "@/components/gamification/ConfettiEffect";
 
-const KAHOOT_SHAPES = [
+const QUIZ_SHAPES = [
   {
     bg: "from-rose-500 via-red-600 to-rose-700 hover:from-rose-400 hover:to-red-600 border-red-400/40 shadow-rose-900/40",
     badgeBg: "bg-red-950/70 border-red-400/40 text-red-200",
@@ -269,7 +269,7 @@ export default function ParticipantQuizPage() {
     );
   }
 
-  // 1. LOBBY WAITING STATE (KAHOOT STYLE)
+  // 1. LOBBY WAITING STATE (INTERACTIVE LIVE LOBBY)
   if (status === "WAITING") {
     return (
       <div
@@ -325,7 +325,7 @@ export default function ParticipantQuizPage() {
     );
   }
 
-  // 2. QUESTION & ANSWERED STATE (KAHOOT EXPERIENCE)
+  // 2. QUESTION & ANSWERED STATE (LIVE QUIZ EXPERIENCE)
   if (status === "QUESTION" || status === "ANSWERED") {
     const maxTime = currentQuestion?.time_limit || 20;
     const progressPercent = Math.max(0, (timeLeft / maxTime) * 100);
@@ -413,7 +413,7 @@ export default function ParticipantQuizPage() {
             </h2>
           </motion.div>
 
-          {/* Answered Waiting State or 4-Choice Kahoot Grid */}
+          {/* Answered Waiting State or 4-Choice Grid */}
           {status === "ANSWERED" ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -443,7 +443,7 @@ export default function ParticipantQuizPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
               {currentQuestion?.options?.map((opt: any, idx: number) => {
-                const shape = KAHOOT_SHAPES[idx % KAHOOT_SHAPES.length];
+                const shape = QUIZ_SHAPES[idx % QUIZ_SHAPES.length];
                 return (
                   <motion.button
                     key={opt.id || idx}
