@@ -898,10 +898,10 @@ export default function AiAgendaBuilderModal({
 
           {/* Modal Footer Actions */}
           <div className="flex items-center justify-between px-6 sm:px-8 py-4 border-t border-inherit bg-inherit shrink-0">
-            <div className="text-xs font-semibold text-zinc-400">
+            <div className={`text-xs font-semibold ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
               {sessions.length > 0 ? (
                 <span>
-                  <strong className="text-white">{sessions.length}</strong> session(s) ready to add to event
+                  <strong className={isDark ? "text-white font-bold" : "text-zinc-900 font-extrabold"}>{sessions.length}</strong> session(s) ready to add to event
                 </span>
               ) : (
                 <span>Prompt or record above to start</span>
