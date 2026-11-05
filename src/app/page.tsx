@@ -445,19 +445,6 @@ export default function LandingPage() {
             ========================================================= */}
         <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 pt-16 sm:pt-24 pb-20 flex flex-col items-center text-center">
 
-          {/* Eyebrow Label (JetBrains Mono, uppercase, letter-spacing .08em) */}
-          <div
-            className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full font-mono text-[9px] sm:text-[11px] font-bold uppercase tracking-normal sm:tracking-widest shadow-xs mb-6 transition-colors max-w-full text-center"
-            style={{
-              background: "var(--card2)",
-              border: "1px solid var(--border)",
-              color: "var(--accent)",
-            }}
-          >
-            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
-            <span className="whitespace-normal">EVENTRIX // THE NEXT-GEN EVENT OPERATING SYSTEM</span>
-          </div>
-
           {/* Page H1: Bricolage Grotesque, bold 700, negative tracking -.04em */}
           <h1 className="font-bricolage text-4xl sm:text-6xl md:text-7xl font-black tracking-[-0.04em] leading-[1.05] max-w-4xl text-balance">
             Where extraordinary tech communities{" "}
