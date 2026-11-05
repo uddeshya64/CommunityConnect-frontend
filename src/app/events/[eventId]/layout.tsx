@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
     };
   } catch (error) {
-    const fallbackBanner = `${appBaseUrl}/icon.png`;
+    const fallbackBanner = `${appBaseUrl}/og-image.png`;
     return {
       metadataBase: new URL(appBaseUrl),
       title: "Event Details | Eventrix",
