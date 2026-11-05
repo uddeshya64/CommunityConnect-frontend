@@ -40,16 +40,24 @@ export default function Navbar({ theme }: { theme?: "light" | "dark" }) {
         >
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <Link
-              href="/home"
-              className={`flex items-center gap-2 font-black text-2xl tracking-tighter ${isDark ? "text-white" : "text-zinc-900"
+              href="/"
+              className={`flex items-center gap-2 font-black text-xl tracking-tight ${isDark ? "text-white" : "text-zinc-900"
                 }`}
             >
               <div
-                className={`w-8 h-8 ${activeAccent.bg} rounded-lg flex items-center justify-center text-white shadow-md`}
+                className="w-8 h-8 rounded-[10px] flex items-center justify-center text-white shadow-md"
+                style={{
+                  background: `linear-gradient(135deg, var(--accent, #6366f1), var(--accent2, #a855f7))`,
+                }}
               >
-                C
+                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 5h14M5 12h9M5 19h14" />
+                  <circle cx="18" cy="12" r="1.5" fill="currentColor" />
+                </svg>
               </div>
-              Community<span className={activeAccent.text}>Connect</span>
+              <span className="font-bricolage text-[18px] font-bold">
+                Event<span style={{ color: "var(--accent, #6366f1)" }}>rix</span>
+              </span>
             </Link>
 
             <div className="flex items-center gap-4">

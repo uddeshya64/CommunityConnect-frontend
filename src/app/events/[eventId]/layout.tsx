@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const rawDescription = event?.description || "";
     const cleanDescription = rawDescription.replace(/<[^>]*>?/gm, "").slice(0, 160);
     const description = cleanDescription || "Join this event on Eventrix!";
-    
+
     let rawBannerUrl = event?.banner_url || event?.bannerUrl || event?.banner;
     let bannerUrl = rawBannerUrl;
 
@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
     };
   } catch (error) {
-    const fallbackBanner = `${appBaseUrl}/icon.png`;
+    const fallbackBanner = `${appBaseUrl}/og-image.png`;
     return {
       metadataBase: new URL(appBaseUrl),
       title: "Event Details | Eventrix",

@@ -6,8 +6,40 @@ import { UserProvider } from "@/components/providers/UserProvider";
 import NotificationPromptPopup from "@/components/NotificationPromptPopup";
 
 export const metadata: Metadata = {
-  title: "Eventrix",
+  title: {
+    default: "Eventrix",
+    template: "%s | Eventrix",
+  },
   description: "Modern Event Management, Hackathon Portal & Real-Time Engagement Platform",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  openGraph: {
+    title: "Eventrix",
+    description: "The Next-Gen Event Operating System",
+    siteName: "Eventrix",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Eventrix - The Next-Gen Event Operating System",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Eventrix",
+    description: "The Next-Gen Event Operating System",
+    images: ["/og-image.png"],
+  },
 };
 
 const appearanceScript = `

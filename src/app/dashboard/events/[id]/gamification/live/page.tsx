@@ -16,7 +16,7 @@ import { getSocketBaseUrl } from "@/lib/socket";
 import { hasStoredSession } from "@/lib/auth";
 import ConfettiEffect from "@/components/gamification/ConfettiEffect";
 
-const KAHOOT_SHAPES = [
+const QUIZ_SHAPES = [
   {
     bg: "from-rose-500/20 to-red-600/30 border-red-500/40 text-red-100",
     badge: "bg-red-500 text-white",
@@ -336,7 +336,7 @@ export default function LiveOrganizerDashboard() {
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full z-10">
         {quizEnded ? (
           /* =========================================================================
-             STAGE 4: FINAL WINNERS PODIUM (KAHOOT-STYLE PODIUM & CELEBRATION)
+             STAGE 4: FINAL WINNERS PODIUM (LIVE PODIUM & CELEBRATION)
              ========================================================================= */
           <div className="w-full flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500 relative">
             <ConfettiEffect count={70} />
@@ -801,10 +801,10 @@ export default function LiveOrganizerDashboard() {
               </h2>
             </div>
 
-            {/* 4 Kahoot-Style Answer Tiles */}
+            {/* 4 Interactive Answer Tiles */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {currentQuestion?.options?.map((opt: any, idx: number) => {
-                const shape = KAHOOT_SHAPES[idx % KAHOOT_SHAPES.length];
+                const shape = QUIZ_SHAPES[idx % QUIZ_SHAPES.length];
                 const isCorrect = correctOptionId === opt.id;
 
                 return (
