@@ -28,6 +28,10 @@ import {
   Bot,
   Flame,
   Globe2,
+  Film,
+  PlayCircle,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import PageTransition from "@/components/layout/PageTransition";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
@@ -196,11 +200,57 @@ const ACCENT_OPTIONS = [
   { id: "amber", name: "Amber", color1: "#f59e0b", color2: "#ea580c" },
 ] as const;
 
+const DEMO_VIDEOS = [
+  {
+    id: "full",
+    part: "Full Overview",
+    title: "Eventrix Full Platform Overview",
+    subtitle: "Complete Platform Walkthrough",
+    description: "Discover the next-generation event operating system: intelligent planning, offline-first check-ins, dynamic portals, and gamified engagement.",
+    src: "/demo-videos/Full_Overview_Demo.mp4",
+    badge: "Full Overview",
+    icon: PlayCircle,
+  },
+  {
+    id: "part1",
+    part: "Part 1",
+    title: "Part 1: Organizer Portal & Management",
+    subtitle: "End-to-End Event Command Center",
+    description: "Explore the organizer workspace: dynamic ticket tiers, attendee approval pipelines, AI-powered quiz builders, and real-time revenue analytics.",
+    src: "/demo-videos/Part_1_Organizer_demo.mp4",
+    badge: "Part 1 • Organizer",
+    icon: Layers,
+  },
+  {
+    id: "part2",
+    part: "Part 2",
+    title: "Part 2: Volunteer & Staff Operations",
+    subtitle: "Fast On-Ground Gate Check-In",
+    description: "Tour the volunteer and staff interface: sub-second QR ticket scanning, offline verification engine, attendee check-ins, and shift checklists.",
+    src: "/demo-videos/Part_2_Volunteer_view_demo.mp4",
+    badge: "Part 2 • Volunteer",
+    icon: ShieldCheck,
+  },
+  {
+    id: "part3",
+    part: "Part 3",
+    title: "Part 3: Participant & Attendee Experience",
+    subtitle: "Interactive Portals & Live Trivia",
+    description: "See the event from the attendee perspective: personalized digital tickets, live trivia battles, speaker schedules, and community hub.",
+    src: "/demo-videos/Part_3_Participants_demo.mp4",
+    badge: "Part 3 • Attendee",
+    icon: Users,
+  },
+] as const;
+
 export default function LandingPage() {
   const { isDark, toggleTheme, settings, updateSetting } = useAppearance();
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeThemeIdx, setActiveThemeIdx] = useState(0);
+  const [selectedVideoId, setSelectedVideoId] = useState<string>("full");
+  const [isTourDropdownOpen, setIsTourDropdownOpen] = useState(false);
+  const activeVideo = DEMO_VIDEOS.find((v) => v.id === selectedVideoId) || DEMO_VIDEOS[0];
 
   useEffect(() => {
     if (hasStoredSession()) {
@@ -1113,6 +1163,215 @@ export default function LandingPage() {
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        {/* =========================================================
+            SECTION: PLATFORM VIDEO TOUR & FULL OVERVIEW DEMO
+            ========================================================= */}
+        <section id="demo-tour" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-20 border-t border-[var(--border)]">
+          <div className="text-center max-w-3xl mx-auto mb-10 space-y-3">
+            <div
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10.5px] font-bold uppercase tracking-wider"
+              style={{
+                background: "var(--card2)",
+                border: "1px solid var(--border)",
+                color: "var(--accent)",
+              }}
+            >
+              <Film className="w-3.5 h-3.5" />
+              <span>INTERACTIVE PRODUCT TOUR</span>
+            </div>
+            <h2 className="font-bricolage text-3xl sm:text-5xl font-black tracking-tight" style={{ color: "var(--text)" }}>
+              Watch Eventrix in Action
+            </h2>
+            <p className="text-sm sm:text-base font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
+              Experience how Eventrix streamlines event creation, staff operations, and attendee engagement through our interactive video walkthroughs.
+            </p>
+          </div>
+
+          {/* Video Container Box */}
+          <div
+            className="relative rounded-[28px] p-3.5 sm:p-6 overflow-hidden transition-all duration-300 shadow-2xl"
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 20px 50px -15px color-mix(in oklab, var(--accent) 20%, transparent)",
+            }}
+          >
+            {/* Top Bar inside Video Card: Current Video Info Badge */}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 mb-3 border-b" style={{ borderColor: "var(--border)" }}>
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="px-2.5 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wide"
+                  style={{
+                    background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                    color: "var(--accent)",
+                    border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
+                  }}
+                >
+                  {activeVideo.badge}
+                </span>
+                <span className="font-bricolage font-bold text-sm sm:text-base truncate max-w-[260px] sm:max-w-md" style={{ color: "var(--text)" }}>
+                  {activeVideo.title}
+                </span>
+              </div>
+
+              {/* Quick switch back to Full Overview if on a Part */}
+              {activeVideo.id !== "full" && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedVideoId("full")}
+                  className="text-xs font-mono font-bold flex items-center gap-1.5 hover:underline cursor-pointer transition-colors"
+                  style={{ color: "var(--accent)" }}
+                >
+                  <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                  <span>Back to Full Overview</span>
+                </button>
+              )}
+            </div>
+
+            {/* Video Player Frame with 16:9 Aspect Ratio */}
+            <div
+              className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border"
+              style={{ background: "#000", borderColor: "rgba(255,255,255,0.08)" }}
+            >
+              <video
+                key={activeVideo.src}
+                controls
+                playsInline
+                preload="metadata"
+                className="w-full h-full object-contain rounded-2xl"
+              >
+                <source src={activeVideo.src} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+
+            {/* Bottom Actions Bar Under Video */}
+            <div className="mt-5 pt-4 border-t flex flex-col md:flex-row items-start md:items-center justify-between gap-4" style={{ borderColor: "var(--border)" }}>
+              {/* Description */}
+              <div className="space-y-1 max-w-xl">
+                <p className="text-xs font-mono uppercase tracking-wider font-bold" style={{ color: "var(--accent)" }}>
+                  {activeVideo.subtitle}
+                </p>
+                <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                  {activeVideo.description}
+                </p>
+              </div>
+
+              {/* Take Tour Button with Dropdown & Direct Part Switchers */}
+              <div className="relative w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                {/* Take Tour Dropdown Button */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsTourDropdownOpen(!isTourDropdownOpen)}
+                    className="w-full sm:w-auto h-12 px-6 rounded-full font-bricolage text-sm font-bold flex items-center justify-between sm:justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg"
+                    style={{
+                      background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                      color: "#fff",
+                      boxShadow: "0 8px 24px -8px var(--accent)",
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Compass className="w-4 h-4" />
+                      <span>Take Tour</span>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isTourDropdownOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {/* Dropdown Menu for Tour Parts (Part 1, Part 2, Part 3) */}
+                  {isTourDropdownOpen && (
+                    <>
+                      {/* Click outside backdrop */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsTourDropdownOpen(false)}
+                      />
+                      <div
+                        className="absolute right-0 bottom-full mb-2 md:bottom-auto md:top-full md:mt-2 w-full sm:w-80 rounded-2xl p-2 z-50 shadow-2xl transition-all border animate-in fade-in zoom-in-95"
+                        style={{
+                          background: "var(--card)",
+                          borderColor: "var(--border)",
+                          boxShadow: "0 16px 40px -10px rgba(0,0,0,0.4)",
+                        }}
+                      >
+                        <div className="px-3 py-2 border-b mb-1 flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                            Select Tour Segment
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: "var(--card2)", color: "var(--accent)" }}>
+                            3 Parts
+                          </span>
+                        </div>
+
+                        {/* Part 1, 2, 3 options + Full option */}
+                        {DEMO_VIDEOS.map((item) => {
+                          const isCurrent = activeVideo.id === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedVideoId(item.id);
+                                setIsTourDropdownOpen(false);
+                              }}
+                              className="w-full text-left p-2.5 rounded-xl transition-all flex items-start gap-3 cursor-pointer group hover:bg-[var(--card2)]"
+                              style={{
+                                background: isCurrent ? "color-mix(in oklab, var(--accent) 10%, transparent)" : undefined,
+                              }}
+                            >
+                              <div
+                                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-transform group-hover:scale-105"
+                                style={{
+                                  background: isCurrent ? "var(--accent)" : "var(--card2)",
+                                  color: isCurrent ? "#fff" : "var(--muted)",
+                                }}
+                              >
+                                <item.icon className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-xs font-bold leading-snug truncate" style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}>
+                                    {item.title}
+                                  </span>
+                                  {isCurrent && (
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                                  )}
+                                </div>
+                                <p className="text-[11px] truncate mt-0.5" style={{ color: "var(--muted)" }}>
+                                  {item.subtitle}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Quick segment pills next to Take Tour button for fast access */}
+                <div className="hidden lg:flex items-center gap-1.5 p-1 rounded-full border" style={{ background: "var(--input)", borderColor: "var(--border)" }}>
+                  {DEMO_VIDEOS.slice(1).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedVideoId(item.id)}
+                      className="px-3 py-1.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer"
+                      style={{
+                        background: activeVideo.id === item.id ? "var(--card)" : "transparent",
+                        color: activeVideo.id === item.id ? "var(--accent)" : "var(--muted)",
+                        boxShadow: activeVideo.id === item.id ? "0 2px 8px -2px rgba(0,0,0,0.2)" : undefined,
+                      }}
+                    >
+                      {item.part}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </section>
