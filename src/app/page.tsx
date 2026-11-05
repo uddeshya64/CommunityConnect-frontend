@@ -203,42 +203,54 @@ const ACCENT_OPTIONS = [
 const DEMO_VIDEOS = [
   {
     id: "full",
+    num: "00",
     part: "Full Overview",
     title: "Eventrix Full Platform Overview",
-    subtitle: "Complete Platform Walkthrough",
+    subtitle: "Complete Product Walkthrough",
     description: "Discover the next-generation event operating system: intelligent planning, offline-first check-ins, dynamic portals, and gamified engagement.",
     src: "/demo-videos/Full_Overview_Demo.mp4",
     badge: "Full Overview",
+    role: "Complete Walkthrough",
+    desc: "End-to-end walkthrough across organizer, staff, and attendee modules",
     icon: PlayCircle,
   },
   {
     id: "part1",
+    num: "01",
     part: "Part 1",
-    title: "Part 1: Organizer Portal & Management",
-    subtitle: "End-to-End Event Command Center",
+    title: "Part 1: Organizer",
+    subtitle: "Organizer Command Center",
     description: "Explore the organizer workspace: dynamic ticket tiers, attendee approval pipelines, AI-powered quiz builders, and real-time revenue analytics.",
     src: "/demo-videos/Part_1_Organizer_demo.mp4",
     badge: "Part 1 • Organizer",
+    role: "Organizer Command Center",
+    desc: "AI event builder, dynamic tickets, and financial analytics",
     icon: Layers,
   },
   {
     id: "part2",
+    num: "02",
     part: "Part 2",
-    title: "Part 2: Volunteer & Staff Operations",
-    subtitle: "Fast On-Ground Gate Check-In",
+    title: "Part 2: Volunteer",
+    subtitle: "Staff & Volunteer Operations",
     description: "Tour the volunteer and staff interface: sub-second QR ticket scanning, offline verification engine, attendee check-ins, and shift checklists.",
     src: "/demo-videos/Part_2_Volunteer_view_demo.mp4",
     badge: "Part 2 • Volunteer",
+    role: "On-Ground Staff Desk",
+    desc: "Sub-second QR pass scanning and offline check-in logs",
     icon: ShieldCheck,
   },
   {
     id: "part3",
+    num: "03",
     part: "Part 3",
-    title: "Part 3: Participant & Attendee Experience",
-    subtitle: "Interactive Portals & Live Trivia",
+    title: "Part 3: Participant",
+    subtitle: "Participant & Attendee Experience",
     description: "See the event from the attendee perspective: personalized digital tickets, live trivia battles, speaker schedules, and community hub.",
     src: "/demo-videos/Part_3_Participants_demo.mp4",
     badge: "Part 3 • Attendee",
+    role: "Attendee Experience",
+    desc: "Interactive event portals, live trivia quizzes, and passes",
     icon: Users,
   },
 ] as const;
@@ -1170,8 +1182,8 @@ export default function LandingPage() {
         {/* =========================================================
             SECTION: PLATFORM VIDEO TOUR & FULL OVERVIEW DEMO
             ========================================================= */}
-        <section id="demo-tour" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-20 border-t border-[var(--border)]">
-          <div className="text-center max-w-3xl mx-auto mb-10 space-y-3">
+        <section id="demo-tour" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-16 sm:py-20 border-t border-[var(--border)]">
+          <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10 space-y-2.5">
             <div
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10.5px] font-bold uppercase tracking-wider"
               style={{
@@ -1183,131 +1195,129 @@ export default function LandingPage() {
               <Film className="w-3.5 h-3.5" />
               <span>INTERACTIVE PRODUCT TOUR</span>
             </div>
-            <h2 className="font-bricolage text-3xl sm:text-5xl font-black tracking-tight" style={{ color: "var(--text)" }}>
+            <h2 className="font-bricolage text-3xl sm:text-4xl md:text-5xl font-black tracking-tight" style={{ color: "var(--text)" }}>
               Watch Eventrix in Action
             </h2>
-            <p className="text-sm sm:text-base font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
-              Experience how Eventrix streamlines event creation, staff operations, and attendee engagement through our interactive video walkthroughs.
+            <p className="text-xs sm:text-sm font-medium leading-relaxed max-w-xl mx-auto" style={{ color: "var(--muted)" }}>
+              Explore our full platform overview or pick a tour segment to see how Eventrix streamlines event creation, staff operations, and attendee engagement.
             </p>
           </div>
 
-          {/* Video Container Box */}
-          <div
-            className="relative rounded-[28px] p-3.5 sm:p-6 overflow-hidden transition-all duration-300 shadow-2xl"
-            style={{
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              boxShadow: "0 20px 50px -15px color-mix(in oklab, var(--accent) 20%, transparent)",
-            }}
-          >
-            {/* Top Bar inside Video Card: Current Video Info Badge */}
-            <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 mb-3 border-b" style={{ borderColor: "var(--border)" }}>
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="px-2.5 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wide"
-                  style={{
-                    background: "color-mix(in oklab, var(--accent) 15%, transparent)",
-                    color: "var(--accent)",
-                    border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
-                  }}
-                >
-                  {activeVideo.badge}
-                </span>
-                <span className="font-bricolage font-bold text-sm sm:text-base truncate max-w-[260px] sm:max-w-md" style={{ color: "var(--text)" }}>
-                  {activeVideo.title}
-                </span>
-              </div>
-
-              {/* Quick switch back to Full Overview if on a Part */}
-              {activeVideo.id !== "full" && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedVideoId("full")}
-                  className="text-xs font-mono font-bold flex items-center gap-1.5 hover:underline cursor-pointer transition-colors"
-                  style={{ color: "var(--accent)" }}
-                >
-                  <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-                  <span>Back to Full Overview</span>
-                </button>
-              )}
-            </div>
-
-            {/* Video Player Frame with 16:9 Aspect Ratio */}
+          {/* Side-by-Side Grid: Left = Sized Video (Vertically fits on screen), Right = 3 Tour Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
+            {/* Left: Video Player Card (Sized so it vertically fits on screen) */}
             <div
-              className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border"
-              style={{ background: "#000", borderColor: "rgba(255,255,255,0.08)" }}
+              className="lg:col-span-7 xl:col-span-8 flex flex-col justify-between rounded-[24px] p-3.5 sm:p-5 border shadow-xl relative overflow-hidden transition-all duration-300"
+              style={{
+                background: "var(--card)",
+                borderColor: "var(--border)",
+                boxShadow: "0 20px 50px -15px color-mix(in oklab, var(--accent) 15%, transparent)",
+              }}
             >
-              <video
-                key={activeVideo.src}
-                controls
-                playsInline
-                preload="metadata"
-                className="w-full h-full object-contain rounded-2xl"
-              >
-                <source src={activeVideo.src} type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
-            </div>
+              {/* Top Bar inside Video Card */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wide shrink-0"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                      color: "var(--accent)",
+                      border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
+                    }}
+                  >
+                    {activeVideo.badge}
+                  </span>
+                  <span className="font-bricolage font-bold text-xs sm:text-sm truncate" style={{ color: "var(--text)" }}>
+                    {activeVideo.title}
+                  </span>
+                </div>
 
-            {/* Bottom Actions Bar Under Video */}
-            <div className="mt-5 pt-4 border-t flex flex-col md:flex-row items-start md:items-center justify-between gap-4" style={{ borderColor: "var(--border)" }}>
-              {/* Description */}
-              <div className="space-y-1 max-w-xl">
-                <p className="text-xs font-mono uppercase tracking-wider font-bold" style={{ color: "var(--accent)" }}>
-                  {activeVideo.subtitle}
-                </p>
-                <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                  {activeVideo.description}
-                </p>
+                {/* Quick Switch to Full Overview */}
+                {activeVideo.id !== "full" ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVideoId("full")}
+                    className="text-xs font-mono font-bold flex items-center gap-1.5 hover:underline cursor-pointer transition-colors shrink-0"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                    <span>Watch Full Overview</span>
+                  </button>
+                ) : (
+                  <span className="text-[11px] font-mono font-semibold" style={{ color: "var(--muted)" }}>
+                    Full Walkthrough
+                  </span>
+                )}
               </div>
 
-              {/* Take Tour Button with Dropdown & Direct Part Switchers */}
-              <div className="relative w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                {/* Take Tour Dropdown Button */}
-                <div className="relative">
+              {/* Sized Video Frame: max-h limits height so it vertically fits on screen */}
+              <div
+                className="relative w-full aspect-video max-h-[360px] sm:max-h-[400px] rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border"
+                style={{ background: "#000", borderColor: "rgba(255,255,255,0.08)" }}
+              >
+                <video
+                  key={activeVideo.src}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="w-full h-full object-contain rounded-2xl"
+                >
+                  <source src={activeVideo.src} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+
+              {/* Under Video Actions Bar: Take Tour Dropdown + Current Video Description */}
+              <div className="mt-3.5 pt-3 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" style={{ borderColor: "var(--border)" }}>
+                <div className="space-y-0.5 max-w-sm">
+                  <p className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
+                    {activeVideo.subtitle}
+                  </p>
+                  <p className="text-[11px] sm:text-xs leading-relaxed line-clamp-2" style={{ color: "var(--muted)" }}>
+                    {activeVideo.description}
+                  </p>
+                </div>
+
+                {/* Take Tour Button with Dropdown */}
+                <div className="relative w-full sm:w-auto shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsTourDropdownOpen(!isTourDropdownOpen)}
-                    className="w-full sm:w-auto h-12 px-6 rounded-full font-bricolage text-sm font-bold flex items-center justify-between sm:justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-lg"
+                    className="w-full sm:w-auto h-10 px-5 rounded-full font-bricolage text-xs sm:text-sm font-bold flex items-center justify-between sm:justify-center gap-2.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-md"
                     style={{
                       background: "linear-gradient(135deg, var(--accent), var(--accent2))",
                       color: "#fff",
-                      boxShadow: "0 8px 24px -8px var(--accent)",
+                      boxShadow: "0 6px 20px -6px var(--accent)",
                     }}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <Compass className="w-4 h-4" />
                       <span>Take Tour</span>
                     </div>
-                    <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isTourDropdownOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isTourDropdownOpen ? "rotate-180" : ""}`} />
                   </button>
 
-                  {/* Dropdown Menu for Tour Parts (Part 1, Part 2, Part 3) */}
+                  {/* Dropdown Menu */}
                   {isTourDropdownOpen && (
                     <>
-                      {/* Click outside backdrop */}
+                      <div className="fixed inset-0 z-40" onClick={() => setIsTourDropdownOpen(false)} />
                       <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setIsTourDropdownOpen(false)}
-                      />
-                      <div
-                        className="absolute right-0 bottom-full mb-2 md:bottom-auto md:top-full md:mt-2 w-full sm:w-80 rounded-2xl p-2 z-50 shadow-2xl transition-all border animate-in fade-in zoom-in-95"
+                        className="absolute right-0 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2 w-full sm:w-72 rounded-2xl p-2 z-50 shadow-2xl border animate-in fade-in zoom-in-95"
                         style={{
                           background: "var(--card)",
                           borderColor: "var(--border)",
                           boxShadow: "0 16px 40px -10px rgba(0,0,0,0.4)",
                         }}
                       >
-                        <div className="px-3 py-2 border-b mb-1 flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
-                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                            Select Tour Segment
+                        <div className="px-3 py-1.5 border-b mb-1 flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                            Tour Segments
                           </span>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: "var(--card2)", color: "var(--accent)" }}>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full" style={{ background: "var(--card2)", color: "var(--accent)" }}>
                             3 Parts
                           </span>
                         </div>
 
-                        {/* Part 1, 2, 3 options + Full option */}
                         {DEMO_VIDEOS.map((item) => {
                           const isCurrent = activeVideo.id === item.id;
                           return (
@@ -1318,32 +1328,27 @@ export default function LandingPage() {
                                 setSelectedVideoId(item.id);
                                 setIsTourDropdownOpen(false);
                               }}
-                              className="w-full text-left p-2.5 rounded-xl transition-all flex items-start gap-3 cursor-pointer group hover:bg-[var(--card2)]"
+                              className="w-full text-left p-2 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer hover:bg-[var(--card2)]"
                               style={{
                                 background: isCurrent ? "color-mix(in oklab, var(--accent) 10%, transparent)" : undefined,
                               }}
                             >
                               <div
-                                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-transform group-hover:scale-105"
+                                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                                 style={{
                                   background: isCurrent ? "var(--accent)" : "var(--card2)",
                                   color: isCurrent ? "#fff" : "var(--muted)",
                                 }}
                               >
-                                <item.icon className="w-4 h-4" />
+                                <item.icon className="w-3.5 h-3.5" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="text-xs font-bold leading-snug truncate" style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}>
-                                    {item.title}
-                                  </span>
-                                  {isCurrent && (
-                                    <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                                  )}
-                                </div>
-                                <p className="text-[11px] truncate mt-0.5" style={{ color: "var(--muted)" }}>
+                                <span className="text-xs font-bold truncate block" style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}>
+                                  {item.title}
+                                </span>
+                                <span className="text-[10px] truncate block opacity-70" style={{ color: "var(--muted)" }}>
                                   {item.subtitle}
-                                </p>
+                                </span>
                               </div>
                             </button>
                           );
@@ -1352,26 +1357,125 @@ export default function LandingPage() {
                     </>
                   )}
                 </div>
+              </div>
+            </div>
 
-                {/* Quick segment pills next to Take Tour button for fast access */}
-                <div className="hidden lg:flex items-center gap-1.5 p-1 rounded-full border" style={{ background: "var(--input)", borderColor: "var(--border)" }}>
-                  {DEMO_VIDEOS.slice(1).map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setSelectedVideoId(item.id)}
-                      className="px-3 py-1.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer"
+            {/* Right: Three Tour Cards (Part 1 Organizer, Part 2 Volunteer, Part 3 Participant) */}
+            <div className="lg:col-span-5 xl:col-span-4 flex flex-col justify-between gap-3 h-full">
+              {/* Quick switch to Full Overview if not currently playing */}
+              {activeVideo.id !== "full" && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedVideoId("full")}
+                  className="rounded-2xl px-4 py-2.5 border transition-all flex items-center justify-between group cursor-pointer hover:scale-[1.01]"
+                  style={{
+                    background: "var(--card2)",
+                    borderColor: "var(--border)",
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <PlayCircle className="w-4 h-4 text-emerald-400 animate-pulse" />
+                    <span className="font-bricolage text-xs font-bold" style={{ color: "var(--text)" }}>
+                      Full Overview Demo
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono font-semibold" style={{ color: "var(--accent)" }}>
+                    Play Overview →
+                  </span>
+                </button>
+              )}
+
+              {/* 3 Tour Part Cards */}
+              {DEMO_VIDEOS.slice(1).map((part) => {
+                const isCurrent = activeVideo.id === part.id;
+                return (
+                  <button
+                    key={part.id}
+                    type="button"
+                    onClick={() => setSelectedVideoId(part.id)}
+                    className={`relative overflow-hidden rounded-[20px] p-4 sm:p-5 text-left transition-all duration-300 cursor-pointer flex flex-col justify-between flex-1 group ${
+                      isCurrent
+                        ? "scale-[1.02] shadow-xl"
+                        : "hover:scale-[1.01] hover:border-[var(--accent)]"
+                    }`}
+                    style={{
+                      background: isCurrent
+                        ? "color-mix(in oklab, var(--accent) 12%, var(--card))"
+                        : "var(--card)",
+                      border: isCurrent
+                        ? "2px solid var(--accent)"
+                        : "1px solid var(--border)",
+                      boxShadow: isCurrent
+                        ? "0 12px 30px -10px var(--accent)"
+                        : undefined,
+                    }}
+                  >
+                    {/* Big Watermark Number with low opacity to fit card */}
+                    <span
+                      className="absolute right-3 -bottom-3 sm:-bottom-2 font-mono font-black text-6xl sm:text-7xl select-none pointer-events-none transition-all duration-300"
                       style={{
-                        background: activeVideo.id === item.id ? "var(--card)" : "transparent",
-                        color: activeVideo.id === item.id ? "var(--accent)" : "var(--muted)",
-                        boxShadow: activeVideo.id === item.id ? "0 2px 8px -2px rgba(0,0,0,0.2)" : undefined,
+                        color: isCurrent ? "var(--accent)" : "var(--text)",
+                        opacity: isCurrent ? 0.22 : 0.08,
                       }}
                     >
-                      {item.part}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                      {part.num}
+                    </span>
+
+                    {/* Card Content: Name of part above */}
+                    <div className="relative z-10 space-y-1.5 w-full">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4
+                          className="font-bricolage text-base sm:text-lg font-black tracking-tight"
+                          style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}
+                        >
+                          {part.title}
+                        </h4>
+
+                        {isCurrent ? (
+                          <span
+                            className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-xs"
+                            style={{
+                              background: "var(--accent)",
+                              color: "#fff",
+                            }}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                            <span>Now Playing</span>
+                          </span>
+                        ) : (
+                          <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all"
+                            style={{ background: "var(--card2)", color: "var(--muted)" }}
+                          >
+                            <part.icon className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Subtitle / Role */}
+                      <p className="text-xs font-semibold" style={{ color: isCurrent ? "var(--text)" : "var(--muted)" }}>
+                        {part.role}
+                      </p>
+
+                      {/* Description */}
+                      <p className="text-[11px] leading-relaxed line-clamp-2 max-w-[85%]" style={{ color: "var(--muted)" }}>
+                        {part.desc}
+                      </p>
+                    </div>
+
+                    {/* Bottom Status / Action */}
+                    <div className="relative z-10 mt-3 pt-2.5 border-t flex items-center justify-between text-[10px] font-mono" style={{ borderColor: isCurrent ? "color-mix(in oklab, var(--accent) 30%, transparent)" : "var(--border)" }}>
+                      <span style={{ color: isCurrent ? "var(--accent)" : "var(--muted)" }}>
+                        Interactive Tour Segment
+                      </span>
+                      <span className="font-bold flex items-center gap-1" style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}>
+                        <span>{isCurrent ? "Playing Video" : "Click to View"}</span>
+                        <span>→</span>
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </section>
