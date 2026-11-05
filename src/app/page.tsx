@@ -30,7 +30,6 @@ import {
   Globe2,
   Film,
   PlayCircle,
-  ChevronDown,
   Check,
 } from "lucide-react";
 import PageTransition from "@/components/layout/PageTransition";
@@ -261,7 +260,6 @@ export default function LandingPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeThemeIdx, setActiveThemeIdx] = useState(0);
   const [selectedVideoId, setSelectedVideoId] = useState<string>("full");
-  const [isTourDropdownOpen, setIsTourDropdownOpen] = useState(false);
   const activeVideo = DEMO_VIDEOS.find((v) => v.id === selectedVideoId) || DEMO_VIDEOS[0];
 
   useEffect(() => {
@@ -1205,9 +1203,9 @@ export default function LandingPage() {
 
           {/* Side-by-Side Grid: Left = Sized Video (Vertically fits on screen), Right = 3 Tour Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
-            {/* Left: Video Player Card (Sized so it vertically fits on screen) */}
+            {/* Left: Video Player Card */}
             <div
-              className="lg:col-span-7 xl:col-span-8 flex flex-col justify-between rounded-[24px] p-3.5 sm:p-5 border shadow-xl relative overflow-hidden transition-all duration-300"
+              className="lg:col-span-7 xl:col-span-8 flex flex-col justify-between rounded-[24px] p-3.5 sm:p-4 border shadow-xl relative overflow-hidden transition-all duration-300"
               style={{
                 background: "var(--card)",
                 borderColor: "var(--border)",
@@ -1215,7 +1213,7 @@ export default function LandingPage() {
               }}
             >
               {/* Top Bar inside Video Card */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b" style={{ borderColor: "var(--border)" }}>
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b" style={{ borderColor: "var(--border)" }}>
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wide shrink-0"
@@ -1250,113 +1248,21 @@ export default function LandingPage() {
                 )}
               </div>
 
-              {/* Sized Video Frame: max-h limits height so it vertically fits on screen */}
+              {/* Seamless Video Frame: strictly aspect-[16/9] with object-cover, zero black borders */}
               <div
-                className="relative w-full aspect-video max-h-[360px] sm:max-h-[400px] rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border"
-                style={{ background: "#000", borderColor: "rgba(255,255,255,0.08)" }}
+                className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border flex-1"
+                style={{ borderColor: "var(--border)" }}
               >
                 <video
                   key={activeVideo.src}
                   controls
                   playsInline
                   preload="metadata"
-                  className="w-full h-full object-contain rounded-2xl"
+                  className="w-full h-full object-cover rounded-2xl"
                 >
                   <source src={activeVideo.src} type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
-              </div>
-
-              {/* Under Video Actions Bar: Take Tour Dropdown + Current Video Description */}
-              <div className="mt-3.5 pt-3 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" style={{ borderColor: "var(--border)" }}>
-                <div className="space-y-0.5 max-w-sm">
-                  <p className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
-                    {activeVideo.subtitle}
-                  </p>
-                  <p className="text-[11px] sm:text-xs leading-relaxed line-clamp-2" style={{ color: "var(--muted)" }}>
-                    {activeVideo.description}
-                  </p>
-                </div>
-
-                {/* Take Tour Button with Dropdown */}
-                <div className="relative w-full sm:w-auto shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setIsTourDropdownOpen(!isTourDropdownOpen)}
-                    className="w-full sm:w-auto h-10 px-5 rounded-full font-bricolage text-xs sm:text-sm font-bold flex items-center justify-between sm:justify-center gap-2.5 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-md"
-                    style={{
-                      background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                      color: "#fff",
-                      boxShadow: "0 6px 20px -6px var(--accent)",
-                    }}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Compass className="w-4 h-4" />
-                      <span>Take Tour</span>
-                    </div>
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isTourDropdownOpen ? "rotate-180" : ""}`} />
-                  </button>
-
-                  {/* Dropdown Menu */}
-                  {isTourDropdownOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsTourDropdownOpen(false)} />
-                      <div
-                        className="absolute right-0 bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2 w-full sm:w-72 rounded-2xl p-2 z-50 shadow-2xl border animate-in fade-in zoom-in-95"
-                        style={{
-                          background: "var(--card)",
-                          borderColor: "var(--border)",
-                          boxShadow: "0 16px 40px -10px rgba(0,0,0,0.4)",
-                        }}
-                      >
-                        <div className="px-3 py-1.5 border-b mb-1 flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                            Tour Segments
-                          </span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full" style={{ background: "var(--card2)", color: "var(--accent)" }}>
-                            3 Parts
-                          </span>
-                        </div>
-
-                        {DEMO_VIDEOS.map((item) => {
-                          const isCurrent = activeVideo.id === item.id;
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedVideoId(item.id);
-                                setIsTourDropdownOpen(false);
-                              }}
-                              className="w-full text-left p-2 rounded-xl transition-all flex items-center gap-2.5 cursor-pointer hover:bg-[var(--card2)]"
-                              style={{
-                                background: isCurrent ? "color-mix(in oklab, var(--accent) 10%, transparent)" : undefined,
-                              }}
-                            >
-                              <div
-                                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                                style={{
-                                  background: isCurrent ? "var(--accent)" : "var(--card2)",
-                                  color: isCurrent ? "#fff" : "var(--muted)",
-                                }}
-                              >
-                                <item.icon className="w-3.5 h-3.5" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <span className="text-xs font-bold truncate block" style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}>
-                                  {item.title}
-                                </span>
-                                <span className="text-[10px] truncate block opacity-70" style={{ color: "var(--muted)" }}>
-                                  {item.subtitle}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
               </div>
             </div>
 
