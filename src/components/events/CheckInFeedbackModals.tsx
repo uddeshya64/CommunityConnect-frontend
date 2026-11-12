@@ -195,7 +195,7 @@ export default function CheckInFeedbackModals({
 
                 {/* Digital Pass Metadata Stub */}
                 <div
-                  className="rounded-2xl border p-3.5 grid grid-cols-3 gap-2 text-left relative"
+                  className="rounded-2xl border p-3.5 grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-2 text-left relative"
                   style={{
                     background: "var(--card2)",
                     borderColor: "var(--border)",
@@ -214,7 +214,7 @@ export default function CheckInFeedbackModals({
                     </p>
                   </div>
 
-                  <div className="min-w-0 border-l pl-2.5" style={{ borderColor: "var(--border)" }}>
+                  <div className="min-w-0 border-t pt-2 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-2.5" style={{ borderColor: "var(--border)" }}>
                     <div
                       className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider"
                       style={{ color: "var(--subtle)" }}
@@ -227,7 +227,7 @@ export default function CheckInFeedbackModals({
                     </p>
                   </div>
 
-                  <div className="min-w-0 border-l pl-2.5" style={{ borderColor: "var(--border)" }}>
+                  <div className="min-w-0 border-t pt-2 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-2.5" style={{ borderColor: "var(--border)" }}>
                     <div
                       className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider"
                       style={{ color: "var(--subtle)" }}

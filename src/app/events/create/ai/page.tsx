@@ -1279,7 +1279,7 @@ function AiEventCreatorPageInner() {
 
             {/* Header */}
             <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <span className={`w-10 h-10 rounded-2xl flex items-center justify-center ${activeAccent.bg} text-white shadow-lg`}>
                   <Wand2 className="w-5 h-5" />
                 </span>
@@ -1293,7 +1293,7 @@ function AiEventCreatorPageInner() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
                 {isOffline ? (
                   <span
                     className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border bg-amber-500/15 text-amber-500 border-amber-500/35"
@@ -1407,7 +1407,7 @@ function AiEventCreatorPageInner() {
                           </div>
                         ))}
                         {isGenerating && (
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex flex-wrap items-center gap-2.5">
                             <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${activeAccent.bg} text-white`}>
                               <Bot className="w-4 h-4" />
                             </span>
@@ -1585,10 +1585,10 @@ function AiEventCreatorPageInner() {
               {/* ----------------------------- RIGHT: Preview ----------------------------- */}
               <section className="lg:col-span-3">
                 <div className={`rounded-3xl border shadow-sm overflow-hidden ${isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-white border-zinc-200"}`}>
-                  <div className={`px-6 py-4 border-b flex items-center justify-between ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
+                  <div className={`px-4 sm:px-6 py-4 border-b flex flex-wrap items-center justify-between gap-2 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
                     <div className="flex items-center gap-2 text-sm font-bold">
-                      <AlignLeft className={`w-4 h-4 ${activeAccent.text}`} />
-                      Editable Event Preview
+                      <AlignLeft className={`w-4 h-4 shrink-0 ${activeAccent.text}`} />
+                      <span>Editable Event Preview</span>
                     </div>
                     {hasDraft && (
                       <button
@@ -1608,7 +1608,7 @@ function AiEventCreatorPageInner() {
                   </div>
 
                   {!hasDraft ? (
-                    <div className="p-10 text-center">
+                    <div className="p-6 sm:p-10 text-center">
                       <div className={`w-16 h-16 mx-auto rounded-3xl flex items-center justify-center mb-4 ${isDark ? "bg-zinc-800" : "bg-indigo-50"}`}>
                         <Calendar className={`w-8 h-8 ${activeAccent.text}`} />
                       </div>
@@ -1620,7 +1620,7 @@ function AiEventCreatorPageInner() {
                       </p>
                     </div>
                   ) : (
-                    <div className="p-6 md:p-8 space-y-6 max-h-[700px] overflow-y-auto">
+                    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-h-[700px] overflow-y-auto">
                       {Object.keys(errors).length > 0 && (
                         <div className="flex items-start gap-2.5 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-600">
                           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />

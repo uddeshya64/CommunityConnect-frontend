@@ -312,33 +312,33 @@ export default function LiveOrganizerDashboard() {
     >
       {/* 1. TOP BROADCAST HEADER (ALWAYS VISIBLE & PROJECTOR-READY) */}
       <header
-        className="w-full px-5 py-4 border-b flex items-center justify-between z-30"
+        className="w-full px-3.5 sm:px-5 py-3 sm:py-4 border-b flex flex-wrap items-center justify-between gap-2.5 z-30"
         style={{
           background: "color-mix(in oklab, var(--card) 85%, transparent)",
           borderColor: "var(--border)",
           backdropFilter: "blur(20px)"
         }}
       >
-        <div className="flex items-center gap-3.5">
+        <div className="flex items-center gap-3 min-w-0">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
             style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))", color: "#fff" }}
           >
             <Radio className="w-5 h-5 animate-pulse" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span className="text-[11px] font-mono font-bold tracking-wider uppercase text-emerald-500">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+              <span className="text-[11px] font-mono font-bold tracking-wider uppercase text-emerald-500 shrink-0">
                 Live Broadcast Arena
               </span>
-              <span className="text-xs opacity-40">&bull;</span>
-              <span className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
+              <span className="text-xs opacity-40 hidden sm:inline">&bull;</span>
+              <span className="text-xs font-semibold truncate hidden sm:inline" style={{ color: "var(--muted)" }}>
                 {quiz ? quiz.title : `Quiz #${quizId}`}
               </span>
             </div>
             <h1
-              className="text-base sm:text-lg font-extrabold tracking-tight"
+              className="text-sm sm:text-lg font-extrabold tracking-tight truncate"
               style={{ fontFamily: "var(--font-display)" }}
             >
               {quizEnded
