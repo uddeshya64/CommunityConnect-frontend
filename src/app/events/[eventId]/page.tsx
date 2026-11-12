@@ -1807,11 +1807,10 @@ export default function EventDetailsPage() {
                                 Open Registration
                               </span>
                               <span
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                                  event.isRegistrationOpen
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${event.isRegistrationOpen
                                     ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                                     : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                                }`}
+                                  }`}
                               >
                                 <span className={`w-1.5 h-1.5 rounded-full ${event.isRegistrationOpen ? "bg-emerald-500" : "bg-amber-500"}`} />
                                 {event.isRegistrationOpen ? "On" : "Off"}
@@ -1832,8 +1831,8 @@ export default function EventDetailsPage() {
                               {isComingSoon
                                 ? "Participation stays locked until dates are added. Turning registrations on with announced dates notifies all subscribed users."
                                 : event.isRegistrationOpen
-                                ? "Attendees can currently register. Switch off anytime to pause registrations and allow reminders."
-                                : "Registrations are paused. Users can subscribe for reminders and will receive an email & notification when reopened."}
+                                  ? "Attendees can currently register. Switch off anytime to pause registrations and allow reminders."
+                                  : "Registrations are paused. Users can subscribe for reminders and will receive an email & notification when reopened."}
                             </p>
                           </div>
 
@@ -1853,14 +1852,12 @@ export default function EventDetailsPage() {
                               {isTogglingRegOpen ? "Updating..." : event.isRegistrationOpen ? "Registration Open" : "Registration Closed"}
                             </span>
                             <span
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                event.isRegistrationOpen ? "bg-emerald-500" : "bg-zinc-500/40"
-                              }`}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${event.isRegistrationOpen ? "bg-emerald-500" : "bg-zinc-500/40"
+                                }`}
                             >
                               <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                                  event.isRegistrationOpen ? "translate-x-6" : "translate-x-1"
-                                }`}
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${event.isRegistrationOpen ? "translate-x-6" : "translate-x-1"
+                                  }`}
                               />
                             </span>
                           </button>
@@ -2539,7 +2536,7 @@ export default function EventDetailsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-2">
                             <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>
-                              Start Date & Time <span className="font-normal opacity-70">(Optional — blank = Coming Soon)</span>
+                              Start Date &amp; Time
                             </Label>
                             <DateTimePicker
                               value={editData.start_date || ""}
@@ -2549,7 +2546,7 @@ export default function EventDetailsPage() {
                           </div>
                           <div className="space-y-2">
                             <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>
-                              End Date & Time <span className="font-normal opacity-70">(Optional)</span>
+                              End Date &amp; Time
                             </Label>
                             <DateTimePicker
                               value={editData.end_date || ""}
@@ -2591,14 +2588,12 @@ export default function EventDetailsPage() {
                           role="switch"
                           aria-checked={editData.is_registration_open !== false}
                           onClick={() => setEditData({ ...editData, is_registration_open: editData.is_registration_open === false })}
-                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-                            editData.is_registration_open !== false ? "bg-emerald-500" : "bg-zinc-500/40"
-                          }`}
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${editData.is_registration_open !== false ? "bg-emerald-500" : "bg-zinc-500/40"
+                            }`}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                              editData.is_registration_open !== false ? "translate-x-6" : "translate-x-1"
-                            }`}
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${editData.is_registration_open !== false ? "translate-x-6" : "translate-x-1"
+                              }`}
                           />
                         </button>
                       </div>
@@ -3058,8 +3053,8 @@ export default function EventDetailsPage() {
                                                       <span
                                                         key={permKey}
                                                         className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${isOverride
-                                                            ? "bg-purple-500/15 text-purple-400 border-purple-500/30 font-extrabold"
-                                                            : ""
+                                                          ? "bg-purple-500/15 text-purple-400 border-purple-500/30 font-extrabold"
+                                                          : ""
                                                           }`}
                                                         style={!isOverride ? { background: "var(--input)", borderColor: "var(--border)", color: "var(--muted)" } : {}}
                                                         title={isOverride ? "Custom permission override granted" : "Base role permission"}
@@ -3434,8 +3429,8 @@ export default function EventDetailsPage() {
                                     onClick={() => handleToggleTaskStatus(task)}
                                     disabled={isUpdatingTaskId === task.id}
                                     className={`w-7 h-7 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 transition-all cursor-pointer ${isCompleted
-                                        ? "bg-emerald-500 border-emerald-600 text-white"
-                                        : "hover:border-[var(--accent)] text-transparent"
+                                      ? "bg-emerald-500 border-emerald-600 text-white"
+                                      : "hover:border-[var(--accent)] text-transparent"
                                       }`}
                                     style={!isCompleted ? { background: "var(--input)", borderColor: "var(--border)" } : {}}
                                   >
@@ -3502,8 +3497,8 @@ export default function EventDetailsPage() {
                                     variant="outline"
                                     size="sm"
                                     className={`rounded-xl text-xs font-bold px-4 py-2 border ${isCompleted
-                                        ? "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100"
-                                        : "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                                      ? "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100"
+                                      : "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
                                       }`}
                                   >
                                     {isCompleted ? "Mark Pending" : "Mark Completed"}
@@ -3797,8 +3792,8 @@ export default function EventDetailsPage() {
                                       onClick={() => handleToggleEmojiReaction(ann.id, emoji)}
                                       disabled={reactingAnnId === ann.id}
                                       className={`px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all border ${hasReacted
-                                          ? "bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs scale-105"
-                                          : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:scale-105"
+                                        ? "bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs scale-105"
+                                        : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:scale-105"
                                         }`}
                                     >
                                       <span>{emoji}</span>
@@ -4283,8 +4278,8 @@ export default function EventDetailsPage() {
                               disabled={isSelected}
                               onClick={() => handleAddTag(suggestion)}
                               className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${isSelected
-                                  ? "bg-indigo-600 text-white border-indigo-600 opacity-40 cursor-not-allowed"
-                                  : "bg-white text-zinc-700 border-zinc-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50"
+                                ? "bg-indigo-600 text-white border-indigo-600 opacity-40 cursor-not-allowed"
+                                : "bg-white text-zinc-700 border-zinc-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50"
                                 }`}
                             >
                               + {suggestion}
@@ -4511,8 +4506,8 @@ export default function EventDetailsPage() {
                 onClick={handleToggleSave}
                 variant="ghost"
                 className={`rounded-full shadow-xs font-bold transition-all text-xs h-9 px-4 border flex items-center gap-2 cursor-pointer ${event?.is_saved
-                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                    : "border-border bg-card/80 hover:bg-card text-foreground"
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "border-border bg-card/80 hover:bg-card text-foreground"
                   }`}
               >
                 <Bookmark className={`w-3.5 h-3.5 ${event?.is_saved ? "fill-current text-emerald-500" : ""}`} />
@@ -4813,8 +4808,8 @@ export default function EventDetailsPage() {
                                                 <span
                                                   key={tag}
                                                   className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition-all duration-300 ${isMatch
-                                                      ? "bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-rose-500/25 border border-amber-500/50 text-amber-300 shadow-2xs shadow-amber-500/20 animate-pulse"
-                                                      : "bg-black/15 dark:bg-white/10 border border-current/15 text-current/90 backdrop-blur-xs"
+                                                    ? "bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-rose-500/25 border border-amber-500/50 text-amber-300 shadow-2xs shadow-amber-500/20 animate-pulse"
+                                                    : "bg-black/15 dark:bg-white/10 border border-current/15 text-current/90 backdrop-blur-xs"
                                                     }`}
                                                 >
                                                   {isMatch ? (
@@ -5008,18 +5003,16 @@ export default function EventDetailsPage() {
                     <span className="text-muted-foreground">Capacity Status</span>
                     {timeLeftStr && (
                       <span
-                        className={`flex items-center gap-1.5 font-bold ${
-                          isComingSoon || isRegClosedByOrganizer
+                        className={`flex items-center gap-1.5 font-bold ${isComingSoon || isRegClosedByOrganizer
                             ? "text-amber-600 dark:text-amber-400"
                             : "text-emerald-600 dark:text-emerald-400"
-                        }`}
+                          }`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            isComingSoon || isRegClosedByOrganizer
+                          className={`w-1.5 h-1.5 rounded-full ${isComingSoon || isRegClosedByOrganizer
                               ? "bg-amber-500"
                               : "bg-emerald-500 animate-pulse"
-                          }`}
+                            }`}
                         />
                         {isRegClosedByOrganizer && !isComingSoon ? "Registration Paused" : timeLeftStr}
                       </span>
@@ -5131,11 +5124,10 @@ export default function EventDetailsPage() {
                           onClick={handleToggleReminder}
                           disabled={isTogglingReminder}
                           variant="outline"
-                          className={`w-full rounded-2xl py-5 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                            event.hasReminder
+                          className={`w-full rounded-2xl py-5 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all ${event.hasReminder
                               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/15"
                               : "border-border text-foreground hover:bg-muted/50"
-                          }`}
+                            }`}
                         >
                           {isTogglingReminder ? (
                             <Loader2 className="w-4 h-4 animate-spin" />

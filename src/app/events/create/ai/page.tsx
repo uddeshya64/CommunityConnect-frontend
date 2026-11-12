@@ -1693,7 +1693,7 @@ function AiEventCreatorPageInner() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            <Clock className="w-3 h-3 inline mr-1" /> Start date & time <span className="font-normal opacity-75">(Optional — blank shows Coming Soon)</span>
+                            <Clock className="w-3 h-3 inline mr-1" /> Start date &amp; time
                           </Label>
                           <DateTimePicker
                             value={isoToLocalInput(draft.start_date as string)}
@@ -1705,7 +1705,7 @@ function AiEventCreatorPageInner() {
                         </div>
                         <div className="space-y-1.5">
                           <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            <Clock className="w-3 h-3 inline mr-1" /> End date & time <span className="font-normal opacity-75">(Optional)</span>
+                            <Clock className="w-3 h-3 inline mr-1" /> End date &amp; time
                           </Label>
                           <DateTimePicker
                             value={isoToLocalInput(draft.end_date as string)}
