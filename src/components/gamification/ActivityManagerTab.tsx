@@ -791,7 +791,7 @@ export default function ActivityManagerTab({
                                   </button>
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
                                 {q.options?.map((opt: any, optIdx: number) => (
                                   <div
                                     key={opt.id || optIdx}

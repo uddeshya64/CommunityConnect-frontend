@@ -273,7 +273,7 @@ export default function MyProfilePage() {
 
                 <main className="max-w-3xl mx-auto px-6 pt-6 pb-20 relative z-10">
                     {/* Header Action Bar: Back button + Profile controls */}
-                    <div className="flex items-center justify-between gap-4 mb-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                         <BackButton fallbackHref="/home" label="Back" />
 
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -320,8 +320,20 @@ export default function MyProfilePage() {
 
                         <div className="relative mb-6">
                             {/* Avatar */}
-                            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-indigo-500 via-violet-500 to-rose-500 p-[3px] shadow-2xl shadow-indigo-500/20">
-                                <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center overflow-hidden">
+                            <div
+                                className="w-28 h-28 rounded-full p-[3px] shadow-2xl transition-all duration-300"
+                                style={{
+                                    background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                                    boxShadow: "0 20px 40px -12px color-mix(in oklab, var(--accent) 40%, transparent)",
+                                }}
+                            >
+                                <div
+                                    className="w-full h-full rounded-full flex items-center justify-center overflow-hidden border-[3px]"
+                                    style={{
+                                        background: "var(--card2)",
+                                        borderColor: "var(--card)",
+                                    }}
+                                >
                                     {hasAvatar ? (
                                         <img
                                             src={
@@ -334,7 +346,10 @@ export default function MyProfilePage() {
                                             className="w-full h-full object-cover"
                                         />
                                     ) : (
-                                        <span className="text-3xl font-black text-white">
+                                        <span
+                                            className="text-3xl font-black"
+                                            style={{ color: "var(--text)" }}
+                                        >
                                             {initials}
                                         </span>
                                     )}
@@ -347,7 +362,11 @@ export default function MyProfilePage() {
                                 onClick={handleUploadClick}
                                 disabled={isUploading}
                                 title="Upload profile picture"
-                                className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-indigo-600 hover:bg-indigo-500 border-4 border-zinc-950 flex items-center justify-center text-white transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="absolute bottom-0 right-0 w-10 h-10 rounded-full border-4 flex items-center justify-center text-white transition-all hover:scale-105 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                style={{
+                                    background: "var(--accent)",
+                                    borderColor: "var(--card)",
+                                }}
                             >
                                 {isUploading ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />

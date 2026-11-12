@@ -1698,7 +1698,7 @@ export default function EventDetailsPage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto self-start sm:self-auto shrink-0">
               <Button
                 onClick={() => setViewMode("PREVIEW")}
                 variant="outline"
@@ -4504,7 +4504,7 @@ export default function EventDetailsPage() {
           {theme.gimmicks}
 
           {/* TOP NAVIGATION BAR */}
-          <header className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex justify-between items-center relative z-25">
+          <header className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex flex-wrap justify-between items-center gap-2 relative z-25">
             <BackButton fallbackHref="/home" label="Back to Feed" />
             <div className="flex items-center gap-2.5">
               <Button
@@ -4991,8 +4991,8 @@ export default function EventDetailsPage() {
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-rose-500/10 text-rose-500 border border-rose-500/20">
                       <MapPin className="w-5 h-5" />
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-sm leading-snug truncate max-w-[220px] sm:max-w-[280px] text-foreground">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-bold text-sm leading-snug break-words text-foreground">
                         {event.location}
                       </h4>
                       <p className="text-muted-foreground text-xs font-medium capitalize mt-0.5">

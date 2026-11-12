@@ -667,7 +667,7 @@ export default function TeamParticipantDashboard() {
               </div>
 
               {/* Status Pills */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="h-[28px] px-3 rounded-full bg-white/12 border border-white/20 text-[12px] font-mono font-semibold text-white inline-flex items-center gap-1.5 whitespace-nowrap shadow-xs backdrop-blur-md">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   {countdown.isLive ? "Live Now" : countdown.isConcluded ? "Concluded" : `Starts in ${countdown.short}`}
@@ -686,7 +686,7 @@ export default function TeamParticipantDashboard() {
 
             {/* Middle Row: Space Title & Actions (Fills previous empty right area) */}
             <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div className="flex-1 min-w-[260px]">
+              <div className="flex-1 min-w-0 w-full">
                 <div className="text-[12.5px] text-white/60 font-medium">Participant Workspace</div>
                 {isEditingName && !isSolo && isLeader ? (
                   <div className="flex items-center gap-2 mt-1 max-w-md">
@@ -818,7 +818,7 @@ export default function TeamParticipantDashboard() {
                     </h2>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setShowAgendaModal(true)}
@@ -1134,16 +1134,16 @@ export default function TeamParticipantDashboard() {
                     {eventTitle}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 pt-1">
-                    <div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 pt-1">
+                    <div className="min-w-0">
                       <div className="font-mono text-[9.5px] tracking-[0.14em] text-white/55">DATE</div>
                       <div className="font-semibold text-[13px] mt-0.5 truncate">{formattedDate}</div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="font-mono text-[9.5px] tracking-[0.14em] text-white/55">GATE</div>
                       <div className="font-semibold text-[13px] mt-0.5 truncate">{gateLabel}</div>
                     </div>
-                    <div>
+                    <div className="min-w-0 col-span-2 sm:col-span-1">
                       <div className="font-mono text-[9.5px] tracking-[0.14em] text-white/55">IN</div>
                       <div className="font-semibold text-[13px] mt-0.5 truncate">{countdown.short}</div>
                     </div>
@@ -1492,28 +1492,28 @@ export default function TeamParticipantDashboard() {
                 </div>
 
                 {/* Real Details Grid */}
-                <div className="relative mt-5 grid grid-cols-3 gap-3">
-                  <div>
+                <div className="relative mt-5 grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                  <div className="min-w-0">
                     <div className="font-mono text-[9.5px] tracking-[0.14em] opacity-55">DATE</div>
                     <div className="font-semibold text-[13px] sm:text-[14px] mt-0.5 truncate">{formattedDate}</div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-mono text-[9.5px] tracking-[0.14em] opacity-55">DOORS</div>
                     <div className="font-semibold text-[13px] sm:text-[14px] mt-0.5 truncate">{doorsTime}</div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-mono text-[9.5px] tracking-[0.14em] opacity-55">GATE</div>
                     <div className="font-semibold text-[13px] sm:text-[14px] mt-0.5 truncate">{gateLabel}</div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-mono text-[9.5px] tracking-[0.14em] opacity-55">HOLDER</div>
                     <div className="font-semibold text-[13px] sm:text-[14px] mt-0.5 truncate">{currentHolderName}</div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-mono text-[9.5px] tracking-[0.14em] opacity-55">TEAM</div>
                     <div className="font-semibold text-[13px] sm:text-[14px] mt-0.5 truncate">{currentTeamName}</div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-mono text-[9.5px] tracking-[0.14em] opacity-55">STATUS</div>
                     <div className="font-semibold text-[13px] sm:text-[14px] mt-0.5 truncate">
                       {isCheckedIn ? "Checked In" : "Confirmed"}

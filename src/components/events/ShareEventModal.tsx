@@ -328,14 +328,14 @@ export default function ShareEventModal({
                 <div className="text-[11.5px] font-mono uppercase tracking-wider text-[var(--subtle)]">
                   Share via Socials
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {socialLinks.map((s) => (
                     <a
                       key={s.name}
                       href={s.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`h-10 rounded-xl border flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-all cursor-pointer ${s.color}`}
+                      className={`h-11 sm:h-10 px-2 rounded-xl border flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-all cursor-pointer ${s.color}`}
                       style={{
                         background: "var(--input)",
                         borderColor: "var(--border)",

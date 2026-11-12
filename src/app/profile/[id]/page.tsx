@@ -311,12 +311,6 @@ export default function PublicProfilePage() {
     .slice(0, 2);
 
   // ==============================
-  // PRO STATUS
-  // ==============================
-
-  const isPro = profile.subscription_status?.toLowerCase() === "pro";
-
-  // ==============================
   // EVENTS
   // ==============================
 
@@ -348,12 +342,12 @@ export default function PublicProfilePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className={`relative rounded-[2rem] p-8 sm:p-10 backdrop-blur-md overflow-hidden ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border`}
+            className={`relative rounded-[2rem] p-5 pt-14 sm:p-8 md:p-10 backdrop-blur-md overflow-hidden ${isDark ? "bg-zinc-900/40 border-white/10 shadow-2xl" : "bg-white border-zinc-200 shadow-xl"} border`}
           >
             <div className={`absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 ${isDark ? "bg-indigo-500/10" : "bg-zinc-400/10"} blur-[80px] rounded-full pointer-events-none`} />
 
             {/* EDIT BUTTON */}
-            <div className="absolute top-6 right-6 z-20">
+            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
               <Link href="/profile/edit">
                 <Button
                   variant="outline"
@@ -367,17 +361,23 @@ export default function PublicProfilePage() {
               </Link>
             </div>
 
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 sm:gap-8 relative z-10">
               {/* AVATAR */}
-              <div className="relative shrink-0 group mt-4 md:mt-0">
+              <div className="relative shrink-0 group mt-2 md:mt-0">
                 <div
-                  className={`w-36 h-36 rounded-full p-1 shadow-2xl ${
-                    isPro
-                      ? "bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 shadow-orange-500/20"
-                      : "bg-gradient-to-br from-indigo-500 via-purple-500 to-indigo-900 shadow-indigo-500/20"
-                  }`}
+                  className="w-28 h-28 sm:w-36 sm:h-36 rounded-full p-1 shadow-2xl transition-all duration-300"
+                  style={{
+                    background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                    boxShadow: "0 20px 40px -12px color-mix(in oklab, var(--accent) 40%, transparent)",
+                  }}
                 >
-                  <div className="w-full h-full rounded-full bg-zinc-950 flex items-center justify-center overflow-hidden border-4 border-zinc-950">
+                  <div
+                    className="w-full h-full rounded-full flex items-center justify-center overflow-hidden border-[3px]"
+                    style={{
+                      background: "var(--card2)",
+                      borderColor: "var(--card)",
+                    }}
+                  >
                     {profile.avatar_url ? (
                       <img
                         src={profile.avatar_url}
@@ -385,7 +385,10 @@ export default function PublicProfilePage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-4xl font-bold text-white tracking-wider">
+                      <span
+                        className="text-4xl font-bold tracking-wider"
+                        style={{ color: "var(--text)" }}
+                      >
                         {initials}
                       </span>
                     )}
@@ -395,7 +398,11 @@ export default function PublicProfilePage() {
                 {/* Upload Button */}
                 <label
                   htmlFor="profile-image-upload"
-                  className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-zinc-800 border-2 border-zinc-950 hover:bg-indigo-600 cursor-pointer flex items-center justify-center shadow-lg transition-all opacity-0 group-hover:opacity-100"
+                  className="absolute bottom-2 right-2 w-10 h-10 rounded-full border-2 cursor-pointer flex items-center justify-center shadow-lg transition-all opacity-0 group-hover:opacity-100 hover:scale-105"
+                  style={{
+                    background: "var(--accent)",
+                    borderColor: "var(--card)",
+                  }}
                 >
                   {isUploading ? (
                     <Loader2 className="w-4 h-4 text-white animate-spin" />

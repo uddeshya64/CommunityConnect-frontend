@@ -887,7 +887,7 @@ export default function HomeContent() {
                   </div>
                 </div>
               ) : (
-                <div className="relative z-10 flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto shrink-0 justify-between sm:justify-start">
+                <div className="relative z-10 grid grid-cols-4 sm:flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto shrink-0">
                   {[
                     { val: countdown.days, lbl: "days" },
                     { val: countdown.hours, lbl: "hours" },
@@ -896,7 +896,7 @@ export default function HomeContent() {
                   ].map((item) => (
                     <div
                       key={item.lbl}
-                      className="static-block flex-1 sm:flex-none w-[70px] sm:w-[72px] h-[64px] sm:h-[68px] flex flex-col items-center justify-center rounded-[14px] border text-center transition-all"
+                      className="static-block w-full sm:w-[72px] h-[62px] sm:h-[68px] flex flex-col items-center justify-center rounded-[14px] border text-center transition-all"
                       style={{
                         background: "rgba(255, 255, 255, 0.08)",
                         borderColor: "rgba(255, 255, 255, 0.12)",
@@ -1135,7 +1135,7 @@ export default function HomeContent() {
 
             {/* Pagination controls when events > 15 */}
             {filteredEvents.length > EVENTS_PER_PAGE && (
-              <div className="flex items-center justify-between pt-6 border-t mt-4" style={{ borderColor: "var(--border)" }}>
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-6 border-t mt-4" style={{ borderColor: "var(--border)" }}>
                 <span className="text-xs font-mono" style={{ color: "var(--subtle)" }}>
                   Showing {(currentPage - 1) * EVENTS_PER_PAGE + 1}–{Math.min(currentPage * EVENTS_PER_PAGE, filteredEvents.length)} of {filteredEvents.length} events
                 </span>

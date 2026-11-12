@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import { verify2FACode, generateUniqueSecretKey, generateUniqueBackupCodes } from "@/lib/totp";
+import {
+  verify2FACode,
+  generateUniqueSecretKey,
+  generateUniqueBackupCodes,
+} from "@/lib/totp";
 import AppLayout from "@/components/layout/AppLayout";
+import BackButton from "@/components/ui/BackButton";
 import { performLogout } from "@/lib/auth";
 import {
   User,
@@ -17,26 +22,21 @@ import {
   Check,
   Smartphone,
   Laptop,
-  CheckCircle2,
   ShieldCheck,
-  ShieldAlert,
   Loader2,
   Pencil,
   Copy,
   LogOut,
   QrCode,
   X,
-  Plus,
-  RefreshCw,
   Trash2,
-  Sparkles,
   Download,
   AlertTriangle,
+  ExternalLink,
+  MapPin,
+  Sparkles,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { profileService } from "@/services/profile.service";
 import { Profile } from "@/types/profile.types";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
@@ -44,33 +44,33 @@ import { useToast } from "@/components/providers/ToastProvider";
 import { pushNotificationService } from "@/services/pushNotification.service";
 
 interface UserSettings {
-  // Notifications
   emailReminders: boolean;
   communityUpdates: boolean;
   teamInvites: boolean;
   weeklyDigest: boolean;
   soundEffects: boolean;
   notificationFrequency: "realtime" | "daily" | "weekly" | "muted";
-
-  // Appearance
   theme: "dark" | "light" | "system";
   accentColor: "indigo" | "violet" | "emerald" | "rose" | "cyan" | "amber";
   compactMode: boolean;
   smoothAnimations: boolean;
-
-  // Privacy
   profileVisibility: "public" | "community" | "private";
   showEmailOnProfile: boolean;
   showLocationOnProfile: boolean;
-
-  // Event Preferences
   preferredCities: string[];
   favoriteCategories: string[];
-
-  // Security
   twoFactorEnabled: boolean;
   twoFactorSecret?: string | null;
   twoFactorBackupCodes?: string[] | null;
+}
+
+interface SessionItem {
+  id: string;
+  device?: string;
+  location?: string;
+  ip?: string;
+  isCurrent: boolean;
+  icon?: React.ElementType;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -97,18 +97,44 @@ type TabKey = "account" | "notifications" | "appearance" | "preferences" | "secu
 interface TabItem {
   key: TabKey;
   label: string;
+  subtitle: string;
   icon: React.ElementType;
 }
 
 const STABS: TabItem[] = [
-  { key: "account", label: "Account & Profile", icon: User },
-  { key: "notifications", label: "Notifications", icon: Bell },
-  { key: "appearance", label: "Appearance", icon: Palette },
-  { key: "preferences", label: "Event Preferences", icon: Sliders },
-  { key: "security", label: "Sessions & Security", icon: Lock },
+  {
+    key: "account",
+    label: "Account & Profile",
+    subtitle: "Identity, password & data",
+    icon: User,
+  },
+  {
+    key: "notifications",
+    label: "Notifications",
+    subtitle: "Alerts, digest & push",
+    icon: Bell,
+  },
+  {
+    key: "appearance",
+    label: "Appearance",
+    subtitle: "Theme, accent & motion",
+    icon: Palette,
+  },
+  {
+    key: "preferences",
+    label: "Event Preferences",
+    subtitle: "Cities & favorite topics",
+    icon: Sliders,
+  },
+  {
+    key: "security",
+    label: "Sessions & Security",
+    subtitle: "2FA & active devices",
+    icon: Lock,
+  },
 ];
 
-const PRESET_CITIES = ["Jaipur", "Delhi", "Pune", "Bangalore"];
+const PRESET_CITIES = ["Jaipur", "Delhi", "Pune", "Bengaluru", "Mumbai", "Hyderabad"];
 
 const PRESET_CATEGORIES = [
   "Tech",
@@ -130,11 +156,53 @@ const ACCENT_SWATCHES = [
   { key: "amber", label: "Amber", c1: "#f59e0b", c2: "#ef4444" },
 ] as const;
 
+const FREQUENCY_OPTIONS: {
+  key: UserSettings["notificationFrequency"];
+  label: string;
+  desc: string;
+}[] = [
+  { key: "realtime", label: "Real-time", desc: "Instant delivery" },
+  { key: "daily", label: "Daily", desc: "Once per day" },
+  { key: "weekly", label: "Weekly", desc: "Monday summary" },
+  { key: "muted", label: "Muted", desc: "Essential only" },
+];
+
+const subscribeNoop = () => () => {};
+
+function ToggleSwitch({
+  checked,
+  onToggle,
+  ariaLabel,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={onToggle}
+      className="w-11 h-6 rounded-full relative transition-all cursor-pointer p-0 shrink-0 border"
+      style={{
+        background: checked
+          ? "linear-gradient(135deg, var(--accent), var(--accent2))"
+          : "var(--input)",
+        borderColor: checked ? "transparent" : "var(--border)",
+      }}
+    >
+      <span
+        className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all"
+        style={{ left: checked ? "21px" : "2px" }}
+      />
+    </button>
+  );
+}
+
 export default function SettingsContent() {
-  const router = useRouter();
   const {
-    isDark,
-    activeAccent,
     theme,
     accentColor,
     compactMode,
@@ -143,12 +211,26 @@ export default function SettingsContent() {
   } = useAppearance();
   const { success: showSuccess, error: showError, info: showInfo } = useToast();
 
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false
+  );
+
   const [activeTab, setActiveTab] = useState<TabKey>("account");
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<UserSettings>(() => {
+    if (typeof window === "undefined") return DEFAULT_SETTINGS;
+    try {
+      const stored = localStorage.getItem("cc_user_settings");
+      if (stored) {
+        return { ...DEFAULT_SETTINGS, ...(JSON.parse(stored) as Partial<UserSettings>) };
+      }
+    } catch {
+      // ignore invalid storage payload
+    }
+    return DEFAULT_SETTINGS;
+  });
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   // City input
   const [cityInput, setCityInput] = useState("");
@@ -189,7 +271,7 @@ export default function SettingsContent() {
   const [isPushLoading, setIsPushLoading] = useState(false);
 
   // Active Sessions
-  const [activeSessions, setActiveSessions] = useState<any[]>([
+  const [activeSessions, setActiveSessions] = useState<SessionItem[]>([
     {
       id: "sess_1",
       device: "MacBook Pro • Chrome",
@@ -214,58 +296,61 @@ export default function SettingsContent() {
   ]);
 
   useEffect(() => {
-    setMounted(true);
-    const stored = localStorage.getItem("cc_user_settings");
-    if (stored) {
-      try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
-      } catch {
-        // ignore
-      }
-    }
-
     const fetchUserData = async () => {
-      try {
-        const [profileData, backendSettings, sessionsData] = await Promise.all([
-          profileService.getMyProfile().catch(() => null),
-          profileService.getMySettings().catch(() => null),
-          profileService.getActiveSessions().catch(() => []),
-        ]);
-        if (profileData) setProfile(profileData);
-        if (backendSettings && typeof backendSettings === "object" && Object.keys(backendSettings).length > 0) {
-          const clientTheme = (typeof window !== "undefined" ? localStorage.getItem("cc_theme") : null) || "dark";
-          const merged = { ...DEFAULT_SETTINGS, ...backendSettings, theme: clientTheme as any };
-          setSettings(merged);
-          localStorage.setItem("cc_user_settings", JSON.stringify(merged));
-          if (merged.twoFactorSecret) {
-            setUser2FASecret(merged.twoFactorSecret);
-          }
-          if (merged.twoFactorBackupCodes && Array.isArray(merged.twoFactorBackupCodes)) {
-            setUserBackupCodes(merged.twoFactorBackupCodes);
-          }
+      const [profileData, backendSettings, sessionsData] = await Promise.all([
+        profileService.getMyProfile().catch(() => null),
+        profileService.getMySettings().catch(() => null),
+        profileService.getActiveSessions().catch(() => []),
+      ]);
+
+      if (profileData) setProfile(profileData);
+
+      if (
+        backendSettings &&
+        typeof backendSettings === "object" &&
+        Object.keys(backendSettings).length > 0
+      ) {
+        const clientTheme =
+          (localStorage.getItem("cc_theme") as UserSettings["theme"] | null) || "dark";
+        const merged: UserSettings = {
+          ...DEFAULT_SETTINGS,
+          ...(backendSettings as Partial<UserSettings>),
+          theme: clientTheme,
+        };
+        setSettings(merged);
+        localStorage.setItem("cc_user_settings", JSON.stringify(merged));
+        if (merged.twoFactorSecret) {
+          setUser2FASecret(merged.twoFactorSecret);
         }
-        if (sessionsData && Array.isArray(sessionsData) && sessionsData.length > 0) {
-          const mapped = sessionsData.map((s: any) => ({
-            ...s,
-            icon: s.device?.toLowerCase().includes("mobile") || s.device?.toLowerCase().includes("phone") ? Smartphone : Laptop,
-            location: s.isCurrent ? "Current Device • Active now" : (s.ip || "Recent Session"),
-          }));
-          setActiveSessions(mapped);
+        if (merged.twoFactorBackupCodes && Array.isArray(merged.twoFactorBackupCodes)) {
+          setUserBackupCodes(merged.twoFactorBackupCodes);
         }
-      } finally {
-        setIsProfileLoading(false);
+      }
+
+      if (sessionsData && Array.isArray(sessionsData) && sessionsData.length > 0) {
+        const mapped: SessionItem[] = (sessionsData as SessionItem[]).map((s) => ({
+          ...s,
+          icon:
+            s.device?.toLowerCase().includes("mobile") ||
+            s.device?.toLowerCase().includes("phone")
+              ? Smartphone
+              : Laptop,
+          location: s.isCurrent ? "Current Device • Active now" : s.ip || "Recent Session",
+        }));
+        setActiveSessions(mapped);
       }
     };
-    fetchUserData();
 
-    // Check push status
+    void fetchUserData();
     pushNotificationService.getStatus().then(setPushStatus).catch(() => {});
   }, []);
 
   const playToggleSound = () => {
     if (!settings.soundEffects) return;
     try {
-      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
       const osc = ctx.createOscillator();
@@ -285,7 +370,6 @@ export default function SettingsContent() {
   };
 
   const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
-    setSaveStatus("saving");
     if (settings.soundEffects || (key === "soundEffects" && value === true)) {
       playToggleSound();
     }
@@ -299,11 +383,6 @@ export default function SettingsContent() {
     }
 
     profileService.updateMySettings({ [key]: value }).catch(() => {});
-
-    setTimeout(() => {
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 2000);
-    }, 350);
   };
 
   const handleTogglePush = async (enable: boolean) => {
@@ -326,8 +405,9 @@ export default function SettingsContent() {
       }
       const status = await pushNotificationService.getStatus();
       setPushStatus(status);
-    } catch (err: any) {
-      showError(err.message || "An error occurred.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "An error occurred.";
+      showError(msg);
     } finally {
       setIsPushLoading(false);
     }
@@ -401,8 +481,9 @@ export default function SettingsContent() {
       await profileService.revokeSession(sessId);
       setActiveSessions((prev) => prev.filter((s) => s.id !== sessId));
       showSuccess("Session revoked successfully.");
-    } catch (error: any) {
-      showError(`Failed to revoke session: ${error.message || "Unknown error"}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      showError(`Failed to revoke session: ${msg}`);
     }
   };
 
@@ -418,25 +499,24 @@ export default function SettingsContent() {
   };
 
   const handleExportData = () => {
-    const p = (profile as any) || {};
-    const s = (settings as any) || {};
     const exportDate = new Date().toISOString();
-
     const rows = [
       ["Category", "Field", "Value"],
-      ["Account Info", "Name", p.name || ""],
-      ["Account Info", "Email", p.email || ""],
-      ["Account Info", "Headline", p.profession || p.bio || ""],
-      ["Account Info", "Location", p.location || ""],
+      ["Account Info", "Name", profile?.name || ""],
+      ["Account Info", "Email", profile?.email || ""],
+      ["Account Info", "Headline", profile?.profession || profile?.bio || ""],
+      ["Account Info", "Location", profile?.location || ""],
       ["Account Info", "Export Date", exportDate],
       ["Settings", "Theme", theme],
       ["Settings", "Accent", accentColor],
-      ["Settings", "Email Reminders", s.emailReminders ? "Enabled" : "Disabled"],
-      ["Settings", "Community Updates", s.communityUpdates ? "Enabled" : "Disabled"],
-      ["Settings", "Two Factor", s.twoFactorEnabled ? "Yes" : "No"],
+      ["Settings", "Email Reminders", settings.emailReminders ? "Enabled" : "Disabled"],
+      ["Settings", "Community Updates", settings.communityUpdates ? "Enabled" : "Disabled"],
+      ["Settings", "Two Factor", settings.twoFactorEnabled ? "Yes" : "No"],
     ];
 
-    const csvContent = rows.map((r) => r.map((f) => `"${String(f).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csvContent = rows
+      .map((r) => r.map((f) => `"${String(f).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -447,15 +527,25 @@ export default function SettingsContent() {
     showSuccess("Account data exported as CSV.");
   };
 
-  // User Initials
+  const openEnable2FAModal = () => {
+    setUser2FASecret(generateUniqueSecretKey());
+    setUserBackupCodes(generateUniqueBackupCodes(8));
+    setTwoFactorCode("");
+    setTwoFactorError("");
+    setTwoFactorStep("scan");
+    setShow2FAModal(true);
+  };
+
   const userInitials = useMemo(() => {
-    const name = profile?.name || "Aarav Mehta";
+    const name = profile?.name || "Eventrix User";
     const parts = name.trim().split(" ");
     if (parts.length >= 2) {
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
     return name.slice(0, 2).toUpperCase();
   }, [profile?.name]);
+
+  const activeTabMeta = STABS.find((t) => t.key === activeTab) || STABS[0];
 
   if (!mounted) {
     return (
@@ -470,100 +560,111 @@ export default function SettingsContent() {
   return (
     <AppLayout>
       <div
-        className="w-full min-h-screen py-8 px-4 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-300"
+        className="w-full max-w-[1200px] mx-auto px-4 sm:px-8 py-7 pb-20 space-y-7 animate-ccin"
         style={{ color: "var(--text)" }}
       >
-        {/* SCREEN TITLE (PROTOTYPE FIDELITY) */}
-        <div className="space-y-2 border-b pb-6" style={{ borderColor: "var(--border)" }}>
-          <div className="flex items-center gap-2">
-            <span
-              className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider"
-              style={{
-                background: "color-mix(in oklab, var(--accent) 15%, transparent)",
-                color: "var(--accent)",
-                border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
-              }}
-            >
-              Control Center &bull; User Preferences
-            </span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div>
-              <h1
-                className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight"
-                style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.035em" }}
-              >
-                Settings
-              </h1>
-              <p className="text-xs sm:text-sm mt-1 max-w-2xl font-medium" style={{ color: "var(--muted)" }}>
-                Manage your account identity, color themes, notifications, location preferences, and active security sessions.
-              </p>
-            </div>
-
-            {/* Auto-saved badge */}
-            <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono font-bold self-start sm:self-auto shrink-0 shadow-xs"
-              style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
-            >
-              {saveStatus === "saving" ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--accent)" }} />
-                  <span>Saving...</span>
-                </>
-              ) : saveStatus === "saved" ? (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="text-emerald-500 font-semibold">Saved</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Auto-saved</span>
-                </>
-              )}
-            </div>
-          </div>
+        {/* TOP ACTION BAR: CONSISTENT BACK BUTTON ABOVE PAGE TITLE */}
+        <div className="flex items-center">
+          <BackButton fallbackHref="/home" label="Back" />
         </div>
 
-        {/* 2-COLUMN GRID (PROTOTYPE LAYOUT: 220px nav rail + 760px content) */}
-        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-8 items-start">
-          {/* LEFT STICKY TABS RAIL */}
-          <div className="space-y-4 lg:sticky lg:top-24">
-            {/* Mobile Horizontal Tabs */}
-            <div className="flex lg:hidden overflow-x-auto gap-2 no-scrollbar pb-1">
-              {STABS.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shadow-xs"
-                    style={
-                      isActive
-                        ? {
-                            background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                            color: "#fff",
-                            boxShadow: "0 4px 12px color-mix(in oklab, var(--accent) 25%, transparent)",
-                          }
-                        : {
-                            background: "var(--card)",
-                            border: "1px solid var(--border)",
-                            color: "var(--muted)",
-                          }
-                    }
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
+        {/* PAGE HEADER */}
+        <div className="space-y-1.5">
+          <h1
+            className="font-bricolage text-3xl sm:text-4xl font-extrabold tracking-tight"
+            style={{ color: "var(--text)" }}
+          >
+            Settings
+          </h1>
+          <p className="text-sm max-w-2xl leading-relaxed" style={{ color: "var(--muted)" }}>
+            Customize your account identity, notification channels, appearance preferences, and security controls.
+          </p>
+        </div>
+
+        {/* MOBILE HORIZONTAL TAB PILLS */}
+        <div className="flex lg:hidden overflow-x-auto gap-2 no-scrollbar pb-1">
+          {STABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 border"
+                style={
+                  isActive
+                    ? {
+                        background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                        color: "#ffffff",
+                        borderColor: "transparent",
+                        boxShadow: "0 6px 16px color-mix(in oklab, var(--accent) 28%, transparent)",
+                      }
+                    : {
+                        background: "var(--card)",
+                        borderColor: "var(--border)",
+                        color: "var(--muted)",
+                      }
+                }
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* MAIN STRUCTURED 2-COLUMN WORKSPACE (FULL WIDTH, NO BLANK RIGHT VOID) */}
+        <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-6 items-start">
+          {/* LEFT STICKY NAVIGATION RAIL (DESKTOP) */}
+          <aside className="hidden lg:flex flex-col gap-4 sticky top-24">
+            {/* Compact Identity Card */}
+            <div
+              className="rounded-2xl border p-4 flex items-center gap-3"
+              style={{ background: "var(--card)", borderColor: "var(--border)" }}
+            >
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.name || "User"}
+                  className="w-11 h-11 rounded-full object-cover border shrink-0"
+                  style={{ borderColor: "var(--border)" }}
+                />
+              ) : (
+                <div
+                  className="w-11 h-11 rounded-full flex items-center justify-center font-bricolage font-bold text-sm text-white shrink-0 select-none"
+                  style={{
+                    background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                  }}
+                >
+                  {userInitials}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="font-bricolage text-sm font-bold truncate" style={{ color: "var(--text)" }}>
+                  {profile?.name || "Eventrix Member"}
+                </div>
+                <div className="text-[11px] truncate" style={{ color: "var(--muted)" }}>
+                  {profile?.email || "Account connected"}
+                </div>
+              </div>
+              <Link
+                href="/profile"
+                title="View profile"
+                className="p-1.5 rounded-lg border transition hover:opacity-80"
+                style={{
+                  background: "var(--card2)",
+                  borderColor: "var(--border)",
+                  color: "var(--muted)",
+                }}
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
             </div>
 
-            {/* Desktop Vertical Rail */}
-            <div
-              className="hidden lg:flex flex-col gap-1 p-2 rounded-2xl border shadow-xs"
+            {/* Structured Section Tabs */}
+            <nav
+              className="rounded-2xl border p-2 space-y-1"
               style={{ background: "var(--card)", borderColor: "var(--border)" }}
             >
               {STABS.map((tab) => {
@@ -572,27 +673,102 @@ export default function SettingsContent() {
                 return (
                   <button
                     key={tab.key}
+                    type="button"
                     onClick={() => setActiveTab(tab.key)}
-                    className="w-full flex items-center gap-2.5 h-10 px-3 rounded-xl text-left text-sm font-semibold transition-all cursor-pointer"
+                    className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all cursor-pointer relative"
                     style={{
-                      background: isActive ? "var(--card2)" : "transparent",
-                      color: isActive ? "var(--text)" : "var(--muted)",
-                      border: isActive ? "1px solid var(--border)" : "1px solid transparent",
+                      background: isActive
+                        ? "color-mix(in oklab, var(--accent) 12%, var(--card2))"
+                        : "transparent",
+                      border: isActive
+                        ? "1px solid color-mix(in oklab, var(--accent) 28%, var(--border))"
+                        : "1px solid transparent",
                     }}
                   >
-                    <Icon
-                      className="w-4 h-4 shrink-0 transition-colors"
-                      style={{ color: isActive ? "var(--accent)" : "var(--muted)" }}
-                    />
-                    <span>{tab.label}</span>
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all"
+                      style={
+                        isActive
+                          ? {
+                              background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                              color: "#ffffff",
+                            }
+                          : {
+                              background: "var(--card2)",
+                              color: "var(--muted)",
+                            }
+                      }
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div
+                        className="text-[13px] font-bold leading-tight truncate"
+                        style={{ color: isActive ? "var(--text)" : "var(--muted)" }}
+                      >
+                        {tab.label}
+                      </div>
+                      <div
+                        className="text-[11px] truncate mt-0.5"
+                        style={{ color: "var(--subtle)" }}
+                      >
+                        {tab.subtitle}
+                      </div>
+                    </div>
                   </button>
                 );
               })}
-            </div>
-          </div>
+            </nav>
 
-          {/* RIGHT CONTENT COLUMN (MAX 760px) */}
-          <div className="max-w-[760px] w-full space-y-6">
+            {/* Quick Sign Out Rail Card */}
+            <button
+              type="button"
+              onClick={() => void performLogout()}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              style={{ background: "var(--card)", borderColor: "var(--border)" }}
+            >
+              <span>Sign out of Eventrix</span>
+              <LogOut className="w-4 h-4" />
+            </button>
+          </aside>
+
+          {/* RIGHT CONTENT WORKSPACE (FILLS REMAINING WIDTH CLEANLY) */}
+          <div className="w-full min-w-0 space-y-5">
+            {/* Active Tab Context Header Bar */}
+            <div
+              className="rounded-2xl border px-5 py-3.5 flex items-center justify-between gap-3"
+              style={{ background: "var(--card)", borderColor: "var(--border)" }}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white"
+                  style={{
+                    background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                  }}
+                >
+                  <activeTabMeta.icon className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-bricolage text-base font-extrabold tracking-tight truncate">
+                    {activeTabMeta.label}
+                  </div>
+                  <div className="text-xs truncate" style={{ color: "var(--muted)" }}>
+                    {activeTabMeta.subtitle}
+                  </div>
+                </div>
+              </div>
+              <span
+                className="hidden sm:inline-flex font-mono text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border shrink-0"
+                style={{
+                  background: "var(--card2)",
+                  borderColor: "var(--border)",
+                  color: "var(--muted)",
+                }}
+              >
+                {activeTab}
+              </span>
+            </div>
+
             <AnimatePresence mode="wait">
               {/* ================= TAB 1: ACCOUNT & PROFILE ================= */}
               {activeTab === "account" && (
@@ -602,183 +778,264 @@ export default function SettingsContent() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
-                  {/* Profile Snapshot Banner (Standalone Prototype Match) */}
+                  {/* Full-width Profile Snapshot Banner */}
                   <div
-                    className="rounded-3xl border p-6 flex items-center gap-5 flex-wrap shadow-sm transition-all"
+                    className="rounded-3xl border p-6 flex items-center gap-5 flex-wrap shadow-sm"
                     style={{ background: "var(--card)", borderColor: "var(--border)" }}
                   >
                     {profile?.avatar_url ? (
                       <img
                         src={profile.avatar_url}
                         alt={profile.name || "User"}
-                        className="w-16 h-16 rounded-full object-cover border-2 shadow-md shrink-0"
+                        className="w-16 h-16 rounded-2xl object-cover border shadow-sm shrink-0"
                         style={{ borderColor: "var(--border)" }}
                       />
                     ) : (
                       <div
-                        className="w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl text-white shadow-md shrink-0 select-none"
-                        style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center font-bricolage font-extrabold text-xl text-white shadow-md shrink-0 select-none"
+                        style={{
+                          background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                        }}
                       >
                         {userInitials}
                       </div>
                     )}
 
-                    <div className="flex-1 min-w-[200px] space-y-1">
-                      <div className="text-lg font-bold tracking-tight" style={{ color: "var(--text)" }}>
-                        {profile?.name || "Aarav Mehta"}
+                    <div className="flex-1 min-w-[210px] space-y-1">
+                      <div className="font-bricolage text-xl font-extrabold tracking-tight" style={{ color: "var(--text)" }}>
+                        {profile?.name || "Eventrix Member"}
                       </div>
                       <div className="text-xs sm:text-sm font-medium" style={{ color: "var(--muted)" }}>
-                        {profile?.bio || profile?.profession || "Fullstack Engineer • Bengaluru"}
+                        {profile?.bio || profile?.profession || "Complete your bio and profile details"}
                       </div>
                       <div className="flex flex-wrap gap-2 pt-1.5">
-                        <span
-                          className="h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center border"
-                          style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
-                        >
-                          {profile?.email || "aarav@osc.dev"}
-                        </span>
-                        <span
-                          className="h-6 px-2.5 rounded-full text-xs font-medium inline-flex items-center border"
-                          style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--subtle)" }}
-                        >
-                          Member since 2025
-                        </span>
+                        {profile?.email && (
+                          <span
+                            className="h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center border"
+                            style={{
+                              background: "var(--card2)",
+                              borderColor: "var(--border)",
+                              color: "var(--text)",
+                            }}
+                          >
+                            {profile.email}
+                          </span>
+                        )}
+                        {profile?.location && (
+                          <span
+                            className="h-6 px-2.5 rounded-full text-xs font-medium inline-flex items-center gap-1 border"
+                            style={{
+                              background: "var(--card2)",
+                              borderColor: "var(--border)",
+                              color: "var(--muted)",
+                            }}
+                          >
+                            <MapPin className="w-3 h-3" style={{ color: "var(--accent)" }} />
+                            {profile.location}
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    <Link href="/profile/edit">
-                      <button
-                        type="button"
-                        className="h-9 px-4 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer hover:opacity-85 shadow-xs"
-                        style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Link
+                        href="/profile"
+                        className="h-9 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all hover:opacity-85"
+                        style={{
+                          background: "var(--card2)",
+                          borderColor: "var(--border)",
+                          color: "var(--text)",
+                        }}
                       >
-                        <Pencil className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
-                        Edit profile
-                      </button>
-                    </Link>
+                        View Profile
+                      </Link>
+                      <Link
+                        href="/profile/edit"
+                        className="h-9 px-4 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition-all hover:scale-[1.02] shadow-sm"
+                        style={{
+                          background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                        }}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Edit Profile
+                      </Link>
+                    </div>
                   </div>
 
-                  {/* Password Management Card */}
-                  <div
-                    className="rounded-3xl border p-6 sm:p-7 space-y-5 shadow-sm"
-                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
-                  >
-                    <div>
-                      <h3
-                        className="text-base sm:text-lg font-bold tracking-tight"
-                        style={{ fontFamily: "var(--font-display)" }}
-                      >
-                        Security & Password
-                      </h3>
-                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
-                        Ensure your account is protected with a secure password (min. 8 characters).
-                      </p>
+                  {/* Balanced 2-Column Bento Row: Password (7) + Data & Danger Zone (5) */}
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
+                    {/* Password Management Card */}
+                    <div
+                      className="xl:col-span-7 rounded-3xl border p-6 space-y-5 shadow-sm flex flex-col justify-between"
+                      style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                    >
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="font-bricolage text-lg font-bold tracking-tight">
+                            Security & Password
+                          </h3>
+                          <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                            Update your sign-in password regularly (minimum 8 characters).
+                          </p>
+                        </div>
+
+                        <form onSubmit={handlePasswordSubmit} className="space-y-3.5">
+                          {passwordError && (
+                            <p className="text-xs text-rose-500 font-bold p-3 rounded-xl border border-rose-500/20 bg-rose-500/10">
+                              {passwordError}
+                            </p>
+                          )}
+
+                          <div className="space-y-1.5">
+                            <label
+                              className="text-[11px] font-mono font-bold uppercase tracking-wider"
+                              style={{ color: "var(--muted)" }}
+                            >
+                              Current Password
+                            </label>
+                            <input
+                              type="password"
+                              value={currentPassword}
+                              onChange={(e) => setCurrentPassword(e.target.value)}
+                              placeholder="••••••••"
+                              className="w-full h-10 px-3.5 rounded-xl border text-xs font-semibold outline-none"
+                              style={{
+                                background: "var(--input)",
+                                borderColor: "var(--border)",
+                                color: "var(--text)",
+                              }}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <label
+                                className="text-[11px] font-mono font-bold uppercase tracking-wider"
+                                style={{ color: "var(--muted)" }}
+                              >
+                                New Password
+                              </label>
+                              <input
+                                type="password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                placeholder="At least 8 chars"
+                                className="w-full h-10 px-3.5 rounded-xl border text-xs font-semibold outline-none"
+                                style={{
+                                  background: "var(--input)",
+                                  borderColor: "var(--border)",
+                                  color: "var(--text)",
+                                }}
+                              />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label
+                                className="text-[11px] font-mono font-bold uppercase tracking-wider"
+                                style={{ color: "var(--muted)" }}
+                              >
+                                Confirm Password
+                              </label>
+                              <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                placeholder="Confirm match"
+                                className="w-full h-10 px-3.5 rounded-xl border text-xs font-semibold outline-none"
+                                style={{
+                                  background: "var(--input)",
+                                  borderColor: "var(--border)",
+                                  color: "var(--text)",
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end pt-2">
+                            <button
+                              type="submit"
+                              disabled={isUpdatingPassword || !newPassword}
+                              className="h-10 px-5 rounded-xl text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-md"
+                              style={{
+                                background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                              }}
+                            >
+                              {isUpdatingPassword ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Lock className="w-4 h-4" />
+                              )}
+                              Update Password
+                            </button>
+                          </div>
+                        </form>
+                      </div>
                     </div>
 
-                    <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                      {passwordError && (
-                        <p className="text-xs text-rose-500 font-bold p-3 rounded-xl border border-rose-500/20 bg-rose-500/10">
-                          {passwordError}
-                        </p>
-                      )}
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                            Current Password
-                          </label>
-                          <input
-                            type="password"
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
-                            className="w-full h-10 px-3 rounded-xl border text-xs font-semibold outline-none"
-                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                          />
+                    {/* Account Actions & Danger Zone Card */}
+                    <div
+                      className="xl:col-span-5 rounded-3xl border p-6 space-y-5 shadow-sm flex flex-col justify-between"
+                      style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                    >
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="font-bricolage text-lg font-bold tracking-tight">
+                            Data & Account Actions
+                          </h3>
+                          <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                            Download a copy of your account records or permanently close your account.
+                          </p>
                         </div>
 
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                            New Password
-                          </label>
-                          <input
-                            type="password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="At least 8 chars"
-                            className="w-full h-10 px-3 rounded-xl border text-xs font-semibold outline-none"
-                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                            Confirm Password
-                          </label>
-                          <input
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Confirm match"
-                            className="w-full h-10 px-3 rounded-xl border text-xs font-semibold outline-none"
-                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                          />
+                        <div
+                          className="p-4 rounded-2xl border space-y-2.5"
+                          style={{ background: "var(--card2)", borderColor: "var(--border)" }}
+                        >
+                          <div className="text-xs font-bold" style={{ color: "var(--text)" }}>
+                            Personal Data Export
+                          </div>
+                          <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                            Export your profile info, settings, and security configuration as a CSV file.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleExportData}
+                            className="w-full h-9 px-4 rounded-xl border text-xs font-bold transition-all hover:opacity-85 cursor-pointer flex items-center justify-center gap-2"
+                            style={{
+                              background: "var(--card)",
+                              borderColor: "var(--border)",
+                              color: "var(--text)",
+                            }}
+                          >
+                            <Download className="w-4 h-4" style={{ color: "var(--accent)" }} />
+                            Export Data (CSV)
+                          </button>
                         </div>
                       </div>
 
-                      <div className="flex justify-end pt-2">
+                      <div
+                        className="p-4 rounded-2xl border space-y-2.5"
+                        style={{
+                          background: "color-mix(in oklab, #f43f5e 6%, var(--card2))",
+                          borderColor: "color-mix(in oklab, #f43f5e 22%, var(--border))",
+                        }}
+                      >
+                        <div className="text-xs font-bold text-rose-500">Danger Zone</div>
+                        <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                          Permanently delete your account and all hosted or joined event records.
+                        </p>
                         <button
-                          type="submit"
-                          disabled={isUpdatingPassword || !newPassword}
-                          className="h-10 px-5 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-md"
-                          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                          type="button"
+                          onClick={() => setShowDeleteModal(true)}
+                          className="w-full h-9 px-4 rounded-xl border border-rose-500/30 text-xs font-bold transition-all hover:bg-rose-500/15 cursor-pointer flex items-center justify-center gap-2 text-rose-500"
+                          style={{ background: "var(--card)" }}
                         >
-                          {isUpdatingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                          Update Password
+                          <Trash2 className="w-4 h-4" />
+                          Delete Account
                         </button>
                       </div>
-                    </form>
-                  </div>
-
-                  {/* Account Actions & Export Card */}
-                  <div
-                    className="rounded-3xl border p-6 sm:p-7 space-y-4 shadow-sm"
-                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
-                  >
-                    <div>
-                      <h3
-                        className="text-base sm:text-lg font-bold tracking-tight"
-                        style={{ fontFamily: "var(--font-display)" }}
-                      >
-                        Account Data & Privacy Actions
-                      </h3>
-                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
-                        Export your personal preferences and profile records or request account termination.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={handleExportData}
-                        className="h-10 px-4 rounded-xl border text-xs font-bold transition-all hover:opacity-80 cursor-pointer flex items-center gap-2 shadow-xs"
-                        style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
-                      >
-                        <Download className="w-4 h-4" style={{ color: "var(--accent)" }} />
-                        Export Data (CSV)
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowDeleteModal(true)}
-                        className="h-10 px-4 rounded-xl border border-rose-500/20 text-xs font-bold transition-all hover:bg-rose-500/10 cursor-pointer flex items-center gap-2 text-rose-500 shadow-xs"
-                        style={{ background: "var(--card2)" }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete Account
-                      </button>
                     </div>
                   </div>
                 </motion.div>
@@ -792,13 +1049,10 @@ export default function SettingsContent() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
-                  <div
-                    className="rounded-3xl border overflow-hidden shadow-sm divide-y divide-[var(--border)]"
-                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
-                  >
-                    {/* Toggle Rows (Prototype Fidelity) */}
+                  {/* 2-Column Notification Switches Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
                       {
                         key: "emailReminders" as const,
@@ -818,7 +1072,7 @@ export default function SettingsContent() {
                       {
                         key: "weeklyDigest" as const,
                         label: "Weekly digest",
-                        desc: "A Monday morning summary of top upcoming events near your city",
+                        desc: "A Monday morning summary of upcoming events near your city",
                       },
                       {
                         key: "soundEffects" as const,
@@ -828,71 +1082,126 @@ export default function SettingsContent() {
                     ].map((row) => {
                       const isChecked = !!settings[row.key];
                       return (
-                        <div key={row.key} className="flex items-center justify-between gap-4 p-5 sm:p-6 transition-colors">
-                          <div className="space-y-0.5 pr-2">
+                        <div
+                          key={row.key}
+                          className="rounded-2xl border p-5 flex items-center justify-between gap-4 transition-colors"
+                          style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                        >
+                          <div className="space-y-1 pr-2">
                             <div className="text-sm font-bold tracking-tight" style={{ color: "var(--text)" }}>
                               {row.label}
                             </div>
-                            <div className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                            <div className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
                               {row.desc}
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => updateSetting(row.key, !isChecked)}
-                            className="w-11 h-6 rounded-full relative transition-all cursor-pointer p-0 shrink-0 border"
-                            style={{
-                              background: isChecked ? "var(--accent)" : "var(--input)",
-                              borderColor: isChecked ? "transparent" : "var(--border)",
-                            }}
-                          >
-                            <span
-                              className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all"
-                              style={{ left: isChecked ? "22px" : "2px" }}
-                            />
-                          </button>
+                          <ToggleSwitch
+                            checked={isChecked}
+                            onToggle={() => updateSetting(row.key, !isChecked)}
+                            ariaLabel={row.label}
+                          />
                         </div>
                       );
                     })}
+                  </div>
 
-                    {/* Push Notifications CTA Footer */}
-                    <div
-                      className="p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-                      style={{ background: "var(--card2)" }}
-                    >
-                      <div className="space-y-0.5">
-                        <div className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                          Native System Notifications
-                        </div>
-                        <div className="text-xs font-medium" style={{ color: "var(--subtle)" }}>
-                          {pushStatus.isSubscribed
-                            ? "Push notifications are currently active on this device browser."
-                            : "Receive instant desktop badges when quiz rounds launch or announcements post."}
-                        </div>
-                      </div>
+                  {/* Delivery Frequency Selector */}
+                  <div
+                    className="rounded-3xl border p-6 space-y-4 shadow-sm"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    <div>
+                      <h3 className="font-bricolage text-base sm:text-lg font-bold tracking-tight">
+                        Delivery Frequency
+                      </h3>
+                      <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--muted)" }}>
+                        Choose how frequently summary notifications are batched.
+                      </p>
+                    </div>
 
-                      <button
-                        type="button"
-                        disabled={isPushLoading}
-                        onClick={() => handleTogglePush(!pushStatus.isSubscribed)}
-                        className="h-10 px-5 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-md shrink-0"
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {FREQUENCY_OPTIONS.map((freq) => {
+                        const active = settings.notificationFrequency === freq.key;
+                        return (
+                          <button
+                            key={freq.key}
+                            type="button"
+                            onClick={() => updateSetting("notificationFrequency", freq.key)}
+                            className="p-3.5 rounded-2xl border text-left transition-all cursor-pointer"
+                            style={{
+                              background: active
+                                ? "color-mix(in oklab, var(--accent) 12%, var(--card2))"
+                                : "var(--card2)",
+                              borderColor: active
+                                ? "color-mix(in oklab, var(--accent) 50%, var(--border))"
+                                : "var(--border)",
+                            }}
+                          >
+                            <div
+                              className="text-xs font-bold"
+                              style={{ color: active ? "var(--accent)" : "var(--text)" }}
+                            >
+                              {freq.label}
+                            </div>
+                            <div className="text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>
+                              {freq.desc}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Native Browser Push Notifications Banner */}
+                  <div
+                    className="rounded-3xl border p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
+                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                  >
+                    <div className="flex items-start gap-3.5">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                         style={{
-                          background: pushStatus.isSubscribed
-                            ? "var(--card)"
-                            : "linear-gradient(135deg, var(--accent), var(--accent2))",
-                          color: pushStatus.isSubscribed ? "var(--text)" : "#fff",
-                          border: pushStatus.isSubscribed ? "1px solid var(--border)" : "none",
+                          background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                          color: "var(--accent)",
                         }}
                       >
-                        {isPushLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Bell className="w-4 h-4" />
-                        )}
-                        {pushStatus.isSubscribed ? "Disable Push Notifications" : "Enable Push Notifications"}
-                      </button>
+                        <Bell className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-bold" style={{ color: "var(--text)" }}>
+                          Native Browser Push Notifications
+                        </div>
+                        <div className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                          {pushStatus.isSubscribed
+                            ? "Push notifications are currently active on this device browser."
+                            : "Receive instant desktop alerts when quiz rounds launch, gates open, or announcements post."}
+                        </div>
+                      </div>
                     </div>
+
+                    <button
+                      type="button"
+                      disabled={isPushLoading}
+                      onClick={() => void handleTogglePush(!pushStatus.isSubscribed)}
+                      className="h-10 px-5 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-sm shrink-0"
+                      style={{
+                        background: pushStatus.isSubscribed
+                          ? "var(--card2)"
+                          : "linear-gradient(135deg, var(--accent), var(--accent2))",
+                        color: pushStatus.isSubscribed ? "var(--text)" : "#ffffff",
+                        border: pushStatus.isSubscribed ? "1px solid var(--border)" : "none",
+                      }}
+                    >
+                      {isPushLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Bell className="w-4 h-4" />
+                      )}
+                      {pushStatus.isSubscribed
+                        ? "Disable Push Notifications"
+                        : "Enable Push Notifications"}
+                    </button>
                   </div>
                 </motion.div>
               )}
@@ -905,188 +1214,179 @@ export default function SettingsContent() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
-                  {/* Theme Selector (Cards with mini UI bars) */}
-                  <div
-                    className="rounded-3xl border p-6 sm:p-7 space-y-4 shadow-sm"
-                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
-                  >
-                    <div>
-                      <h3
-                        className="text-base sm:text-lg font-bold tracking-tight"
-                        style={{ fontFamily: "var(--font-display)" }}
-                      >
-                        Theme
-                      </h3>
-                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
-                        Applies instantly across the entire application interface.
-                      </p>
-                    </div>
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
+                    {/* Theme Selector */}
+                    <div
+                      className="xl:col-span-7 rounded-3xl border p-6 space-y-4 shadow-sm"
+                      style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                    >
+                      <div>
+                        <h3 className="font-bricolage text-lg font-bold tracking-tight">
+                          Theme Mode
+                        </h3>
+                        <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                          Applies instantly across the entire Eventrix workspace.
+                        </p>
+                      </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {[
-                        { key: "dark" as const, label: "Dark", bg: "#09090b", bar: "#27272a" },
-                        { key: "light" as const, label: "Light", bg: "#f6f7f9", bar: "#e2e8f0" },
-                        {
-                          key: "system" as const,
-                          label: "System",
-                          bg: "linear-gradient(90deg, #09090b 50%, #f6f7f9 50%)",
-                          bar: "#71717a",
-                        },
-                      ].map((t) => {
-                        const isCurrent = theme === t.key;
-                        return (
-                          <button
-                            key={t.key}
-                            type="button"
-                            onClick={() => {
-                              updateAppearanceSetting("theme", t.key);
-                              updateSetting("theme", t.key);
-                            }}
-                            className="p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-2"
-                            style={{
-                              background: "var(--input)",
-                              borderColor: isCurrent ? "var(--accent)" : "var(--border)",
-                              boxShadow: isCurrent
-                                ? "0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent)"
-                                : "none",
-                            }}
-                          >
-                            <div
-                              className="h-20 rounded-xl p-2.5 flex flex-col gap-1.5 border"
-                              style={{ background: t.bg, borderColor: "var(--border)" }}
-                            >
-                              <span className="w-3/5 h-2 rounded-full" style={{ background: t.bar }} />
-                              <span className="w-2/5 h-2 rounded-full" style={{ background: "var(--accent)" }} />
-                            </div>
-                            <span className="text-xs font-bold px-1" style={{ color: "var(--text)" }}>
-                              {t.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Accent Color Swatches (6 circular gradient swatches) */}
-                  <div
-                    className="rounded-3xl border p-6 sm:p-7 space-y-4 shadow-sm"
-                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
-                  >
-                    <div>
-                      <h3
-                        className="text-base sm:text-lg font-bold tracking-tight"
-                        style={{ fontFamily: "var(--font-display)" }}
-                      >
-                        Accent Color
-                      </h3>
-                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
-                        Drives primary buttons, badges, checkpoints, progress bars, and focus highlights.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-4 pt-1">
-                      {ACCENT_SWATCHES.map((swatch) => {
-                        const isSelected = accentColor === swatch.key;
-                        return (
-                          <button
-                            key={swatch.key}
-                            type="button"
-                            onClick={() => {
-                              updateAppearanceSetting("accentColor", swatch.key as any);
-                              updateSetting("accentColor", swatch.key as any);
-                            }}
-                            className="flex flex-col items-center gap-1.5 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
-                          >
-                            <span
-                              className="w-11 h-11 rounded-full flex items-center justify-center text-white transition-all shadow-md"
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {[
+                          { key: "dark" as const, label: "Dark", bg: "#0f172a", bar: "#334155" },
+                          { key: "light" as const, label: "Light", bg: "#f8fafc", bar: "#cbd5e1" },
+                          {
+                            key: "system" as const,
+                            label: "System",
+                            bg: "linear-gradient(90deg, #0f172a 50%, #f8fafc 50%)",
+                            bar: "#64748b",
+                          },
+                        ].map((t) => {
+                          const isCurrent = theme === t.key;
+                          return (
+                            <button
+                              key={t.key}
+                              type="button"
+                              onClick={() => {
+                                updateAppearanceSetting("theme", t.key);
+                                updateSetting("theme", t.key);
+                              }}
+                              className="p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-2.5"
                               style={{
-                                background: `linear-gradient(135deg, ${swatch.c1}, ${swatch.c2})`,
-                                boxShadow: isSelected
-                                  ? `0 0 0 3px var(--bg), 0 0 0 5px ${swatch.c1}`
+                                background: "var(--card2)",
+                                borderColor: isCurrent ? "var(--accent)" : "var(--border)",
+                                boxShadow: isCurrent
+                                  ? "0 0 0 2px color-mix(in oklab, var(--accent) 25%, transparent)"
                                   : "none",
                               }}
                             >
-                              {isSelected && <Check className="w-5 h-5 drop-shadow-xs" />}
-                            </span>
-                            <span
-                              className="text-[11px] font-mono font-bold"
-                              style={{ color: isSelected ? "var(--text)" : "var(--muted)" }}
+                              <div
+                                className="h-20 rounded-xl p-3 flex flex-col justify-between border"
+                                style={{ background: t.bg, borderColor: "var(--border)" }}
+                              >
+                                <div className="space-y-1.5">
+                                  <span className="block w-3/5 h-2 rounded-full" style={{ background: t.bar }} />
+                                  <span className="block w-2/5 h-2 rounded-full" style={{ background: "var(--accent)" }} />
+                                </div>
+                                <div className="flex gap-1">
+                                  <span className="w-2 h-2 rounded-full" style={{ background: "var(--accent)" }} />
+                                  <span className="w-2 h-2 rounded-full" style={{ background: t.bar }} />
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between px-1">
+                                <span className="text-xs font-bold" style={{ color: "var(--text)" }}>
+                                  {t.label}
+                                </span>
+                                {isCurrent && (
+                                  <Check className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Accent Color Swatches */}
+                    <div
+                      className="xl:col-span-5 rounded-3xl border p-6 space-y-4 shadow-sm"
+                      style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                    >
+                      <div>
+                        <h3 className="font-bricolage text-lg font-bold tracking-tight">
+                          Accent Palette
+                        </h3>
+                        <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                          Drives buttons, badges, charts, and focus highlights.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        {ACCENT_SWATCHES.map((swatch) => {
+                          const isSelected = accentColor === swatch.key;
+                          return (
+                            <button
+                              key={swatch.key}
+                              type="button"
+                              onClick={() => {
+                                updateAppearanceSetting("accentColor", swatch.key);
+                                updateSetting("accentColor", swatch.key);
+                              }}
+                              className="p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all hover:scale-[1.02] cursor-pointer"
+                              style={{
+                                background: isSelected
+                                  ? `color-mix(in oklab, ${swatch.c1} 12%, var(--card2))`
+                                  : "var(--card2)",
+                                borderColor: isSelected ? swatch.c1 : "var(--border)",
+                              }}
                             >
-                              {swatch.label}
-                            </span>
-                          </button>
-                        );
-                      })}
+                              <span
+                                className="w-9 h-9 rounded-full flex items-center justify-center text-white shadow-sm"
+                                style={{
+                                  background: `linear-gradient(135deg, ${swatch.c1}, ${swatch.c2})`,
+                                }}
+                              >
+                                {isSelected && <Check className="w-4 h-4" />}
+                              </span>
+                              <span
+                                className="text-[11px] font-mono font-bold"
+                                style={{ color: isSelected ? "var(--text)" : "var(--muted)" }}
+                              >
+                                {swatch.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
                   {/* App Density & Motion Toggles */}
-                  <div
-                    className="rounded-3xl border overflow-hidden shadow-sm divide-y divide-[var(--border)]"
-                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
-                  >
-                    {/* Compact Mode */}
-                    <div className="flex items-center justify-between gap-4 p-5 sm:p-6 transition-colors">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div
+                      className="rounded-2xl border p-5 flex items-center justify-between gap-4"
+                      style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                    >
                       <div className="space-y-0.5">
                         <div className="text-sm font-bold tracking-tight" style={{ color: "var(--text)" }}>
                           Compact Mode
                         </div>
-                        <div className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                          Tighter padding and denser spacing for large tabular screens
+                        <div className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                          Tighter padding and denser spacing for large tabular views.
                         </div>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
+                      <ToggleSwitch
+                        checked={compactMode}
+                        onToggle={() => {
                           const next = !compactMode;
                           updateAppearanceSetting("compactMode", next);
                           updateSetting("compactMode", next);
                         }}
-                        className="w-11 h-6 rounded-full relative transition-all cursor-pointer p-0 shrink-0 border"
-                        style={{
-                          background: compactMode ? "var(--accent)" : "var(--input)",
-                          borderColor: compactMode ? "transparent" : "var(--border)",
-                        }}
-                      >
-                        <span
-                          className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all"
-                          style={{ left: compactMode ? "22px" : "2px" }}
-                        />
-                      </button>
+                        ariaLabel="Compact Mode"
+                      />
                     </div>
 
-                    {/* Smooth Animations */}
-                    <div className="flex items-center justify-between gap-4 p-5 sm:p-6 transition-colors">
+                    <div
+                      className="rounded-2xl border p-5 flex items-center justify-between gap-4"
+                      style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                    >
                       <div className="space-y-0.5">
                         <div className="text-sm font-bold tracking-tight" style={{ color: "var(--text)" }}>
                           Smooth Animations
                         </div>
-                        <div className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                          Disable animations and page transitions to minimize visual motion
+                        <div className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                          Enable fluid micro-transitions and card motion across pages.
                         </div>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
+                      <ToggleSwitch
+                        checked={smoothAnimations}
+                        onToggle={() => {
                           const next = !smoothAnimations;
                           updateAppearanceSetting("smoothAnimations", next);
                           updateSetting("smoothAnimations", next);
                         }}
-                        className="w-11 h-6 rounded-full relative transition-all cursor-pointer p-0 shrink-0 border"
-                        style={{
-                          background: smoothAnimations ? "var(--accent)" : "var(--input)",
-                          borderColor: smoothAnimations ? "transparent" : "var(--border)",
-                        }}
-                      >
-                        <span
-                          className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all"
-                          style={{ left: smoothAnimations ? "22px" : "2px" }}
-                        />
-                      </button>
+                        ariaLabel="Smooth Animations"
+                      />
                     </div>
                   </div>
                 </motion.div>
@@ -1100,26 +1400,23 @@ export default function SettingsContent() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-6"
+                  className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch"
                 >
                   {/* Preferred Locations Card */}
                   <div
-                    className="rounded-3xl border p-6 sm:p-7 space-y-4 shadow-sm"
+                    className="xl:col-span-6 rounded-3xl border p-6 space-y-4 shadow-sm"
                     style={{ background: "var(--card)", borderColor: "var(--border)" }}
                   >
                     <div>
-                      <h3
-                        className="text-base sm:text-lg font-bold tracking-tight"
-                        style={{ fontFamily: "var(--font-display)" }}
-                      >
+                      <h3 className="font-bricolage text-lg font-bold tracking-tight">
                         Preferred Event Locations
                       </h3>
                       <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
-                        Add cities or regions so we can automatically spotlight relevant offline & hybrid events near you.
+                        Spotlight nearby offline and hybrid events in your Discover feed.
                       </p>
                     </div>
 
-                    <div className="flex gap-2 max-w-md">
+                    <div className="flex gap-2">
                       <input
                         type="text"
                         value={cityInput}
@@ -1130,22 +1427,28 @@ export default function SettingsContent() {
                             addCity(cityInput);
                           }
                         }}
-                        placeholder="e.g. Jaipur, Bengaluru, or Delhi"
+                        placeholder="e.g. Jaipur, Bengaluru, Delhi"
                         className="flex-1 h-10 px-3.5 rounded-xl border text-xs sm:text-sm font-semibold outline-none"
-                        style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+                        style={{
+                          background: "var(--input)",
+                          borderColor: "var(--border)",
+                          color: "var(--text)",
+                        }}
                       />
                       <button
                         type="button"
                         onClick={() => addCity(cityInput)}
-                        className="h-10 px-4 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-md"
-                        style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                        className="h-10 px-4 rounded-xl text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shadow-sm"
+                        style={{
+                          background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                        }}
                       >
                         Add
                       </button>
                     </div>
 
-                    {/* Added City Chips */}
-                    <div className="flex flex-wrap gap-2 pt-1">
+                    {/* Selected Cities */}
+                    <div className="flex flex-wrap gap-2 pt-1 min-h-[32px]">
                       {settings.preferredCities.length === 0 ? (
                         <span className="text-xs italic" style={{ color: "var(--subtle)" }}>
                           No preferred locations added yet.
@@ -1154,7 +1457,7 @@ export default function SettingsContent() {
                         settings.preferredCities.map((city) => (
                           <span
                             key={city}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border"
                             style={{
                               background: "color-mix(in oklab, var(--accent) 12%, transparent)",
                               borderColor: "color-mix(in oklab, var(--accent) 35%, transparent)",
@@ -1175,44 +1478,55 @@ export default function SettingsContent() {
                     </div>
 
                     {/* Quick Suggestions */}
-                    <div className="space-y-1.5 pt-2">
-                      <div className="text-[11px] font-mono font-bold uppercase tracking-wider" style={{ color: "var(--subtle)" }}>
+                    <div className="space-y-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+                      <div
+                        className="text-[11px] font-mono font-bold uppercase tracking-wider"
+                        style={{ color: "var(--subtle)" }}
+                      >
                         Quick Suggestions
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {PRESET_CITIES.map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => addCity(c)}
-                            className="px-2.5 py-1 rounded-full border text-xs font-medium transition-all hover:opacity-80 cursor-pointer shadow-xs"
-                            style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
-                          >
-                            + {c}
-                          </button>
-                        ))}
+                        {PRESET_CITIES.map((c) => {
+                          const alreadyAdded = settings.preferredCities.includes(c);
+                          return (
+                            <button
+                              key={c}
+                              type="button"
+                              disabled={alreadyAdded}
+                              onClick={() => addCity(c)}
+                              className="px-3 py-1 rounded-full border text-xs font-medium transition-all hover:opacity-80 disabled:opacity-40 cursor-pointer"
+                              style={{
+                                background: "var(--card2)",
+                                borderColor: "var(--border)",
+                                color: "var(--muted)",
+                              }}
+                            >
+                              {alreadyAdded ? `✓ ${c}` : `+ ${c}`}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
 
                   {/* Favorite Event Categories Card */}
                   <div
-                    className="rounded-3xl border p-6 sm:p-7 space-y-4 shadow-sm"
+                    className="xl:col-span-6 rounded-3xl border p-6 space-y-4 shadow-sm"
                     style={{ background: "var(--card)", borderColor: "var(--border)" }}
                   >
-                    <div>
-                      <h3
-                        className="text-base sm:text-lg font-bold tracking-tight"
-                        style={{ fontFamily: "var(--font-display)" }}
-                      >
-                        Favorite Event Categories
-                      </h3>
-                      <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
-                        Select tags to tailor recommendations on your personalized Discover feed.
-                      </p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="font-bricolage text-lg font-bold tracking-tight">
+                          Favorite Event Categories
+                        </h3>
+                        <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                          Tailor event recommendations across your Home and Discover tabs.
+                        </p>
+                      </div>
+                      <Sparkles className="w-5 h-5 shrink-0" style={{ color: "var(--accent)" }} />
                     </div>
 
-                    <div className="flex flex-wrap gap-2.5 pt-1">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 gap-2.5 pt-1">
                       {PRESET_CATEGORIES.map((cat) => {
                         const isSelected = settings.favoriteCategories.includes(cat);
                         return (
@@ -1220,19 +1534,19 @@ export default function SettingsContent() {
                             key={cat}
                             type="button"
                             onClick={() => toggleCategory(cat)}
-                            className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shadow-xs"
+                            className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-between border"
                             style={{
                               background: isSelected
-                                ? "color-mix(in oklab, var(--accent) 15%, transparent)"
+                                ? "color-mix(in oklab, var(--accent) 14%, var(--card2))"
                                 : "var(--card2)",
                               borderColor: isSelected
-                                ? "color-mix(in oklab, var(--accent) 45%, transparent)"
+                                ? "color-mix(in oklab, var(--accent) 45%, var(--border))"
                                 : "var(--border)",
                               color: isSelected ? "var(--accent)" : "var(--muted)",
-                              border: "1px solid",
                             }}
                           >
-                            {isSelected ? `✓ ${cat}` : cat}
+                            <span>{cat}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5" />}
                           </button>
                         );
                       })}
@@ -1249,16 +1563,16 @@ export default function SettingsContent() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
                   {/* Two-Factor Authentication Banner */}
                   <div
-                    className="rounded-3xl border p-6 sm:p-7 flex items-center justify-between gap-5 flex-wrap shadow-sm"
+                    className="rounded-3xl border p-6 flex items-center justify-between gap-5 flex-wrap shadow-sm"
                     style={{ background: "var(--card)", borderColor: "var(--border)" }}
                   >
                     <div className="flex items-center gap-4">
                       <div
-                        className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xs"
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
                         style={{
                           background: "color-mix(in oklab, var(--accent) 15%, transparent)",
                           color: "var(--accent)",
@@ -1267,14 +1581,11 @@ export default function SettingsContent() {
                         <Lock className="w-6 h-6" />
                       </div>
                       <div className="space-y-0.5">
-                        <div
-                          className="text-base sm:text-lg font-bold tracking-tight"
-                          style={{ fontFamily: "var(--font-display)" }}
-                        >
+                        <div className="font-bricolage text-lg font-bold tracking-tight">
                           Two-factor authentication
                         </div>
                         <div className="text-xs sm:text-sm font-medium" style={{ color: "var(--muted)" }}>
-                          Use an authenticator app (Google Authenticator, Authy) plus 8 backup recovery codes.
+                          Protect sign-ins using an authenticator app plus 8 emergency recovery codes.
                         </div>
                       </div>
                     </div>
@@ -1307,12 +1618,11 @@ export default function SettingsContent() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => {
-                          setTwoFactorStep("scan");
-                          setShow2FAModal(true);
+                        onClick={openEnable2FAModal}
+                        className="h-10 px-5 rounded-xl text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shadow-md"
+                        style={{
+                          background: "linear-gradient(135deg, var(--accent), var(--accent2))",
                         }}
-                        className="h-9 px-4 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-md"
-                        style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                       >
                         Enable 2FA
                       </button>
@@ -1325,43 +1635,45 @@ export default function SettingsContent() {
                     style={{ background: "var(--card)", borderColor: "var(--border)" }}
                   >
                     <div
-                      className="p-5 sm:p-6 border-b flex items-center justify-between gap-4"
+                      className="p-6 border-b flex items-center justify-between gap-4 flex-wrap"
                       style={{ borderColor: "var(--border)" }}
                     >
                       <div>
-                        <h3
-                          className="text-base sm:text-lg font-bold tracking-tight"
-                          style={{ fontFamily: "var(--font-display)" }}
-                        >
+                        <h3 className="font-bricolage text-lg font-bold tracking-tight">
                           Active sessions
                         </h3>
                         <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
-                          Devices where you are currently authenticated into your account.
+                          Devices currently authenticated into your Eventrix account.
                         </p>
                       </div>
 
                       <button
                         type="button"
-                        onClick={handleLogoutAllOtherSessions}
-                        className="h-8 px-3 rounded-xl border text-xs font-bold transition hover:bg-rose-500/10 text-rose-500 cursor-pointer shrink-0"
-                        style={{ borderColor: "var(--border)" }}
+                        onClick={() => void handleLogoutAllOtherSessions()}
+                        className="h-9 px-3.5 rounded-xl border text-xs font-bold transition hover:bg-rose-500/10 text-rose-500 cursor-pointer shrink-0"
+                        style={{ borderColor: "var(--border)", background: "var(--card2)" }}
                       >
                         Log out other sessions
                       </button>
                     </div>
 
-                    <div className="divide-y divide-[var(--border)]">
+                    <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
                       {activeSessions.map((sess) => {
                         const IconComponent = sess.icon || Laptop;
                         return (
                           <div
                             key={sess.id}
-                            className="p-4 sm:p-5 flex items-center justify-between gap-4 transition-colors"
+                            className="p-4 rounded-2xl border flex items-center justify-between gap-3"
+                            style={{ background: "var(--card2)", borderColor: "var(--border)" }}
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <div
                                 className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border"
-                                style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}
+                                style={{
+                                  background: "var(--card)",
+                                  borderColor: "var(--border)",
+                                  color: "var(--muted)",
+                                }}
                               >
                                 <IconComponent className="w-5 h-5" />
                               </div>
@@ -1377,7 +1689,7 @@ export default function SettingsContent() {
 
                             {sess.isCurrent ? (
                               <span
-                                className="text-xs font-mono font-bold px-2.5 py-1 rounded-full border shrink-0"
+                                className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-full border shrink-0"
                                 style={{
                                   background: "rgba(16, 185, 129, 0.12)",
                                   borderColor: "rgba(16, 185, 129, 0.25)",
@@ -1389,9 +1701,9 @@ export default function SettingsContent() {
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => handleRevokeSession(sess.id, false)}
+                                onClick={() => void handleRevokeSession(sess.id, false)}
                                 className="h-8 px-3 rounded-xl border text-xs font-bold transition hover:bg-rose-500/10 text-rose-500 cursor-pointer shrink-0"
-                                style={{ borderColor: "var(--border)", background: "var(--input)" }}
+                                style={{ borderColor: "var(--border)", background: "var(--card)" }}
                               >
                                 Revoke
                               </button>
@@ -1408,319 +1720,390 @@ export default function SettingsContent() {
         </div>
       </div>
 
-      {/* MODAL: 2FA SETUP & RECOVERY CODES */}
-      <AnimatePresence>
-        {show2FAModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShow2FAModal(false)}
-            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              onClick={(e) => e.stopPropagation()}
-              className="border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center"
-              style={{ background: "var(--card)", borderColor: "var(--border)" }}
-            >
-              <button
-                onClick={() => setShow2FAModal(false)}
-                className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition cursor-pointer"
-                style={{ color: "var(--muted)" }}
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              {twoFactorStep === "scan" && (
-                <div className="space-y-4">
-                  <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
-                    style={{
-                      background: "color-mix(in oklab, var(--accent) 15%, transparent)",
-                      color: "var(--accent)",
-                    }}
+      {/* PORTALED MODALS ABOVE SIDEBAR & HEADER */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <AnimatePresence>
+              {show2FAModal && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShow2FAModal(false)}
+                  className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+                >
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center"
+                    style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--text)" }}
                   >
-                    <QrCode className="w-6 h-6" />
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-bold" style={{ color: "var(--text)" }}>
-                      Setup Authenticator App
-                    </h3>
-                    <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
-                      Scan with Google Authenticator or Authy to protect your account.
-                    </p>
-                  </div>
-
-                  <div
-                    style={{
-                      backgroundColor: "#FFFFFF",
-                      padding: "14px",
-                      borderRadius: "16px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      margin: "12px auto",
-                      width: "fit-content",
-                    }}
-                  >
-                    <QRCodeSVG
-                      value={`otpauth://totp/Eventrix:${encodeURIComponent(profile?.email || "user@eventrix.dev")}?secret=${user2FASecret}&issuer=Eventrix`}
-                      size={150}
-                      level="M"
-                      bgColor="#FFFFFF"
-                      fgColor="#000000"
-                    />
-                  </div>
-
-                  <div
-                    className="rounded-2xl p-3 flex items-center justify-between border"
-                    style={{ background: "var(--card2)", borderColor: "var(--border)" }}
-                  >
-                    <div className="text-left">
-                      <div className="text-[10px] uppercase font-mono font-bold" style={{ color: "var(--muted)" }}>
-                        Secret Key
-                      </div>
-                      <div className="font-mono text-xs font-bold" style={{ color: "var(--text)" }}>
-                        {user2FASecret.replace(/(.{4})/g, "$1 ").trim()}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(user2FASecret);
-                        setCopiedSecret(true);
-                        showSuccess("Secret key copied!");
-                        setTimeout(() => setCopiedSecret(false), 2000);
-                      }}
-                      className="p-1.5 rounded-lg border hover:opacity-80 cursor-pointer"
-                      style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--text)" }}
-                    >
-                      {copiedSecret ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  <div className="space-y-1 text-left">
-                    <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                      Enter 6-Digit Code
-                    </label>
-                    <input
-                      maxLength={6}
-                      value={twoFactorCode}
-                      onChange={(e) => {
-                        setTwoFactorCode(e.target.value.replace(/[^0-9]/g, ""));
-                        setTwoFactorError("");
-                      }}
-                      placeholder="123456"
-                      className="w-full h-11 px-3 rounded-xl border text-center font-mono text-xl tracking-[0.25em] font-bold outline-none"
-                      style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                    />
-                    {twoFactorError && <p className="text-xs text-rose-500 font-bold mt-1">{twoFactorError}</p>}
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={twoFactorCode.length < 6 || isVerifying2FA}
-                    onClick={async () => {
-                      setIsVerifying2FA(true);
-                      setTwoFactorError("");
-                      try {
-                        const isValid = await verify2FACode(twoFactorCode, user2FASecret, userBackupCodes);
-                        if (!isValid) {
-                          setIsVerifying2FA(false);
-                          setTwoFactorError("Invalid verification code. Please check your authenticator.");
-                          return;
-                        }
-                        setIsVerifying2FA(false);
-                        setTwoFactorStep("backup");
-                        updateSetting("twoFactorEnabled", true);
-                        updateSetting("twoFactorSecret", user2FASecret);
-                        updateSetting("twoFactorBackupCodes", userBackupCodes);
-                        showSuccess("Two-Factor Authentication verified and enabled!");
-                      } catch {
-                        setIsVerifying2FA(false);
-                        setTwoFactorError("Failed to verify code.");
-                      }
-                    }}
-                    className="w-full h-10 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer shadow-md flex items-center justify-center gap-2"
-                    style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
-                  >
-                    {isVerifying2FA ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & Activate 2FA"}
-                  </button>
-                </div>
-              )}
-
-              {twoFactorStep === "backup" && (
-                <div className="space-y-4">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center mx-auto">
-                    <ShieldCheck className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold" style={{ color: "var(--text)" }}>
-                      2FA Activated!
-                    </h3>
-                    <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
-                      Save these emergency recovery codes in case you lose your device.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 my-4">
-                    {userBackupCodes.map((code) => (
-                      <div
-                        key={code}
-                        className="p-2.5 rounded-xl border font-mono text-xs font-bold"
-                        style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
-                      >
-                        {code}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(userBackupCodes.join("\n"));
-                        setCopiedBackup(true);
-                        showSuccess("Backup codes copied!");
-                        setTimeout(() => setCopiedBackup(false), 2000);
-                      }}
-                      className="flex-1 h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:opacity-80"
-                      style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
-                    >
-                      {copiedBackup ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                      Copy Codes
-                    </button>
                     <button
                       type="button"
                       onClick={() => setShow2FAModal(false)}
-                      className="flex-1 h-10 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-md"
-                      style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                      className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition cursor-pointer"
+                      style={{ color: "var(--muted)" }}
                     >
-                      Done
+                      <X className="w-4 h-4" />
                     </button>
-                  </div>
-                </div>
+
+                    {twoFactorStep === "scan" && (
+                      <div className="space-y-4">
+                        <div
+                          className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
+                          style={{
+                            background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                            color: "var(--accent)",
+                          }}
+                        >
+                          <QrCode className="w-6 h-6" />
+                        </div>
+
+                        <div>
+                          <h3 className="font-bricolage text-lg font-bold" style={{ color: "var(--text)" }}>
+                            Setup Authenticator App
+                          </h3>
+                          <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
+                            Scan with Google Authenticator or Authy to protect your account.
+                          </p>
+                        </div>
+
+                        <div
+                          style={{
+                            backgroundColor: "#FFFFFF",
+                            padding: "14px",
+                            borderRadius: "16px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            margin: "12px auto",
+                            width: "fit-content",
+                          }}
+                        >
+                          <QRCodeSVG
+                            value={`otpauth://totp/Eventrix:${encodeURIComponent(
+                              profile?.email || "user@eventrix.dev"
+                            )}?secret=${user2FASecret}&issuer=Eventrix`}
+                            size={150}
+                            level="M"
+                            bgColor="#FFFFFF"
+                            fgColor="#000000"
+                          />
+                        </div>
+
+                        <div
+                          className="rounded-2xl p-3 flex items-center justify-between border"
+                          style={{ background: "var(--card2)", borderColor: "var(--border)" }}
+                        >
+                          <div className="text-left">
+                            <div
+                              className="text-[10px] uppercase font-mono font-bold"
+                              style={{ color: "var(--muted)" }}
+                            >
+                              Secret Key
+                            </div>
+                            <div className="font-mono text-xs font-bold" style={{ color: "var(--text)" }}>
+                              {user2FASecret.replace(/(.{4})/g, "$1 ").trim()}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(user2FASecret);
+                              setCopiedSecret(true);
+                              showSuccess("Secret key copied!");
+                              setTimeout(() => setCopiedSecret(false), 2000);
+                            }}
+                            className="p-1.5 rounded-lg border hover:opacity-80 cursor-pointer"
+                            style={{
+                              background: "var(--card)",
+                              borderColor: "var(--border)",
+                              color: "var(--text)",
+                            }}
+                          >
+                            {copiedSecret ? (
+                              <Check className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+
+                        <div className="space-y-1 text-left">
+                          <label
+                            className="text-xs font-mono font-bold uppercase tracking-wider"
+                            style={{ color: "var(--muted)" }}
+                          >
+                            Enter 6-Digit Code
+                          </label>
+                          <input
+                            maxLength={6}
+                            value={twoFactorCode}
+                            onChange={(e) => {
+                              setTwoFactorCode(e.target.value.replace(/[^0-9]/g, ""));
+                              setTwoFactorError("");
+                            }}
+                            placeholder="123456"
+                            className="w-full h-11 px-3 rounded-xl border text-center font-mono text-xl tracking-[0.25em] font-bold outline-none"
+                            style={{
+                              background: "var(--input)",
+                              borderColor: "var(--border)",
+                              color: "var(--text)",
+                            }}
+                          />
+                          {twoFactorError && (
+                            <p className="text-xs text-rose-500 font-bold mt-1">{twoFactorError}</p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={twoFactorCode.length < 6 || isVerifying2FA}
+                          onClick={async () => {
+                            setIsVerifying2FA(true);
+                            setTwoFactorError("");
+                            try {
+                              const isValid = await verify2FACode(
+                                twoFactorCode,
+                                user2FASecret,
+                                userBackupCodes
+                              );
+                              if (!isValid) {
+                                setIsVerifying2FA(false);
+                                setTwoFactorError(
+                                  "Invalid verification code. Please check your authenticator."
+                                );
+                                return;
+                              }
+                              setIsVerifying2FA(false);
+                              setTwoFactorStep("backup");
+                              updateSetting("twoFactorEnabled", true);
+                              updateSetting("twoFactorSecret", user2FASecret);
+                              updateSetting("twoFactorBackupCodes", userBackupCodes);
+                              showSuccess("Two-Factor Authentication verified and enabled!");
+                            } catch {
+                              setIsVerifying2FA(false);
+                              setTwoFactorError("Failed to verify code.");
+                            }
+                          }}
+                          className="w-full h-10 rounded-xl text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 cursor-pointer shadow-md flex items-center justify-center gap-2"
+                          style={{
+                            background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                          }}
+                        >
+                          {isVerifying2FA ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            "Verify & Activate 2FA"
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {twoFactorStep === "backup" && (
+                      <div className="space-y-4">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center mx-auto">
+                          <ShieldCheck className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-bricolage text-lg font-bold" style={{ color: "var(--text)" }}>
+                            2FA Activated!
+                          </h3>
+                          <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
+                            Save these emergency recovery codes in case you lose your device.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 my-4">
+                          {userBackupCodes.map((code) => (
+                            <div
+                              key={code}
+                              className="p-2.5 rounded-xl border font-mono text-xs font-bold"
+                              style={{
+                                background: "var(--card2)",
+                                borderColor: "var(--border)",
+                                color: "var(--text)",
+                              }}
+                            >
+                              {code}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(userBackupCodes.join("\n"));
+                              setCopiedBackup(true);
+                              showSuccess("Backup codes copied!");
+                              setTimeout(() => setCopiedBackup(false), 2000);
+                            }}
+                            className="flex-1 h-10 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:opacity-80"
+                            style={{
+                              background: "var(--card2)",
+                              borderColor: "var(--border)",
+                              color: "var(--text)",
+                            }}
+                          >
+                            {copiedBackup ? (
+                              <Check className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                            Copy Codes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShow2FAModal(false)}
+                            className="flex-1 h-10 rounded-xl text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shadow-md"
+                            style={{
+                              background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                            }}
+                          >
+                            Done
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {twoFactorStep === "disable" && (
+                      <div className="space-y-4">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center mx-auto">
+                          <ShieldCheck className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-bricolage text-lg font-bold" style={{ color: "var(--text)" }}>
+                            2FA Protection is Active
+                          </h3>
+                          <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
+                            Your account is protected by an Authenticator app.
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setTwoFactorStep("backup")}
+                            className="h-10 rounded-xl border text-xs font-bold cursor-pointer hover:opacity-80"
+                            style={{
+                              background: "var(--card2)",
+                              borderColor: "var(--border)",
+                              color: "var(--text)",
+                            }}
+                          >
+                            View Backup Codes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateSetting("twoFactorEnabled", false);
+                              setShow2FAModal(false);
+                              showSuccess("Two-factor authentication disabled.");
+                            }}
+                            className="h-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer transition shadow-xs"
+                          >
+                            Disable 2FA Protection
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                </motion.div>
               )}
+            </AnimatePresence>
 
-              {twoFactorStep === "disable" && (
-                <div className="space-y-4">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center mx-auto">
-                    <ShieldCheck className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold" style={{ color: "var(--text)" }}>
-                      2FA Protection is Active
-                    </h3>
-                    <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
-                      Your account is protected by an Authenticator app.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setTwoFactorStep("backup")}
-                      className="h-10 rounded-xl border text-xs font-bold cursor-pointer hover:opacity-80"
-                      style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
-                    >
-                      View Backup Codes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        updateSetting("twoFactorEnabled", false);
-                        setShow2FAModal(false);
-                        showSuccess("Two-factor authentication disabled.");
-                      }}
-                      className="h-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer transition shadow-xs"
-                    >
-                      Disable 2FA Protection
-                    </button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL: DELETE ACCOUNT CONFIRMATION */}
-      <AnimatePresence>
-        {showDeleteModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowDeleteModal(false)}
-            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              onClick={(e) => e.stopPropagation()}
-              className="border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center space-y-4"
-              style={{ background: "var(--card)", borderColor: "var(--border)" }}
-            >
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-500 flex items-center justify-center mx-auto">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-bold text-rose-500">Delete Account</h3>
-                <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
-                  This will permanently delete your account, your organized events, registrations, and ticket history. This cannot be undone.
-                </p>
-              </div>
-
-              <div className="space-y-1.5 text-left">
-                <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                  Type <span className="text-rose-500">DELETE</span> to confirm
-                </label>
-                <input
-                  type="text"
-                  value={deleteConfirmationText}
-                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
-                  placeholder="DELETE"
-                  className="w-full h-10 px-3 rounded-xl border text-xs font-semibold outline-none"
-                  style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
+            <AnimatePresence>
+              {showDeleteModal && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                   onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 h-10 rounded-xl border text-xs font-bold cursor-pointer hover:opacity-80"
-                  style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
+                  className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={deleteConfirmationText !== "DELETE"}
-                  onClick={async () => {
-                    try {
-                      await profileService.deleteMyAccount();
-                      showSuccess("Account deleted. Logging out...");
-                      await performLogout();
-                    } catch (err: any) {
-                      showError(err.message || "Failed to delete account.");
-                    }
-                  }}
-                  className="flex-1 h-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer transition shadow-md"
-                >
-                  Delete Account
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="border rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center space-y-4"
+                    style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--text)" }}
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-500 flex items-center justify-center mx-auto">
+                      <AlertTriangle className="w-6 h-6" />
+                    </div>
+
+                    <div>
+                      <h3 className="font-bricolage text-lg font-bold text-rose-500">Delete Account</h3>
+                      <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
+                        This will permanently delete your account, organized events, registrations, and ticket history. This cannot be undone.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5 text-left">
+                      <label
+                        className="text-xs font-mono font-bold uppercase tracking-wider"
+                        style={{ color: "var(--muted)" }}
+                      >
+                        Type <span className="text-rose-500">DELETE</span> to confirm
+                      </label>
+                      <input
+                        type="text"
+                        value={deleteConfirmationText}
+                        onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                        placeholder="DELETE"
+                        className="w-full h-10 px-3 rounded-xl border text-xs font-semibold outline-none"
+                        style={{
+                          background: "var(--input)",
+                          borderColor: "var(--border)",
+                          color: "var(--text)",
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteModal(false)}
+                        className="flex-1 h-10 rounded-xl border text-xs font-bold cursor-pointer hover:opacity-80"
+                        style={{
+                          background: "var(--card2)",
+                          borderColor: "var(--border)",
+                          color: "var(--text)",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deleteConfirmationText !== "DELETE"}
+                        onClick={async () => {
+                          try {
+                            await profileService.deleteMyAccount();
+                            showSuccess("Account deleted. Logging out...");
+                            await performLogout();
+                          } catch (err: unknown) {
+                            const msg =
+                              err instanceof Error ? err.message : "Failed to delete account.";
+                            showError(msg);
+                          }
+                        }}
+                        className="flex-1 h-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer transition shadow-md"
+                      >
+                        Delete Account
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>,
+          document.body
         )}
-      </AnimatePresence>
     </AppLayout>
   );
 }

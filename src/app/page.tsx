@@ -13,7 +13,6 @@ import {
   FEATURES,
   MARQUEE_WORDS,
   PLATFORM_STATS,
-  PORTALS,
   QR7,
 } from "@/components/landing/landingData";
 
@@ -44,7 +43,6 @@ export default function LandingPage() {
   );
 
   // Interactive section state
-  const [activePortal, setActivePortal] = useState(0);
   const [activeFeature, setActiveFeature] = useState(0);
 
   // Deterministic initial values for SSR; ticked client-side in useEffect
@@ -228,7 +226,6 @@ export default function LandingPage() {
               style={{ color: "var(--muted)" }}
             >
               {[
-                { href: "#portals", label: "Portals" },
                 { href: "#roles", label: "Product" },
                 { href: "#features", label: "Features" },
                 { href: "#tour", label: "Tour" },
@@ -323,23 +320,8 @@ export default function LandingPage() {
           <div className="relative max-w-[1280px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
             {/* Left Copy & Countdown */}
             <div className="lg:col-span-7">
-              <div
-                className="inline-flex items-center gap-2.5 font-mono text-[11px] font-bold tracking-[0.12em] px-3.5 py-1.5 rounded-full whitespace-nowrap border"
-                style={{
-                  background: "color-mix(in oklab, var(--accent) 10%, var(--card))",
-                  borderColor: "color-mix(in oklab, var(--accent) 28%, var(--border))",
-                  color: "var(--muted)",
-                }}
-              >
-                <span
-                  className="w-[7px] h-[7px] rounded-full animate-pulse"
-                  style={{ background: "var(--accent)" }}
-                />
-                THE EVENT OPERATING SYSTEM
-              </div>
-
               <h1
-                className="font-bricolage text-[clamp(44px,6.4vw,88px)] leading-[0.98] tracking-tight font-extrabold mt-6 text-balance"
+                className="font-bricolage text-[clamp(44px,6.4vw,88px)] leading-[0.98] tracking-tight font-extrabold text-balance"
                 style={{ color: "var(--text)" }}
               >
                 Host events people{" "}
@@ -449,21 +431,21 @@ export default function LandingPage() {
                   />
 
                   <div
-                    className="p-[26px] pb-[22px] text-white"
+                    className="p-5 pb-4 sm:p-[26px] sm:pb-[22px] text-white"
                     style={{
                       background: "linear-gradient(145deg, var(--accent), var(--accent2))",
                     }}
                   >
-                    <div className="flex justify-between items-center font-mono text-[11px] font-semibold tracking-[0.12em] opacity-90">
+                    <div className="flex justify-between items-center font-mono text-[10px] sm:text-[11px] font-semibold tracking-[0.12em] opacity-90">
                       <span>EVENTRIX PASS</span>
                       <span>№ 0142</span>
                     </div>
-                    <div className="font-bricolage font-extrabold text-[38px] leading-[1.02] tracking-tight mt-6">
+                    <div className="font-bricolage font-extrabold text-[30px] sm:text-[38px] leading-[1.02] tracking-tight mt-5 sm:mt-6">
                       BuildCon
                       <br />
                       AI Hackathon
                     </div>
-                    <div className="text-[13px] mt-2.5 font-medium opacity-90">
+                    <div className="text-[12px] sm:text-[13px] mt-2 sm:mt-2.5 font-medium opacity-90">
                       KTPO Convention Centre, Bengaluru
                     </div>
                   </div>
@@ -483,41 +465,41 @@ export default function LandingPage() {
                     />
                   </div>
 
-                  <div className="p-[22px_26px_26px]">
-                    <div className="grid grid-cols-3 gap-3.5">
-                      <div>
-                        <div className="font-mono text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
+                  <div className="p-5 sm:p-[22px_26px_26px]">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3.5">
+                      <div className="min-w-0">
+                        <div className="font-mono text-[9.5px] sm:text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
                           DATE
                         </div>
-                        <div className="font-semibold text-[15px] mt-0.5">15 Nov</div>
+                        <div className="font-semibold text-[13.5px] sm:text-[15px] mt-0.5 truncate">15 Nov</div>
                       </div>
-                      <div>
-                        <div className="font-mono text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
+                      <div className="min-w-0">
+                        <div className="font-mono text-[9.5px] sm:text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
                           GATE
                         </div>
-                        <div className="font-semibold text-[15px] mt-0.5">B · 09:00</div>
+                        <div className="font-semibold text-[13.5px] sm:text-[15px] mt-0.5 truncate">B · 09:00</div>
                       </div>
-                      <div>
-                        <div className="font-mono text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
+                      <div className="min-w-0">
+                        <div className="font-mono text-[9.5px] sm:text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
                           TEAM
                         </div>
-                        <div className="font-semibold text-[15px] mt-0.5">#42</div>
+                        <div className="font-semibold text-[13.5px] sm:text-[15px] mt-0.5 truncate">#42</div>
                       </div>
                     </div>
 
-                    <div className="flex justify-between items-end mt-[22px] gap-4">
-                      <div>
-                        <div className="font-mono text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
+                    <div className="flex justify-between items-end mt-5 sm:mt-[22px] gap-3 sm:gap-4">
+                      <div className="min-w-0">
+                        <div className="font-mono text-[9.5px] sm:text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
                           ATTENDEE
                         </div>
-                        <div className="font-bricolage font-bold text-[20px] tracking-tight mt-0.5">
-                          Aarav Shah
+                        <div className="font-bricolage font-bold text-[17px] sm:text-[20px] tracking-tight mt-0.5 truncate">
+                          Uddeshya Patidar
                         </div>
-                        <div className="text-[12px] mt-0.5" style={{ color: "var(--muted)" }}>
+                        <div className="text-[11px] sm:text-[12px] mt-0.5 truncate" style={{ color: "var(--muted)" }}>
                           Participant · Full-stack
                         </div>
                         <div
-                          className="inline-flex items-center gap-1.5 mt-3 font-mono text-[10px] font-bold tracking-[0.08em] px-2.5 py-1 rounded-full border"
+                          className="inline-flex items-center gap-1.5 mt-3 font-mono text-[9.5px] sm:text-[10px] font-bold tracking-[0.08em] px-2.5 py-1 rounded-full border"
                           style={{
                             background: "color-mix(in oklab, var(--accent) 12%, transparent)",
                             borderColor: "color-mix(in oklab, var(--accent) 28%, transparent)",
@@ -532,7 +514,7 @@ export default function LandingPage() {
                         </div>
                       </div>
 
-                      <div className="w-24 h-24 grid grid-cols-7 gap-0.5 shrink-0">
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 grid grid-cols-7 gap-0.5 shrink-0">
                         {QR7.map((q, i) => (
                           <div
                             key={i}
@@ -611,166 +593,6 @@ export default function LandingPage() {
         </section>
 
         {/* =========================================================
-            INTERACTIVE PORTAL ENGINE SHOWCASE (6 PORTALS)
-            ========================================================= */}
-        <section id="portals" className="max-w-[1280px] mx-auto px-6 py-20">
-          <div className="flex justify-between items-end gap-8 flex-wrap">
-            <div>
-              <div
-                className="inline-flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.16em] px-3 py-1 rounded-full border mb-3"
-                style={{
-                  background: "color-mix(in oklab, var(--accent) 10%, transparent)",
-                  borderColor: "color-mix(in oklab, var(--accent) 28%, transparent)",
-                  color: "var(--accent)",
-                }}
-              >
-                DYNAMIC PORTALS
-              </div>
-              <h2 className="font-bricolage text-[clamp(36px,5vw,68px)] leading-[1.02] tracking-tight font-extrabold max-w-[740px] text-balance">
-                Every event gets its{" "}
-                <span
-                  className="bg-clip-text text-transparent"
-                  style={{
-                    backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                  }}
-                >
-                  own
-                </span>{" "}
-                universe.
-              </h2>
-            </div>
-            <p
-              className="max-w-[360px] text-[15px] sm:text-[16px] leading-[1.55]"
-              style={{ color: "var(--muted)" }}
-            >
-              Six visual engines — bloom, watermark, type and tags all adapt. Hover or tap a portal
-              to open it.
-            </p>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-2.5 mt-12 md:h-[540px]">
-            {PORTALS.map((p, idx) => {
-              const isOpen = idx === activePortal;
-              const bg = `oklch(0.22 0.05 ${p.hue})`;
-              const fg = `oklch(${p.lightness} 0.16 ${p.hue})`;
-              const glow = `oklch(${p.lightness} 0.16 ${p.hue} / 0.35)`;
-              const pct = `${Math.round((p.reg / p.cap) * 100)}%`;
-
-              return (
-                <div
-                  key={p.name}
-                  onMouseEnter={() => setActivePortal(idx)}
-                  onClick={() => setActivePortal(idx)}
-                  className="relative rounded-3xl overflow-hidden cursor-pointer transition-all duration-700 ease-out"
-                  style={{
-                    flex: isOpen ? "6 1 0%" : "1 1 0%",
-                    minWidth: "72px",
-                    minHeight: isOpen ? "380px" : "68px",
-                    background: bg,
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <div
-                    className="absolute -top-[30%] -right-[30%] w-[120%] aspect-square rounded-full pointer-events-none"
-                    style={{ background: `radial-gradient(closest-side, ${glow}, transparent)` }}
-                  />
-
-                  {/* Collapsed vertical label (desktop) & horizontal label (mobile) */}
-                  <div
-                    className="hidden md:flex absolute left-0 right-0 bottom-5 justify-center transition-opacity duration-300"
-                    style={{ opacity: isOpen ? 0 : 1 }}
-                  >
-                    <div
-                      className="font-bricolage text-[18px] font-bold tracking-[-0.01em] whitespace-nowrap"
-                      style={{
-                        writingMode: "vertical-rl",
-                        transform: "rotate(180deg)",
-                        color: fg,
-                      }}
-                    >
-                      {p.name}
-                    </div>
-                  </div>
-                  <div
-                    className="md:hidden px-6 py-4 flex items-center justify-between transition-opacity duration-300"
-                    style={{ display: isOpen ? "none" : "flex", color: fg }}
-                  >
-                    <span className="font-bricolage font-bold text-base">{p.name}</span>
-                    <span className="font-mono text-xs opacity-75">{p.kind}</span>
-                  </div>
-
-                  {/* Expanded Portal Content */}
-                  <div
-                    className="md:absolute md:inset-0 p-6 sm:p-[30px] flex flex-col justify-between md:min-w-[420px] h-full transition-opacity duration-400"
-                    style={{
-                      opacity: isOpen ? 1 : 0,
-                      transitionDelay: isOpen ? "0.2s" : "0s",
-                      pointerEvents: isOpen ? "auto" : "none",
-                      display: isOpen ? "flex" : undefined,
-                    }}
-                  >
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="flex gap-1.5 flex-wrap">
-                        <span
-                          className="font-mono text-[11px] font-semibold tracking-[0.1em] px-[11px] py-1.5 rounded-full"
-                          style={{ background: fg, color: bg }}
-                        >
-                          {p.kind}
-                        </span>
-                        <span
-                          className="font-mono text-[11px] tracking-[0.1em] px-[11px] py-1.5 rounded-full"
-                          style={{
-                            border: "1px solid rgba(255,255,255,0.22)",
-                            color: "#f8fafc",
-                          }}
-                        >
-                          {p.format}
-                        </span>
-                      </div>
-                      <div className="text-right shrink-0" style={{ color: "#f8fafc" }}>
-                        <div className="font-mono text-[11px] tracking-[0.1em] opacity-70">
-                          {p.month}
-                        </div>
-                        <div className="font-bricolage text-[40px] sm:text-[44px] font-extrabold tracking-[-0.04em] leading-none">
-                          {p.day}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      className="font-bricolage text-[88px] sm:text-[136px] font-extrabold tracking-[-0.06em] leading-[0.85] opacity-90 my-4"
-                      style={{ color: fg }}
-                    >
-                      {p.mark}
-                    </div>
-
-                    <div style={{ color: "#f8fafc" }}>
-                      <div className="font-bricolage font-extrabold text-[34px] sm:text-[42px] leading-none tracking-[-0.03em]">
-                        {p.title}
-                      </div>
-                      <div className="text-[14px] opacity-80 mt-2">
-                        {p.location} · {p.fee}
-                      </div>
-                      <div className="flex items-center gap-3.5 mt-5">
-                        <div
-                          className="flex-1 h-1.5 rounded-full overflow-hidden"
-                          style={{ background: "rgba(255,255,255,0.16)" }}
-                        >
-                          <div className="h-full rounded-full" style={{ width: pct, background: fg }} />
-                        </div>
-                        <div className="font-mono text-[12px] whitespace-nowrap">
-                          {p.reg}/{p.cap}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* =========================================================
             ONE OS · THREE ROLES INTERACTIVE SHOWCASE
             ========================================================= */}
         <RoleShowcase />
@@ -820,11 +642,10 @@ export default function LandingPage() {
                     className="rounded-2xl px-5 py-5 cursor-pointer transition-all duration-300"
                     style={{
                       background: isOpen ? "var(--card)" : "transparent",
-                      border: `1px solid ${
-                        isOpen
-                          ? "color-mix(in oklab, var(--accent) 32%, var(--border))"
-                          : "var(--border)"
-                      }`,
+                      border: `1px solid ${isOpen
+                        ? "color-mix(in oklab, var(--accent) 32%, var(--border))"
+                        : "var(--border)"
+                        }`,
                     }}
                   >
                     <div className="flex items-baseline gap-4">

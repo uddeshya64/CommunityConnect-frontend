@@ -74,16 +74,16 @@ export default function RoleShowcase() {
     scanState === "ok"
       ? "#10b981"
       : scanState === "scanning"
-      ? "var(--accent)"
-      : "var(--muted)";
+        ? "var(--accent)"
+        : "var(--muted)";
   const scanShadow =
     scanState === "ok" ? "0 0 50px rgba(16, 185, 129, 0.3)" : "none";
   const scanLabel =
     scanState === "idle"
       ? "Ready to scan"
       : scanState === "scanning"
-      ? "Verifying on-device…"
-      : "✓ Verified in 0.31s";
+        ? "Verifying on-device…"
+        : "✓ Verified in 0.31s";
 
   return (
     <section id="roles" className="max-w-[1280px] mx-auto px-6 py-[96px]">
@@ -197,10 +197,10 @@ export default function RoleShowcase() {
                 <div className="text-[10.5px] font-bold tracking-[0.12em]" style={{ color: "var(--subtle)" }}>
                   PROMPT
                 </div>
-                <div className="mt-2 flex gap-2 items-center" style={{ color: "var(--text)" }}>
+                <div className="mt-2 flex gap-2 items-start sm:items-center" style={{ color: "var(--text)" }}>
                   <span style={{ color: "var(--accent)" }}>›</span>
                   <span
-                    className="inline-block overflow-hidden whitespace-nowrap max-w-full"
+                    className="inline-block overflow-hidden whitespace-normal sm:whitespace-nowrap max-w-full"
                     style={{
                       borderRight: "2px solid var(--accent)",
                       animation: "etx-type 2.2s steps(44) forwards, etx-caret 0.8s step-end infinite",
@@ -278,7 +278,7 @@ export default function RoleShowcase() {
                 ))}
               </div>
 
-              <div className="grid grid-cols-3 gap-2.5 mt-5">
+              <div className="grid grid-cols-3 gap-2 sm:gap-2.5 mt-4 sm:mt-5">
                 {[
                   { label: "CONVERSION", val: "31.4%" },
                   { label: "REVENUE", val: "₹71k" },
@@ -286,16 +286,16 @@ export default function RoleShowcase() {
                 ].map((stat) => (
                   <div
                     key={stat.label}
-                    className="p-3.5 rounded-xl border"
+                    className="p-2.5 sm:p-3.5 rounded-xl border min-w-0"
                     style={{
                       background: "var(--card)",
                       borderColor: "var(--border)",
                     }}
                   >
-                    <div className="font-mono text-[10px] font-bold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
+                    <div className="font-mono text-[9px] sm:text-[10px] font-bold tracking-[0.08em] sm:tracking-[0.1em] truncate" style={{ color: "var(--subtle)" }}>
                       {stat.label}
                     </div>
-                    <div className="font-bricolage text-[22px] font-extrabold mt-1">{stat.val}</div>
+                    <div className="font-bricolage text-[17px] sm:text-[22px] font-extrabold mt-1 truncate">{stat.val}</div>
                   </div>
                 ))}
               </div>
@@ -351,21 +351,21 @@ export default function RoleShowcase() {
             </div>
 
             <div
-              className="flex flex-col items-center gap-5 p-7 rounded-[22px] border"
+              className="flex flex-col items-center gap-4 sm:gap-5 p-5 sm:p-7 rounded-[22px] border"
               style={{
                 background: "var(--card2)",
                 borderColor: "var(--border)",
               }}
             >
               <div
-                className="flex justify-between w-full font-mono text-[11px] font-bold tracking-[0.1em]"
+                className="flex justify-between w-full font-mono text-[10px] sm:text-[11px] font-bold tracking-[0.1em]"
                 style={{ color: "var(--subtle)" }}
               >
                 <span>GATE B · DESK 2</span>
                 <span style={{ color: "var(--accent)" }}>● OFFLINE MODE</span>
               </div>
               <div
-                className="relative w-[196px] h-[196px] rounded-[24px] p-[22px] grid grid-cols-7 gap-1 transition-all duration-300"
+                className="relative w-[172px] h-[172px] sm:w-[196px] sm:h-[196px] rounded-[24px] p-4 sm:p-[22px] grid grid-cols-7 gap-1 transition-all duration-300"
                 style={{
                   background: "var(--card)",
                   border: `2px solid ${scanColor}`,
@@ -455,8 +455,8 @@ export default function RoleShowcase() {
                         {matchState === "done"
                           ? `${m.v}%`
                           : matchState === "scanning"
-                          ? "…"
-                          : "—"}
+                            ? "…"
+                            : "—"}
                       </span>
                     </div>
                     <div className="text-[12px] mt-0.5" style={{ color: "var(--subtle)" }}>
@@ -490,8 +490,8 @@ export default function RoleShowcase() {
                 {matchState === "idle"
                   ? "Find my teammates"
                   : matchState === "scanning"
-                  ? "Reading GitHub stacks…"
-                  : "Re-run match"}
+                    ? "Reading GitHub stacks…"
+                    : "Re-run match"}
               </button>
             </div>
 
@@ -526,8 +526,8 @@ export default function RoleShowcase() {
                 const border = isCorrect
                   ? "rgba(16, 185, 129, 0.65)"
                   : votedIdx === i
-                  ? "var(--accent)"
-                  : "var(--border)";
+                    ? "var(--accent)"
+                    : "var(--border)";
                 return (
                   <button
                     key={label}
@@ -562,8 +562,8 @@ export default function RoleShowcase() {
                 {votedIdx === null
                   ? "Tap an answer — results stream in live."
                   : votedIdx === 0
-                  ? "Correct · +50 points · Rank #12"
-                  : "Not quite — it's useEffect"}
+                    ? "Correct · +50 points · Rank #12"
+                    : "Not quite — it's useEffect"}
               </div>
             </div>
           </div>

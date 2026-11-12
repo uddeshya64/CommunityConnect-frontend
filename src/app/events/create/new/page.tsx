@@ -2033,7 +2033,7 @@ function CreateEventPageInner() {
                           Blueprint Specifications Summary
                         </h4>
 
-                        <div className="grid grid-cols-2 gap-4 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
                           <div>
                             <p className="font-mono uppercase text-[10px]" style={{ color: "var(--muted)" }}>Hosting Mode</p>
                             <p className="font-bold text-sm capitalize mt-0.5" style={{ color: "var(--text)" }}>{formData.mode}</p>
@@ -2129,14 +2129,14 @@ function CreateEventPageInner() {
 
             {/* ACTION BUTTONS FOOTER */}
             <div
-              className="px-6 sm:px-8 py-4 border-t flex items-center justify-between rounded-b-3xl relative z-10"
+              className="px-4 sm:px-8 py-4 border-t flex items-center justify-between gap-3 rounded-b-3xl relative z-10"
               style={{ background: "var(--card2)", borderColor: "var(--border)" }}
             >
               <button
                 type="button"
                 onClick={prevStep}
                 disabled={step === 1 || isLoading}
-                className={`px-5 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer ${step === 1 ? "invisible" : "visible"
+                className={`px-4 sm:px-5 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer shrink-0 ${step === 1 ? "invisible" : "visible"
                   }`}
                 style={{
                   background: "var(--card)",
@@ -2151,7 +2151,7 @@ function CreateEventPageInner() {
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="px-6 py-2.5 rounded-xl font-bold text-xs text-white shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2"
+                  className="px-5 sm:px-6 py-2.5 rounded-xl font-bold text-xs text-white shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2 shrink-0"
                   style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                 >
                   Continue &rarr;
@@ -2161,11 +2161,12 @@ function CreateEventPageInner() {
                   type="button"
                   onClick={onSubmit}
                   disabled={isLoading}
-                  className="px-8 py-2.5 rounded-xl font-bold text-xs text-white shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                  className="px-5 sm:px-8 py-2.5 rounded-xl font-bold text-xs text-white shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2 shrink-0"
                   style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  Publish Event &bull; Launch
+                  <span className="hidden sm:inline">Publish Event &bull; Launch</span>
+                  <span className="sm:hidden">Publish</span>
                 </button>
               )}
             </div>
