@@ -10,10 +10,11 @@ import {
   ArrowLeft, ArrowRight, Sparkles, MapPin, Calendar, AlignLeft,
   CheckCircle2, Loader2, Ticket, Plus, X, ListPlus, FileText,
   Lock, Trash2, Clock, Users, Globe, Crosshair, Tag, Layers,
-  HelpCircle, Check
+  HelpCircle, Check, ImageIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
+import EventBannerPicker from "@/components/events/EventBannerPicker";
 import { eventService } from "@/services/event.service";
 import { locationService } from "@/services/location.service";
 import {
@@ -35,6 +36,8 @@ import {
   getTemplateById,
   getDefaultQuestionsForTemplate,
   getRecommendedQuestionsForTemplate,
+  getTemplateFormMeta,
+  getEventBannerInfo,
   type FieldType,
   type RegistrationFormField,
   type RecommendedQuestion,
@@ -58,6 +61,7 @@ interface EventFormData {
   min_team_size: string;
   max_team_size: string;
   keywords?: string;
+  banner_url?: string;
 }
 
 interface FormErrors {
@@ -71,6 +75,7 @@ interface FormErrors {
   capacity?: string;
   min_team_size?: string;
   max_team_size?: string;
+  banner_url?: string;
   custom_fields?: string;
   reg_form_fields?: string;
 }
@@ -143,9 +148,12 @@ function CreateEventPageInner() {
 
   const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
   const [customFields, setCustomFields] = useState<CustomFieldEntry[]>([]);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerFilePreview, setBannerFilePreview] = useState<string>("");
 
   const templateFromUrl = searchParams.get("template");
   const initialCategory = isValidTemplateId(templateFromUrl) ? (templateFromUrl as string) : EVENT_TEMPLATES[0].id;
+  const initialFormMeta = getTemplateFormMeta(initialCategory);
 
   const [regFormFields, setRegFormFields] = useState<RegistrationFormField[]>(() =>
     getDefaultQuestionsForTemplate(initialCategory)
@@ -154,22 +162,24 @@ function CreateEventPageInner() {
   const [formData, setFormData] = useState<EventFormData>({
     title: "",
     category: initialCategory,
-    mode: "offline",
+    mode: initialFormMeta.defaultMode,
     start_date: "",
     end_date: "",
     location: "",
     description: "",
     capacity: "0",
-    registration_type: "solo",
+    registration_type: initialFormMeta.defaultRegistrationType,
     registration_fee: "0",
     min_team_size: "1",
     max_team_size: "4",
+    banner_url: "",
   });
 
   const draftFromUrl = searchParams.get("draft");
   const draftIdRef = useRef<string>(draftFromUrl || createDraftId("manual"));
   const hydratedDraftIdRef = useRef<string | null>(null);
   const isPublishedRef = useRef(false);
+  const hasCustomizedRegFieldsRef = useRef(false);
   const initialCategoryRef = useRef(initialCategory);
   const initialRegKeysRef = useRef<string[]>(
     getDefaultQuestionsForTemplate(initialCategory).map((r) => `${r.key}:${r.label}:${r.required}`)
@@ -205,11 +215,16 @@ function CreateEventPageInner() {
         draftIdRef.current = draftFromUrl;
         const ms = existing.manualState;
         initialCategoryRef.current = ms.formData.category || initialCategory;
-        setFormData(ms.formData);
+        setFormData({ ...ms.formData, banner_url: ms.formData.banner_url ?? "" });
         setTemplateValues(ms.templateValues || {});
         setCustomFields((ms.customFields || []) as CustomFieldEntry[]);
         if (Array.isArray(ms.regFormFields)) {
           setRegFormFields(ms.regFormFields);
+          const restoredSig = ms.regFormFields.map((r) => `${r.key}:${r.label}:${r.required}`).join("|");
+          const defaultSig = getDefaultQuestionsForTemplate(ms.formData.category || initialCategory)
+            .map((r) => `${r.key}:${r.label}:${r.required}`)
+            .join("|");
+          hasCustomizedRegFieldsRef.current = restoredSig !== defaultSig;
         }
         setStep(ms.step || 1);
         setIsLocationSelected(Boolean(ms.isLocationSelected || ms.formData.location));
@@ -284,6 +299,30 @@ function CreateEventPageInner() {
 
   const activeTemplate = getTemplateById(formData.category);
   const isCustom = formData.category === CUSTOM_TEMPLATE_ID;
+  const formMeta = getTemplateFormMeta(formData.category);
+
+  const handleSwitchTemplate = (nextTemplateId: string) => {
+    if (!isValidTemplateId(nextTemplateId) || nextTemplateId === formData.category) return;
+    const prevMeta = getTemplateFormMeta(formData.category);
+    const nextMeta = getTemplateFormMeta(nextTemplateId);
+    const nextDefaults = getDefaultQuestionsForTemplate(nextTemplateId);
+
+    setFormData((prev) => ({
+      ...prev,
+      category: nextTemplateId,
+      mode: prev.mode === prevMeta.defaultMode ? nextMeta.defaultMode : prev.mode,
+      registration_type:
+        prev.registration_type === prevMeta.defaultRegistrationType
+          ? nextMeta.defaultRegistrationType
+          : prev.registration_type,
+    }));
+    setTemplateValues({});
+    if (!hasCustomizedRegFieldsRef.current) {
+      setRegFormFields(nextDefaults);
+    }
+    initialRegKeysRef.current = nextDefaults.map((r) => `${r.key}:${r.label}:${r.required}`);
+    clearFieldError("custom_fields");
+  };
 
   const updateForm = (field: keyof EventFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -409,6 +448,7 @@ function CreateEventPageInner() {
     type: "text" | "textarea" | "number" | "select" | "checkbox",
     options?: string[]
   ) => {
+    hasCustomizedRegFieldsRef.current = true;
     const id = `reg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const cleanKey = (key || label).toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 30) || id;
     setRegFormFields((prev) => [
@@ -426,11 +466,13 @@ function CreateEventPageInner() {
   };
 
   const updateRegFormField = (id: string, patch: Partial<RegistrationFormField>) => {
+    hasCustomizedRegFieldsRef.current = true;
     setRegFormFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
     clearFieldError("reg_form_fields");
   };
 
   const removeRegFormField = (id: string) => {
+    hasCustomizedRegFieldsRef.current = true;
     setRegFormFields((prev) => prev.filter((f) => f.id !== id));
     clearFieldError("reg_form_fields");
   };
@@ -450,6 +492,18 @@ function CreateEventPageInner() {
         nextErrors.title = "Title must be at least 5 characters.";
       } else if (trimmedTitle.length > 150) {
         nextErrors.title = "Title cannot exceed 150 characters.";
+      }
+
+      const trimmedBannerUrl = (formData.banner_url || "").trim();
+      if (!bannerFile && trimmedBannerUrl) {
+        try {
+          const parsedBannerUrl = new URL(trimmedBannerUrl);
+          if (parsedBannerUrl.protocol !== "http:" && parsedBannerUrl.protocol !== "https:") {
+            nextErrors.banner_url = "Banner URL must start with http:// or https://.";
+          }
+        } catch {
+          nextErrors.banner_url = "Please enter a valid image URL.";
+        }
       }
     }
 
@@ -641,16 +695,27 @@ function CreateEventPageInner() {
           keywords: formData.keywords || "",
         },
         registration_form_schema,
+        ...(!bannerFile && (formData.banner_url || "").trim()
+          ? { banner_url: (formData.banner_url || "").trim() }
+          : {}),
         ...(custom_form_schema ? { custom_form_schema } : {}),
       };
 
       const res = await eventService.createEvent(payload);
+      const createdEventId = res?.data?.id || res?.id;
+      if (createdEventId && bannerFile) {
+        try {
+          await eventService.uploadEventBanner(createdEventId, bannerFile);
+        } catch {
+          showInfo("Event created, but banner image upload failed. You can upload it from Event Details.");
+        }
+      }
       isPublishedRef.current = true;
       deleteEventDraft(draftIdRef.current);
       removeNotificationsForDraft(draftIdRef.current);
       showSuccess("Event published successfully!");
-      if (res?.data?.id || res?.id) {
-        router.push(`/events/${res?.data?.id || res?.id}`);
+      if (createdEventId) {
+        router.push(`/events/${createdEventId}`);
       } else {
         router.push("/home");
       }
@@ -679,6 +744,7 @@ function CreateEventPageInner() {
           "capacity",
           "min_team_size",
           "max_team_size",
+          "banner_url",
           "custom_fields",
           "reg_form_fields",
         ]);
@@ -1068,7 +1134,7 @@ function CreateEventPageInner() {
                           </label>
                           <input
                             type="text"
-                            placeholder="e.g. NextGen AI Hackathon 2026"
+                            placeholder={formMeta.titlePlaceholder}
                             value={formData.title}
                             onChange={(e) => updateForm("title", e.target.value)}
                             className="w-full h-12 px-4 rounded-xl border text-base sm:text-lg font-bold outline-none transition-all placeholder:font-normal"
@@ -1082,30 +1148,42 @@ function CreateEventPageInner() {
                         </div>
                       </FormRow>
 
-                      {/* Selected Template Badge */}
+                      {/* Selected Template Badge / Theme Switcher */}
                       <FormRow icon={<ListPlus className="w-4 h-4" />}>
                         <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                              Active Blueprint
+                              Active Blueprint Theme
                             </label>
                             <Link
                               href="/events/create"
                               className="text-xs font-bold transition hover:underline"
                               style={{ color: "var(--accent)" }}
                             >
-                              Switch blueprint &rarr;
+                              Browse blueprints &rarr;
                             </Link>
                           </div>
-                          <div
-                            className="px-4 py-3 rounded-xl border font-bold text-sm flex items-center justify-between"
-                            style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
-                          >
-                            <div className="flex items-center gap-2.5">
-                              {isCustom ? <ListPlus className="w-4 h-4" style={{ color: "var(--accent)" }} /> : <Sparkles className="w-4 h-4" style={{ color: "var(--accent)" }} />}
-                              <span>{isCustom ? "Custom (User-Defined Schema)" : activeTemplate?.label || "Event"}</span>
-                            </div>
-                            <span className="text-xs font-mono font-bold opacity-60">Ready</span>
+                          <div className="relative flex items-center">
+                            <span className="pointer-events-none absolute left-3.5 flex items-center">
+                              {isCustom ? (
+                                <ListPlus className="w-4 h-4" style={{ color: "var(--accent)" }} />
+                              ) : (
+                                <Sparkles className="w-4 h-4" style={{ color: "var(--accent)" }} />
+                              )}
+                            </span>
+                            <select
+                              value={formData.category}
+                              onChange={(e) => handleSwitchTemplate(e.target.value)}
+                              className="w-full h-11 pl-10 pr-4 rounded-xl border font-bold text-sm outline-none cursor-pointer transition"
+                              style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
+                            >
+                              {EVENT_TEMPLATES.map((tpl) => (
+                                <option key={tpl.id} value={tpl.id}>
+                                  {tpl.label}
+                                </option>
+                              ))}
+                              <option value={CUSTOM_TEMPLATE_ID}>Custom (User-Defined Schema)</option>
+                            </select>
                           </div>
                         </div>
                       </FormRow>
@@ -1168,6 +1246,38 @@ function CreateEventPageInner() {
                             })}
                           </div>
                         </div>
+                      </FormRow>
+
+                      {/* Event Cover Banner (Upload or URL) */}
+                      <FormRow icon={<ImageIcon className="w-4 h-4" />}>
+                        <EventBannerPicker
+                          bannerUrl={formData.banner_url}
+                          bannerUrl={formData.banner_url || ""}
+                          bannerFile={bannerFile}
+                          filePreviewUrl={bannerFilePreview}
+                          templateId={formData.category}
+                          onFileSelect={(file) => {
+                            if (bannerFilePreview) URL.revokeObjectURL(bannerFilePreview);
+                            setBannerFile(file);
+                            setBannerFilePreview(URL.createObjectURL(file));
+                            setFieldErrors((prev) => ({ ...prev, banner_url: undefined }));
+                          }}
+                          onUrlChange={(url) => {
+                            if (bannerFilePreview) URL.revokeObjectURL(bannerFilePreview);
+                            setBannerFile(null);
+                            setBannerFilePreview("");
+                            setFormData((prev) => ({ ...prev, banner_url: url }));
+                            setFieldErrors((prev) => ({ ...prev, banner_url: undefined }));
+                          }}
+                          onClear={() => {
+                            if (bannerFilePreview) URL.revokeObjectURL(bannerFilePreview);
+                            setBannerFile(null);
+                            setBannerFilePreview("");
+                            setFormData((prev) => ({ ...prev, banner_url: "" }));
+                            setFieldErrors((prev) => ({ ...prev, banner_url: undefined }));
+                          }}
+                          error={fieldErrors.banner_url}
+                        />
                       </FormRow>
                     </div>
                   </motion.div>
@@ -1272,7 +1382,7 @@ function CreateEventPageInner() {
                           <div ref={locationWrapperRef} className="relative w-full z-30">
                             <input
                               type="text"
-                              placeholder={formData.mode === "online" ? "e.g. Zoom, Google Meet or YouTube Livestream URL" : "e.g. KTPO Trade Centre, Whitefield, Bengaluru"}
+                              placeholder={formData.mode === "online" ? formMeta.onlinePlaceholder : formMeta.venuePlaceholder}
                               value={formData.location}
                               onFocus={() => {
                                 if (locationSuggestions.length > 0 && !isLocationSelected) {
@@ -1391,7 +1501,7 @@ function CreateEventPageInner() {
                           </div>
                           <textarea
                             rows={3}
-                            placeholder="Provide descriptive details, guidelines, rules, speakers, or schedule overview..."
+                            placeholder={formMeta.descriptionPlaceholder}
                             value={formData.description}
                             onChange={(e) => updateForm("description", e.target.value)}
                             className="w-full p-3.5 rounded-xl border text-xs sm:text-sm font-medium outline-none resize-none"
@@ -1564,7 +1674,7 @@ function CreateEventPageInner() {
                           Attendee Checkout Questionnaire
                         </h1>
                         <p className="text-xs sm:text-sm font-medium mt-0.5" style={{ color: "var(--muted)" }}>
-                          Design custom fields and questions participants answer when registering.
+                          {formMeta.questionnaireSubtitle}
                         </p>
                       </div>
                     </div>
@@ -1676,19 +1786,37 @@ function CreateEventPageInner() {
 
                           {/* Questions List */}
                           <div className="space-y-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
                               <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
                                 Attendee Questions ({regFormFields.length})
                               </label>
-                              {regFormFields.length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => setRegFormFields([])}
-                                  className="text-[11px] font-mono font-bold text-red-500 hover:underline cursor-pointer"
-                                >
-                                  Clear All
-                                </button>
-                              )}
+                              <div className="flex items-center gap-3">
+                                {!isCustom && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      hasCustomizedRegFieldsRef.current = false;
+                                      setRegFormFields(getDefaultQuestionsForTemplate(formData.category));
+                                    }}
+                                    className="text-[11px] font-mono font-bold hover:underline cursor-pointer"
+                                    style={{ color: "var(--accent)" }}
+                                  >
+                                    Load Theme Defaults
+                                  </button>
+                                )}
+                                {regFormFields.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      hasCustomizedRegFieldsRef.current = true;
+                                      setRegFormFields([]);
+                                    }}
+                                    className="text-[11px] font-mono font-bold text-red-500 hover:underline cursor-pointer"
+                                  >
+                                    Clear All
+                                  </button>
+                                )}
+                              </div>
                             </div>
 
                             {regFormFields.length === 0 ? (
@@ -1749,7 +1877,7 @@ function CreateEventPageInner() {
                                         type="text"
                                         value={field.label}
                                         onChange={(e) => updateRegFormField(field.id, { label: e.target.value })}
-                                        placeholder="Question Title (e.g. GitHub URL)"
+                                        placeholder={formMeta.questionLabelPlaceholder}
                                         className="w-full h-9 px-3 rounded-xl border text-xs font-semibold outline-none"
                                         style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                                       />
@@ -1945,7 +2073,7 @@ function CreateEventPageInner() {
                                       type="text"
                                       value={field.label}
                                       onChange={(e) => updateCustomField(field.id, { label: e.target.value })}
-                                      placeholder="Param label (e.g. Prize Pool)"
+                                      placeholder={formMeta.customParamPlaceholder}
                                       className="w-full h-9 px-3 rounded-xl border text-xs font-semibold outline-none"
                                       style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
                                     />
@@ -2037,6 +2165,43 @@ function CreateEventPageInner() {
                             {formData.title || "Untitled Event"}
                           </p>
                         </div>
+                        {(() => {
+                          const previewBanner = bannerFilePreview
+                            ? { url: bannerFilePreview, isTemplateFallback: false }
+                            : getEventBannerInfo(formData.banner_url, formData.category);
+                          return (
+                            <div
+                              className="w-full h-32 rounded-2xl flex flex-col justify-between p-3 relative overflow-hidden shadow-inner"
+                              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))", color: "#fff" }}
+                            >
+                              {previewBanner.url && (
+                                <img
+                                  src={previewBanner.url}
+                                  alt={formData.title || "Event cover preview"}
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                />
+                              )}
+                              <div
+                                className="absolute inset-0"
+                                style={{
+                                  background:
+                                    "linear-gradient(180deg, rgba(15,23,42,0.28) 0%, rgba(15,23,42,0.78) 100%)",
+                                }}
+                              />
+                              <div className="relative z-10 flex items-center justify-between gap-2">
+                                <span className="text-[10px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/20">
+                                  {formData.category}
+                                </span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-sm text-white/90">
+                                  {previewBanner.isTemplateFallback ? "Template Cover" : "Custom Cover"}
+                                </span>
+                              </div>
+                              <p className="relative z-10 font-extrabold text-sm sm:text-base line-clamp-1 drop-shadow-xs">
+                                {formData.title || "Untitled Event"}
+                              </p>
+                            </div>
+                          );
+                        })()}
 
                         <div className="space-y-2 text-xs font-semibold" style={{ color: "var(--muted)" }}>
                           <div className="flex items-center gap-2">

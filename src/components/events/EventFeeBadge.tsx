@@ -40,14 +40,16 @@ export default function EventFeeBadge({
     const isLarge = size === "lg";
     return (
       <span
-        className={`inline-flex items-center justify-center rounded-full border border-emerald-500/70 dark:border-emerald-400/80 text-emerald-700 dark:text-emerald-300 select-none ${FREE_SIZE_CLASSES[size]} ${className}`}
+        className={`inline-flex items-center justify-center rounded-full border select-none ${FREE_SIZE_CLASSES[size]} ${className}`}
         style={{
+          color: "var(--accent)",
+          borderColor: "color-mix(in oklab, var(--accent) 65%, transparent)",
           background:
-            "linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(52, 211, 153, 0.1))",
+            "linear-gradient(135deg, color-mix(in oklab, var(--accent) 16%, transparent), color-mix(in oklab, var(--accent2) 10%, transparent))",
           boxShadow: isLarge
-            ? "0 0 24px rgba(16, 185, 129, 0.45), 0 0 8px rgba(52, 211, 153, 0.35), inset 0 0 12px rgba(16, 185, 129, 0.16)"
-            : "0 0 14px rgba(16, 185, 129, 0.36), inset 0 0 8px rgba(16, 185, 129, 0.14)",
-          textShadow: "0 0 10px rgba(16, 185, 129, 0.4)",
+            ? "0 0 24px color-mix(in oklab, var(--accent) 42%, transparent), 0 0 8px color-mix(in oklab, var(--accent2) 32%, transparent), inset 0 0 12px color-mix(in oklab, var(--accent) 15%, transparent)"
+            : "0 0 14px color-mix(in oklab, var(--accent) 32%, transparent), inset 0 0 8px color-mix(in oklab, var(--accent) 12%, transparent)",
+          textShadow: "0 0 10px color-mix(in oklab, var(--accent) 38%, transparent)",
         }}
       >
         Free

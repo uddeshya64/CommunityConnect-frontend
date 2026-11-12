@@ -315,13 +315,13 @@ export default function LandingPage() {
         <section
           onMouseMove={handleHeroMove}
           onMouseLeave={handleHeroLeave}
-          className="relative min-h-screen pt-[130px] sm:pt-[150px] pb-10 px-6 flex flex-col justify-center"
+          className="relative min-h-screen pt-[108px] sm:pt-[132px] lg:pt-[150px] pb-10 px-4 sm:px-6 flex flex-col justify-center"
         >
-          <div className="relative max-w-[1280px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
+          <div className="relative max-w-[1280px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 sm:gap-12 lg:gap-14 items-center">
             {/* Left Copy & Countdown */}
-            <div className="lg:col-span-7">
+            <div className="lg:col-span-7 text-center lg:text-left flex flex-col items-center lg:items-start">
               <h1
-                className="font-bricolage text-[clamp(44px,6.4vw,88px)] leading-[0.98] tracking-tight font-extrabold text-balance"
+                className="font-bricolage text-[clamp(38px,10vw,88px)] sm:text-[clamp(44px,6.4vw,88px)] leading-[1.02] lg:leading-[0.98] tracking-tight font-extrabold text-balance"
                 style={{ color: "var(--text)" }}
               >
                 Host events people{" "}
@@ -337,14 +337,14 @@ export default function LandingPage() {
               </h1>
 
               <p
-                className="text-[clamp(16px,1.35vw,19px)] leading-[1.6] max-w-[520px] mt-6 text-pretty"
+                className="text-[clamp(15px,3.8vw,19px)] sm:text-[clamp(16px,1.35vw,19px)] leading-[1.6] max-w-[520px] mx-auto lg:mx-0 mt-5 sm:mt-6 text-pretty"
                 style={{ color: "var(--muted)" }}
               >
                 Hackathons, summits and meetups — built by AI in minutes, themed like a brand,
                 checked-in in under a second. Even when the Wi-Fi dies.
               </p>
 
-              <div className="flex gap-3 mt-8 flex-wrap">
+              <div className="flex gap-3 mt-7 sm:mt-8 flex-wrap justify-center lg:justify-start">
                 <Link
                   href="/events/create/ai"
                   className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-full font-semibold text-[15px] text-white whitespace-nowrap transition-transform hover:scale-[1.02] active:scale-[0.98]"
@@ -370,14 +370,14 @@ export default function LandingPage() {
               </div>
 
               {/* Countdown */}
-              <div className="mt-12">
+              <div className="mt-10 sm:mt-12 w-full max-w-[380px] lg:max-w-none mx-auto lg:mx-0">
                 <div
                   className="font-mono text-[11px] font-bold tracking-[0.14em]"
                   style={{ color: "var(--subtle)" }}
                 >
                   T-MINUS · BUILDCON AI HACKATHON
                 </div>
-                <div className="flex gap-2.5 mt-3 flex-wrap">
+                <div className="grid grid-cols-4 sm:flex sm:justify-center lg:justify-start gap-2 sm:gap-2.5 mt-3">
                   {[
                     { v: countdown.days, l: "DAYS" },
                     { v: countdown.hrs, l: "HRS" },
@@ -386,13 +386,13 @@ export default function LandingPage() {
                   ].map((cd) => (
                     <div
                       key={cd.l}
-                      className="min-w-[76px] px-3.5 py-3 rounded-2xl border backdrop-blur-xl"
+                      className="sm:min-w-[76px] px-2 sm:px-3.5 py-2.5 sm:py-3 rounded-2xl border backdrop-blur-xl text-center lg:text-left"
                       style={{
                         background: "var(--card)",
                         borderColor: "var(--border)",
                       }}
                     >
-                      <div className="font-bricolage text-[28px] font-extrabold tracking-tight tabular-nums leading-none">
+                      <div className="font-bricolage text-[24px] sm:text-[28px] font-extrabold tracking-tight tabular-nums leading-none">
                         {cd.v}
                       </div>
                       <div
@@ -564,27 +564,27 @@ export default function LandingPage() {
         {/* =========================================================
             LIVE TELEMETRY PULSE BAR
             ========================================================= */}
-        <section className="max-w-[1280px] mx-auto px-6 pt-10 pb-[96px]">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <section className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-8 sm:pt-10 pb-14 sm:pb-[96px]">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {liveCards.map((lv) => (
               <div
                 key={lv.label}
-                className="cc-event-card px-6 py-[22px]"
+                className="cc-event-card px-4 py-4 sm:px-6 sm:py-[22px]"
               >
                 <div
-                  className="flex items-center gap-2 font-mono text-[11px] font-bold tracking-[0.1em]"
+                  className="flex items-center gap-2 font-mono text-[10px] sm:text-[11px] font-bold tracking-[0.08em] sm:tracking-[0.1em]"
                   style={{ color: "var(--subtle)" }}
                 >
                   <span
-                    className="w-1.5 h-1.5 rounded-full animate-pulse"
+                    className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0"
                     style={{ background: lv.dot }}
                   />
-                  {lv.label}
+                  <span className="truncate">{lv.label}</span>
                 </div>
-                <div className="font-bricolage text-[40px] font-extrabold tracking-tight mt-3 tabular-nums leading-none">
+                <div className="font-bricolage text-[28px] sm:text-[40px] font-extrabold tracking-tight mt-2.5 sm:mt-3 tabular-nums leading-none">
                   {lv.value}
                 </div>
-                <div className="text-[13px] mt-2" style={{ color: "var(--muted)" }}>
+                <div className="text-[12px] sm:text-[13px] mt-1.5 sm:mt-2" style={{ color: "var(--muted)" }}>
                   {lv.sub}
                 </div>
               </div>
@@ -600,16 +600,16 @@ export default function LandingPage() {
         {/* =========================================================
             STICKY PLATFORM FEATURES ACCORDION
             ========================================================= */}
-        <section id="features" className="max-w-[1280px] mx-auto px-6 py-[100px]">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-            <div className="lg:col-span-5 lg:sticky lg:top-[110px]">
+        <section id="features" className="max-w-[1280px] mx-auto px-4 sm:px-6 py-14 sm:py-[100px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+            <div className="lg:col-span-5 lg:sticky lg:top-[110px] text-center lg:text-left">
               <div
                 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em]"
                 style={{ color: "var(--accent)" }}
               >
                 PLATFORM
               </div>
-              <h2 className="font-bricolage text-[clamp(38px,4.5vw,62px)] leading-[0.98] tracking-[-0.04em] font-extrabold mt-4 text-balance">
+              <h2 className="font-bricolage text-[clamp(34px,8vw,62px)] sm:text-[clamp(38px,4.5vw,62px)] leading-[1.02] lg:leading-[0.98] tracking-[-0.04em] font-extrabold mt-3 sm:mt-4 text-balance">
                 Built for{" "}
                 <span
                   style={{
@@ -623,7 +623,7 @@ export default function LandingPage() {
                 rooms.
               </h2>
               <p
-                className="text-[16px] leading-[1.6] mt-5 max-w-[380px]"
+                className="text-[15px] sm:text-[16px] leading-[1.6] mt-4 sm:mt-5 max-w-[380px] mx-auto lg:mx-0"
                 style={{ color: "var(--muted)" }}
               >
                 Offline-first, role-aware and real-time by default — so the event runs even when
@@ -697,27 +697,27 @@ export default function LandingPage() {
         {/* =========================================================
             PLATFORM METRICS BAR
             ========================================================= */}
-        <section className="max-w-[1280px] mx-auto px-6 pt-[40px] pb-[100px]">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <section className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-6 sm:pt-[40px] pb-14 sm:pb-[100px]">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {PLATFORM_STATS.map((s) => (
               <div
                 key={s.label}
-                className="cc-event-card rounded-3xl p-7"
+                className="cc-event-card rounded-2xl sm:rounded-3xl p-5 sm:p-7"
                 style={{
                   background: "var(--card)",
                   border: "1px solid var(--border)",
                 }}
               >
                 <div
-                  className="font-bricolage text-[clamp(52px,5.8vw,78px)] font-extrabold leading-[0.9] tracking-[-0.04em] tabular-nums"
+                  className="font-bricolage text-[clamp(36px,9vw,78px)] sm:text-[clamp(52px,5.8vw,78px)] font-extrabold leading-[0.9] tracking-[-0.04em] tabular-nums"
                   style={{ color: "var(--text)" }}
                 >
                   {s.value}
                 </div>
-                <div className="font-semibold text-[15px] mt-4" style={{ color: "var(--text)" }}>
+                <div className="font-semibold text-[14px] sm:text-[15px] mt-3 sm:mt-4" style={{ color: "var(--text)" }}>
                   {s.label}
                 </div>
-                <div className="font-mono text-[12px] mt-1" style={{ color: "var(--muted)" }}>
+                <div className="font-mono text-[11px] sm:text-[12px] mt-1" style={{ color: "var(--muted)" }}>
                   {s.sub}
                 </div>
               </div>
@@ -791,9 +791,9 @@ export default function LandingPage() {
         {/* =========================================================
             MINIMAL OPERATIONAL FOOTER + WORDMARK
             ========================================================= */}
-        <footer className="max-w-[1280px] mx-auto px-6 pt-[68px] pb-10">
+        <footer className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-12 sm:pt-[68px] pb-10">
           <div
-            className="flex items-center justify-between gap-5 flex-wrap text-[13px] pb-6"
+            className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-5 text-[13px] pb-6"
             style={{
               color: "var(--muted)",
               borderBottom: "1px solid var(--border)",
@@ -839,7 +839,7 @@ export default function LandingPage() {
           </div>
 
           <div
-            className="font-bricolage text-[clamp(76px,20vw,280px)] font-extrabold tracking-[-0.065em] leading-[0.85] mt-10 text-center select-none overflow-hidden"
+            className="font-bricolage text-[clamp(64px,19vw,280px)] font-extrabold tracking-[-0.065em] leading-[0.85] mt-8 sm:mt-10 text-center select-none overflow-hidden"
             style={{ color: "color-mix(in oklab, var(--text) 7%, transparent)" }}
           >
             Eventrix

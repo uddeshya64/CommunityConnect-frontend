@@ -217,126 +217,161 @@ export default function PublicProfilePage() {
               </div>
             </div>
           </AppLayout>
+        </div >
+      </PageTransition >
+    );
+  }
+
+  // ==============================
+  // ERROR SCREEN
+  // ==============================
+
+  if (error || !profile) {
+    return (
+      <PageTransition>
+        <div
+          className="min-h-screen transition-colors"
+          style={{ background: "var(--bg)", color: "var(--text)" }}
+        >
+          <AppLayout>
+            <div className="flex flex-1 min-w-0 items-center justify-center px-4 py-16">
+              <div
+                className="w-full max-w-md rounded-[28px] border p-8 text-center space-y-6 shadow-sm"
+                style={{
+                  background: "var(--card)",
+                  borderColor: "var(--border)",
+                }}
+              >
+                <div
+                  className="w-20 h-20 mx-auto rounded-full flex items-center justify-center border"
+                  style={{
+                    background: "var(--card2)",
+                    borderColor: "var(--border)",
+                  }}
+                >
+                  <User className="w-9 h-9" style={{ color: "var(--muted)" }} />
+                </div>
+
+                <div className="space-y-2">
+                  <h2
+                    className="font-bricolage text-2xl font-extrabold tracking-tight"
+                    style={{ color: "var(--text)" }}
+                  >
+                    Profile Unavailable
+                  </h2>
+                  <p className="text-sm" style={{ color: "var(--muted)" }}>
+                    {error || "Profile not found."}
+                  </p>
+                </div>
+
+                <div className="flex justify-center">
+                  <BackButton />
+                </div>
+              </div>
+            </div>
+          </AppLayout>
         </div>
       </PageTransition>
     );
   }
 
-  if (error || !profile) {
-    return (
-      <div
-        className="min-h-screen flex flex-col items-center justify-center px-4 space-y-6"
-        style={{ background: "var(--bg)", color: "var(--text)" }}
-      >
-        <div
-          className="w-20 h-20 rounded-full flex items-center justify-center border"
-          style={{ background: "var(--card)", borderColor: "var(--border)" }}
-        >
-          <User className="w-10 h-10" style={{ color: "var(--muted)" }} />
-        </div>
-
-        <div className="text-center space-y-2">
-          <h2 className="font-bricolage text-xl font-bold" style={{ color: "var(--text)" }}>
-            Profile Unavailable
-          </h2>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            {error || "Profile not found."}
-          </p>
-        </div>
-
-        <BackButton fallbackHref="/home" label="Back to Home" />
-      </div>
-    );
-  }
+  // ==============================
+  // INITIALS & DERIVED STATE
+  // ==============================
 
   const initials = (profile.name || "U")
     .split(" ")
+    .filter(Boolean)
     .map((word) => word[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
 
   const createdEvents = profile.events_created || [];
-  const visibleEvents = showAllEvents ? createdEvents : createdEvents.slice(0, 4);
-  const isOwnProfile =
-    !userProfile ||
-    profileId === "me" ||
-    Number(userProfile.id) === Number(profile.id);
+  const visibleEvents = showAllEvents
+    ? createdEvents
+    : createdEvents.slice(0, 4);
+
+  const isOwnProfile = Boolean(
+    userProfile && String(userProfile.id) === String(profile.id)
+  );
 
   const activityStats = [
     {
       label: "Events Created",
-      value: profile._count?.events_created || 0,
+      value: profile._count?.events_created ?? createdEvents.length ?? 0,
       icon: CalendarDays,
-      color: "var(--accent)",
       tint: "color-mix(in oklab, var(--accent) 14%, transparent)",
+      color: "var(--accent)",
     },
     {
       label: "Teams Led",
-      value: profile._count?.teams_led || 0,
+      value: profile._count?.teams_led ?? 0,
       icon: Users,
-      color: "#10b981",
       tint: "rgba(16, 185, 129, 0.14)",
+      color: "#10b981",
     },
     {
       label: "Mentorships",
-      value: profile._count?.mentor_assignments || 0,
+      value: profile._count?.mentor_assignments ?? 0,
       icon: ShieldCheck,
-      color: "#f59e0b",
       tint: "rgba(245, 158, 11, 0.14)",
+      color: "#f59e0b",
     },
     {
       label: "Submissions",
-      value: profile._count?.submissions || 0,
+      value: profile._count?.submissions ?? 0,
       icon: Trophy,
-      color: "#ec4899",
-      tint: "rgba(236, 72, 153, 0.14)",
+      tint: "color-mix(in oklab, var(--accent2) 14%, transparent)",
+      color: "var(--accent2)",
     },
   ];
+
+  // ==============================
+  // MAIN UI
+  // ==============================
 
   return (
     <PageTransition>
       <div
-        className="min-h-screen font-sans transition-colors duration-300"
+        className="min-h-screen transition-colors"
         style={{ background: "var(--bg)", color: "var(--text)" }}
       >
         <AppLayout>
-          <div className="flex-1 pb-20 relative">
-            <main className="w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 relative z-10 space-y-6">
+          <div className="flex flex-1 min-w-0">
+            <main className="flex-1 w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
               {/* TOP ACTION BAR */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <BackButton fallbackHref="/home" label="Back" />
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <BackButton />
 
                 {isOwnProfile && (
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <Link href="/settings">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full font-semibold px-4 gap-2 cursor-pointer"
-                        style={{
-                          background: "var(--card)",
-                          borderColor: "var(--border)",
-                          color: "var(--text)",
-                        }}
-                      >
-                        <Settings className="w-3.5 h-3.5" style={{ color: "var(--muted)" }} />
-                        <span>Settings</span>
-                      </Button>
+                  <div className="flex items-center gap-2.5">
+                    <Link
+                      href="/settings"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-semibold transition-all hover:opacity-90"
+                      style={{
+                        background: "var(--card)",
+                        borderColor: "var(--border)",
+                        color: "var(--text)",
+                      }}
+                    >
+                      <Settings
+                        className="w-3.5 h-3.5"
+                        style={{ color: "var(--muted)" }}
+                      />
+                      <span>Settings</span>
                     </Link>
 
-                    <Link href="/profile/edit">
-                      <Button
-                        size="sm"
-                        className="rounded-full text-white font-bold px-4 sm:px-5 gap-2 shadow-md transition-transform hover:scale-[1.02] cursor-pointer border-0"
-                        style={{
-                          background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                          boxShadow: "0 10px 24px -8px color-mix(in oklab, var(--accent) 55%, transparent)",
-                        }}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        <span>Edit Profile</span>
-                      </Button>
+                    <Link
+                      href="/profile/edit"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold text-white shadow-sm transition-all hover:opacity-95"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, var(--accent), var(--accent2))",
+                      }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>Edit Profile</span>
                     </Link>
                   </div>
                 )}
@@ -360,8 +395,10 @@ export default function PublicProfilePage() {
                     <div
                       className="w-28 h-28 sm:w-32 sm:h-32 rounded-full p-[3.5px] shadow-xl transition-all duration-300"
                       style={{
-                        background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                        boxShadow: "0 20px 40px -14px color-mix(in oklab, var(--accent) 45%, transparent)",
+                        background:
+                          "linear-gradient(135deg, var(--accent), var(--accent2))",
+                        boxShadow:
+                          "0 20px 40px -14px color-mix(in oklab, var(--accent) 45%, transparent)",
                       }}
                     >
                       <div
@@ -374,7 +411,7 @@ export default function PublicProfilePage() {
                         {profile.avatar_url ? (
                           <img
                             src={profile.avatar_url}
-                            alt={profile.name}
+                            alt={profile.name || "Member avatar"}
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -405,63 +442,67 @@ export default function PublicProfilePage() {
                             <Camera className="w-4 h-4" />
                           )}
                         </label>
-
                         <input
                           id="profile-image-upload"
                           ref={fileInputRef}
                           type="file"
-                          accept="image/*"
-                          hidden
+                          accept="image/jpeg,image/png,image/webp,image/gif"
                           onChange={handleImageUpload}
+                          className="hidden"
+                          disabled={isUploading}
                         />
                       </>
                     )}
                   </div>
 
-                  {/* PROFILE IDENTITY & META */}
-                  <div className="flex-1 min-w-0 text-center md:text-left space-y-3 w-full">
+                  {/* IDENTITY & BIO */}
+                  <div className="flex-1 min-w-0 text-center md:text-left space-y-3">
                     <div>
                       <span
-                        className="inline-block font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] mb-1"
+                        className="font-mono text-[10px] font-bold uppercase tracking-[0.14em]"
                         style={{ color: "var(--accent)" }}
                       >
                         Member Profile
                       </span>
                       <h1
-                        className="font-bricolage text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight break-words"
+                        className="font-bricolage text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight mt-0.5 truncate"
                         style={{ color: "var(--text)" }}
                       >
                         {profile.name || "Community Member"}
                       </h1>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5 text-xs font-semibold">
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
                       <span
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium"
                         style={{
                           background: "var(--card2)",
                           borderColor: "var(--border)",
-                          color: profile.profession ? "var(--text)" : "var(--subtle)",
+                          color: profile.profession
+                            ? "var(--text)"
+                            : "var(--muted)",
                         }}
                       >
                         <Briefcase
                           className="w-3.5 h-3.5 shrink-0"
-                          style={{ color: profile.profession ? "var(--accent)" : "var(--subtle)" }}
+                          style={{ color: "var(--accent)" }}
                         />
                         <span>{profile.profession || "Profession not set"}</span>
                       </span>
 
                       <span
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium"
                         style={{
                           background: "var(--card2)",
                           borderColor: "var(--border)",
-                          color: profile.location ? "var(--text)" : "var(--subtle)",
+                          color: profile.location
+                            ? "var(--text)"
+                            : "var(--muted)",
                         }}
                       >
                         <MapPin
                           className="w-3.5 h-3.5 shrink-0"
-                          style={{ color: profile.location ? "#f43f5e" : "var(--subtle)" }}
+                          style={{ color: "var(--accent)" }}
                         />
                         <span>{profile.location || "Location not set"}</span>
                       </span>
@@ -475,21 +516,30 @@ export default function PublicProfilePage() {
                             color: "var(--muted)",
                           }}
                         >
-                          <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--accent)" }} />
+                          <Calendar
+                            className="w-3.5 h-3.5 shrink-0"
+                            style={{ color: "var(--accent)" }}
+                          />
                           <span>
                             Joined{" "}
-                            {new Date(profile.created_at).toLocaleDateString("en-US", {
-                              month: "short",
-                              year: "numeric",
-                            })}
+                            {new Date(profile.created_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )}
                           </span>
                         </span>
                       )}
                     </div>
 
                     <p
-                      className={`text-sm sm:text-[15px] leading-relaxed max-w-3xl ${profile.bio ? "" : "italic"}`}
-                      style={{ color: profile.bio ? "var(--muted)" : "var(--subtle)" }}
+                      className={`text-sm sm:text-[15px] leading-relaxed max-w-3xl mx-auto md:mx-0 ${profile.bio ? "" : "italic"
+                        }`}
+                      style={{
+                        color: profile.bio ? "var(--muted)" : "var(--subtle)",
+                      }}
                     >
                       {profile.bio || "This user hasn't added a bio yet."}
                     </p>
@@ -529,7 +579,6 @@ export default function PublicProfilePage() {
                           {stat.value}
                         </p>
                       </div>
-
                       <div
                         className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
                         style={{ background: stat.tint, color: stat.color }}
@@ -541,11 +590,11 @@ export default function PublicProfilePage() {
                 })}
               </motion.div>
 
-              {/* TWO-COLUMN WORKSPACE GRID */}
+              {/* WORKSPACE 2-COLUMN GRID */}
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                {/* LEFT MAIN COLUMN: EVENTS & SKILLS */}
+                {/* LEFT PRIMARY COLUMN */}
                 <div className="xl:col-span-8 space-y-6">
-                  {/* CREATED EVENTS */}
+                  {/* EVENTS CREATED */}
                   <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -556,7 +605,7 @@ export default function PublicProfilePage() {
                       borderColor: "var(--border)",
                     }}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div className="flex items-center justify-between gap-3 mb-6">
                       <div>
                         <span
                           className="font-mono text-[10px] font-bold uppercase tracking-[0.12em]"
@@ -570,26 +619,29 @@ export default function PublicProfilePage() {
                         >
                           Events Created
                         </h2>
-                        <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--muted)" }}>
-                          Events organized by {profile.name}
+                        <p
+                          className="text-xs sm:text-sm mt-0.5"
+                          style={{ color: "var(--muted)" }}
+                        >
+                          Events organized by {profile.name || "this member"}
                         </p>
                       </div>
 
-                      <span
-                        className="px-3 py-1 rounded-full border font-mono text-xs font-bold"
+                      <div
+                        className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
                         style={{
-                          background: "var(--card2)",
-                          borderColor: "var(--border)",
-                          color: "var(--text)",
+                          background:
+                            "color-mix(in oklab, var(--accent) 14%, transparent)",
+                          color: "var(--accent)",
                         }}
                       >
-                        {createdEvents.length} {createdEvents.length === 1 ? "event" : "events"}
-                      </span>
+                        <CalendarDays className="w-5 h-5" />
+                      </div>
                     </div>
 
                     {createdEvents.length > 0 ? (
                       <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                           {visibleEvents.map((event) => (
                             <EventCard
                               key={event.id}
@@ -604,11 +656,11 @@ export default function PublicProfilePage() {
                         </div>
 
                         {createdEvents.length > 4 && (
-                          <div className="flex justify-center mt-6">
+                          <div className="flex justify-center mt-7">
                             <Button
                               variant="outline"
                               onClick={() => setShowAllEvents(!showAllEvents)}
-                              className="rounded-full px-6 font-semibold cursor-pointer"
+                              className="rounded-full px-6 font-semibold"
                               style={{
                                 background: "var(--card2)",
                                 borderColor: "var(--border)",
@@ -630,8 +682,14 @@ export default function PublicProfilePage() {
                           borderColor: "var(--border)",
                         }}
                       >
-                        <CalendarDays className="w-9 h-9 mb-2.5" style={{ color: "var(--subtle)" }} />
-                        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+                        <CalendarDays
+                          className="w-9 h-9 mb-2.5"
+                          style={{ color: "var(--subtle)" }}
+                        />
+                        <p
+                          className="text-sm font-medium"
+                          style={{ color: "var(--muted)" }}
+                        >
                           No events created yet.
                         </p>
                       </div>
@@ -694,8 +752,14 @@ export default function PublicProfilePage() {
                           borderColor: "var(--border)",
                         }}
                       >
-                        <Briefcase className="w-8 h-8 mb-2.5" style={{ color: "var(--subtle)" }} />
-                        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+                        <Briefcase
+                          className="w-8 h-8 mb-2.5"
+                          style={{ color: "var(--subtle)" }}
+                        />
+                        <p
+                          className="text-sm font-medium"
+                          style={{ color: "var(--muted)" }}
+                        >
                           No skills listed yet.
                         </p>
                       </div>
@@ -742,7 +806,8 @@ export default function PublicProfilePage() {
                         <div
                           className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                           style={{
-                            background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                            background:
+                              "color-mix(in oklab, var(--accent) 14%, transparent)",
                             color: "var(--accent)",
                           }}
                         >
@@ -756,8 +821,13 @@ export default function PublicProfilePage() {
                             Email
                           </p>
                           <p
-                            className={`text-sm font-semibold truncate mt-0.5 ${profile.email ? "" : "italic"}`}
-                            style={{ color: profile.email ? "var(--text)" : "var(--muted)" }}
+                            className={`text-sm font-semibold truncate mt-0.5 ${profile.email ? "" : "italic"
+                              }`}
+                            style={{
+                              color: profile.email
+                                ? "var(--text)"
+                                : "var(--muted)",
+                            }}
                           >
                             {profile.email || "Not provided"}
                           </p>
@@ -785,11 +855,16 @@ export default function PublicProfilePage() {
                             className="font-mono text-[10px] font-bold uppercase tracking-wider"
                             style={{ color: "var(--subtle)" }}
                           >
-                            Phone
+                            Phone Number
                           </p>
                           <p
-                            className={`text-sm font-semibold truncate mt-0.5 ${profile.phone ? "" : "italic"}`}
-                            style={{ color: profile.phone ? "var(--text)" : "var(--muted)" }}
+                            className={`text-sm font-semibold truncate mt-0.5 ${profile.phone ? "" : "italic"
+                              }`}
+                            style={{
+                              color: profile.phone
+                                ? "var(--text)"
+                                : "var(--muted)",
+                            }}
                           >
                             {profile.phone || "Not provided"}
                           </p>
@@ -798,7 +873,7 @@ export default function PublicProfilePage() {
                     </div>
                   </motion.div>
 
-                  {/* SOCIAL LINKS */}
+                  {/* SOCIAL LINKS CARD */}
                   <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -814,7 +889,7 @@ export default function PublicProfilePage() {
                         className="font-mono text-[10px] font-bold uppercase tracking-[0.12em]"
                         style={{ color: "var(--accent)" }}
                       >
-                        Profiles
+                        Connect
                       </span>
                       <h2
                         className="font-bricolage text-lg font-extrabold tracking-tight"
@@ -824,7 +899,7 @@ export default function PublicProfilePage() {
                       </h2>
                     </div>
 
-                    <div className="flex flex-col gap-2.5">
+                    <div className="flex flex-col gap-3">
                       {profile.linkedin ? (
                         <a
                           href={profile.linkedin}
@@ -839,9 +914,14 @@ export default function PublicProfilePage() {
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <Linkedin className="w-4 h-4 shrink-0 text-[#0a66c2]" />
-                            <span className="text-sm font-semibold truncate">LinkedIn</span>
+                            <span className="text-sm font-semibold truncate">
+                              LinkedIn
+                            </span>
                           </div>
-                          <ExternalLink className="w-4 h-4 shrink-0" style={{ color: "var(--subtle)" }} />
+                          <ExternalLink
+                            className="w-4 h-4 shrink-0"
+                            style={{ color: "var(--subtle)" }}
+                          />
                         </a>
                       ) : (
                         <div
@@ -854,7 +934,9 @@ export default function PublicProfilePage() {
                         >
                           <div className="flex items-center gap-3">
                             <Linkedin className="w-4 h-4 shrink-0" />
-                            <span className="text-sm font-medium">LinkedIn not connected</span>
+                            <span className="text-sm font-medium">
+                              LinkedIn not connected
+                            </span>
                           </div>
                         </div>
                       )}
@@ -872,10 +954,18 @@ export default function PublicProfilePage() {
                           }}
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <Github className="w-4 h-4 shrink-0" style={{ color: "var(--text)" }} />
-                            <span className="text-sm font-semibold truncate">GitHub</span>
+                            <Github
+                              className="w-4 h-4 shrink-0"
+                              style={{ color: "var(--text)" }}
+                            />
+                            <span className="text-sm font-semibold truncate">
+                              GitHub
+                            </span>
                           </div>
-                          <ExternalLink className="w-4 h-4 shrink-0" style={{ color: "var(--subtle)" }} />
+                          <ExternalLink
+                            className="w-4 h-4 shrink-0"
+                            style={{ color: "var(--subtle)" }}
+                          />
                         </a>
                       ) : (
                         <div
@@ -888,7 +978,9 @@ export default function PublicProfilePage() {
                         >
                           <div className="flex items-center gap-3">
                             <Github className="w-4 h-4 shrink-0" />
-                            <span className="text-sm font-medium">GitHub not connected</span>
+                            <span className="text-sm font-medium">
+                              GitHub not connected
+                            </span>
                           </div>
                         </div>
                       )}

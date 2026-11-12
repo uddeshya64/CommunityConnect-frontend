@@ -17,7 +17,6 @@ export interface UserSettings {
   teamInvites: boolean;
   weeklyDigest: boolean;
   soundEffects: boolean;
-  notificationFrequency: "realtime" | "daily" | "weekly" | "muted";
   theme: "dark" | "light" | "system";
   accentColor: "indigo" | "violet" | "emerald" | "rose" | "cyan" | "amber";
   compactMode: boolean;
@@ -39,7 +38,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
   teamInvites: true,
   weeklyDigest: false,
   soundEffects: true,
-  notificationFrequency: "realtime",
   theme: "dark",
   accentColor: "indigo",
   compactMode: false,
