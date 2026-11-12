@@ -27,8 +27,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { useToast } from "@/components/providers/ToastProvider";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { AI_SPEECH_LANG } from "@/config/env";
 import { eventService } from "@/services/event.service";
 import { aiEventService } from "@/services/aiEvent.service";
@@ -122,9 +124,11 @@ export default function AiAgendaBuilderModal({
   eventStartDate,
   eventEndDate,
   eventLocation,
-  isDark = false,
+  isDark: isDarkProp,
   onSessionsCreated,
 }: AiAgendaBuilderModalProps) {
+  const { isDark: appearanceIsDark, activeAccent } = useAppearance();
+  const isDark = isDarkProp !== undefined ? isDarkProp : (appearanceIsDark ?? false);
   const { success: showSuccess, error: showError } = useToast();
 
   const [prompt, setPrompt] = useState("");
@@ -555,13 +559,26 @@ export default function AiAgendaBuilderModal({
           {/* Header Bar */}
           <div className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-inherit shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-purple-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <div
+                className="w-10 h-10 rounded-2xl text-white flex items-center justify-center shadow-lg shrink-0"
+                style={{
+                  background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                  boxShadow: "0 8px 20px -6px var(--accent)",
+                }}
+              >
                 <Sparkles className="w-5 h-5 animate-pulse" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg sm:text-xl font-extrabold tracking-tight">AI Agenda Builder</h3>
-                  <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <span
+                    className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                      color: "var(--accent)",
+                      borderColor: "color-mix(in oklab, var(--accent) 28%, transparent)",
+                    }}
+                  >
                     Voice & Text AI
                   </span>
                 </div>
@@ -589,10 +606,20 @@ export default function AiAgendaBuilderModal({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                    <Label
+                      className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"
+                      style={{ color: "var(--accent)" }}
+                    >
                       <Wand2 className="w-3.5 h-3.5" /> Prompt / Speak
                     </Label>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-extrabold border"
+                      style={{
+                        background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                        color: "var(--accent)",
+                        borderColor: "color-mix(in oklab, var(--accent) 30%, transparent)",
+                      }}
+                    >
                       Draft {selectedSessionIndex + 1}
                     </span>
                   </div>
@@ -602,7 +629,13 @@ export default function AiAgendaBuilderModal({
                 </div>
 
                 {/* Voice / Text Prompt Box */}
-                <div className="relative rounded-2xl border-2 transition-all border-zinc-700 focus-within:border-indigo-500 bg-zinc-900/60 p-3">
+                <div
+                  className={`relative rounded-2xl border-2 transition-all p-3.5 ${
+                    isDark
+                      ? "border-zinc-700/80 focus-within:border-[var(--accent)] bg-zinc-900/60"
+                      : "border-zinc-200 focus-within:border-[var(--accent)] bg-zinc-50/70 shadow-xs"
+                  }`}
+                >
                   <textarea
                     value={prompt}
                     onChange={(e) => {
@@ -615,52 +648,77 @@ export default function AiAgendaBuilderModal({
                     }}
                     placeholder="Describe a session or full schedule (e.g. 1. Keynote by Dr. Sarah from 10 to 11 AM, 2. Workshop from 11:30 to 1 PM, 3. Lunch & Networking)..."
                     rows={4}
-                    className="w-full bg-transparent text-sm font-medium resize-none focus:outline-none placeholder:text-zinc-500 leading-relaxed text-white"
+                    className={`w-full bg-transparent text-sm font-medium resize-none focus:outline-none leading-relaxed ${
+                      isDark
+                        ? "text-white placeholder:text-zinc-500"
+                        : "text-zinc-900 placeholder:text-zinc-400"
+                    }`}
                   />
 
                   {/* Speech interim waveform / status */}
                   {isListening && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 mt-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold animate-pulse">
+                    <div className="flex items-center gap-2 px-3 py-1.5 mt-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-400 text-xs font-bold animate-pulse">
                       <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
                       <span>Listening... speak your schedule details</span>
                     </div>
                   )}
 
                   {speechError && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">
+                    <div className="flex items-center gap-2 px-3 py-1.5 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-300 text-xs font-semibold">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                       <span>{speechError}</span>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between pt-3 border-t border-zinc-800 mt-2">
-                    {/* Voice Microphone Toggle */}
-                    <Button
+                  <div
+                    className={`flex items-center justify-between pt-3 border-t mt-2 ${
+                      isDark ? "border-zinc-800" : "border-zinc-200"
+                    }`}
+                  >
+                    {/* Voice Microphone Toggle - High-contrast & visible in both Light and Dark mode */}
+                    <button
                       type="button"
                       onClick={startListening}
-                      className={`rounded-xl px-4 py-2 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+                      className={`group rounded-xl px-4 py-2 font-extrabold text-xs flex items-center gap-2 transition-all cursor-pointer ${
                         isListening
-                          ? "bg-red-600 hover:bg-red-700 text-white animate-pulse shadow-lg shadow-red-600/30"
-                          : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
+                          ? "bg-red-600 hover:bg-red-700 text-white animate-pulse shadow-md shadow-red-600/30 border border-red-500"
+                          : isDark
+                          ? "bg-zinc-800/90 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 hover:border-zinc-600 shadow-sm"
+                          : "bg-white hover:bg-zinc-50 text-zinc-900 border border-zinc-300 hover:border-[var(--accent)] shadow-sm"
                       }`}
                     >
                       {isListening ? (
                         <>
-                          <MicOff className="w-4 h-4 text-white" /> Stop Mic
+                          <MicOff className="w-4 h-4 text-white shrink-0 animate-bounce" />
+                          <span className="text-white font-extrabold">Stop Mic</span>
                         </>
                       ) : (
                         <>
-                          <Mic className="w-4 h-4 text-indigo-400" /> Record Voice
+                          <Mic
+                            className="w-4 h-4 shrink-0 transition-colors"
+                            style={{ color: "var(--accent)" }}
+                          />
+                          <span
+                            className={`font-extrabold transition-colors ${
+                              isDark ? "text-zinc-100 group-hover:text-white" : "text-zinc-900"
+                            }`}
+                          >
+                            Record Voice
+                          </span>
                         </>
                       )}
-                    </Button>
+                    </button>
 
-                    {/* Generate Button */}
+                    {/* Generate Button - Dynamic User Accent */}
                     <Button
                       type="button"
                       onClick={() => handleGenerateAgenda()}
                       disabled={isGenerating || !prompt.trim()}
-                      className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold text-xs px-5 py-2 shadow-lg shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                      className="rounded-xl text-white font-extrabold text-xs px-5 py-2 shadow-lg flex items-center gap-2 disabled:opacity-50 cursor-pointer hover:opacity-95 hover:brightness-105 transition-all"
+                      style={{
+                        background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                        boxShadow: "0 8px 20px -6px var(--accent)",
+                      }}
                     >
                       {isGenerating ? (
                         <>
@@ -680,16 +738,21 @@ export default function AiAgendaBuilderModal({
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-xs font-medium flex items-start gap-3"
+                    className="p-4 rounded-2xl border text-xs font-medium flex items-start gap-3"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 10%, transparent)",
+                      borderColor: "color-mix(in oklab, var(--accent) 26%, transparent)",
+                      color: isDark ? "color-mix(in oklab, var(--accent) 70%, #ffffff)" : "color-mix(in oklab, var(--accent) 80%, #000000)",
+                    }}
                   >
-                    <Bot className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                    <Bot className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "var(--accent)" }} />
                     <p className="leading-relaxed">{aiReply}</p>
                   </motion.div>
                 )}
 
                 {/* Sample Prompt Suggestions */}
                 <div className="space-y-2 pt-2">
-                  <p className={`text-[11px] font-black uppercase tracking-wider ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+                  <p className="text-[11px] font-black uppercase tracking-wider text-zinc-500">
                     Suggested Prompts
                   </p>
                   <div className="flex flex-col gap-2">
@@ -701,11 +764,13 @@ export default function AiAgendaBuilderModal({
                           setPrompt(p);
                           handleGenerateAgenda(p);
                         }}
-                        className={`text-left text-xs p-3 rounded-xl border transition-all text-zinc-300 hover:text-white cursor-pointer ${
-                          isDark ? "bg-zinc-900/40 border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900" : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                        className={`text-left text-xs p-3 rounded-xl border transition-all cursor-pointer ${
+                          isDark
+                            ? "bg-zinc-900/40 border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-300 hover:text-white"
+                            : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 shadow-2xs"
                         }`}
                       >
-                        <span className="text-indigo-400 font-bold mr-1.5">✦</span>
+                        <span className="font-bold mr-1.5" style={{ color: "var(--accent)" }}>✦</span>
                         {p}
                       </button>
                     ))}
@@ -719,10 +784,18 @@ export default function AiAgendaBuilderModal({
               {sessions.length === 0 ? (
                 /* Empty state before generation */
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center min-h-[350px]">
-                  <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-4">
-                    <Calendar className="w-8 h-8 opacity-80" />
+                  <div
+                    className="w-16 h-16 rounded-full flex items-center justify-center mb-4 border"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                      borderColor: "color-mix(in oklab, var(--accent) 26%, transparent)",
+                    }}
+                  >
+                    <Calendar className="w-8 h-8 opacity-90" style={{ color: "var(--accent)" }} />
                   </div>
-                  <h4 className="text-lg font-extrabold tracking-tight">No Agenda Sessions Yet</h4>
+                  <h4 className={`text-lg font-extrabold tracking-tight ${isDark ? "text-white" : "text-zinc-900"}`}>
+                    No Agenda Sessions Yet
+                  </h4>
                   <p className={`text-xs font-medium max-w-sm mt-1.5 leading-relaxed ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
                     Speak or type your agenda prompt on the left. The AI will extract the sessions, align dates, and let you review and edit every detail before saving!
                   </p>
@@ -740,11 +813,20 @@ export default function AiAgendaBuilderModal({
                           onClick={() => handleSelectSession(idx)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-extrabold shrink-0 transition-all flex items-center gap-1.5 cursor-pointer ${
                             selectedSessionIndex === idx
-                              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                              ? "text-white shadow-md"
                               : isDark
                               ? "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
                               : "bg-zinc-100 border border-zinc-200 text-zinc-700 hover:bg-zinc-200"
                           }`}
+                          style={
+                            selectedSessionIndex === idx
+                              ? {
+                                  background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                                  boxShadow: "0 4px 14px -3px var(--accent)",
+                                  color: "#ffffff",
+                                }
+                              : undefined
+                          }
                         >
                           <span className="truncate max-w-[140px]">{s.title ? s.title : `Session ${idx + 1}`}</span>
                           {selectedSessionIndex === idx && <Check className="w-3.5 h-3.5 shrink-0" />}
@@ -756,7 +838,8 @@ export default function AiAgendaBuilderModal({
                         onClick={handleAddNewBlankSession}
                         variant="ghost"
                         size="sm"
-                        className="rounded-xl text-xs font-bold text-indigo-400 hover:bg-indigo-500/10 flex items-center gap-1 shrink-0 cursor-pointer"
+                        className="rounded-xl text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer hover:opacity-85"
+                        style={{ color: "var(--accent)" }}
                       >
                         <Plus className="w-3.5 h-3.5" /> New Draft
                       </Button>
@@ -778,7 +861,7 @@ export default function AiAgendaBuilderModal({
                     <div className="space-y-4">
                       {/* Session Title */}
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                        <Label className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
                           Session Title *
                         </Label>
                         <Input
@@ -786,35 +869,47 @@ export default function AiAgendaBuilderModal({
                           onChange={(e) => updateCurrentSession("title", e.target.value)}
                           placeholder="e.g. Opening Keynote: Generative AI in Production"
                           maxLength={100}
-                          className="py-5 rounded-xl bg-zinc-900/60 border-zinc-700 font-bold text-sm text-white"
+                          className={`py-5 rounded-xl font-bold text-sm ${
+                            isDark
+                              ? "bg-zinc-900/60 border-zinc-700 text-white placeholder:text-zinc-500"
+                              : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                          }`}
                         />
                       </div>
 
                       {/* Speaker & Location in 2 cols */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                            <User className="w-3.5 h-3.5 text-indigo-400" /> Speaker / Host
+                          <Label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
+                            <User className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} /> Speaker / Host
                           </Label>
                           <Input
                             value={currentSession.speaker_name || ""}
                             onChange={(e) => updateCurrentSession("speaker_name", e.target.value)}
                             placeholder="e.g. Dr. Sarah Smith"
                             maxLength={100}
-                            className="py-5 rounded-xl bg-zinc-900/60 border-zinc-700 font-semibold text-sm text-white"
+                            className={`py-5 rounded-xl font-semibold text-sm ${
+                              isDark
+                                ? "bg-zinc-900/60 border-zinc-700 text-white placeholder:text-zinc-500"
+                                : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                            }`}
                           />
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-indigo-400" /> Room / Stage / Link
+                          <Label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
+                            <MapPin className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} /> Room / Stage / Link
                           </Label>
                           <Input
                             value={currentSession.location || ""}
                             onChange={(e) => updateCurrentSession("location", e.target.value)}
                             placeholder="e.g. Auditorium A or Virtual Stage"
                             maxLength={100}
-                            className="py-5 rounded-xl bg-zinc-900/60 border-zinc-700 font-semibold text-sm text-white"
+                            className={`py-5 rounded-xl font-semibold text-sm ${
+                              isDark
+                                ? "bg-zinc-900/60 border-zinc-700 text-white placeholder:text-zinc-500"
+                                : "bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                            }`}
                           />
                         </div>
                       </div>
@@ -822,46 +917,56 @@ export default function AiAgendaBuilderModal({
                       {/* Timestamps in 2 cols */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                          <Label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
                             <Clock className="w-3.5 h-3.5 text-emerald-400" /> Start Time *
                           </Label>
-                          <Input
-                            type="datetime-local"
+                          <DateTimePicker
                             value={currentSession.start_time || ""}
-                            onChange={(e) => updateCurrentSession("start_time", e.target.value)}
-                            className="py-5 rounded-xl bg-zinc-900/60 border-zinc-700 font-semibold text-sm text-white [color-scheme:dark]"
+                            onChange={(val) => updateCurrentSession("start_time", val)}
+                            placeholder="Select start time"
                           />
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                          <Label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
                             <Clock className="w-3.5 h-3.5 text-rose-400" /> End Time *
                           </Label>
-                          <Input
-                            type="datetime-local"
+                          <DateTimePicker
                             value={currentSession.end_time || ""}
-                            onChange={(e) => updateCurrentSession("end_time", e.target.value)}
-                            className="py-5 rounded-xl bg-zinc-900/60 border-zinc-700 font-semibold text-sm text-white [color-scheme:dark]"
+                            onChange={(val) => updateCurrentSession("end_time", val)}
+                            minDate={currentSession.start_time || undefined}
+                            placeholder="Select end time"
+                            align="right"
                           />
                         </div>
                       </div>
 
                       {/* Tags Chip Editor */}
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                        <Label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
                           <Tag className="w-3.5 h-3.5 text-amber-400" /> Session Tags
                         </Label>
-                        <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-700 flex flex-wrap items-center gap-2">
+                        <div
+                          className={`p-3 rounded-2xl border flex flex-wrap items-center gap-2 ${
+                            isDark ? "bg-zinc-900/60 border-zinc-700" : "bg-zinc-50/70 border-zinc-200"
+                          }`}
+                        >
                           {currentSession.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="px-2.5 py-1 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold flex items-center gap-1.5"
+                              className="px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 border"
+                              style={{
+                                background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                                borderColor: "color-mix(in oklab, var(--accent) 28%, transparent)",
+                                color: "var(--accent)",
+                              }}
                             >
                               <span>{tag}</span>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveTag(tag)}
-                                className="text-indigo-400 hover:text-white cursor-pointer"
+                                className="cursor-pointer hover:opacity-80 transition-opacity"
+                                style={{ color: "var(--accent)" }}
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -873,14 +978,16 @@ export default function AiAgendaBuilderModal({
                             onChange={(e) => setTagInput(e.target.value)}
                             onKeyDown={handleAddTag}
                             placeholder="Add tag and press Enter..."
-                            className="bg-transparent text-xs font-semibold text-white focus:outline-none placeholder:text-zinc-500 flex-1 min-w-[140px]"
+                            className={`bg-transparent text-xs font-semibold focus:outline-none flex-1 min-w-[140px] ${
+                              isDark ? "text-white placeholder:text-zinc-500" : "text-zinc-900 placeholder:text-zinc-400"
+                            }`}
                           />
                         </div>
                       </div>
 
                       {/* Session Description */}
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                        <Label className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
                           Session Overview & Takeaways
                         </Label>
                         <RichTextEditor
@@ -913,7 +1020,11 @@ export default function AiAgendaBuilderModal({
                 type="button"
                 onClick={handleClose}
                 variant="outline"
-                className="rounded-xl border-zinc-700 text-zinc-300 hover:bg-zinc-800 font-bold px-5 cursor-pointer"
+                className={`rounded-xl font-bold px-5 cursor-pointer ${
+                  isDark
+                    ? "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                    : "border-zinc-300 text-zinc-700 hover:bg-zinc-100"
+                }`}
               >
                 Cancel
               </Button>
@@ -922,7 +1033,11 @@ export default function AiAgendaBuilderModal({
                 type="button"
                 onClick={handleSaveAllToAgenda}
                 disabled={isSaving || sessions.length === 0}
-                className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold px-6 py-2.5 shadow-lg shadow-emerald-600/20 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                className="rounded-xl text-white font-extrabold px-6 py-2.5 flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-lg hover:opacity-95 hover:brightness-105 transition-all"
+                style={{
+                  background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                  boxShadow: "0 8px 20px -6px var(--accent)",
+                }}
               >
                 {isSaving ? (
                   <>

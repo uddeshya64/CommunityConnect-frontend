@@ -9,19 +9,40 @@ import { useAppearance } from "@/components/providers/AppearanceProvider";
 import {
   ArrowLeft, ArrowRight, Sparkles, MapPin, Calendar, AlignLeft,
   CheckCircle2, Loader2, Ticket, Plus, X, ListPlus, FileText,
-  Lock, Trash2, Clock, Users, Globe, Crosshair, Tag, Layers
+  Lock, Trash2, Clock, Users, Globe, Crosshair, Tag, Layers,
+  HelpCircle, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { eventService } from "@/services/event.service";
 import { locationService } from "@/services/location.service";
+import {
+  cancelNavigationDraftNotify,
+  createDraftId,
+  deleteEventDraft,
+  getEventDraftById,
+  hasMeaningfulManualDraft,
+  notifyDraftSaved,
+  removeNotificationsForDraft,
+  saveManualDraft,
+  scheduleNavigationDraftNotify,
+  type ManualDraftState,
+} from "@/lib/eventDraftStorage";
 import {
   EVENT_TEMPLATES,
   CUSTOM_TEMPLATE_ID,
   CUSTOM_FIELD_TYPES,
   getTemplateById,
+  getDefaultQuestionsForTemplate,
+  getRecommendedQuestionsForTemplate,
   type FieldType,
+  type RegistrationFormField,
+  type RecommendedQuestion,
 } from "@/lib/eventTemplates";
 import AppLayout from "@/components/layout/AppLayout";
+import BackButton from "@/components/ui/BackButton";
+import EventFeeBadge from "@/components/events/EventFeeBadge";
+import { isFreeFee } from "@/lib/feeUtils";
 
 interface EventFormData {
   title: string;
@@ -59,15 +80,6 @@ interface CustomFieldEntry {
   label: string;
   type: FieldType | "boolean";
   value: string;
-  options?: string[];
-}
-
-export interface RegistrationFormField {
-  id: string;
-  key: string;
-  label: string;
-  type: "text" | "textarea" | "number" | "select" | "checkbox";
-  required: boolean;
   options?: string[];
 }
 
@@ -118,28 +130,26 @@ function CreateEventPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isDark, activeAccent } = useAppearance();
-  const { success: showSuccess, error: showError } = useToast();
+  const { success: showSuccess, error: showError, info: showInfo } = useToast();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
   const [locationSuggestions, setLocationSuggestions] = useState<Array<{ label: string; value: string }>>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isLocationSelected, setIsLocationSelected] = useState(false);
+  const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
   const locationControllerRef = useRef<AbortController | null>(null);
+  const locationWrapperRef = useRef<HTMLDivElement | null>(null);
 
   const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
   const [customFields, setCustomFields] = useState<CustomFieldEntry[]>([]);
 
-  const [regFormFields, setRegFormFields] = useState<RegistrationFormField[]>([
-    { id: "reg_college", key: "college", label: "College / University", type: "text", required: true },
-    { id: "reg_branch", key: "branch", label: "Branch / Stream", type: "text", required: false },
-    { id: "reg_year", key: "year", label: "Graduation Year / Academic Year", type: "text", required: false },
-    { id: "reg_tshirt", key: "tshirt_size", label: "T-Shirt Size", type: "select", required: false, options: ["XS", "S", "M", "L", "XL", "XXL"] },
-    { id: "reg_food", key: "food_preference", label: "Food Preference", type: "select", required: false, options: ["Veg", "Non-Veg", "Jain", "Vegan"] },
-  ]);
-
   const templateFromUrl = searchParams.get("template");
   const initialCategory = isValidTemplateId(templateFromUrl) ? (templateFromUrl as string) : EVENT_TEMPLATES[0].id;
+
+  const [regFormFields, setRegFormFields] = useState<RegistrationFormField[]>(() =>
+    getDefaultQuestionsForTemplate(initialCategory)
+  );
 
   const [formData, setFormData] = useState<EventFormData>({
     title: "",
@@ -155,6 +165,122 @@ function CreateEventPageInner() {
     min_team_size: "1",
     max_team_size: "4",
   });
+
+  const draftFromUrl = searchParams.get("draft");
+  const draftIdRef = useRef<string>(draftFromUrl || createDraftId("manual"));
+  const hydratedDraftIdRef = useRef<string | null>(null);
+  const isPublishedRef = useRef(false);
+  const initialCategoryRef = useRef(initialCategory);
+  const initialRegKeysRef = useRef<string[]>(
+    getDefaultQuestionsForTemplate(initialCategory).map((r) => `${r.key}:${r.label}:${r.required}`)
+  );
+
+  const manualSnapshotRef = useRef<ManualDraftState>({
+    step,
+    templateId: templateFromUrl || initialCategory,
+    formData,
+    templateValues,
+    customFields: customFields.map((f) => ({ ...f })),
+    regFormFields,
+    isLocationSelected,
+  });
+
+  manualSnapshotRef.current = {
+    step,
+    templateId: templateFromUrl || formData.category,
+    formData,
+    templateValues,
+    customFields: customFields.map((f) => ({ ...f })),
+    regFormFields,
+    isLocationSelected,
+  };
+
+  useEffect(() => {
+    cancelNavigationDraftNotify("manual");
+
+    if (draftFromUrl && hydratedDraftIdRef.current !== draftFromUrl) {
+      const existing = getEventDraftById(draftFromUrl);
+      if (existing?.source === "manual" && existing.manualState) {
+        hydratedDraftIdRef.current = draftFromUrl;
+        draftIdRef.current = draftFromUrl;
+        const ms = existing.manualState;
+        initialCategoryRef.current = ms.formData.category || initialCategory;
+        setFormData(ms.formData);
+        setTemplateValues(ms.templateValues || {});
+        setCustomFields((ms.customFields || []) as CustomFieldEntry[]);
+        if (Array.isArray(ms.regFormFields)) {
+          setRegFormFields(ms.regFormFields);
+        }
+        setStep(ms.step || 1);
+        setIsLocationSelected(Boolean(ms.isLocationSelected || ms.formData.location));
+        showInfo(`Restored draft "${existing.title}"`);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftFromUrl]);
+
+  useEffect(() => {
+    if (isPublishedRef.current) return;
+    const timer = window.setTimeout(() => {
+      const snap = manualSnapshotRef.current;
+      if (
+        hasMeaningfulManualDraft(snap, {
+          initialCategory: initialCategoryRef.current,
+          initialRegKeys: initialRegKeysRef.current,
+        })
+      ) {
+        saveManualDraft(
+          draftIdRef.current,
+          snap,
+          typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "autosave"
+        );
+      }
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [step, formData, templateValues, customFields, regFormFields, isLocationSelected]);
+
+  useEffect(() => {
+    const isDirty = () =>
+      !isPublishedRef.current &&
+      hasMeaningfulManualDraft(manualSnapshotRef.current, {
+        initialCategory: initialCategoryRef.current,
+        initialRegKeys: initialRegKeysRef.current,
+      });
+
+    const handleOffline = () => {
+      if (isDirty()) {
+        const saved = saveManualDraft(draftIdRef.current, manualSnapshotRef.current, "offline");
+        notifyDraftSaved(saved, "offline");
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      if (isDirty()) {
+        saveManualDraft(
+          draftIdRef.current,
+          manualSnapshotRef.current,
+          typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "navigation"
+        );
+      }
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleBeforeUnload);
+
+      if (isDirty()) {
+        const reason =
+          typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "navigation";
+        const saved = saveManualDraft(draftIdRef.current, manualSnapshotRef.current, reason);
+        scheduleNavigationDraftNotify("manual", saved);
+      }
+    };
+  }, []);
 
   const activeTemplate = getTemplateById(formData.category);
   const isCustom = formData.category === CUSTOM_TEMPLATE_ID;
@@ -176,6 +302,23 @@ function CreateEventPageInner() {
 
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
+  useEffect(() => {
+    const handleClickOutside = (event: Event) => {
+      if (
+        locationWrapperRef.current &&
+        !locationWrapperRef.current.contains(event.target as Node)
+      ) {
+        setIsLocationDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside, true);
+    document.addEventListener("touchstart", handleClickOutside, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+      document.removeEventListener("touchstart", handleClickOutside, true);
+    };
+  }, []);
+
   const handleDetectLocation = async () => {
     if (isDetectingLocation) return;
     setIsDetectingLocation(true);
@@ -184,6 +327,7 @@ function CreateEventPageInner() {
       updateForm("location", address);
       setIsLocationSelected(true);
       setLocationSuggestions([]);
+      setIsLocationDropdownOpen(false);
       clearFieldError("location");
       showSuccess(`Accurate location detected: ${address.split(",")[0]}`);
     } catch (err: any) {
@@ -198,6 +342,7 @@ function CreateEventPageInner() {
     if (isLocationSelected || searchTerm.length < 3 || formData.mode === "online") {
       if (isLocationSelected || formData.mode === "online") {
         setLocationSuggestions([]);
+        setIsLocationDropdownOpen(false);
       }
       setIsLoadingSuggestions(false);
       return;
@@ -216,8 +361,10 @@ function CreateEventPageInner() {
           return { label, value: label };
         });
         setLocationSuggestions(suggestions);
+        setIsLocationDropdownOpen(suggestions.length > 0);
       } catch {
         setLocationSuggestions([]);
+        setIsLocationDropdownOpen(false);
       } finally {
         if (locationControllerRef.current === controller) {
           setIsLoadingSuggestions(false);
@@ -308,17 +455,17 @@ function CreateEventPageInner() {
 
     // Step 2: Venue & Time
     if (targetStep === 2 || targetStep === 6) {
-      if (!formData.start_date) {
-        nextErrors.start_date = "Start date & time is required.";
-      } else {
+      if (formData.start_date && !formData.end_date) {
+        nextErrors.end_date = "End date & time is required when start date is set.";
+      } else if (!formData.start_date && formData.end_date) {
+        nextErrors.start_date = "Start date & time is required when end date is set.";
+      }
+
+      if (formData.start_date) {
         const startDate = new Date(formData.start_date);
         if (startDate < minStart) {
           nextErrors.start_date = "Start date and time cannot be in the past.";
         }
-      }
-
-      if (!formData.end_date) {
-        nextErrors.end_date = "End date & time is required.";
       }
 
       if (formData.start_date && formData.end_date) {
@@ -342,7 +489,8 @@ function CreateEventPageInner() {
         nextErrors.description = "Please add a more detailed description (at least 20 characters).";
       }
 
-      const fee = parseFloat(formData.registration_fee);
+      const rawFee = (formData.registration_fee ?? "").trim();
+      const fee = rawFee === "" ? 0 : parseFloat(rawFee);
       if (isNaN(fee) || fee < 0) {
         nextErrors.registration_fee = "Registration fee must be ₹0 or higher.";
       } else if (fee > 100000) {
@@ -435,8 +583,8 @@ function CreateEventPageInner() {
             f.type === "boolean" || f.type === "checkbox"
               ? f.value === "true"
               : f.type === "number"
-              ? Number(f.value) || 0
-              : f.value;
+                ? Number(f.value) || 0
+                : f.value;
           return {
             id: f.id,
             label: f.label.trim(),
@@ -464,6 +612,13 @@ function CreateEventPageInner() {
   const onSubmit = async () => {
     if (!validateForm(6)) return;
 
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const saved = saveManualDraft(draftIdRef.current, manualSnapshotRef.current, "offline");
+      notifyDraftSaved(saved, "offline");
+      showError("No internet connection — your event has been saved to Drafts.");
+      return;
+    }
+
     try {
       setIsLoading(true);
       const { custom_fields, custom_form_schema, registration_form_schema } = buildCustomPayload();
@@ -474,8 +629,8 @@ function CreateEventPageInner() {
         type: formData.category,
         mode: formData.mode,
         location: formData.location || "Online",
-        start_date: new Date(formData.start_date).toISOString(),
-        end_date: new Date(formData.end_date).toISOString(),
+        start_date: formData.start_date ? new Date(formData.start_date).toISOString() : null,
+        end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null,
         capacity: parseInt(formData.capacity) || 0,
         registration_type: formData.registration_type,
         registration_fee: parseFloat(formData.registration_fee) || 0,
@@ -490,6 +645,9 @@ function CreateEventPageInner() {
       };
 
       const res = await eventService.createEvent(payload);
+      isPublishedRef.current = true;
+      deleteEventDraft(draftIdRef.current);
+      removeNotificationsForDraft(draftIdRef.current);
       showSuccess("Event published successfully!");
       if (res?.data?.id || res?.id) {
         router.push(`/events/${res?.data?.id || res?.id}`);
@@ -498,6 +656,14 @@ function CreateEventPageInner() {
       }
     } catch (err: any) {
       setIsLoading(false);
+      const isNetworkDown =
+        (typeof navigator !== "undefined" && !navigator.onLine) || !err?.response;
+      if (isNetworkDown && hasMeaningfulManualDraft(manualSnapshotRef.current)) {
+        const saved = saveManualDraft(draftIdRef.current, manualSnapshotRef.current, "offline");
+        notifyDraftSaved(saved, "error");
+        showError("Connection interrupted — your event was saved to Drafts.");
+        return;
+      }
       showError(err?.message || "Failed to create event. Please check inputs and try again.");
     }
   };
@@ -569,13 +735,14 @@ function CreateEventPageInner() {
         );
       case "date":
         return (
-          <input
-            type="date"
-            value={value}
-            onChange={(e) => updateTemplateValue(field.id, e.target.value)}
-            className="h-10 px-3.5 rounded-xl border text-xs sm:text-sm font-semibold max-w-[180px] outline-none"
-            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-          />
+          <div className="max-w-[240px]">
+            <DateTimePicker
+              mode="date"
+              value={value}
+              onChange={(val) => updateTemplateValue(field.id, val)}
+              placeholder="Select date"
+            />
+          </div>
         );
       default:
         return (
@@ -651,13 +818,14 @@ function CreateEventPageInner() {
         );
       case "date":
         return (
-          <input
-            type="date"
-            value={field.value}
-            onChange={(e) => updateCustomField(field.id, { value: e.target.value })}
-            className="h-9 px-3 rounded-xl border text-xs font-semibold max-w-[160px] outline-none"
-            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-          />
+          <div className="max-w-[220px]">
+            <DateTimePicker
+              mode="date"
+              value={field.value}
+              onChange={(val) => updateCustomField(field.id, { value: val })}
+              placeholder="Select date"
+            />
+          </div>
         );
       case "number":
         return (
@@ -687,6 +855,7 @@ function CreateEventPageInner() {
     updateForm("location", "");
     setIsLocationSelected(false);
     setLocationSuggestions([]);
+    setIsLocationDropdownOpen(false);
     setIsLoadingSuggestions(false);
     clearFieldError("location");
   };
@@ -698,6 +867,7 @@ function CreateEventPageInner() {
     updateForm("location", normalized);
     setIsLocationSelected(true);
     setLocationSuggestions([]);
+    setIsLocationDropdownOpen(false);
     setIsLoadingSuggestions(false);
     clearFieldError("location");
   }
@@ -719,41 +889,38 @@ function CreateEventPageInner() {
           color: "var(--text)"
         }}
       >
-        {/* TOP COMPACT STUDIO BAR */}
-        <div
-          className="w-full border-b px-4 sm:px-8 py-3.5 flex items-center justify-between z-20 shadow-xs"
-          style={{ background: "var(--card)", borderColor: "var(--border)" }}
-        >
-          <Link href="/events/create">
-            <Button
-              variant="ghost"
-              className="rounded-xl font-bold text-xs h-9 px-3 transition-all cursor-pointer flex items-center gap-1.5 hover:opacity-80"
-              style={{ color: "var(--muted)" }}
-            >
-              <ArrowLeft className="w-4 h-4" /> Exit Studio
-            </Button>
-          </Link>
-
-          <div className="flex items-center gap-2">
-            <span
-              className="text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border font-mono"
-              style={{
-                background: "color-mix(in oklab, var(--accent) 15%, transparent)",
-                borderColor: "color-mix(in oklab, var(--accent) 30%, transparent)",
-                color: "var(--accent)"
-              }}
-            >
-              {isCustom ? "Custom Blueprint" : activeTemplate?.label || "Event"}
-            </span>
-          </div>
-
-          <div className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-            Step {step} of {TOTAL_STEPS}
-          </div>
-        </div>
-
         {/* WORKSPACE MAIN BODY */}
-        <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 pt-6 space-y-6">
+        <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 pt-7 space-y-6">
+          {/* BACK NAVIGATION */}
+          <div className="flex items-center">
+            <BackButton href="/events/create" label="Exit Studio" />
+          </div>
+
+          {/* STUDIO HEADER BAR */}
+          <div
+            className="w-full rounded-2xl border px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 z-20 shadow-xs"
+            style={{ background: "var(--card)", borderColor: "var(--border)" }}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wider border font-mono"
+                style={{
+                  background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                  borderColor: "color-mix(in oklab, var(--accent) 30%, transparent)",
+                  color: "var(--accent)"
+                }}
+              >
+                {isCustom ? "Custom Blueprint" : activeTemplate?.label || "Event"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <div className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                Step {step} of {TOTAL_STEPS}
+              </div>
+            </div>
+          </div>
+
           {/* STEP PROGRESS CHECKPOINTS */}
           <div className="w-full space-y-2">
             <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar pb-1">
@@ -773,8 +940,8 @@ function CreateEventPageInner() {
                       color: isCurrent
                         ? "var(--accent)"
                         : isCompleted
-                        ? "var(--text)"
-                        : "var(--subtle)"
+                          ? "var(--text)"
+                          : "var(--subtle)"
                     }}
                   >
                     <span
@@ -782,16 +949,16 @@ function CreateEventPageInner() {
                       style={
                         isCurrent
                           ? {
-                              background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                              color: "#fff",
-                              boxShadow: "0 2px 8px color-mix(in oklab, var(--accent) 35%, transparent)"
-                            }
+                            background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                            color: "#fff",
+                            boxShadow: "0 2px 8px color-mix(in oklab, var(--accent) 35%, transparent)"
+                          }
                           : isCompleted
-                          ? {
+                            ? {
                               background: "color-mix(in oklab, var(--accent) 20%, transparent)",
                               color: "var(--accent)"
                             }
-                          : {
+                            : {
                               background: "var(--card2)",
                               color: "var(--subtle)",
                               border: "1px solid var(--border)"
@@ -820,7 +987,7 @@ function CreateEventPageInner() {
 
           {/* MAIN ELEVATED FORM CARD */}
           <div
-            className="w-full rounded-3xl border shadow-xl flex flex-col overflow-hidden transition-all duration-300"
+            className="w-full rounded-3xl border shadow-xl flex flex-col overflow-visible transition-all duration-300 relative"
             style={{
               background: "var(--card)",
               borderColor: "var(--border)",
@@ -828,7 +995,7 @@ function CreateEventPageInner() {
             }}
           >
             {/* Scrollable form body */}
-            <div className="p-6 sm:p-8 md:p-10 space-y-6">
+            <div className="p-6 sm:p-8 md:p-10 space-y-6 relative z-20 min-h-[460px]">
               <AnimatePresence mode="wait">
                 {/* ================= STEP 1: BASICS ================= */}
                 {step === 1 && (
@@ -929,16 +1096,16 @@ function CreateEventPageInner() {
                                   style={
                                     isSelected
                                       ? {
-                                          background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                                          color: "#fff",
-                                          borderColor: "transparent",
-                                          boxShadow: "0 6px 16px color-mix(in oklab, var(--accent) 30%, transparent)"
-                                        }
+                                        background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                                        color: "#fff",
+                                        borderColor: "transparent",
+                                        boxShadow: "0 6px 16px color-mix(in oklab, var(--accent) 30%, transparent)"
+                                      }
                                       : {
-                                          background: "var(--card2)",
-                                          borderColor: "var(--border)",
-                                          color: "var(--text)"
-                                        }
+                                        background: "var(--card2)",
+                                        borderColor: "var(--border)",
+                                        color: "var(--text)"
+                                      }
                                   }
                                 >
                                   <div className="flex items-center justify-between w-full mb-2">
@@ -981,7 +1148,7 @@ function CreateEventPageInner() {
                     animate="center"
                     exit="exit"
                     transition={{ duration: 0.25 }}
-                    className="space-y-6"
+                    className="space-y-6 relative z-20"
                   >
                     <div className="flex items-center gap-4 border-b pb-4" style={{ borderColor: "var(--border)" }}>
                       <div
@@ -1006,36 +1173,28 @@ function CreateEventPageInner() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
                           <div className="space-y-1.5">
                             <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                              Start Date & Time *
+                              Start Date & Time <span className="font-normal opacity-75">(Optional — blank = Coming Soon)</span>
                             </label>
-                            <input
-                              type="datetime-local"
+                            <DateTimePicker
                               value={formData.start_date}
-                              onChange={(e) => updateForm("start_date", e.target.value)}
-                              className="w-full h-11 px-3.5 rounded-xl border text-xs sm:text-sm font-semibold outline-none"
-                              style={{
-                                background: "var(--input)",
-                                borderColor: fieldErrors.start_date ? "#ef4444" : "var(--border)",
-                                color: "var(--text)"
-                              }}
+                              onChange={(val) => updateForm("start_date", val)}
+                              error={!!fieldErrors.start_date}
+                              placeholder="Select start date & time"
                             />
                             {fieldErrors.start_date && <p className="text-xs text-red-500 font-bold mt-1">{fieldErrors.start_date}</p>}
                           </div>
 
                           <div className="space-y-1.5">
                             <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                              End Date & Time *
+                              End Date & Time <span className="font-normal opacity-75">(Optional)</span>
                             </label>
-                            <input
-                              type="datetime-local"
+                            <DateTimePicker
                               value={formData.end_date}
-                              onChange={(e) => updateForm("end_date", e.target.value)}
-                              className="w-full h-11 px-3.5 rounded-xl border text-xs sm:text-sm font-semibold outline-none"
-                              style={{
-                                background: "var(--input)",
-                                borderColor: fieldErrors.end_date ? "#ef4444" : "var(--border)",
-                                color: "var(--text)"
-                              }}
+                              onChange={(val) => updateForm("end_date", val)}
+                              minDate={formData.start_date || undefined}
+                              error={!!fieldErrors.end_date}
+                              placeholder="Select end date & time"
+                              align="right"
                             />
                             {fieldErrors.end_date && <p className="text-xs text-red-500 font-bold mt-1">{fieldErrors.end_date}</p>}
                           </div>
@@ -1076,14 +1235,20 @@ function CreateEventPageInner() {
                             )}
                           </div>
 
-                          <div className="relative">
+                          <div ref={locationWrapperRef} className="relative w-full z-30">
                             <input
                               type="text"
                               placeholder={formData.mode === "online" ? "e.g. Zoom, Google Meet or YouTube Livestream URL" : "e.g. KTPO Trade Centre, Whitefield, Bengaluru"}
                               value={formData.location}
+                              onFocus={() => {
+                                if (locationSuggestions.length > 0 && !isLocationSelected) {
+                                  setIsLocationDropdownOpen(true);
+                                }
+                              }}
                               onChange={(e) => {
                                 updateForm("location", e.target.value);
                                 setIsLocationSelected(false);
+                                setIsLocationDropdownOpen(true);
                               }}
                               className="w-full h-11 px-3.5 pr-10 rounded-xl border text-xs sm:text-sm font-semibold outline-none"
                               style={{
@@ -1102,35 +1267,39 @@ function CreateEventPageInner() {
                                 <X className="w-4 h-4" />
                               </button>
                             )}
+
+                            {isLoadingSuggestions && formData.location.trim().length >= 3 && !isLocationSelected && (
+                              <p className="mt-1.5 text-xs px-3 py-1.5 rounded-lg border shadow-xs animate-pulse font-mono" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}>
+                                Searching Mapbox locations...
+                              </p>
+                            )}
+
+                            {isLocationDropdownOpen && locationSuggestions.length > 0 && (
+                              <ul
+                                className="absolute left-0 top-full mt-2 w-full z-50 max-h-56 overflow-y-auto rounded-2xl border shadow-2xl py-1 divide-y backdrop-blur-md"
+                                style={{
+                                  background: "var(--card)",
+                                  borderColor: "var(--border)",
+                                  boxShadow: "0 20px 40px -10px rgba(0, 0, 0, 0.35)"
+                                }}
+                              >
+                                {locationSuggestions.map((suggestion) => (
+                                  <li
+                                    key={suggestion.value}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleLocationSelect(suggestion.value);
+                                    }}
+                                    className="cursor-pointer px-4 py-2.5 text-xs sm:text-sm flex items-center gap-2.5 transition-colors font-medium hover:bg-black/5 dark:hover:bg-white/5"
+                                    style={{ color: "var(--text)" }}
+                                  >
+                                    <MapPin className="w-4 h-4 shrink-0" style={{ color: "var(--accent)" }} />
+                                    <span className="truncate">{suggestion.label}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </div>
-
-                          {isLoadingSuggestions && formData.location.trim().length >= 3 && (
-                            <p className="text-xs px-3 py-1.5 rounded-lg border shadow-xs animate-pulse font-mono" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}>
-                              Searching Mapbox locations...
-                            </p>
-                          )}
-
-                          {locationSuggestions.length > 0 && (
-                            <ul
-                              className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-2xl border shadow-2xl py-1 divide-y"
-                              style={{ background: "var(--card)", borderColor: "var(--border)" }}
-                            >
-                              {locationSuggestions.map((suggestion) => (
-                                <li
-                                  key={suggestion.value}
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    handleLocationSelect(suggestion.value);
-                                  }}
-                                  className="cursor-pointer px-4 py-2.5 text-xs sm:text-sm flex items-center gap-2.5 transition-colors font-medium hover:bg-black/5 dark:hover:bg-white/5"
-                                  style={{ color: "var(--text)" }}
-                                >
-                                  <MapPin className="w-4 h-4 shrink-0" style={{ color: "var(--accent)" }} />
-                                  <span className="truncate">{suggestion.label}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
 
                           {fieldErrors.location && <p className="text-xs text-red-500 font-bold mt-1">{fieldErrors.location}</p>}
                         </div>
@@ -1220,16 +1389,16 @@ function CreateEventPageInner() {
                                   style={
                                     isSelected
                                       ? {
-                                          background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                                          color: "#fff",
-                                          borderColor: "transparent",
-                                          boxShadow: "0 4px 14px color-mix(in oklab, var(--accent) 30%, transparent)"
-                                        }
+                                        background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                                        color: "#fff",
+                                        borderColor: "transparent",
+                                        boxShadow: "0 4px 14px color-mix(in oklab, var(--accent) 30%, transparent)"
+                                      }
                                       : {
-                                          background: "var(--card2)",
-                                          borderColor: "var(--border)",
-                                          color: "var(--text)"
-                                        }
+                                        background: "var(--card2)",
+                                        borderColor: "var(--border)",
+                                        color: "var(--text)"
+                                      }
                                   }
                                 >
                                   <p className="font-bold text-sm tracking-tight">{t.label}</p>
@@ -1289,13 +1458,18 @@ function CreateEventPageInner() {
                       <FormRow icon={<Ticket className="w-4 h-4" />}>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
                           <div className="space-y-1.5">
-                            <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                              Registration Fee (₹)
-                            </label>
+                            <div className="flex items-center justify-between gap-2">
+                              <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                                Registration Fee (₹)
+                              </label>
+                              {isFreeFee(formData.registration_fee) && (
+                                <EventFeeBadge fee={0} size="xs" />
+                              )}
+                            </div>
                             <input
                               type="number"
                               min="0"
-                              placeholder="0 (Free Attendance)"
+                              placeholder="0 (Leave blank for Free)"
                               value={formData.registration_fee}
                               onChange={(e) => updateForm("registration_fee", e.target.value)}
                               className="w-full h-11 px-3.5 rounded-xl border text-xs sm:text-sm font-bold outline-none"
@@ -1379,33 +1553,76 @@ function CreateEventPageInner() {
                             </span>
                           </div>
 
-                          {/* Quick Presets */}
-                          <div className="space-y-2">
-                            <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                              Quick Preset Questions & Blank Custom
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                              {[
-                                { label: "College / University", key: "college", type: "text" },
-                                { label: "Graduation Year", key: "year", type: "text" },
-                                { label: "Branch / Stream", key: "branch", type: "text" },
-                                { label: "Resume Link", key: "resume", type: "text" },
-                                { label: "Why Join?", key: "why_join", type: "textarea" },
-                              ].map((p) => (
-                                <button
-                                  key={p.label}
-                                  type="button"
-                                  onClick={() => addRegFormField(p.key, p.label, p.type as any)}
-                                  className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-105 active:scale-95"
+                          {/* Quick Presets & Recommendations */}
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                                  {isCustom ? "Recommended Questions (Blank Canvas)" : `Recommended Questions (${activeTemplate?.label || "Template"})`}
+                                </label>
+                                <span
+                                  className="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-full border uppercase tracking-wider"
                                   style={{
-                                    background: "var(--card2)",
-                                    borderColor: "var(--border)",
-                                    color: "var(--text)"
+                                    background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                                    borderColor: "color-mix(in oklab, var(--accent) 25%, transparent)",
+                                    color: "var(--accent)"
                                   }}
                                 >
-                                  + {p.label}
-                                </button>
-                              ))}
+                                  {isCustom ? "Personalized Suggestions" : "Template Blueprint"}
+                                </span>
+                              </div>
+                              <span className="text-[11px] font-medium hidden sm:inline" style={{ color: "var(--muted)" }}>
+                                Click to add to questionnaire
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              {getRecommendedQuestionsForTemplate(formData.category).map((p) => {
+                                const isAdded = regFormFields.some(
+                                  (f) => f.label.toLowerCase() === p.label.toLowerCase() || (p.key && f.key === p.key)
+                                );
+
+                                return (
+                                  <button
+                                    key={p.label}
+                                    type="button"
+                                    onClick={() => {
+                                      if (!isAdded) {
+                                        addRegFormField(p.key, p.label, p.type, p.options);
+                                      }
+                                    }}
+                                    className="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                                    style={
+                                      isAdded
+                                        ? {
+                                          background: "color-mix(in oklab, var(--accent) 12%, var(--card2))",
+                                          borderColor: "color-mix(in oklab, var(--accent) 35%, var(--border))",
+                                          color: "var(--accent)",
+                                          opacity: 0.9
+                                        }
+                                        : {
+                                          background: "var(--card2)",
+                                          borderColor: "var(--border)",
+                                          color: "var(--text)"
+                                        }
+                                    }
+                                  >
+                                    {isAdded ? (
+                                      <>
+                                        <Check className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--accent)" }} />
+                                        <span>{p.label}</span>
+                                        <span className="text-[10px] opacity-70 font-normal font-mono">(Added)</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span style={{ color: "var(--accent)" }}>+</span>
+                                        <span>{p.label}</span>
+                                      </>
+                                    )}
+                                  </button>
+                                );
+                              })}
+
                               <button
                                 type="button"
                                 onClick={() => addRegFormField(`custom_${Date.now()}`, "", "text")}
@@ -1424,89 +1641,161 @@ function CreateEventPageInner() {
                           )}
 
                           {/* Questions List */}
-                          <div className="space-y-2.5 max-h-[300px] overflow-y-auto no-scrollbar pr-1">
-                            {regFormFields.length === 0 && (
-                              <p className="text-center py-8 text-xs italic font-medium" style={{ color: "var(--muted)" }}>
-                                No checkout questions added yet. Click preset chips above to add questions.
-                              </p>
-                            )}
-                            {regFormFields.map((field) => (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                                Attendee Questions ({regFormFields.length})
+                              </label>
+                              {regFormFields.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRegFormFields([])}
+                                  className="text-[11px] font-mono font-bold text-red-500 hover:underline cursor-pointer"
+                                >
+                                  Clear All
+                                </button>
+                              )}
+                            </div>
+
+                            {regFormFields.length === 0 ? (
                               <div
-                                key={field.id}
-                                className="flex flex-col md:flex-row items-center gap-3 p-3.5 border rounded-2xl"
-                                style={{ background: "var(--card2)", borderColor: "var(--border)" }}
+                                className="py-10 px-6 rounded-3xl border border-dashed text-center flex flex-col items-center justify-center space-y-3 transition-colors"
+                                style={{
+                                  background: "color-mix(in oklab, var(--accent) 3%, var(--card2))",
+                                  borderColor: "color-mix(in oklab, var(--accent) 25%, var(--border))",
+                                }}
                               >
-                                <div className="w-full md:w-1/3">
-                                  <input
-                                    type="text"
-                                    value={field.label}
-                                    onChange={(e) => updateRegFormField(field.id, { label: e.target.value })}
-                                    placeholder="Question Label (e.g. GitHub URL)"
-                                    className="w-full h-9 px-3 rounded-xl border text-xs font-semibold outline-none"
-                                    style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                                  />
+                                <div
+                                  className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-xs"
+                                  style={{
+                                    background: "color-mix(in oklab, var(--accent) 15%, transparent)",
+                                    color: "var(--accent)",
+                                  }}
+                                >
+                                  <HelpCircle className="w-6 h-6" />
                                 </div>
-                                <div className="w-full md:w-1/4">
-                                  <select
-                                    value={field.type}
-                                    onChange={(e) =>
-                                      updateRegFormField(field.id, {
-                                        type: e.target.value as any,
-                                        options: e.target.value === "select" ? field.options || ["Option 1", "Option 2"] : undefined,
-                                      })
-                                    }
-                                    className="w-full h-9 px-2.5 rounded-xl border text-xs font-bold outline-none cursor-pointer"
-                                    style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                                  >
-                                    <option value="text">Short Text</option>
-                                    <option value="textarea">Long Text</option>
-                                    <option value="number">Number</option>
-                                    <option value="select">Dropdown</option>
-                                    <option value="checkbox">Checkbox</option>
-                                  </select>
+                                <div className="max-w-md space-y-1">
+                                  <h3 className="font-black text-sm sm:text-base tracking-tight" style={{ color: "var(--text)" }}>
+                                    {isCustom ? "No Questions Added Yet (Blank Canvas)" : "No Custom Questions Added"}
+                                  </h3>
+                                  <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                                    Participants will only submit standard core fields (Full Name, Email, and Phone) at checkout. Click any of the recommended questions above or add a blank question to collect custom details.
+                                  </p>
                                 </div>
-                                <div className="flex-1 w-full">
-                                  {field.type === "select" ? (
-                                    <input
-                                      type="text"
-                                      value={(field.options || []).join(", ")}
-                                      onChange={(e) =>
-                                        updateRegFormField(field.id, {
-                                          options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean),
-                                        })
-                                      }
-                                      placeholder="Options: S, M, L, XL"
-                                      className="w-full h-9 px-3 rounded-xl border text-xs font-semibold outline-none"
-                                      style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                                    />
-                                  ) : (
-                                    <div className="text-[11px] italic text-center md:text-left" style={{ color: "var(--muted)" }}>
-                                      Standard {field.type} response
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="shrink-0 flex items-center gap-3">
-                                  <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer select-none" style={{ color: "var(--text)" }}>
-                                    <input
-                                      type="checkbox"
-                                      checked={field.required}
-                                      onChange={(e) => updateRegFormField(field.id, { required: e.target.checked })}
-                                      className="w-3.5 h-3.5 rounded cursor-pointer"
-                                      style={{ accentColor: "var(--accent)" }}
-                                    />
-                                    Req
-                                  </label>
+                                <div className="pt-1 flex items-center gap-2">
                                   <button
                                     type="button"
-                                    onClick={() => removeRegFormField(field.id)}
-                                    className="p-1.5 rounded-xl text-red-500 hover:bg-red-500/10 transition cursor-pointer shrink-0"
-                                    title="Remove question"
+                                    onClick={() => addRegFormField(`custom_${Date.now()}`, "", "text")}
+                                    className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-md transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-1.5"
+                                    style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Plus className="w-3.5 h-3.5" /> Add Blank Question
                                   </button>
                                 </div>
                               </div>
-                            ))}
+                            ) : (
+                              <div className="space-y-2.5 max-h-[380px] overflow-y-auto no-scrollbar pr-1">
+                                {regFormFields.map((field, idx) => (
+                                  <div
+                                    key={field.id}
+                                    className="flex flex-col md:flex-row items-center gap-3 p-3.5 border rounded-2xl transition-all"
+                                    style={{ background: "var(--card2)", borderColor: "var(--border)" }}
+                                  >
+                                    <div
+                                      className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-mono font-bold shrink-0 self-start md:self-center"
+                                      style={{
+                                        background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                                        color: "var(--accent)"
+                                      }}
+                                    >
+                                      {idx + 1}
+                                    </div>
+                                    <div className="w-full md:w-1/3">
+                                      <input
+                                        type="text"
+                                        value={field.label}
+                                        onChange={(e) => updateRegFormField(field.id, { label: e.target.value })}
+                                        placeholder="Question Title (e.g. GitHub URL)"
+                                        className="w-full h-9 px-3 rounded-xl border text-xs font-semibold outline-none"
+                                        style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+                                      />
+                                    </div>
+                                    <div className="w-full md:w-1/4">
+                                      <select
+                                        value={field.type}
+                                        onChange={(e) =>
+                                          updateRegFormField(field.id, {
+                                            type: e.target.value as any,
+                                            options: e.target.value === "select" ? field.options || ["Option 1", "Option 2"] : undefined,
+                                          })
+                                        }
+                                        className="w-full h-9 px-2.5 rounded-xl border text-xs font-bold outline-none cursor-pointer"
+                                        style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+                                      >
+                                        <option value="text">Short Text</option>
+                                        <option value="textarea">Long Text</option>
+                                        <option value="number">Number</option>
+                                        <option value="select">Dropdown</option>
+                                        <option value="checkbox">Checkbox</option>
+                                      </select>
+                                    </div>
+                                    <div className="flex-1 w-full">
+                                      {field.type === "select" ? (
+                                        <input
+                                          type="text"
+                                          value={(field.options || []).join(", ")}
+                                          onChange={(e) =>
+                                            updateRegFormField(field.id, {
+                                              options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean),
+                                            })
+                                          }
+                                          placeholder="Options: S, M, L, XL"
+                                          className="w-full h-9 px-3 rounded-xl border text-xs font-semibold outline-none"
+                                          style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
+                                        />
+                                      ) : (
+                                        <div className="text-[11px] italic text-center md:text-left" style={{ color: "var(--muted)" }}>
+                                          Standard {field.type} response
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="shrink-0 flex items-center gap-3">
+                                      <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer select-none" style={{ color: "var(--text)" }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={field.required}
+                                          onChange={(e) => updateRegFormField(field.id, { required: e.target.checked })}
+                                          className="w-3.5 h-3.5 rounded cursor-pointer"
+                                          style={{ accentColor: "var(--accent)" }}
+                                        />
+                                        Req
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeRegFormField(field.id)}
+                                        className="p-1.5 rounded-xl text-red-500 hover:bg-red-500/10 transition cursor-pointer shrink-0"
+                                        title="Remove question"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                <button
+                                  type="button"
+                                  onClick={() => addRegFormField(`custom_${Date.now()}`, "", "text")}
+                                  className="w-full py-2.5 rounded-2xl border border-dashed text-xs font-bold flex items-center justify-center gap-1.5 hover:opacity-80 transition cursor-pointer"
+                                  style={{
+                                    background: "var(--card2)",
+                                    borderColor: "var(--border)",
+                                    color: "var(--accent)"
+                                  }}
+                                >
+                                  <Plus className="w-3.5 h-3.5" /> Add Another Question
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </FormRow>
@@ -1718,7 +2007,7 @@ function CreateEventPageInner() {
                         <div className="space-y-2 text-xs font-semibold" style={{ color: "var(--muted)" }}>
                           <div className="flex items-center gap-2">
                             <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--accent)" }} />
-                            <span>{formData.start_date ? new Date(formData.start_date).toLocaleDateString() : "TBA"}</span>
+                            <span>{formData.start_date ? new Date(formData.start_date).toLocaleDateString() : "Coming Soon"}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <MapPin className="w-3.5 h-3.5 shrink-0 text-rose-500" />
@@ -1726,7 +2015,7 @@ function CreateEventPageInner() {
                           </div>
                           <div className="flex items-center gap-2">
                             <Ticket className="w-3.5 h-3.5 shrink-0 text-amber-500" />
-                            <span>{Number(formData.registration_fee) === 0 ? "Free Entry" : `₹${formData.registration_fee}`}</span>
+                            <EventFeeBadge fee={formData.registration_fee} size="sm" />
                           </div>
                         </div>
 
@@ -1751,9 +2040,9 @@ function CreateEventPageInner() {
                           </div>
                           <div>
                             <p className="font-mono uppercase text-[10px]" style={{ color: "var(--muted)" }}>Pricing Tier</p>
-                            <p className="font-bold text-sm mt-0.5" style={{ color: "var(--text)" }}>
-                              {Number(formData.registration_fee) === 0 ? "Free (₹0)" : `₹${formData.registration_fee}`}
-                            </p>
+                            <div className="mt-1">
+                              <EventFeeBadge fee={formData.registration_fee} size="md" paidClassName="font-bold text-sm text-[var(--text)]" />
+                            </div>
                           </div>
                           <div>
                             <p className="font-mono uppercase text-[10px]" style={{ color: "var(--muted)" }}>Capacity Limit</p>
@@ -1840,16 +2129,15 @@ function CreateEventPageInner() {
 
             {/* ACTION BUTTONS FOOTER */}
             <div
-              className="px-6 sm:px-8 py-4 border-t flex items-center justify-between z-10"
+              className="px-6 sm:px-8 py-4 border-t flex items-center justify-between rounded-b-3xl relative z-10"
               style={{ background: "var(--card2)", borderColor: "var(--border)" }}
             >
               <button
                 type="button"
                 onClick={prevStep}
                 disabled={step === 1 || isLoading}
-                className={`px-5 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer ${
-                  step === 1 ? "invisible" : "visible"
-                }`}
+                className={`px-5 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer ${step === 1 ? "invisible" : "visible"
+                  }`}
                 style={{
                   background: "var(--card)",
                   borderColor: "var(--border)",

@@ -52,10 +52,24 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (hasStoredSession()) {
-      const returnUrl = localStorage.getItem("returnUrl") || "/home";
-      router.replace(returnUrl);
+      const rawTarget = localStorage.getItem("returnUrl") || "/home";
+      let destination = "/home";
+      if (rawTarget) {
+        try {
+          const decoded = decodeURIComponent(rawTarget);
+          if (decoded.startsWith("/") && !decoded.startsWith("/login") && !decoded.startsWith("/register")) {
+            destination = decoded;
+          }
+        } catch {
+          if (rawTarget.startsWith("/") && !rawTarget.startsWith("/login") && !rawTarget.startsWith("/register")) {
+            destination = rawTarget;
+          }
+        }
+      }
+      localStorage.removeItem("returnUrl");
+      window.location.replace(destination);
     }
-  }, [router]);
+  }, []);
 
   const [step, setStep] = useState<1 | 2>(1);
   const [serverError, setServerError] = useState("");
@@ -156,13 +170,22 @@ export default function RegisterPage() {
       setStoredTokens(result.accessToken, result.refreshToken);
       showSuccess("Account created successfully! Welcome to Eventrix.");
 
-      const returnUrl = localStorage.getItem("returnUrl");
-      if (returnUrl) {
-        localStorage.removeItem("returnUrl");
-        router.push(returnUrl);
-      } else {
-        router.push("/home");
+      const rawTarget = localStorage.getItem("returnUrl") || "/home";
+      let destination = "/home";
+      if (rawTarget) {
+        try {
+          const decoded = decodeURIComponent(rawTarget);
+          if (decoded.startsWith("/") && !decoded.startsWith("/login") && !decoded.startsWith("/register")) {
+            destination = decoded;
+          }
+        } catch {
+          if (rawTarget.startsWith("/") && !rawTarget.startsWith("/login") && !rawTarget.startsWith("/register")) {
+            destination = rawTarget;
+          }
+        }
       }
+      localStorage.removeItem("returnUrl");
+      window.location.replace(destination);
     } catch (error: any) {
       setServerError(
         error.response?.data?.message ||

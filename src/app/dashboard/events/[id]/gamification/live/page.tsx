@@ -7,7 +7,7 @@ import {
   Users, Play, Trophy, HelpCircle, Clock, Sparkles,
   Copy, Check, Share2, Radio, UserCheck, ArrowRight,
   Maximize2, Minimize2, Award, Crown, Flame, AlertCircle,
-  CheckCircle2, X
+  CheckCircle2, X, RotateCcw
 } from "lucide-react";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
@@ -84,8 +84,10 @@ export default function LiveOrganizerDashboard() {
         const found = quizzes.find((q: any) => q.id === parseInt(quizId as string));
         if (found) {
           setQuiz(found);
+          // If the quiz was marked COMPLETED in database from a previous game,
+          // automatically reset it when opening live arena so host starts with clean lobby
           if (found.status === "COMPLETED") {
-            setQuizEnded(true);
+            api.post(`/events/${eventId}/quizzes/${quizId}/reset`).catch(() => {});
           }
         }
       })
@@ -125,10 +127,7 @@ export default function LiveOrganizerDashboard() {
     });
 
     newSocket.on("quiz_state", (state: any) => {
-      if (state.status === "COMPLETED") {
-        setQuizEnded(true);
-        if (state.leaderboard) setLeaderboard(state.leaderboard);
-      } else if (state.status === "IN_PROGRESS" && state.question) {
+      if (state.status === "IN_PROGRESS" && state.question) {
         setQuizStarted(true);
         setCurrentQuestion(state.question);
         setCorrectOptionId(null);
@@ -136,6 +135,18 @@ export default function LiveOrganizerDashboard() {
       } else {
         setQuizStarted(false);
       }
+    });
+
+    newSocket.on("quiz_reset", () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setQuizStarted(false);
+      setQuizEnded(false);
+      setCurrentQuestion(null);
+      setLeaderboard([]);
+      setShowLeaderboardStage(false);
+      setCorrectOptionId(null);
+      setUsersJoined(0);
+      setConnectedPlayers([]);
     });
 
     newSocket.on("quiz_started", () => {
@@ -214,6 +225,50 @@ export default function LiveOrganizerDashboard() {
     if (timerRef.current) clearInterval(timerRef.current);
     socket?.emit("end_quiz", { quizId: parseInt(quizId as string) });
     setQuizEnded(true);
+  };
+
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetAndReplay = async () => {
+    if (!quizId) return;
+    try {
+      setResetting(true);
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (socket) {
+        socket.emit("reset_quiz", { quizId: parseInt(quizId as string) });
+      }
+      await api.post(`/events/${eventId}/quizzes/${quizId}/reset`);
+      setQuizStarted(false);
+      setQuizEnded(false);
+      setCurrentQuestion(null);
+      setLeaderboard([]);
+      setShowLeaderboardStage(false);
+      setCorrectOptionId(null);
+      setUsersJoined(0);
+      setConnectedPlayers([]);
+    } catch (err) {
+      console.error("Failed to reset quiz:", err);
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const handleReturnToDashboard = async () => {
+    if (!quizId) {
+      router.push(`/events/${eventId}?tab=ACTIVITIES`);
+      return;
+    }
+    try {
+      setResetting(true);
+      if (socket) {
+        socket.emit("reset_quiz", { quizId: parseInt(quizId as string) });
+      }
+      await api.post(`/events/${eventId}/quizzes/${quizId}/reset`);
+    } catch (err) {
+      console.error("Failed to reset quiz on exit:", err);
+    } finally {
+      router.push(`/events/${eventId}?tab=ACTIVITIES`);
+    }
   };
 
   const toggleFullscreen = () => {
@@ -476,15 +531,26 @@ export default function LiveOrganizerDashboard() {
               </div>
             )}
 
-            {/* Back to Console Button */}
-            <Link href={`/events/${eventId}`}>
+            {/* Action Buttons: Play Again (Reset Game) & Return to Console */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
               <button
-                className="h-11 px-8 rounded-xl font-bold text-sm shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2"
+                onClick={handleResetAndReplay}
+                disabled={resetting}
+                className="h-11 px-6 rounded-xl font-bold text-sm shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2 border border-emerald-500/30 text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 disabled:opacity-50"
+              >
+                <RotateCcw className={`w-4 h-4 ${resetting ? "animate-spin" : ""}`} />
+                <span>Play Again (Fresh Game)</span>
+              </button>
+
+              <button
+                onClick={handleReturnToDashboard}
+                disabled={resetting}
+                className="h-11 px-6 rounded-xl font-bold text-sm shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2 disabled:opacity-50"
                 style={{ background: "var(--text)", color: "var(--bg)" }}
               >
-                Return to Organizer Dashboard →
+                <span>Return to Organizer Dashboard →</span>
               </button>
-            </Link>
+            </div>
           </div>
         ) : !quizStarted ? (
           /* =========================================================================

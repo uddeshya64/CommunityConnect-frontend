@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -31,16 +31,34 @@ import {
   Lock,
   Plus,
   Trash2,
+  WifiOff,
+  BookmarkCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import AppLayout from "@/components/layout/AppLayout";
+import BackButton from "@/components/ui/BackButton";
+import EventFeeBadge from "@/components/events/EventFeeBadge";
+import { isFreeFee } from "@/lib/feeUtils";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { PREDEFINED_EVENT_CATEGORIES } from "@/lib/eventTemplates";
+import { PREDEFINED_EVENT_CATEGORIES, CUSTOM_TEMPLATE_ID } from "@/lib/eventTemplates";
 import { AI_SPEECH_LANG } from "@/config/env";
 import { eventService } from "@/services/event.service";
+import {
+  cancelNavigationDraftNotify,
+  createDraftId,
+  deleteEventDraft,
+  getEventDraftById,
+  hasMeaningfulAiDraft,
+  notifyDraftSaved,
+  removeNotificationsForDraft,
+  saveAiDraft,
+  scheduleNavigationDraftNotify,
+  type AiDraftState,
+} from "@/lib/eventDraftStorage";
 import {
   locationService,
   type LocationSuggestion,
@@ -166,97 +184,267 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return err?.message || fallback;
 }
 
+function isGenericTitle(title?: string): boolean {
+  if (!title) return true;
+  const clean = title.trim().toLowerCase();
+  return (
+    clean.length < 15 ||
+    /^(hackathon|conference|event|workshop|special event|48 hours hackathon|new event|meetup|summit|competition)$/i.test(clean) ||
+    clean.startsWith("hackathon which") ||
+    clean.startsWith("event which") ||
+    clean === "ultimate 48-hour innovation hackathon"
+  );
+}
+
+function ensureCreativeTitle(rawTitle?: string, type?: string, userPrompt?: string): string {
+  const cleanRaw = (rawTitle || "").trim().replace(/[:\-_]+$/, "").trim();
+  const lowerPrompt = (userPrompt || "").toLowerCase();
+
+  if (!isGenericTitle(cleanRaw)) {
+    return cleanRaw;
+  }
+
+  const durationMatch = lowerPrompt.match(/\b(\d{1,3})\s*[- ]*(?:hours?|hrs?)\b/i);
+  const durationLabel = durationMatch ? `${durationMatch[1]}-Hour` : "";
+  const dayMatch = lowerPrompt.match(/\b(\d{1,2})\s*[- ]*(?:days?)\b/i);
+  const dayLabel = dayMatch ? `${dayMatch[1]}-Day` : "";
+  const modifier = durationLabel || dayLabel ? `${durationLabel || dayLabel} ` : "";
+
+  if (type === "Hackathons and Competitions" || lowerPrompt.includes("hackathon") || lowerPrompt.includes("coding")) {
+    const names = [
+      `CodeForge 2026: ${modifier}National Innovation Hackathon`,
+      `ByteSprint 2026: ${modifier}High-Stakes Buildathon`,
+      `HackSphere: ${modifier}Collaborative Engineering Sprint`,
+      `DevClash 2026: ${modifier}Rapid Prototyping Arena`,
+      `InnoVenture: ${modifier}Product & Venture Hackathon`,
+    ];
+    return names[lowerPrompt.length % names.length];
+  }
+
+  if (type === "Technical Conferences" || lowerPrompt.includes("conference") || lowerPrompt.includes("summit")) {
+    const names = [
+      `TechPulse Summit 2026: ${modifier}Future of Intelligent Systems`,
+      `DevNexus Global: ${modifier}Cloud & Architecture Conference`,
+      `CognitiveCon 2026: ${modifier}Frontiers in Applied Tech`,
+      `CloudHorizon: ${modifier}Next-Gen Engineering Summit`,
+    ];
+    return names[lowerPrompt.length % names.length];
+  }
+
+  if (type === "Academic and Training Events" || lowerPrompt.includes("workshop") || lowerPrompt.includes("bootcamp")) {
+    const names = [
+      `SkillForge Masterclass: ${modifier || "Hands-On "}System Architecture Lab`,
+      `DeepDive Academy: ${modifier || "Interactive "}Full-Stack Engineering`,
+      `Catalyst Labs: ${modifier || "Practical "}Hands-On Masterclass`,
+    ];
+    return names[lowerPrompt.length % names.length];
+  }
+
+  if (type === "Corporate Events" || lowerPrompt.includes("corporate")) {
+    const names = [
+      "Synergy 2026: Annual Leadership & Innovation Summit",
+      "Vanguard Horizons: Corporate Strategy & Milestone Assembly",
+    ];
+    return names[lowerPrompt.length % names.length];
+  }
+
+  if (type === "Sports and Recreational Events" || lowerPrompt.includes("tournament")) {
+    return "Apex Arena 2026: National Championship Cup";
+  }
+
+  if (type === "Exhibitions and Trade Shows" || lowerPrompt.includes("expo")) {
+    return "ExpoVision 2026: Global Innovation & Product Showcase";
+  }
+
+  if (type === "Community and Nonprofit Events" || lowerPrompt.includes("community")) {
+    return "UnityPulse 2026: Community Impact & Social Action Summit";
+  }
+
+  if (cleanRaw && cleanRaw.length > 5 && !/^(event|special event)$/i.test(cleanRaw)) {
+    return cleanRaw.charAt(0).toUpperCase() + cleanRaw.slice(1);
+  }
+
+  return "Apex Horizon: Innovation & Community Gathering";
+}
+
 function generateClientDescription(d: AiEventDraft, userPrompt?: string): string {
   const title = (d.title || "Special Community Event").toString().trim();
   const category = (d.type || "").toString().trim();
   const mode = (d.mode || "offline").toLowerCase();
   const location = (d.location || "").toString().trim();
-  const prompt = (userPrompt || "").toLowerCase();
+  const prompt = (userPrompt || "").trim();
+  const lowerPrompt = prompt.toLowerCase();
+  const lowerCat = category.toLowerCase();
 
   const venueInfo =
     mode === "online"
-      ? "hosted live online with interactive sessions"
+      ? "streamed live across interactive virtual stages"
       : location
       ? `taking place in person at ${location}`
-      : "taking place in person at our designated venue";
+      : "hosted live at our premier designated venue";
 
-  const lowerCat = category.toLowerCase();
-  const lowerTitle = title.toLowerCase();
+  // Extract duration mention
+  const durationMatch = lowerPrompt.match(/\b(\d{1,3})\s*(?:hours?|hrs?|days?)\b/i);
+  const durationPhrase = durationMatch ? `an intensive ${durationMatch[0]} sprint` : "an exhilarating multi-session experience";
+
+  // Extract capacity mention
+  const capMatch = lowerPrompt.match(/\b(?:capacity\s*(?:of)?|for)\s*(\d[\d,]*)\b/i) ||
+    lowerPrompt.match(/\b(\d[\d,]*)\s*(?:paticipants|participants|attendees|people)\b/i);
+  const capPhrase = capMatch ? `Bringing together ${capMatch[1]} passionate builders and visionaries` : "Uniting creators, developers, and leaders";
+
+  // Extract squad/team size mentions
+  const minTeamMatch = lowerPrompt.match(/min\w*\s*(?:number\s*of\s*)?(?:team[\s-]*members?|teammates?|temmates?|members?)?\s*(?:is|are)?\s*(\d+)/i);
+  const maxTeamMatch = lowerPrompt.match(/max\w*\s*(?:number\s*of\s*)?(?:team[\s-]*members?|teammates?|temmates?|members?)?\s*(?:is|are)?\s*(\d+)/i);
+  let squadPhrase = "Collaborating in high-performing teams";
+  if (minTeamMatch && maxTeamMatch) {
+    squadPhrase = `Collaborating in dynamic squads of ${minTeamMatch[1]} to ${maxTeamMatch[1]} members`;
+  } else if (maxTeamMatch) {
+    squadPhrase = `Collaborating in squads of up to ${maxTeamMatch[1]} members`;
+  }
+
+  // Extract prizes / rewards
+  const prizeMatch = lowerPrompt.match(/(?:prizes?|prizzes?|awards?|rewards?)\s*(?:including|like|worth|of)?\s*([^.;!\n]+)/i);
+  const prizePhrase = prizeMatch
+    ? `Top teams will be rewarded with fantastic prizes, including ${prizeMatch[1].trim()}, alongside industry recognition and exclusive partner perks!`
+    : "Top performers will be recognized with prestigious awards, certificates of excellence, and exclusive perks!";
 
   if (
     lowerCat.includes("hackathon") ||
-    lowerTitle.includes("hackathon") ||
-    prompt.includes("hackathon") ||
-    prompt.includes("coding") ||
-    prompt.includes("codeathon")
+    lowerPrompt.includes("hackathon") ||
+    lowerPrompt.includes("coding") ||
+    lowerPrompt.includes("codeathon") ||
+    lowerPrompt.includes("ideathon")
   ) {
-    return `Get ready for ${title}! Join passionate developers, designers, and innovators for an intensive, high-energy building sprint. Participants will collaborate in teams to brainstorm groundbreaking ideas, build functional prototypes, and pitch impactful solutions. Whether you are an experienced hacker or developing your very first product, you will find hands-on mentorship, peer learning, and exciting opportunities for awards and recognition.`;
+    return [
+      `Welcome to ${title}! Gear up for ${durationPhrase} designed to push the boundaries of technology, creativity, and rapid execution. ${capPhrase}, this hackathon is the premier launchpad to transform bold ideas into high-impact, functional prototypes.`,
+      `${squadPhrase}, participants will tackle real-world problem statements across emerging technology domains. Throughout the event, you will receive hands-on guidance from industry mentors, access specialized development resources, and participate in technical checkpoints designed to sharpen your architecture and pitch.`,
+      `The sprint culminates in an electrifying live demo showcase before a distinguished panel of industry judges. ${prizePhrase} Assemble your squad, bring your boldest ideas, and get ready to build the future!`,
+    ].join("\n\n");
   }
 
   if (
     lowerCat.includes("conference") ||
-    lowerTitle.includes("conference") ||
-    lowerTitle.includes("summit") ||
-    prompt.includes("conference") ||
-    prompt.includes("summit") ||
-    prompt.includes("symposium")
+    lowerPrompt.includes("conference") ||
+    lowerPrompt.includes("summit") ||
+    lowerPrompt.includes("symposium") ||
+    lowerPrompt.includes("tech talk")
   ) {
-    return `Welcome to ${title}, a premier gathering ${venueInfo} designed to unite industry professionals, creators, and technology leaders. Immerse yourself in insightful keynote discussions, forward-looking deep dives, and meaningful peer networking. Attendees will gain actionable insights, innovative perspectives, and valuable connections to accelerate their journey.`;
+    return [
+      `Welcome to ${title}, a premier industry gathering ${venueInfo} exploring the forefront of technology, leadership, and digital transformation. ${capPhrase}, this summit unites pioneers, architects, and decision-makers shaping tomorrow's technology landscape.`,
+      `Immerse yourself in thought-provoking keynote presentations, in-depth panel debates, and interactive breakout sessions. Attendees will delve into scalable architecture, artificial intelligence, cloud-native paradigms, and modern engineering practices delivered by world-class practitioners.`,
+      `Beyond technical sessions, engage in curated executive networking, sponsor discovery zones, and peer roundtable discussions. Whether you are leading engineering initiatives or driving technological innovation, ${title} provides actionable strategies and meaningful connections to accelerate your vision.`,
+    ].join("\n\n");
   }
 
   if (
     lowerCat.includes("training") ||
     lowerCat.includes("academic") ||
-    lowerTitle.includes("workshop") ||
-    prompt.includes("workshop") ||
-    prompt.includes("training") ||
-    prompt.includes("bootcamp") ||
-    prompt.includes("masterclass")
+    lowerPrompt.includes("workshop") ||
+    lowerPrompt.includes("masterclass") ||
+    lowerPrompt.includes("bootcamp") ||
+    lowerPrompt.includes("seminar") ||
+    lowerPrompt.includes("training") ||
+    lowerPrompt.includes("course")
   ) {
-    return `Elevate your skillset with ${title}! This comprehensive, hands-on workshop is crafted to deliver practical understanding and direct application. Guided by experienced mentors, attendees will explore core principles, learn real-world techniques, and take part in interactive exercises designed to level up their capabilities.`;
+    return [
+      `Elevate your technical mastery with ${title}! This comprehensive, hands-on masterclass ${venueInfo} is meticulously engineered to bridge the gap between foundational theory and production-grade implementation.`,
+      `Guided by seasoned mentors and domain specialists, attendees will participate in live coding walkthroughs, architectural breakdowns, and hands-on laboratory exercises. You will gain direct experience tackling real-world edge cases and modern best practices.`,
+      `Every participant receives structured course materials, interactive code templates, and a verified Certificate of Completion. Secure your enrollment today to fast-track your technical capabilities and stay ahead of the curve.`,
+    ].join("\n\n");
   }
 
-  if (lowerCat.includes("corporate") || lowerTitle.includes("corporate") || prompt.includes("corporate")) {
-    return `Join us for ${title}, a curated gathering focused on strategic alignment, milestone achievements, and team collaboration. This session brings together stakeholders and team members to celebrate collective progress, exchange key insights, and set clear goals for upcoming ventures in an engaging atmosphere.`;
+  if (
+    lowerCat.includes("corporate") ||
+    lowerPrompt.includes("corporate") ||
+    lowerPrompt.includes("annual day") ||
+    lowerPrompt.includes("offsite") ||
+    lowerPrompt.includes("townhall")
+  ) {
+    return [
+      `Join us for ${title}, an exclusive corporate gathering ${venueInfo} dedicated to celebrating team milestones, strategic alignment, and future horizons.`,
+      `This summit brings together leadership, teams, and key stakeholders to reflect on landmark accomplishments, exchange cross-functional insights, and collaboratively map out strategic objectives for the upcoming year.`,
+      `Experience inspiring keynote addresses, interactive workshops, and curated evening celebrations that foster camaraderie and strong team synergy. Together, let us celebrate our journey and set new benchmarks for excellence.`,
+    ].join("\n\n");
   }
 
   if (
     lowerCat.includes("community") ||
     lowerCat.includes("nonprofit") ||
-    prompt.includes("charity") ||
-    prompt.includes("volunteer") ||
-    prompt.includes("donation") ||
-    prompt.includes("ngo")
+    lowerPrompt.includes("charity") ||
+    lowerPrompt.includes("donation") ||
+    lowerPrompt.includes("volunteer") ||
+    lowerPrompt.includes("ngo") ||
+    lowerPrompt.includes("drive")
   ) {
-    return `Be part of positive change with ${title}! A community-powered gathering bringing volunteers, partners, and supporters together to make a real difference. Connect with dedicated individuals, share impactful moments, and contribute directly towards building a stronger, more supportive community.`;
+    return [
+      `Be a catalyst for positive change with ${title}! A purposeful community gathering ${venueInfo} bringing together passionate changemakers, volunteers, and grassroots leaders dedicated to social impact.`,
+      `Attendees will collaborate on meaningful community initiatives, share firsthand experiences, and take part in interactive discussions that drive sustainable local impact. Meet inspiring individuals and discover actionable ways to support causes that truly matter.`,
+      `Every contribution counts toward building a more connected, resilient, and inclusive society. Join us to make a lasting difference, foster lifelong connections, and inspire our wider community!`,
+    ].join("\n\n");
   }
 
   if (
     lowerCat.includes("sports") ||
     lowerCat.includes("recreational") ||
-    prompt.includes("tournament") ||
-    prompt.includes("match") ||
-    prompt.includes("cricket") ||
-    prompt.includes("football")
+    lowerPrompt.includes("cricket") ||
+    lowerPrompt.includes("football") ||
+    lowerPrompt.includes("tournament") ||
+    lowerPrompt.includes("marathon") ||
+    lowerPrompt.includes("match")
   ) {
-    return `Experience the excitement of ${title}! An energetic sporting gathering celebrating teamwork, fitness, and friendly competition. Whether participating as a competitor or cheering from the sidelines, join us for a day of spirited challenges, athletic achievements, and memorable moments.`;
+    return [
+      `Feel the adrenaline and passion at ${title}! An energetic sporting championship ${venueInfo} bringing athletes, teams, and fans together to celebrate athletic excellence, teamwork, and sportsmanship.`,
+      `Competitors will battle across high-stakes fixtures, testing their stamina, strategy, and teamwork in front of enthusiastic spectators. Experience the thrill of competitive play supported by professional referees and event coordinators.`,
+      `${prizePhrase} Step onto the field, unleash your full potential, and play for glory!`,
+    ].join("\n\n");
   }
 
-  if (lowerCat.includes("exhibition") || lowerTitle.includes("expo") || prompt.includes("expo") || prompt.includes("trade show")) {
-    return `Explore future opportunities at ${title}! A dynamic showcase ${venueInfo} featuring innovative exhibits, interactive demonstrations, and valuable networking with leading brands, creators, and industry pioneers. Discover the latest products and gain firsthand insights into cutting-edge trends.`;
+  if (
+    lowerCat.includes("exhibition") ||
+    lowerPrompt.includes("expo") ||
+    lowerPrompt.includes("trade show") ||
+    lowerPrompt.includes("fair")
+  ) {
+    return [
+      `Step into the future at ${title}! A premier trade exhibition and showcase ${venueInfo} featuring groundbreaking innovations, interactive vendor pavilions, and live product debuts.`,
+      `Explore curated booths from industry leaders and emerging startups, witness live technology demonstrations, and engage directly with product engineers and innovators. Discover trends reshaping the marketplace and uncover new strategic partnerships.`,
+      `Whether you are sourcing next-generation solutions, expanding your professional network, or seeking investment opportunities, ${title} is the ultimate gateway to industry progress.`,
+    ].join("\n\n");
   }
 
-  if (lowerCat.includes("wedding") || lowerCat.includes("personal") || prompt.includes("party") || prompt.includes("celebration")) {
-    return `Join us as we celebrate ${title}! A heartwarming occasion bringing friends, family, and loved ones together to celebrate shared joy, meaningful bonds, and unforgettable memories. Come celebrate this special milestone with warmth, festivities, and great company.`;
+  if (
+    lowerCat.includes("wedding") ||
+    lowerCat.includes("personal") ||
+    lowerPrompt.includes("party") ||
+    lowerPrompt.includes("celebration") ||
+    lowerPrompt.includes("reception")
+  ) {
+    return [
+      `Join us in celebrating ${title}! A joyful and heartwarming milestone ${venueInfo} bringing friends, family, and loved ones together in celebration of love, unity, and cherished memories.`,
+      `Enjoy an enchanting evening filled with delightful music, exquisite dining, heartfelt speeches, and celebratory festivities. We look forward to sharing this unforgettable milestone surrounded by the warmth and blessings of everyone who matters most.`,
+      `Your presence will make this special day truly complete. Come celebrate, dance, and create beautiful memories that will be treasured for a lifetime!`,
+    ].join("\n\n");
   }
 
-  return `Welcome to ${title}, an exciting and engaging event ${venueInfo}! Designed to foster collaboration, learning, and memorable experiences, this gathering offers attendees curated sessions, thought-provoking discussions, and prime networking opportunities. Reserve your spot today to connect with peers and be part of an unforgettable experience.`;
+  return [
+    `Welcome to ${title}! An extraordinary event ${venueInfo} designed to foster innovation, deep learning, and vibrant collaboration. ${capPhrase}, this gathering provides an inspiring platform to explore new ideas and expand your horizons.`,
+    `Attendees will experience a dynamic program featuring interactive sessions, hands-on demonstrations, and insightful discussions led by experienced practitioners. Connect with visionary peers, exchange valuable perspectives, and gain actionable takeaways tailored to your growth.`,
+    `Reserve your place today to be part of an unforgettable experience that inspires and empowers!`,
+  ].join("\n\n");
 }
 
-export default function AiEventCreatorPage() {
+function AiEventCreatorPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isDark, activeAccent } = useAppearance();
-  const { success: showSuccess, error: showError } = useToast();
+  const { success: showSuccess, error: showError, info: showInfo } = useToast();
+
+  const draftFromUrl = searchParams.get("draft");
+  const draftIdRef = useRef<string>(draftFromUrl || createDraftId("ai"));
+  const hydratedDraftIdRef = useRef<string | null>(null);
+  const isPublishedRef = useRef(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<AiConversationMessage[]>([]);
   const [input, setInput] = useState("");
@@ -266,7 +454,7 @@ export default function AiEventCreatorPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [missingFields, setMissingFields] = useState<string[]>([]);
-  const typeOptions = PREDEFINED_EVENT_CATEGORIES;
+  const typeOptions = [...PREDEFINED_EVENT_CATEGORIES, CUSTOM_TEMPLATE_ID];
 
   const [regFormFields, setRegFormFields] = useState<RegistrationFormField[]>(DEFAULT_REG_FORM_FIELDS);
 
@@ -340,6 +528,109 @@ export default function AiEventCreatorPage() {
   const locationInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasDraft = Object.keys(draft).length > 0;
+
+  const aiSnapshotRef = useRef<AiDraftState>({
+    input,
+    messages,
+    draft,
+    regFormFields,
+    isLocationSelected,
+  });
+
+  aiSnapshotRef.current = {
+    input,
+    messages,
+    draft,
+    regFormFields,
+    isLocationSelected,
+  };
+
+  useEffect(() => {
+    cancelNavigationDraftNotify("ai");
+    setIsOffline(typeof navigator !== "undefined" ? !navigator.onLine : false);
+
+    if (draftFromUrl && hydratedDraftIdRef.current !== draftFromUrl) {
+      const existing = getEventDraftById(draftFromUrl);
+      if (existing?.source === "ai" && existing.aiState) {
+        hydratedDraftIdRef.current = draftFromUrl;
+        draftIdRef.current = draftFromUrl;
+        const as = existing.aiState;
+        setInput(as.input || "");
+        setMessages(as.messages || []);
+        setDraft(as.draft || {});
+        if (Array.isArray(as.regFormFields) && as.regFormFields.length > 0) {
+          setRegFormFields(as.regFormFields);
+        }
+        setIsLocationSelected(Boolean(as.isLocationSelected || as.draft?.location));
+        setLastDraftSavedAt(existing.updatedAt);
+        showInfo(`Restored draft "${existing.title}"`);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftFromUrl]);
+
+  useEffect(() => {
+    if (isPublishedRef.current) return;
+    const timer = window.setTimeout(() => {
+      const snap = aiSnapshotRef.current;
+      if (hasMeaningfulAiDraft(snap)) {
+        const saved = saveAiDraft(
+          draftIdRef.current,
+          snap,
+          typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "autosave"
+        );
+        setLastDraftSavedAt(saved.updatedAt);
+      }
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [input, messages, draft, regFormFields, isLocationSelected]);
+
+  useEffect(() => {
+    const isDirty = () =>
+      !isPublishedRef.current && hasMeaningfulAiDraft(aiSnapshotRef.current);
+
+    const handleOffline = () => {
+      setIsOffline(true);
+      if (isDirty()) {
+        const saved = saveAiDraft(draftIdRef.current, aiSnapshotRef.current, "offline");
+        setLastDraftSavedAt(saved.updatedAt);
+        notifyDraftSaved(saved, "offline");
+      }
+    };
+
+    const handleOnline = () => {
+      setIsOffline(false);
+    };
+
+    const handleBeforeUnload = () => {
+      if (isDirty()) {
+        saveAiDraft(
+          draftIdRef.current,
+          aiSnapshotRef.current,
+          typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "navigation"
+        );
+      }
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleBeforeUnload);
+
+      if (isDirty()) {
+        const reason =
+          typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "navigation";
+        const saved = saveAiDraft(draftIdRef.current, aiSnapshotRef.current, reason);
+        scheduleNavigationDraftNotify("ai", saved);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: Event) => {
@@ -459,6 +750,11 @@ export default function AiEventCreatorPage() {
     setIsLocationSelected(false);
     setLocationSuggestions([]);
     setIsLocationDropdownOpen(false);
+    deleteEventDraft(draftIdRef.current);
+    removeNotificationsForDraft(draftIdRef.current);
+    draftIdRef.current = createDraftId("ai");
+    hydratedDraftIdRef.current = null;
+    setLastDraftSavedAt(null);
   };
 
   const handleGenerate = async () => {
@@ -473,6 +769,18 @@ export default function AiEventCreatorPage() {
       return;
     }
     if (isGenerating) return;
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const offlineSnapshot: AiDraftState = {
+        ...aiSnapshotRef.current,
+        input: message,
+      };
+      const saved = saveAiDraft(draftIdRef.current, offlineSnapshot, "offline");
+      setLastDraftSavedAt(saved.updatedAt);
+      notifyDraftSaved(saved, "offline");
+      showError("You are offline — your event prompt was saved in Drafts.");
+      return;
+    }
 
     setIsGenerating(true);
     setSpeechError("");
@@ -490,7 +798,15 @@ export default function AiEventCreatorPage() {
       });
 
       const nextDraft = { ...(result.draft || {}) };
-      if (!nextDraft.description || String(nextDraft.description).trim().length < 20) {
+      if (!nextDraft.title || isGenericTitle(nextDraft.title)) {
+        nextDraft.title = ensureCreativeTitle(nextDraft.title, nextDraft.type, message);
+      }
+      if (
+        !nextDraft.description ||
+        String(nextDraft.description).trim().length < 80 ||
+        String(nextDraft.description).trim().toLowerCase() === message.trim().toLowerCase() ||
+        /^(?:create|make|plan|schedule|host|organize|set up|i want to|we want to|please create)\b/i.test(String(nextDraft.description).trim())
+      ) {
         nextDraft.description = generateClientDescription(nextDraft, message);
       }
 
@@ -521,8 +837,23 @@ export default function AiEventCreatorPage() {
       setMissingFields(result.missing_fields?.filter((f) => f !== "description") || []);
       setInput("");
     } catch (err: unknown) {
-      setMessages((prev) => [...prev, userMessage]);
-      showError(extractErrorMessage(err, "AI could not process your request."));
+      const nextMessages = [...messages, userMessage];
+      setMessages(nextMessages);
+      const isNetworkDown =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        !(err as { response?: unknown })?.response;
+      if (isNetworkDown) {
+        const saved = saveAiDraft(
+          draftIdRef.current,
+          { ...aiSnapshotRef.current, messages: nextMessages },
+          "offline"
+        );
+        setLastDraftSavedAt(saved.updatedAt);
+        notifyDraftSaved(saved, "error");
+        showError("Connection interrupted — your AI event progress was saved in Drafts.");
+      } else {
+        showError(extractErrorMessage(err, "AI could not process your request."));
+      }
     } finally {
       setIsGenerating(false);
       setInterimTranscript("");
@@ -722,14 +1053,18 @@ export default function AiEventCreatorPage() {
     const start = current.start_date ? new Date(current.start_date) : null;
     const end = current.end_date ? new Date(current.end_date) : null;
 
-    if (!start || Number.isNaN(start.getTime())) {
-      next.start_date = ["Start date is required."];
-    } else if (start < new Date(Date.now() - 10 * 60 * 1000)) {
+    if (current.start_date && (!start || Number.isNaN(start.getTime()))) {
+      next.start_date = ["Start date is invalid."];
+    } else if (start && start < new Date(Date.now() - 10 * 60 * 1000)) {
       next.start_date = ["Start date cannot be in the past."];
+    } else if (!current.start_date && current.end_date) {
+      next.start_date = ["Start date is required when end date is set."];
     }
 
-    if (!end || Number.isNaN(end.getTime())) {
-      next.end_date = ["End date is required."];
+    if (current.end_date && (!end || Number.isNaN(end.getTime()))) {
+      next.end_date = ["End date is invalid."];
+    } else if (current.start_date && !current.end_date) {
+      next.end_date = ["End date is required when start date is set."];
     } else if (start && end && end <= start) {
       next.end_date = ["End date must be after start date."];
     }
@@ -744,9 +1079,15 @@ export default function AiEventCreatorPage() {
       next.capacity = ["Capacity must be a positive number."];
     }
 
-    const fee = Number(current.registration_fee ?? 0);
+    const rawFee = current.registration_fee;
+    const fee =
+      rawFee === undefined || rawFee === null || String(rawFee).trim() === ""
+        ? 0
+        : Number(rawFee);
     if (Number.isNaN(fee) || fee < 0) {
       next.registration_fee = ["Registration fee must be ₹0 or higher."];
+    } else if (fee > 100000) {
+      next.registration_fee = ["Registration fee cannot exceed ₹100,000."];
     }
 
     if (!current.registration_type) {
@@ -783,6 +1124,16 @@ export default function AiEventCreatorPage() {
       return { valid: false, event: draft };
     }
 
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      if (hasMeaningfulAiDraft(aiSnapshotRef.current)) {
+        const saved = saveAiDraft(draftIdRef.current, aiSnapshotRef.current, "offline");
+        setLastDraftSavedAt(saved.updatedAt);
+        notifyDraftSaved(saved, "offline");
+      }
+      showError("You are offline — your event details are saved in Drafts.");
+      return { valid: false, event: draft };
+    }
+
     setIsValidating(true);
     try {
       const result = await aiEventService.validate(draft);
@@ -796,7 +1147,17 @@ export default function AiEventCreatorPage() {
       }
       return { valid: true, event: draft };
     } catch (err: unknown) {
-      showError(extractErrorMessage(err, "Validation failed."));
+      const isNetworkDown =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        !(err as { response?: unknown })?.response;
+      if (isNetworkDown && hasMeaningfulAiDraft(aiSnapshotRef.current)) {
+        const saved = saveAiDraft(draftIdRef.current, aiSnapshotRef.current, "offline");
+        setLastDraftSavedAt(saved.updatedAt);
+        notifyDraftSaved(saved, "error");
+        showError("Connection interrupted — your event was saved in Drafts.");
+      } else {
+        showError(extractErrorMessage(err, "Validation failed."));
+      }
       return { valid: false, event: draft };
     } finally {
       setIsValidating(false);
@@ -805,6 +1166,16 @@ export default function AiEventCreatorPage() {
 
   const handleCreate = async () => {
     if (isCreating) return;
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      if (hasMeaningfulAiDraft(aiSnapshotRef.current)) {
+        const saved = saveAiDraft(draftIdRef.current, aiSnapshotRef.current, "offline");
+        setLastDraftSavedAt(saved.updatedAt);
+        notifyDraftSaved(saved, "offline");
+      }
+      showError("No internet connection — your event has been saved to Drafts.");
+      return;
+    }
 
     const { valid, event } = await handleValidate();
     if (!valid || !event) return;
@@ -817,8 +1188,8 @@ export default function AiEventCreatorPage() {
         type: event.type || draft.type,
         mode: event.mode || draft.mode || "offline",
         location: (event.location || draft.location || (draft.mode === "online" ? "Online" : "")).toString().trim() || undefined,
-        start_date: new Date(event.start_date || draft.start_date!).toISOString(),
-        end_date: new Date(event.end_date || draft.end_date!).toISOString(),
+        start_date: (event.start_date || draft.start_date) ? new Date((event.start_date || draft.start_date) as string).toISOString() : null,
+        end_date: (event.end_date || draft.end_date) ? new Date((event.end_date || draft.end_date) as string).toISOString() : null,
         capacity: Number(event.capacity ?? draft.capacity) || 0,
         registration_type: event.registration_type || draft.registration_type || "solo",
         registration_fee: Number(event.registration_fee ?? draft.registration_fee) || 0,
@@ -860,11 +1231,24 @@ export default function AiEventCreatorPage() {
       };
 
       const created = await eventService.createEvent(payload);
+      isPublishedRef.current = true;
+      deleteEventDraft(draftIdRef.current);
+      removeNotificationsForDraft(draftIdRef.current);
       showSuccess("Event created successfully!");
       const id = created?.data?.id ?? created?.data?.eventId ?? created?.id;
       router.push(id ? `/events/${id}` : "/home");
     } catch (err: unknown) {
       setIsCreating(false);
+      const isNetworkDown =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        !(err as { response?: unknown })?.response;
+      if (isNetworkDown && hasMeaningfulAiDraft(aiSnapshotRef.current)) {
+        const saved = saveAiDraft(draftIdRef.current, aiSnapshotRef.current, "offline");
+        setLastDraftSavedAt(saved.updatedAt);
+        notifyDraftSaved(saved, "error");
+        showError("Connection interrupted — your event was saved to Drafts.");
+        return;
+      }
       showError(extractErrorMessage(err, "Failed to create event."));
     }
   };
@@ -887,43 +1271,60 @@ export default function AiEventCreatorPage() {
           <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[150px] pointer-events-none" />
           <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-500/10 blur-[150px] pointer-events-none" />
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 relative z-10">
+          <div className="w-full max-w-[1320px] mx-auto px-4 sm:px-8 pt-7 pb-20 relative z-10 animate-ccin">
+            {/* Back Navigation */}
+            <div className="mb-5 flex items-center">
+              <BackButton href="/events/create" label="Exit Studio" />
+            </div>
+
             {/* Header */}
-            <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <Link href="/events/create">
-                  <Button
-                    variant="ghost"
-                    className={`rounded-xl font-bold ${isDark ? "text-zinc-300 hover:bg-zinc-800" : "text-zinc-600 hover:bg-zinc-100"}`}
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
-                  </Button>
-                </Link>
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <span className={`w-10 h-10 rounded-2xl flex items-center justify-center ${activeAccent.bg} text-white shadow-lg`}>
+                  <Wand2 className="w-5 h-5" />
+                </span>
                 <div>
-                  <div className="flex items-center gap-2.5">
-                    <span className={`w-10 h-10 rounded-2xl flex items-center justify-center ${activeAccent.bg} text-white shadow-lg`}>
-                      <Wand2 className="w-5 h-5" />
-                    </span>
-                    <div>
-                      <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                        AI Event Creator
-                      </h1>
-                      <p className={`text-xs font-semibold ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                        Describe your event — type it or speak it. Review, edit and publish.
-                      </p>
-                    </div>
-                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                    AI Event Creator
+                  </h1>
+                  <p className={`text-xs font-semibold ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                    Describe your event — type it or speak it. Review, edit and publish.
+                  </p>
                 </div>
               </div>
 
-              <Button
-                variant="outline"
-                onClick={handleReset}
-                className="rounded-2xl font-bold"
-                title="Start over"
-              >
-                <RotateCcw className="w-4 h-4" /> Reset
-              </Button>
+              <div className="flex items-center gap-2.5">
+                {isOffline ? (
+                  <span
+                    className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border bg-amber-500/15 text-amber-500 border-amber-500/35"
+                    title="Offline mode — your AI draft is safely backed up locally"
+                  >
+                    <WifiOff className="w-3.5 h-3.5" />
+                    Offline • Saved in Drafts
+                  </span>
+                ) : lastDraftSavedAt ? (
+                  <span
+                    className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border"
+                    style={{
+                      background: "var(--card)",
+                      borderColor: "var(--border)",
+                      color: "var(--muted)",
+                    }}
+                  >
+                    <BookmarkCheck className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                    Draft auto-saved
+                  </span>
+                ) : null}
+
+                <Button
+                  variant="outline"
+                  onClick={handleReset}
+                  className="rounded-2xl font-bold"
+                  title="Start over"
+                >
+                  <RotateCcw className="w-4 h-4" /> Reset
+                </Button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
@@ -1024,10 +1425,10 @@ export default function AiEventCreatorPage() {
 
                   {/* Input */}
                   <div className={`border-t p-4 space-y-3 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
-                    <div className="relative">
+                    <div>
                       <textarea
                         ref={textareaRef}
-                        rows={3}
+                        rows={4}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => {
@@ -1044,41 +1445,6 @@ export default function AiEventCreatorPage() {
                             : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
                         }`}
                       />
-                      <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
-                        {speechSupported && !isListening && (
-                          <select
-                            value={speechLang}
-                            onChange={(e) => setSpeechLang(e.target.value)}
-                            aria-label="Speech recognition language"
-                            title="Select speech recognition language"
-                            className={`text-[11px] font-medium rounded-lg border px-1.5 py-1 transition focus:outline-none ${
-                              isDark
-                                ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white"
-                                : "bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900"
-                            }`}
-                          >
-                            <option value="en-IN">EN (India)</option>
-                            <option value="en-US">EN (US)</option>
-                            <option value="hi-IN">हिन्दी (Hindi)</option>
-                          </select>
-                        )}
-                        <button
-                          type="button"
-                          onClick={startListening}
-                          disabled={!speechSupported}
-                          aria-label={isListening ? "Stop recording" : "Start voice input"}
-                          title={isListening ? "Stop recording" : "Speak your event"}
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border ${
-                            isListening
-                              ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/40 animate-pulse"
-                              : speechSupported
-                              ? `${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white" : "bg-white border-zinc-200 text-zinc-500 hover:text-indigo-600"}`
-                              : "opacity-40 cursor-not-allowed text-zinc-400 border-zinc-200"
-                          }`}
-                        >
-                          {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                        </button>
-                      </div>
                     </div>
 
                     {isListening && (
@@ -1095,7 +1461,7 @@ export default function AiEventCreatorPage() {
                         <button
                           type="button"
                           onClick={stopListening}
-                          className="shrink-0 px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 text-[11px] font-semibold transition shadow-sm"
+                          className="shrink-0 px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 text-[11px] font-semibold transition shadow-sm cursor-pointer"
                         >
                           Done speaking
                         </button>
@@ -1109,18 +1475,70 @@ export default function AiEventCreatorPage() {
                       </div>
                     )}
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="pt-1 space-y-1.5">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
+                        {/* Language & Voice Controls aligned on same row */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {speechSupported && !isListening && (
+                            <select
+                              value={speechLang}
+                              onChange={(e) => setSpeechLang(e.target.value)}
+                              aria-label="Speech recognition language"
+                              title="Select speech recognition language"
+                              className={`h-9 text-xs font-medium rounded-xl border px-2.5 transition focus:outline-none cursor-pointer ${
+                                isDark
+                                  ? "bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-white"
+                                  : "bg-white border-zinc-200 text-zinc-700 hover:text-zinc-900 shadow-2xs"
+                              }`}
+                            >
+                              <option value="en-IN">EN (India)</option>
+                              <option value="en-US">EN (US)</option>
+                              <option value="hi-IN">हिन्दी (Hindi)</option>
+                            </select>
+                          )}
+                          <button
+                            type="button"
+                            onClick={isListening ? stopListening : startListening}
+                            disabled={!speechSupported}
+                            aria-label={isListening ? "Stop recording" : "Start voice input"}
+                            title={isListening ? "Stop recording" : "Speak your event"}
+                            className={`h-9 px-3 rounded-xl flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap transition-all border cursor-pointer ${
+                              isListening
+                                ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/40 animate-pulse"
+                                : speechSupported
+                                ? isDark
+                                  ? "bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-600"
+                                  : "bg-white border-zinc-200 text-zinc-700 hover:text-zinc-900 hover:border-zinc-300 shadow-2xs"
+                                : "opacity-40 cursor-not-allowed text-zinc-400 border-zinc-200"
+                            }`}
+                          >
+                            {isListening ? (
+                              <>
+                                <MicOff className="w-3.5 h-3.5 shrink-0" />
+                                <span>Stop</span>
+                              </>
+                            ) : (
+                              <>
+                                <Mic className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                                <span>Voice Input</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        <Button
+                          onClick={handleGenerate}
+                          disabled={isGenerating || !input.trim()}
+                          className={`h-9 px-4 w-full sm:w-auto shrink-0 whitespace-nowrap rounded-xl ${activeAccent.bg} hover:opacity-90 text-white font-bold shadow-lg ${activeAccent.shadow}`}
+                        >
+                          {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                          Generate with AI
+                        </Button>
+                      </div>
+
                       <p className={`text-[11px] font-medium ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
-                        {speechSupported ? "Mic uses your browser's speech recognition · Speak clearly." : "Voice input not supported — type instead."}
+                        {speechSupported ? "Speak or type • Ctrl + Enter to send" : "Type your event • Ctrl + Enter to send"}
                       </p>
-                      <Button
-                        onClick={handleGenerate}
-                        disabled={isGenerating || !input.trim()}
-                        className={`w-full sm:w-auto shrink-0 rounded-xl ${activeAccent.bg} hover:opacity-90 text-white font-bold shadow-lg ${activeAccent.shadow}`}
-                      >
-                        {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                        Generate with AI
-                      </Button>
                     </div>
                   </div>
                 </div>
@@ -1275,25 +1693,27 @@ export default function AiEventCreatorPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            <Clock className="w-3 h-3 inline mr-1" /> Start date & time <span className="text-red-500">*</span>
+                            <Clock className="w-3 h-3 inline mr-1" /> Start date & time <span className="font-normal opacity-75">(Optional — blank shows Coming Soon)</span>
                           </Label>
-                          <Input
-                            type="datetime-local"
+                          <DateTimePicker
                             value={isoToLocalInput(draft.start_date as string)}
-                            onChange={(e) => updateDraft("start_date", localInputToIso(e.target.value))}
-                            className={`h-11 ${fieldClass("start_date")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
+                            onChange={(val) => updateDraft("start_date", localInputToIso(val))}
+                            error={!!errors.start_date}
+                            placeholder="Select start date & time"
                           />
                           {errors.start_date && <FieldError message={errors.start_date[0]} />}
                         </div>
                         <div className="space-y-1.5">
                           <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            <Clock className="w-3 h-3 inline mr-1" /> End date & time <span className="text-red-500">*</span>
+                            <Clock className="w-3 h-3 inline mr-1" /> End date & time <span className="font-normal opacity-75">(Optional)</span>
                           </Label>
-                          <Input
-                            type="datetime-local"
+                          <DateTimePicker
                             value={isoToLocalInput(draft.end_date as string)}
-                            onChange={(e) => updateDraft("end_date", localInputToIso(e.target.value))}
-                            className={`h-11 ${fieldClass("end_date")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
+                            onChange={(val) => updateDraft("end_date", localInputToIso(val))}
+                            minDate={isoToLocalInput(draft.start_date as string) || undefined}
+                            error={!!errors.end_date}
+                            placeholder="Select end date & time"
+                            align="right"
                           />
                           {errors.end_date && <FieldError message={errors.end_date[0]} />}
                         </div>
@@ -1448,15 +1868,20 @@ export default function AiEventCreatorPage() {
                           {errors.capacity && <FieldError message={errors.capacity[0]} />}
                         </div>
                         <div className="space-y-1.5">
-                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            <Ticket className="w-3 h-3 inline mr-1" /> Registration fee (₹) <span className="text-red-500">*</span>
-                          </Label>
+                          <div className="flex items-center justify-between gap-2">
+                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              <Ticket className="w-3 h-3 inline mr-1" /> Registration fee (₹)
+                            </Label>
+                            {isFreeFee(draft.registration_fee) && (
+                              <EventFeeBadge fee={0} size="xs" />
+                            )}
+                          </div>
                           <Input
                             type="number"
                             min={0}
                             value={draft.registration_fee ?? ""}
                             onChange={(e) => updateDraft("registration_fee", e.target.value)}
-                            placeholder="0"
+                            placeholder="0 (Leave blank for Free)"
                             className={`h-11 ${fieldClass("registration_fee")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
                           />
                           {errors.registration_fee && <FieldError message={errors.registration_fee[0]} />}
@@ -1735,15 +2160,14 @@ export default function AiEventCreatorPage() {
                       </div>
 
                       {/* Schedule readout */}
-                      {draft.start_date && (
-                        <div className={`flex items-center gap-2 text-xs font-semibold rounded-xl px-3.5 py-2.5 ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
-                          <Globe className="w-3.5 h-3.5 shrink-0" />
-                          <span>
-                            Runs {formatDisplayDate(draft.start_date as string)}
-                            {draft.end_date ? ` → ${formatDisplayDate(draft.end_date as string)}` : ""}
-                          </span>
-                        </div>
-                      )}
+                      <div className={`flex items-center gap-2 text-xs font-semibold rounded-xl px-3.5 py-2.5 ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
+                        <Globe className="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          {draft.start_date
+                            ? `Runs ${formatDisplayDate(draft.start_date as string)}${draft.end_date ? ` → ${formatDisplayDate(draft.end_date as string)}` : ""}`
+                            : "Dates Coming Soon (can be added later in the Organizer Dashboard)"}
+                        </span>
+                      </div>
 
                       {/* Footer actions */}
                       <div className={`border-t pt-5 flex flex-col sm:flex-row items-center gap-3 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
@@ -1779,4 +2203,18 @@ export default function AiEventCreatorPage() {
 
 function FieldError({ message }: { message: string }) {
   return <p className="text-xs font-semibold text-red-500 mt-1">{message}</p>;
+}
+
+export default function AiEventCreatorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--accent)" }} />
+        </div>
+      }
+    >
+      <AiEventCreatorPageInner />
+    </Suspense>
+  );
 }

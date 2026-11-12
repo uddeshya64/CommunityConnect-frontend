@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, X, ArrowRight, Sparkles } from "lucide-react";
+import { X, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import { useUser } from "@/components/providers/UserProvider";
 
 const MAX_POPUP_SHOWS = 5;
 
@@ -13,11 +15,31 @@ export default function ProfilePromptPopup() {
   const router = useRouter();
   const pathname = usePathname();
   const { isDark, activeAccent } = useAppearance();
+  const { profile } = useUser();
   const [isVisible, setIsVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Don't show on auth pages or profile edit page
-    if (pathname && (pathname.startsWith("/login") || pathname.startsWith("/register") || pathname.startsWith("/profile/edit"))) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    // Don't show on auth pages, profile pages, or settings
+    if (
+      pathname &&
+      (pathname.startsWith("/login") ||
+        pathname.startsWith("/register") ||
+        pathname.startsWith("/profile") ||
+        pathname.startsWith("/settings"))
+    ) {
+      setIsVisible(false);
+      return;
+    }
+
+    // Don't show if dismissed in this session
+    if (typeof window !== "undefined" && sessionStorage.getItem("profile_prompt_dismissed") === "true") {
       setIsVisible(false);
       return;
     }
@@ -26,9 +48,20 @@ export default function ProfilePromptPopup() {
     const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
     if (!token) return;
 
-    // Don't show if profile is already completed
+    // Don't show if profile is already marked completed
     const profileCompleted = localStorage.getItem("profile_completed");
     if (profileCompleted === "true") return;
+
+    // Don't show if user's profile already has skills and details
+    if (profile) {
+      const hasSkills = Array.isArray(profile.skills) && profile.skills.length > 0;
+      const hasDetails = Boolean(profile.bio || profile.profession || profile.location || profile.github || profile.linkedin);
+      if (hasSkills && hasDetails) {
+        localStorage.setItem("profile_completed", "true");
+        setIsVisible(false);
+        return;
+      }
+    }
 
     // Check how many times we've shown the popup
     const countStr = localStorage.getItem("profile_popup_count") || "0";
@@ -40,19 +73,28 @@ export default function ProfilePromptPopup() {
     localStorage.setItem("profile_popup_count", String(count + 1));
     const timer = setTimeout(() => setIsVisible(true), 1200);
     return () => clearTimeout(timer);
-  }, [pathname]);
+  }, [pathname, mounted, profile]);
 
   const handleDismiss = () => {
     setIsVisible(false);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("profile_prompt_dismissed", "true");
+    }
   };
 
   const handleGoToProfile = () => {
-    localStorage.setItem("profile_completed", "true");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("profile_completed", "true");
+    }
     setIsVisible(false);
     router.push("/profile/edit");
   };
 
-  return (
+  if (!mounted || typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <AnimatePresence>
       {isVisible && (
         <motion.div
@@ -60,17 +102,19 @@ export default function ProfilePromptPopup() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 80, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[200] w-[calc(100vw-2rem)] sm:w-[360px] max-w-[360px]"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[220] w-[calc(100vw-2rem)] sm:w-[360px] max-w-[360px] pointer-events-auto"
         >
-          <div className={`rounded-2xl border shadow-2xl overflow-hidden backdrop-blur-xl transition-colors duration-200 ${
-            isDark
-              ? "bg-zinc-900/95 border-white/10 text-white shadow-black/70"
-              : "bg-white/95 border-zinc-200 text-zinc-900 shadow-xl"
-          }`}>
+          <div
+            className={`rounded-2xl border shadow-2xl overflow-hidden backdrop-blur-xl transition-colors duration-200 ${
+              isDark
+                ? "bg-zinc-900/95 border-white/10 text-white shadow-black/70"
+                : "bg-white/95 border-zinc-200 text-zinc-900 shadow-xl"
+            }`}
+          >
             {/* Gradient Accent Top */}
             <div className={`h-1.5 bg-gradient-to-r ${activeAccent.gradient}`} />
 
-            <div className="p-5">
+            <div className="p-5 relative">
               {/* Close Button */}
               <button
                 onClick={handleDismiss}
@@ -83,15 +127,25 @@ export default function ProfilePromptPopup() {
               {/* Content */}
               <div className="flex items-start gap-3.5">
                 {/* Icon */}
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${activeAccent.badgeBg} ${activeAccent.text} border ${activeAccent.border}/20`}>
+                <div
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${activeAccent.badgeBg} ${activeAccent.text} border ${activeAccent.border}/20`}
+                >
                   <Sparkles className="w-5 h-5 text-current" />
                 </div>
 
                 <div className="flex-1 min-w-0 pr-4">
-                  <h3 className={`text-base font-bold leading-tight ${isDark ? "text-white" : "text-zinc-900"}`}>
+                  <h3
+                    className={`text-base font-bold leading-tight ${
+                      isDark ? "text-white" : "text-zinc-900"
+                    }`}
+                  >
                     Complete your profile
                   </h3>
-                  <p className={`text-xs font-medium mt-1 leading-snug ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                  <p
+                    className={`text-xs font-medium mt-1 leading-snug ${
+                      isDark ? "text-zinc-400" : "text-zinc-500"
+                    }`}
+                  >
                     Add your skills, bio &amp; social links to stand out in the community!
                   </p>
                 </div>
@@ -106,13 +160,18 @@ export default function ProfilePromptPopup() {
               </Button>
 
               {/* Remaining count hint */}
-              <p className={`text-[11px] text-center mt-2.5 font-medium ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+              <p
+                className={`text-[11px] text-center mt-2.5 font-medium ${
+                  isDark ? "text-zinc-500" : "text-zinc-400"
+                }`}
+              >
                 You can also update your profile later from the navbar
               </p>
             </div>
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

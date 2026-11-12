@@ -154,3 +154,73 @@ export const CUSTOM_FIELD_TYPES: { type: FieldType | "boolean"; label: string }[
   { type: "checkbox", label: "Checkbox" },
   { type: "boolean", label: "Yes / No" },
 ];
+
+export interface RegistrationFormField {
+  id: string;
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "number" | "select" | "checkbox";
+  required: boolean;
+  options?: string[];
+}
+
+export interface RecommendedQuestion {
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "number" | "select" | "checkbox";
+  options?: string[];
+  category?: string;
+  hint?: string;
+}
+
+export const TEMPLATE_RECOMMENDED_QUESTIONS: Record<string, RecommendedQuestion[]> = {
+  [CUSTOM_TEMPLATE_ID]: [
+    { key: "organization", label: "Organization / Company", type: "text" },
+    { key: "role", label: "Job Title / Role", type: "text" },
+    { key: "linkedin_url", label: "LinkedIn / Portfolio Link", type: "text" },
+    { key: "college", label: "College / University", type: "text" },
+    { key: "grad_year", label: "Graduation Year", type: "text" },
+    { key: "branch", label: "Branch / Field of Study", type: "text" },
+    { key: "dietary_preference", label: "Dietary Preference", type: "select", options: ["Vegetarian", "Non-Vegetarian", "Vegan", "Jain", "Halal", "No Preference"] },
+    { key: "tshirt_size", label: "T-Shirt Size", type: "select", options: ["XS", "S", "M", "L", "XL", "XXL"] },
+    { key: "why_attend", label: "Why do you want to join?", type: "textarea" },
+    { key: "emergency_contact", label: "Emergency Contact Phone", type: "text" },
+    { key: "hear_about", label: "How did you hear about this event?", type: "select", options: ["Social Media", "Friend / Colleague", "Community Group", "Newsletter", "Other"] },
+  ],
+  "Technical Conferences": [
+    { key: "organization", label: "Company / Organization", type: "text" },
+    { key: "job_title", label: "Designation / Role", type: "text" },
+    { key: "experience_level", label: "Years of Experience", type: "select", options: ["Student", "0-2 years", "3-5 years", "5-10 years", "10+ years"] },
+    { key: "github_profile", label: "GitHub / Portfolio Profile", type: "text" },
+    { key: "dietary_preference", label: "Dietary Preference", type: "select", options: ["Veg", "Non-Veg", "Jain", "Vegan"] },
+    { key: "tshirt_size", label: "T-Shirt Size", type: "select", options: ["XS", "S", "M", "L", "XL", "XXL"] },
+  ],
+  "Hackathons and Competitions": [
+    { key: "college", label: "College / University", type: "text" },
+    { key: "branch", label: "Branch / Field of Study", type: "text" },
+    { key: "grad_year", label: "Graduation Year", type: "text" },
+    { key: "tech_skills", label: "Tech Stack & Proficiencies", type: "text" },
+    { key: "github_url", label: "GitHub / Devpost URL", type: "text" },
+    { key: "tshirt_size", label: "T-Shirt Size", type: "select", options: ["XS", "S", "M", "L", "XL", "XXL"] },
+    { key: "dietary_preference", label: "Dietary Preference", type: "select", options: ["Veg", "Non-Veg", "Jain", "Vegan"] },
+  ],
+};
+
+export function getRecommendedQuestionsForTemplate(templateId: string): RecommendedQuestion[] {
+  return TEMPLATE_RECOMMENDED_QUESTIONS[templateId] || TEMPLATE_RECOMMENDED_QUESTIONS[CUSTOM_TEMPLATE_ID] || [];
+}
+
+export function getDefaultQuestionsForTemplate(templateId: string): RegistrationFormField[] {
+  // Blank / Custom template has an EMPTY questionnaire by default
+  if (templateId === CUSTOM_TEMPLATE_ID) {
+    return [];
+  }
+  // Standard templates default
+  return [
+    { id: "reg_college", key: "college", label: "College / University", type: "text", required: true },
+    { id: "reg_branch", key: "branch", label: "Branch / Stream", type: "text", required: false },
+    { id: "reg_year", key: "year", label: "Graduation Year / Academic Year", type: "text", required: false },
+    { id: "reg_tshirt", key: "tshirt_size", label: "T-Shirt Size", type: "select", required: false, options: ["XS", "S", "M", "L", "XL", "XXL"] },
+    { id: "reg_food", key: "food_preference", label: "Food Preference", type: "select", required: false, options: ["Veg", "Non-Veg", "Jain", "Vegan"] },
+  ];
+}

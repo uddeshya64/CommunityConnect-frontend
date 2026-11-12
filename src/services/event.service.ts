@@ -40,7 +40,7 @@ export const eventService = {
     return response.data;
   },
 
- // Points to: POST /api/registration/start
+  // Points to: POST /api/registration/start
   registerForEvent: async (payload: { eventId: number; teamName?: string }) => {
     const response = await api.post('/registration/start', payload);
     return response.data;
@@ -89,6 +89,18 @@ export const eventService = {
   // Unsave an event
   unsaveEvent: async (eventId: string | number) => {
     const response = await api.delete(`/events/${eventId}/save`);
+    return response.data;
+  },
+
+  // Subscribe to event availability/date-update reminder
+  subscribeReminder: async (eventId: string | number) => {
+    const response = await api.post(`/events/${eventId}/reminder`);
+    return response.data;
+  },
+
+  // Unsubscribe from event availability reminder
+  unsubscribeReminder: async (eventId: string | number) => {
+    const response = await api.delete(`/events/${eventId}/reminder`);
     return response.data;
   },
 

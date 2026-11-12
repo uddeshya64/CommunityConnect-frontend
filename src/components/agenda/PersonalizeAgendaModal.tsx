@@ -66,7 +66,7 @@ interface PersonalizeAgendaModalProps {
   eventTitle: string;
   isOpen: boolean;
   onClose: () => void;
-  onSaved?: () => void;
+  onSaved?: (savedAgendas?: any[]) => void;
   timelinesFallback?: any[];
 }
 
@@ -96,23 +96,35 @@ export default function PersonalizeAgendaModal({
     try {
       setLoading(true);
 
-      // 1. Fetch recommendations from backend
+      // 1. Fetch existing user agenda first
       let items: AgendaItem[] = [];
+      let fetchedExisting = false;
       try {
-        const res = await api.post("/agenda/generate/" + eventId);
-        items = res.data?.data || [];
-        if (res.data?.isCalendarConnected) {
+        const getRes = await api.get(`/agenda?eventId=${eventId}`);
+        const data = (getRes.data?.data || []).filter(
+          (i: any) => Number(i.event_id || i.event?.id) === Number(eventId)
+        );
+        if (data && data.length > 0) {
+          items = data;
+          fetchedExisting = true;
+        }
+        if (getRes.data?.isCalendarConnected) {
           setIsCalendarConnected(true);
         }
-      } catch (genErr) {
-        console.warn("Could not generate recommendations, falling back to GET /agenda:", genErr);
+      } catch (getErr) {
+        console.warn("Could not fetch existing agenda, will generate:", getErr);
+      }
+
+      // If user has not generated/saved agenda for this event yet, generate ML recommendations
+      if (!fetchedExisting || items.length === 0) {
         try {
-          const getRes = await api.get(`/agenda?eventId=${eventId}`);
-          items = (getRes.data?.data || []).filter(
-            (i: any) => Number(i.event_id || i.event?.id) === Number(eventId)
-          );
-        } catch (getErr) {
-          console.warn("GET /agenda fallback also failed:", getErr);
+          const res = await api.post("/agenda/generate/" + eventId);
+          items = res.data?.data || [];
+          if (res.data?.isCalendarConnected) {
+            setIsCalendarConnected(true);
+          }
+        } catch (genErr) {
+          console.warn("Could not generate recommendations:", genErr);
         }
       }
 
@@ -120,20 +132,21 @@ export default function PersonalizeAgendaModal({
       const finalSessions: AgendaItem[] = [...items];
       if (timelinesFallback && timelinesFallback.length > 0) {
         timelinesFallback.forEach((fb: any) => {
+          const fbId = Number(fb.id);
           const exists = finalSessions.some(
-            (s) => Number(s.timeline_id || s.timeline?.id || s.id) === Number(fb.id)
+            (s) => Number(s.timeline_id || s.timeline?.id || s.id) === fbId
           );
           if (!exists) {
             finalSessions.push({
-              id: fb.id,
+              id: fbId,
               user_id: 0,
               event_id: eventId,
-              timeline_id: fb.id,
+              timeline_id: fbId,
               status: "RECOMMENDED",
               match_score: 0.85,
               created_at: new Date().toISOString(),
               timeline: {
-                id: fb.id,
+                id: fbId,
                 title: fb.title,
                 description: fb.description || null,
                 speaker_name: fb.speaker_name || null,
@@ -153,10 +166,29 @@ export default function PersonalizeAgendaModal({
         });
       }
 
-      setSessions(finalSessions);
+      // Normalize all sessions to have valid timeline and consistent timeline_id
+      const normalizedSessions = finalSessions.map((s) => {
+        const tId = Number(s.timeline_id || s.timeline?.id || s.id);
+        const fbTl = timelinesFallback.find((fb: any) => Number(fb.id) === tId);
+        return {
+          ...s,
+          timeline_id: tId,
+          timeline: {
+            id: tId,
+            title: s.timeline?.title || fbTl?.title || "Agenda Session",
+            description: s.timeline?.description || fbTl?.description || null,
+            speaker_name: s.timeline?.speaker_name || fbTl?.speaker_name || null,
+            start_time: s.timeline?.start_time || fbTl?.start_time || new Date().toISOString(),
+            end_time: s.timeline?.end_time || fbTl?.end_time || null,
+            location: s.timeline?.location || fbTl?.location || null
+          }
+        };
+      });
+
+      setSessions(normalizedSessions);
 
       // 3. Determine if user has already customized their agenda for this event
-      const previouslyCustomized = finalSessions.some(
+      const previouslyCustomized = normalizedSessions.some(
         (i) => i.status === "ACCEPTED" || i.status === "DECLINED"
       );
       setHasCustomizedBefore(previouslyCustomized);
@@ -167,14 +199,14 @@ export default function PersonalizeAgendaModal({
 
       if (previouslyCustomized) {
         // Respect EXACT previously saved choices
-        finalSessions.forEach((i) => {
-          const tId = Number(i.timeline_id || i.timeline?.id || i.id);
+        normalizedSessions.forEach((i) => {
+          const tId = Number(i.timeline_id);
           initialChoices[tId] = i.status === "ACCEPTED" ? "ACCEPTED" : "DECLINED";
         });
       } else {
         // First-time recommendation initialization:
         // Group into overlapping time slots
-        const sorted = [...finalSessions].sort(
+        const sorted = [...normalizedSessions].sort(
           (a, b) => new Date(a.timeline.start_time).getTime() - new Date(b.timeline.start_time).getTime()
         );
 
@@ -209,14 +241,14 @@ export default function PersonalizeAgendaModal({
           const slotItems = group.items;
           slotItems.sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
           slotItems.forEach((item, idx) => {
-            const tId = Number(item.timeline_id || item.timeline?.id || item.id);
+            const tId = Number(item.timeline_id);
             initialChoices[tId] = idx === 0 ? "ACCEPTED" : "DECLINED";
           });
         });
       }
 
       // External Google Calendar conflicts default to DECLINED
-      finalSessions.forEach((i) => {
+      normalizedSessions.forEach((i) => {
         const list = i.externalConflicts && i.externalConflicts.length > 0
           ? i.externalConflicts
           : (i.externalConflict ? [i.externalConflict] : []);
@@ -356,10 +388,14 @@ export default function PersonalizeAgendaModal({
 
       // Primary: Call the atomic batch save endpoint /agenda/save/:eventId
       let batchSuccess = false;
+      let savedAgendas: any[] = [];
       try {
-        await api.post("/agenda/save/" + eventId, {
+        const res = await api.post("/agenda/save/" + eventId, {
           choices: agendaChoices
         });
+        if (res.data?.data && Array.isArray(res.data.data)) {
+          savedAgendas = res.data.data;
+        }
         batchSuccess = true;
       } catch (batchErr) {
         console.warn("Batch save endpoint failed, trying fallback patch:", batchErr);
@@ -376,11 +412,17 @@ export default function PersonalizeAgendaModal({
             await api.patch("/agenda/" + agendaId + "/status", { status }).catch(() => { });
           }
         }
+        try {
+          const refetch = await api.get(`/agenda?eventId=${eventId}`);
+          if (refetch.data?.data) {
+            savedAgendas = refetch.data.data;
+          }
+        } catch { }
       }
 
       setHasCustomizedBefore(true);
       showSuccess("Personalized agenda preferences saved!");
-      if (onSaved) onSaved();
+      if (onSaved) onSaved(savedAgendas);
       onClose();
     } catch (err) {
       console.error("Failed to save personal agenda:", err);

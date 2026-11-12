@@ -37,7 +37,25 @@ self.addEventListener('push', (event) => {
     renotify: true,
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'NOTIFICATION_RECEIVED',
+            notification: {
+              id: data.id || `push_${Date.now()}`,
+              title,
+              message: options.body,
+              url: options.data?.url || '/notifications',
+              created_at: new Date().toISOString()
+            }
+          });
+        });
+      })
+    ])
+  );
 });
 
 // Handle Notification Click / Action

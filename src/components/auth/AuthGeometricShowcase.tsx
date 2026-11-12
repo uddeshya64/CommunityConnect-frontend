@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Sparkles, MapPin, Users, Ticket, Layers } from "lucide-react";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import EventFeeBadge from "@/components/events/EventFeeBadge";
 
 interface AuthGeometricShowcaseProps {
   mode?: "login" | "register";
@@ -313,11 +314,12 @@ export default function AuthGeometricShowcase({ mode = "login" }: AuthGeometricS
               <span className="font-medium truncate text-slate-700 dark:text-zinc-300">
                 {current.highlight}
               </span>
-              <span
-                className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-2 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
-              >
-                {current.fee}
-              </span>
+              <EventFeeBadge
+                fee={current.fee}
+                size="xs"
+                className="shrink-0 ml-2"
+                paidClassName="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+              />
             </div>
 
             {/* Capacity Progress Bar */}

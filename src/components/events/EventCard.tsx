@@ -2,8 +2,9 @@
 
 import React from "react";
 import Link from "next/link";
-import { Bookmark, MapPin, Zap, ShieldCheck, Radio } from "lucide-react";
+import { Bookmark, MapPin, Zap, ShieldCheck, Radio, Share2 } from "lucide-react";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import EventFeeBadge from "@/components/events/EventFeeBadge";
 
 export interface EventCardProps {
   id: string;
@@ -23,10 +24,13 @@ export interface EventCardProps {
   staffRoleName?: string;
   relationshipBadge?: "Admin" | "Staff" | "Participant" | string;
   statusBadge?: "upcoming" | "live" | "concluded" | string;
+  isRegistrationOpen?: boolean;
   photo?: string;
   bannerUrl?: string | null;
   isSaved?: boolean;
   onToggleSave?: (id: string, e: React.MouseEvent) => void;
+  description?: string | null;
+  onShare?: (id: string, e: React.MouseEvent) => void;
   href?: string;
   className?: string;
 }
@@ -41,23 +45,28 @@ const DEFAULT_PHOTOS = [
 ];
 
 function parseCardDate(dateStr?: string) {
-  if (!dateStr) return { day: "15", mon: "NOV" };
+  if (!dateStr || /^(tba|coming\s*soon)$/i.test(dateStr.trim())) {
+    return { day: "SOON", mon: "COMING", isComingSoon: true };
+  }
   const d = new Date(dateStr);
   if (!isNaN(d.getTime())) {
     return {
       day: String(d.getDate()).padStart(2, "0"),
       mon: d.toLocaleString("en-US", { month: "short" }).toUpperCase(),
+      isComingSoon: false,
     };
   }
   const parts = dateStr.trim().split(/[\s,·•-]+/);
-  const day = parts.find((p) => /^\d{1,2}$/.test(p)) || "15";
-  const mon =
-    parts.find(
-      (p) =>
-        /^[A-Za-z]{3,4}$/.test(p) &&
-        !["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].includes(p)
-    ) || "NOV";
-  return { day: day.padStart(2, "0"), mon: mon.toUpperCase() };
+  const day = parts.find((p) => /^\d{1,2}$/.test(p));
+  const mon = parts.find(
+    (p) =>
+      /^[A-Za-z]{3,4}$/.test(p) &&
+      !["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].includes(p)
+  );
+  if (!day || !mon) {
+    return { day: "SOON", mon: "COMING", isComingSoon: true };
+  }
+  return { day: day.padStart(2, "0"), mon: mon.toUpperCase(), isComingSoon: false };
 }
 
 export default function EventCard({
@@ -77,10 +86,13 @@ export default function EventCard({
   staffRoleName,
   relationshipBadge,
   statusBadge,
+  isRegistrationOpen = true,
   photo,
   bannerUrl,
   isSaved = false,
   onToggleSave,
+  description,
+  onShare,
   href = `/events/${id}`,
   className = "",
 }: EventCardProps) {
@@ -133,17 +145,17 @@ export default function EventCard({
         <div className="relative z-10 flex items-start justify-between gap-2">
           {/* Calendar Day Badge */}
           <div
-            className="w-11 rounded-[10px] text-center py-1 shrink-0 shadow-md transition-transform group-hover:scale-105"
+            className="min-w-11 px-1.5 rounded-[10px] text-center py-1 shrink-0 shadow-md transition-transform group-hover:scale-105"
             style={{
               background: "rgba(255, 255, 255, 0.95)",
               color: "#0f172a",
               boxShadow: "0 6px 16px -6px rgba(0, 0, 0, 0.4)",
             }}
           >
-            <div className="text-[9.5px] font-bold tracking-wider text-rose-500 uppercase leading-none">
+            <div className={`${dateObj.isComingSoon ? "text-[7.5px] text-indigo-600" : "text-[9.5px] text-rose-500"} font-bold tracking-wider uppercase leading-none`}>
               {dateObj.mon}
             </div>
-            <div className="text-[18px] font-extrabold leading-tight mt-0.5">
+            <div className={`${dateObj.isComingSoon ? "text-[12px] tracking-tight text-indigo-950" : "text-[18px]"} font-extrabold leading-tight mt-0.5`}>
               {dateObj.day}
             </div>
           </div>
@@ -205,6 +217,21 @@ export default function EventCard({
               </span>
             )}
 
+            {onShare && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onShare(id, e);
+                }}
+                title="Share event"
+                className="w-8 h-8 rounded-[10px] border border-white/20 bg-black/35 backdrop-blur-md flex items-center justify-center transition-all hover:bg-black/60 cursor-pointer shadow-sm text-white hover:text-purple-300"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+
             {onToggleSave && (
               <button
                 type="button"
@@ -231,6 +258,15 @@ export default function EventCard({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
             <span>{mode}</span>
           </span>
+          {dateObj.isComingSoon ? (
+            <span className="h-6 px-2.5 rounded-full bg-indigo-500/85 backdrop-blur-md border border-indigo-300/40 text-white text-[10.5px] font-bold flex items-center">
+              Coming Soon
+            </span>
+          ) : !isRegistrationOpen ? (
+            <span className="h-6 px-2.5 rounded-full bg-amber-500/85 backdrop-blur-md border border-amber-300/40 text-white text-[10.5px] font-bold flex items-center">
+              Reg. Closed
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -270,9 +306,7 @@ export default function EventCard({
           <span style={{ color: "var(--subtle)" }}>
             {regLabel} registered
           </span>
-          <span className="font-bold" style={{ color: "var(--text)" }}>
-            {fee}
-          </span>
+          <EventFeeBadge fee={fee} size="sm" paidClassName="font-bold text-xs text-[var(--text)]" />
         </div>
       </div>
     </Link>

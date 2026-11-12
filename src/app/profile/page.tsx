@@ -23,6 +23,7 @@ import { profileService } from "@/services/profile.service";
 import { Profile } from "@/types/profile.types";
 import PageTransition from "@/components/layout/PageTransition";
 import AppLayout from "@/components/layout/AppLayout";
+import BackButton from "@/components/ui/BackButton";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useUser } from "@/components/providers/UserProvider";
 import { API_BASE_URL } from "@/config/env";
@@ -247,15 +248,7 @@ export default function MyProfilePage() {
                         {error}
                     </p>
 
-                    <Link href="/home">
-                        <Button
-                            variant="outline"
-                            className="rounded-full"
-                        >
-                            <ArrowLeft className="w-4 h-4 mr-2" />
-                            Back to Home
-                        </Button>
-                    </Link>
+                    <BackButton fallbackHref="/home" label="Back to Home" />
                 </div>
             </div>
         );
@@ -281,20 +274,7 @@ export default function MyProfilePage() {
                 <main className="max-w-3xl mx-auto px-6 pt-6 pb-20 relative z-10">
                     {/* Header Action Bar: Back button + Profile controls */}
                     <div className="flex items-center justify-between gap-4 mb-6">
-                        <Link href="/home">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={`rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all hover:scale-105 shadow-sm gap-2 ${
-                                    isDark
-                                        ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
-                                        : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                                }`}
-                            >
-                                <ArrowLeft className="w-4 h-4" />
-                                <span>Back</span>
-                            </Button>
-                        </Link>
+                        <BackButton fallbackHref="/home" label="Back" />
 
                         <div className="flex items-center gap-2 sm:gap-3">
                             <Link href="/settings">

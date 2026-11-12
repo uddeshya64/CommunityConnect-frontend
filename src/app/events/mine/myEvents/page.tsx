@@ -18,6 +18,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useUser } from "@/components/providers/UserProvider";
 import EventCard from "@/components/events/EventCard";
+import { formatEventFee, getRawEventFee } from "@/lib/feeUtils";
 
 interface MyEventItem {
   id: string;
@@ -38,6 +39,7 @@ interface MyEventItem {
   relationship: "Admin" | "Staff" | "Participant";
   staffRoleName?: string;
   teamId?: number | null;
+  isRegistrationOpen?: boolean;
   targetHref: string;
   isLive: boolean;
   isConcluded: boolean;
@@ -146,11 +148,12 @@ export default function MyEventsPage() {
         mode: evt.mode || "In-person",
         date: evt.start_date
           ? new Date(evt.start_date).toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })
-          : "TBA",
+          : "Coming Soon",
         endDate: evt.end_date || null,
+        isRegistrationOpen: evt.is_registration_open !== false,
         location: evt.location || "TBA",
         city: evt.city || evt.location?.split(/[,•·-]/)[0]?.trim() || "TBA",
-        fee: evt.ticket_price ? `₹${evt.ticket_price}` : "Free",
+        fee: formatEventFee(getRawEventFee(evt)),
         reg,
         cap,
         pct: `${pct}%`,
@@ -180,11 +183,12 @@ export default function MyEventsPage() {
         mode: evt.mode || "In-person",
         date: (evt.start_date || evt.date)
           ? new Date(evt.start_date || evt.date).toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })
-          : "TBA",
+          : "Coming Soon",
         endDate: evt.end_date || null,
+        isRegistrationOpen: evt.is_registration_open !== false,
         location: evt.location || "TBA",
         city: evt.location?.split(/[,•·-]/)[0]?.trim() || "TBA",
-        fee: evt.ticket_price ? `₹${evt.ticket_price}` : "Free",
+        fee: formatEventFee(getRawEventFee(evt)),
         reg,
         cap,
         pct: `${pct}%`,
@@ -218,11 +222,12 @@ export default function MyEventsPage() {
         mode: evt.mode || "In-person",
         date: evt.start_date
           ? new Date(evt.start_date).toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })
-          : "TBA",
+          : "Coming Soon",
         endDate: evt.end_date || null,
+        isRegistrationOpen: evt.is_registration_open !== false,
         location: evt.location || "TBA",
         city: evt.location?.split(/[,•·-]/)[0]?.trim() || "TBA",
-        fee: evt.ticket_price ? `₹${evt.ticket_price}` : "Free",
+        fee: formatEventFee(getRawEventFee(evt)),
         reg,
         cap,
         pct: `${pct}%`,
@@ -388,6 +393,7 @@ export default function MyEventsPage() {
                   statusBadge={ev.isLive ? "live" : ev.isConcluded ? "concluded" : "upcoming"}
                   href={ev.targetHref}
                   isSaved={!!savedIds[ev.id]}
+                  isRegistrationOpen={ev.isRegistrationOpen}
                   onToggleSave={toggleSave}
                 />
               ))}

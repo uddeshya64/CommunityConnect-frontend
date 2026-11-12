@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, ListPlus, Sparkles, Wand2, ArrowRight,
-  Filter, Tag, Check, Layers, SlidersHorizontal, X
+  Filter, Tag, Check, SlidersHorizontal, X
 } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
+import BackButton from "@/components/ui/BackButton";
+import DraftsFolderSection from "@/components/events/DraftsFolderSection";
 import { EVENT_TEMPLATES, CUSTOM_TEMPLATE_ID, EventTemplate } from "@/lib/eventTemplates";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
@@ -92,9 +94,13 @@ const CATEGORY_TABS = [
 
 type CategoryTab = (typeof CATEGORY_TABS)[number];
 
-export default function SelectTemplatePage() {
+function SelectTemplatePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isDark, activeAccent } = useAppearance();
+
+  const openDraftsFolder = searchParams.get("folder") === "drafts";
+  const highlightDraftId = searchParams.get("highlight");
 
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<CategoryTab>("All Templates");
@@ -127,32 +133,14 @@ export default function SelectTemplatePage() {
 
   return (
     <AppLayout>
-      <div
-        className="min-h-screen w-full transition-colors duration-300 pb-16"
-        style={{
-          background: "radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--accent) 8%, var(--bg)), var(--bg))",
-          color: "var(--text)"
-        }}
-      >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8 animate-in fade-in duration-300">
-          {/* 1. HEADER SECTION (MATCHING STANDALONE PROTOTYPE) */}
-          <div className="space-y-2 border-b pb-6" style={{ borderColor: "var(--border)" }}>
-            <div className="flex items-center gap-2">
-              <span
-                className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider"
-                style={{
-                  background: "color-mix(in oklab, var(--accent) 15%, transparent)",
-                  color: "var(--accent)",
-                  border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)"
-                }}
-              >
-                Event Studio &bull; Step 1
-              </span>
-              <span className="text-xs" style={{ color: "var(--muted)" }}>
-                Workspace &gt; Create an Event
-              </span>
-            </div>
+      <div className="w-full max-w-[1320px] mx-auto px-4 sm:px-8 py-7 pb-20 flex flex-col gap-6 animate-ccin">
+        {/* BACK NAVIGATION */}
+        <div className="flex items-center">
+          <BackButton fallbackHref="/home" label="Back to Workspace" />
+        </div>
 
+        {/* 1. HEADER SECTION (MATCHING STANDALONE PROTOTYPE) */}
+          <div className="space-y-2 border-b pb-6" style={{ borderColor: "var(--border)" }}>
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
                 <h1
@@ -165,15 +153,6 @@ export default function SelectTemplatePage() {
                   Pick a pre-configured template to get started with tailored fields, craft an event with AI, or build a custom setup from scratch.
                 </p>
               </div>
-
-              <button
-                onClick={() => handleSelect(CUSTOM_TEMPLATE_ID)}
-                className="h-9 px-4 rounded-xl border text-xs font-bold transition-all hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer flex items-center gap-1.5 self-start sm:self-auto shrink-0 shadow-xs"
-                style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--text)" }}
-              >
-                <ListPlus className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
-                Blank Custom Canvas
-              </button>
             </div>
           </div>
 
@@ -254,14 +233,6 @@ export default function SelectTemplatePage() {
                   </button>
                 )}
               </div>
-
-              {/* Template Count Tag */}
-              <div className="flex items-center gap-2 text-xs font-mono font-bold" style={{ color: "var(--muted)" }}>
-                <Layers className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
-                <span>
-                  Showing {filteredTemplates.length + 1} blueprints ({activeTab})
-                </span>
-              </div>
             </div>
 
             {/* Horizontal Filter Tabs */}
@@ -311,7 +282,13 @@ export default function SelectTemplatePage() {
 
           {/* 4. TEMPLATE CARDS GRID */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Custom Blank Canvas Card (First in the grid for quick creation) */}
+            {/* Saved Drafts Folder Card (Before template cards) */}
+            <DraftsFolderSection
+              initialOpen={openDraftsFolder}
+              highlightDraftId={highlightDraftId}
+            />
+
+            {/* Custom Blank Canvas Card (For custom creation) */}
             <motion.button
               type="button"
               onClick={() => handleSelect(CUSTOM_TEMPLATE_ID)}
@@ -516,8 +493,15 @@ export default function SelectTemplatePage() {
               </div>
             </div>
           )}
-        </div>
       </div>
     </AppLayout>
+  );
+}
+
+export default function SelectTemplatePage() {
+  return (
+    <Suspense fallback={null}>
+      <SelectTemplatePageInner />
+    </Suspense>
   );
 }
