@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import {
   Sparkles,
   Mic,
@@ -20,13 +20,12 @@ import {
   Check,
   ChevronRight,
   ChevronLeft,
-  Flame,
-  Layers,
   Gamepad2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { AI_SPEECH_LANG } from "@/config/env";
 import { api } from "@/lib/axios";
@@ -99,7 +98,9 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | undefined {
   return w.SpeechRecognition || w.webkitSpeechRecognition;
 }
 
-function createDefaultQuestion(index: number): EditableQuestion {
+const emptySubscribe = () => () => { };
+
+function createDefaultQuestion(): EditableQuestion {
   return {
     id: `q-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     text: "",
@@ -119,9 +120,16 @@ export default function AiQuizBuilderModal({
   onClose,
   eventId,
   eventTitle,
-  isDark = false,
+  isDark: isDarkProp,
   onQuizCreated,
 }: AiQuizBuilderModalProps) {
+  const { isDark: themeIsDark, activeAccent } = useAppearance();
+  const isDark = isDarkProp ?? themeIsDark;
+  const isClient = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
   const { toast } = useToast();
   const showToast = (msg: string, type: "success" | "error" = "success") => toast(msg, type);
 
@@ -159,12 +167,28 @@ export default function AiQuizBuilderModal({
     setInterimTranscript("");
   }, []);
 
-  // Cleanup speech on modal close
+  // Cleanup speech on modal close & lock body scroll while open
   useEffect(() => {
     if (!isOpen) {
       stopListening();
+      return;
     }
-  }, [isOpen, stopListening]);
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isSaving) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpen, isSaving, onClose, stopListening]);
 
   // Speech Recognition toggler
   const toggleListening = useCallback(() => {
@@ -254,15 +278,15 @@ export default function AiQuizBuilderModal({
         currentQuiz:
           quizTitle || questions.length > 0
             ? {
-                title: quizTitle,
-                description: quizDescription,
-                questions: questions.map((q) => ({
-                  text: q.text,
-                  time_limit: q.time_limit,
-                  points: q.points,
-                  options: q.options,
-                })),
-              }
+              title: quizTitle,
+              description: quizDescription,
+              questions: questions.map((q) => ({
+                text: q.text,
+                time_limit: q.time_limit,
+                points: q.points,
+                options: q.options,
+              })),
+            }
             : undefined,
       });
 
@@ -363,7 +387,7 @@ export default function AiQuizBuilderModal({
   };
 
   const handleAddQuestion = () => {
-    const newQ = createDefaultQuestion(questions.length + 1);
+    const newQ = createDefaultQuestion();
     setQuestions((prev) => [...prev, newQ]);
     setActiveQuestionIndex(questions.length);
   };
@@ -448,38 +472,76 @@ export default function AiQuizBuilderModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !isClient) return null;
 
   const currentQ = questions[activeQuestionIndex];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-6xl max-h-[92vh] flex flex-col bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden">
-        
+  return createPortal(
+    <div
+      className={`fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 md:p-6 backdrop-blur-md animate-in fade-in duration-200 ${isDark ? "bg-black/75" : "bg-slate-950/40"
+        }`}
+    >
+      <div
+        className="relative w-full max-w-6xl max-h-[92vh] flex flex-col border rounded-3xl shadow-2xl overflow-hidden"
+        style={{
+          background: "var(--card)",
+          borderColor: "var(--border)",
+          color: "var(--text)",
+        }}
+      >
         {/* MODAL HEADER */}
-        <div className="flex items-start sm:items-center justify-between p-4 sm:px-6 sm:py-4 border-b border-zinc-100 dark:border-zinc-800/80 bg-gradient-to-r from-indigo-50/50 via-purple-50/30 to-white dark:from-zinc-900/60 dark:via-zinc-900/30 dark:to-zinc-950">
+        <div
+          className="flex items-start sm:items-center justify-between p-4 sm:px-6 sm:py-4 border-b"
+          style={{
+            borderColor: "var(--border)",
+            background:
+              "linear-gradient(110deg, color-mix(in oklab, var(--accent) 10%, var(--card)), color-mix(in oklab, var(--accent2) 6%, var(--card)) 48%, var(--card))",
+          }}
+        >
           <div className="flex items-start sm:items-center gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0 mt-0.5 sm:mt-0">
+            <div
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-white shrink-0 mt-0.5 sm:mt-0"
+              style={{
+                background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                boxShadow: "0 8px 20px -6px color-mix(in oklab, var(--accent) 55%, transparent)",
+              }}
+            >
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                <h2 className="text-base sm:text-lg font-extrabold text-zinc-900 dark:text-white">
-                  AI Quiz & Activity Builder
+                <h2 className="text-base sm:text-lg font-extrabold" style={{ color: "var(--text)" }}>
+                  AI Quiz &amp; Activity Builder
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                <span
+                  className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold border"
+                  style={{
+                    background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                    borderColor: "color-mix(in oklab, var(--accent) 28%, transparent)",
+                    color: "var(--accent)",
+                  }}
+                >
                   Interactive Live Trivia
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1 sm:line-clamp-none mt-0.5">
-                Craft engaging multiple-choice trivia and live challenges for <span className="font-semibold text-zinc-700 dark:text-zinc-300">"{eventTitle}"</span>
+              <p className="text-[11px] sm:text-xs line-clamp-1 sm:line-clamp-none mt-0.5" style={{ color: "var(--muted)" }}>
+                Craft engaging multiple-choice trivia and live challenges for{" "}
+                <span className="font-semibold" style={{ color: "var(--text)" }}>
+                  &quot;{eventTitle}&quot;
+                </span>
               </p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="p-2 rounded-xl border transition-colors hover:opacity-80 cursor-pointer"
+            style={{
+              background: "var(--card2)",
+              borderColor: "var(--border)",
+              color: "var(--muted)",
+            }}
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -487,34 +549,52 @@ export default function AiQuizBuilderModal({
         </div>
 
         {/* MODAL BODY (TWO PANELS) */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-zinc-100 dark:divide-zinc-800">
-          
+        <div
+          className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x"
+          style={{ borderColor: "var(--border)" }}
+        >
           {/* LEFT PANEL: PROMPT & AUDIO INPUT (5 COLS) */}
-          <div className="lg:col-span-5 p-5 md:p-6 space-y-5 bg-zinc-50/60 dark:bg-zinc-900/30 flex flex-col">
+          <div
+            className="lg:col-span-5 p-5 md:p-6 space-y-5 flex flex-col"
+            style={{
+              background: "color-mix(in oklab, var(--card2) 55%, var(--card))",
+              borderColor: "var(--border)",
+            }}
+          >
             <div className="space-y-1">
-              <Label className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-                <Bot className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <Label
+                className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"
+                style={{ color: "var(--muted)" }}
+              >
+                <Bot className="w-4 h-4" style={{ color: "var(--accent)" }} />
                 Prompt or Speak Your Topic
               </Label>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs" style={{ color: "var(--muted)" }}>
                 Specify the subject, difficulty, or number of questions. Voice or text prompt persists for easy revisions.
               </p>
             </div>
 
             {/* PROMPT TEXTAREA & VOICE RECORDER */}
-            <div className="relative rounded-2xl border-2 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 focus-within:border-indigo-500 dark:focus-within:border-indigo-500 transition-all shadow-sm">
+            <div
+              className={`relative rounded-2xl border-2 transition-all shadow-sm focus-within:ring-2 ${activeAccent.ring}`}
+              style={{
+                background: "var(--input)",
+                borderColor: "var(--border)",
+              }}
+            >
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 rows={4}
                 placeholder="e.g. Create a 4-question trivia quiz on JavaScript ES6, React hooks, and web APIs with fun options..."
-                className="w-full p-4 pb-14 text-sm bg-transparent outline-none resize-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+                className="w-full p-4 pb-14 text-sm bg-transparent outline-none resize-none"
+                style={{ color: "var(--text)" }}
               />
 
               {/* Interim voice feedback */}
               {isListening && interimTranscript && (
-                <div className="px-4 pb-2 text-xs italic text-indigo-600 dark:text-indigo-400 truncate">
-                  "{interimTranscript}"
+                <div className="px-4 pb-2 text-xs italic truncate" style={{ color: "var(--accent)" }}>
+                  &quot;{interimTranscript}&quot;
                 </div>
               )}
 
@@ -524,11 +604,17 @@ export default function AiQuizBuilderModal({
                   <button
                     type="button"
                     onClick={toggleListening}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${isListening ? "bg-rose-500 text-white animate-pulse" : "border hover:opacity-90"
+                      }`}
+                    style={
                       isListening
-                        ? "bg-rose-500 text-white animate-pulse"
-                        : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                    }`}
+                        ? undefined
+                        : {
+                          background: "var(--card2)",
+                          borderColor: "var(--border)",
+                          color: "var(--text)",
+                        }
+                    }
                   >
                     {isListening ? (
                       <>
@@ -537,7 +623,7 @@ export default function AiQuizBuilderModal({
                       </>
                     ) : (
                       <>
-                        <Mic className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <Mic className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
                         <span>Voice Prompt</span>
                       </>
                     )}
@@ -556,7 +642,8 @@ export default function AiQuizBuilderModal({
                   <button
                     type="button"
                     onClick={() => setPrompt("")}
-                    className="text-[11px] font-semibold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                    className="text-[11px] font-semibold transition-colors hover:opacity-80 cursor-pointer"
+                    style={{ color: "var(--muted)" }}
                   >
                     Clear
                   </button>
@@ -572,7 +659,7 @@ export default function AiQuizBuilderModal({
 
             {/* SUGGESTED PROMPT PILLS */}
             <div className="space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--subtle)" }}>
                 Suggested Topics
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -585,7 +672,12 @@ export default function AiQuizBuilderModal({
                       handleGenerate(p);
                     }}
                     disabled={isGenerating}
-                    className="text-left px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition-all shadow-xs disabled:opacity-50"
+                    className="text-left px-3 py-1.5 rounded-xl border text-[11px] font-medium transition-all shadow-xs hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                    style={{
+                      background: "var(--card)",
+                      borderColor: "var(--border)",
+                      color: "var(--text)",
+                    }}
                   >
                     {p}
                   </button>
@@ -598,12 +690,16 @@ export default function AiQuizBuilderModal({
               type="button"
               onClick={() => handleGenerate()}
               disabled={isGenerating || (!prompt.trim() && !isListening)}
-              className="w-full py-5 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-800 text-white font-bold text-sm shadow-lg shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-5 rounded-2xl text-white font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 hover:opacity-95 cursor-pointer border-0"
+              style={{
+                background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                boxShadow: "0 10px 26px -8px color-mix(in oklab, var(--accent) 55%, transparent)",
+              }}
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>AI is crafting questions & options...</span>
+                  <span>AI is crafting questions &amp; options...</span>
                 </>
               ) : (
                 <>
@@ -615,46 +711,77 @@ export default function AiQuizBuilderModal({
 
             {/* AI FEEDBACK BUBBLE */}
             {aiReply && (
-              <div className="p-3.5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-900/50 space-y-1.5 animate-in fade-in">
+              <div
+                className="p-3.5 rounded-2xl border space-y-1.5 animate-in fade-in"
+                style={{
+                  background: "color-mix(in oklab, var(--accent) 9%, var(--card))",
+                  borderColor: "color-mix(in oklab, var(--accent) 26%, transparent)",
+                }}
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                  <span
+                    className="text-[11px] font-bold flex items-center gap-1.5"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
                     AI Assistant
                   </span>
-                  <span className="text-[10px] font-semibold text-indigo-500/80 uppercase">
+                  <span
+                    className="text-[10px] font-semibold uppercase"
+                    style={{ color: "var(--accent)", opacity: 0.85 }}
+                  >
                     {generationSource === "gemini" ? "Gemini AI" : "Local Engine"}
                   </span>
                 </div>
-                <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
                   {aiReply}
                 </p>
               </div>
             )}
 
-            <div className="mt-auto pt-2 text-[11px] text-zinc-400 text-center">
-              💡 Tip: Click on any option in the preview on the right to set it as the correct answer.
+            <div className="mt-auto pt-2 text-[11px] text-center" style={{ color: "var(--subtle)" }}>
+              Tip: Click on any option in the preview on the right to set it as the correct answer.
             </div>
           </div>
 
           {/* RIGHT PANEL: QUIZ TITLE, DESCRIPTION & INTERACTIVE QUESTION REVIEW (7 COLS) */}
-          <div className="lg:col-span-7 p-5 md:p-6 space-y-5 flex flex-col overflow-y-auto">
-            
+          <div
+            className="lg:col-span-7 p-5 md:p-6 space-y-5 flex flex-col overflow-y-auto"
+            style={{ borderColor: "var(--border)" }}
+          >
             {/* QUIZ TITLE & DESCRIPTION EDIT */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-3 shadow-xs">
+            <div
+              className="p-4 rounded-2xl border space-y-3 shadow-xs"
+              style={{
+                background: "var(--card2)",
+                borderColor: "var(--border)",
+              }}
+            >
               <div>
-                <Label className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                <Label
+                  className="text-[11px] font-extrabold uppercase tracking-wider"
+                  style={{ color: "var(--muted)" }}
+                >
                   Activity / Quiz Title *
                 </Label>
                 <Input
                   value={quizTitle}
                   onChange={(e) => setQuizTitle(e.target.value)}
-                  placeholder="e.g. ⚡ Fullstack & Web Dev Blitz"
+                  placeholder="e.g. Fullstack & Web Dev Blitz"
                   className="mt-1 font-bold text-base h-11 rounded-xl"
+                  style={{
+                    background: "var(--input)",
+                    borderColor: "var(--border)",
+                    color: "var(--text)",
+                  }}
                 />
               </div>
 
               <div>
-                <Label className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                <Label
+                  className="text-[11px] font-extrabold uppercase tracking-wider"
+                  style={{ color: "var(--muted)" }}
+                >
                   Description
                 </Label>
                 <textarea
@@ -662,22 +789,40 @@ export default function AiQuizBuilderModal({
                   onChange={(e) => setQuizDescription(e.target.value)}
                   rows={2}
                   placeholder="Brief description or guidelines for participants..."
-                  className="mt-1 w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-xs text-zinc-800 dark:text-zinc-200 outline-none resize-none focus:ring-2 focus:ring-indigo-500"
+                  className={`mt-1 w-full p-2.5 rounded-xl border text-xs outline-none resize-none focus:ring-2 ${activeAccent.ring}`}
+                  style={{
+                    background: "var(--input)",
+                    borderColor: "var(--border)",
+                    color: "var(--text)",
+                  }}
                 />
               </div>
             </div>
 
             {/* QUESTIONS REVIEW SECTION */}
             {questions.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <div
+                className="flex-1 flex flex-col items-center justify-center p-8 text-center rounded-2xl border-2 border-dashed space-y-3"
+                style={{
+                  borderColor: "var(--border)",
+                  background: "color-mix(in oklab, var(--card2) 45%, transparent)",
+                }}
+              >
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center border"
+                  style={{
+                    background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                    borderColor: "color-mix(in oklab, var(--accent) 26%, transparent)",
+                    color: "var(--accent)",
+                  }}
+                >
                   <Gamepad2 className="w-6 h-6" />
                 </div>
                 <div className="space-y-1 max-w-sm">
-                  <h4 className="font-bold text-sm text-zinc-900 dark:text-white">
+                  <h4 className="font-bold text-sm" style={{ color: "var(--text)" }}>
                     No Questions Generated Yet
                   </h4>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
                     Use the prompt on the left to generate questions automatically, or click below to manually add one.
                   </p>
                 </div>
@@ -685,55 +830,76 @@ export default function AiQuizBuilderModal({
                   type="button"
                   onClick={handleAddQuestion}
                   variant="outline"
-                  className="rounded-xl text-xs font-bold gap-1.5"
+                  className="rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
+                  style={{
+                    background: "var(--input)",
+                    borderColor: "var(--border)",
+                    color: "var(--text)",
+                  }}
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add Blank Question
+                  <Plus className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} /> Add Blank Question
                 </Button>
               </div>
             ) : (
               <div className="space-y-4 flex-1 flex flex-col">
-                
                 {/* QUESTION TABS STRIP */}
                 <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
                   <div className="flex items-center gap-1.5 overflow-x-auto">
-                    {questions.map((q, idx) => (
-                      <button
-                        key={q.id}
-                        type="button"
-                        onClick={() => setActiveQuestionIndex(idx)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
-                          idx === activeQuestionIndex
-                            ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                        }`}
-                      >
-                        <span>Q{idx + 1}</span>
-                        {q.options.some((o) => o.is_correct) ? (
-                          <Check className="w-3 h-3 text-emerald-300" />
-                        ) : (
-                          <span className="w-2 h-2 rounded-full bg-amber-400" />
-                        )}
-                      </button>
-                    ))}
+                    {questions.map((q, idx) => {
+                      const isActive = idx === activeQuestionIndex;
+                      return (
+                        <button
+                          key={q.id}
+                          type="button"
+                          onClick={() => setActiveQuestionIndex(idx)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${isActive ? "text-white" : "border hover:opacity-85"
+                            }`}
+                          style={
+                            isActive
+                              ? {
+                                background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                                boxShadow: "0 6px 16px -6px color-mix(in oklab, var(--accent) 60%, transparent)",
+                              }
+                              : {
+                                background: "var(--card2)",
+                                borderColor: "var(--border)",
+                                color: "var(--muted)",
+                              }
+                          }
+                        >
+                          <span>Q{idx + 1}</span>
+                          {q.options.some((o) => o.is_correct) ? (
+                            <Check className={`w-3 h-3 ${isActive ? "text-white" : "text-emerald-500"}`} />
+                          ) : (
+                            <span className="w-2 h-2 rounded-full bg-amber-400" />
+                          )}
+                        </button>
+                      );
+                    })}
 
                     <button
                       type="button"
                       onClick={handleAddQuestion}
-                      className="px-2.5 py-1.5 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 text-xs font-bold text-zinc-500 hover:text-indigo-600 hover:border-indigo-400 transition-colors shrink-0 flex items-center gap-1"
+                      className="px-2.5 py-1.5 rounded-xl border border-dashed text-xs font-bold transition-colors shrink-0 flex items-center gap-1 hover:opacity-80 cursor-pointer"
+                      style={{
+                        borderColor: "var(--border)",
+                        color: "var(--muted)",
+                      }}
                       title="Add Question"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
                     </button>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[11px] font-bold text-zinc-400">
+                    <span className="text-[11px] font-bold" style={{ color: "var(--subtle)" }}>
                       {activeQuestionIndex + 1} of {questions.length}
                     </span>
                     <button
                       type="button"
                       onClick={() => handleDeleteQuestion(activeQuestionIndex)}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
+                      className="p-1.5 rounded-lg hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                      style={{ color: "var(--muted)" }}
                       title="Delete this question"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -743,16 +909,24 @@ export default function AiQuizBuilderModal({
 
                 {/* CURRENT ACTIVE QUESTION CARD */}
                 {currentQ && (
-                  <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm flex-1">
-                    
+                  <div
+                    className="p-4 rounded-2xl border space-y-4 shadow-sm flex-1"
+                    style={{
+                      background: "var(--card2)",
+                      borderColor: "var(--border)",
+                    }}
+                  >
                     {/* Question Statement */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <Label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                          <HelpCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <Label
+                          className="text-xs font-bold flex items-center gap-1.5"
+                          style={{ color: "var(--text)" }}
+                        >
+                          <HelpCircle className="w-4 h-4" style={{ color: "var(--accent)" }} />
                           Question #{activeQuestionIndex + 1}
                         </Label>
-                        <span className="text-[10px] text-zinc-400">
+                        <span className="text-[10px]" style={{ color: "var(--subtle)" }}>
                           {currentQ.text.length} / 500 chars
                         </span>
                       </div>
@@ -761,19 +935,32 @@ export default function AiQuizBuilderModal({
                         onChange={(e) => updateQuestionText(e.target.value)}
                         placeholder="Type question statement here..."
                         className="font-medium text-sm rounded-xl h-10"
+                        style={{
+                          background: "var(--input)",
+                          borderColor: "var(--border)",
+                          color: "var(--text)",
+                        }}
                       />
                     </div>
 
                     {/* Meta: Time Limit & Points */}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label className="text-[11px] font-bold text-zinc-500 flex items-center gap-1 mb-1">
-                          <Clock className="w-3.5 h-3.5 text-zinc-400" /> Time Limit
+                        <Label
+                          className="text-[11px] font-bold flex items-center gap-1 mb-1"
+                          style={{ color: "var(--muted)" }}
+                        >
+                          <Clock className="w-3.5 h-3.5" style={{ color: "var(--subtle)" }} /> Time Limit
                         </Label>
                         <select
                           value={currentQ.time_limit}
                           onChange={(e) => updateQuestionTimeLimit(Number(e.target.value))}
-                          className="w-full h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                          className={`w-full h-9 px-3 rounded-xl border text-xs font-semibold outline-none focus:ring-2 ${activeAccent.ring}`}
+                          style={{
+                            background: "var(--input)",
+                            borderColor: "var(--border)",
+                            color: "var(--text)",
+                          }}
                         >
                           {TIME_LIMIT_OPTIONS.map((sec) => (
                             <option key={sec} value={sec}>
@@ -784,13 +971,21 @@ export default function AiQuizBuilderModal({
                       </div>
 
                       <div>
-                        <Label className="text-[11px] font-bold text-zinc-500 flex items-center gap-1 mb-1">
-                          <Trophy className="w-3.5 h-3.5 text-zinc-400" /> Points
+                        <Label
+                          className="text-[11px] font-bold flex items-center gap-1 mb-1"
+                          style={{ color: "var(--muted)" }}
+                        >
+                          <Trophy className="w-3.5 h-3.5" style={{ color: "var(--subtle)" }} /> Points
                         </Label>
                         <select
                           value={currentQ.points}
                           onChange={(e) => updateQuestionPoints(Number(e.target.value))}
-                          className="w-full h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/80 text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                          className={`w-full h-9 px-3 rounded-xl border text-xs font-semibold outline-none focus:ring-2 ${activeAccent.ring}`}
+                          style={{
+                            background: "var(--input)",
+                            borderColor: "var(--border)",
+                            color: "var(--text)",
+                          }}
                         >
                           {POINTS_OPTIONS.map((pts) => (
                             <option key={pts} value={pts}>
@@ -804,10 +999,13 @@ export default function AiQuizBuilderModal({
                     {/* 4 Options Grid */}
                     <div className="space-y-2 pt-1">
                       <div className="flex items-center justify-between">
-                        <Label className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-500">
-                          Options & Correct Answer
+                        <Label
+                          className="text-[11px] font-extrabold uppercase tracking-wider"
+                          style={{ color: "var(--muted)" }}
+                        >
+                          Options &amp; Correct Answer
                         </Label>
-                        <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
+                        <span className="text-[10px] font-semibold" style={{ color: "var(--accent)" }}>
                           Click radio or badge to mark correct
                         </span>
                       </div>
@@ -825,11 +1023,13 @@ export default function AiQuizBuilderModal({
                           return (
                             <div
                               key={optIdx}
-                              className={`p-3 rounded-xl border-2 transition-all flex flex-col justify-between gap-2 cursor-pointer ${
-                                opt.is_correct
-                                  ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-xs"
-                                  : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 hover:border-zinc-300 dark:hover:border-zinc-700"
-                              }`}
+                              className="p-3 rounded-xl border-2 transition-all flex flex-col justify-between gap-2 cursor-pointer"
+                              style={{
+                                background: opt.is_correct
+                                  ? "color-mix(in oklab, var(--accent) 10%, var(--card))"
+                                  : "var(--card)",
+                                borderColor: opt.is_correct ? "var(--accent)" : "var(--border)",
+                              }}
                               onClick={() => setCorrectOption(optIdx)}
                             >
                               <div className="flex items-center justify-between">
@@ -839,7 +1039,7 @@ export default function AiQuizBuilderModal({
                                   >
                                     {letters[optIdx]}
                                   </span>
-                                  <span className="text-[11px] font-bold text-zinc-500">
+                                  <span className="text-[11px] font-bold" style={{ color: "var(--muted)" }}>
                                     Option {optIdx + 1}
                                   </span>
                                 </div>
@@ -850,11 +1050,17 @@ export default function AiQuizBuilderModal({
                                     e.stopPropagation();
                                     setCorrectOption(optIdx);
                                   }}
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold flex items-center gap-1 transition-all ${
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold flex items-center gap-1 transition-all cursor-pointer ${opt.is_correct ? "text-white shadow-xs" : "border"
+                                    }`}
+                                  style={
                                     opt.is_correct
-                                      ? "bg-emerald-500 text-white shadow-xs"
-                                      : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-300"
-                                  }`}
+                                      ? { background: "var(--accent)" }
+                                      : {
+                                        background: "var(--card2)",
+                                        borderColor: "var(--border)",
+                                        color: "var(--muted)",
+                                      }
+                                  }
                                 >
                                   {opt.is_correct ? (
                                     <>
@@ -873,7 +1079,12 @@ export default function AiQuizBuilderModal({
                                 onChange={(e) => updateOptionText(optIdx, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
                                 placeholder={`Type option ${letters[optIdx]}...`}
-                                className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500"
+                                className={`w-full px-2.5 py-1.5 rounded-lg border text-xs font-medium outline-none focus:ring-2 ${activeAccent.ring}`}
+                                style={{
+                                  background: "var(--input)",
+                                  borderColor: "var(--border)",
+                                  color: "var(--text)",
+                                }}
                               />
                             </div>
                           );
@@ -882,14 +1093,17 @@ export default function AiQuizBuilderModal({
                     </div>
 
                     {/* Navigation between questions */}
-                    <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                    <div
+                      className="flex items-center justify-between pt-2 border-t"
+                      style={{ borderColor: "var(--border)" }}
+                    >
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         disabled={activeQuestionIndex === 0}
                         onClick={() => setActiveQuestionIndex((prev) => Math.max(0, prev - 1))}
-                        className="text-xs font-bold gap-1"
+                        className="text-xs font-bold gap-1 cursor-pointer"
                       >
                         <ChevronLeft className="w-4 h-4" /> Previous
                       </Button>
@@ -902,12 +1116,11 @@ export default function AiQuizBuilderModal({
                         onClick={() =>
                           setActiveQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))
                         }
-                        className="text-xs font-bold gap-1"
+                        className="text-xs font-bold gap-1 cursor-pointer"
                       >
                         Next <ChevronRight className="w-4 h-4" />
                       </Button>
                     </div>
-
                   </div>
                 )}
               </div>
@@ -916,13 +1129,19 @@ export default function AiQuizBuilderModal({
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-4 sm:px-6 py-3.5 sm:py-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-          <div className="flex items-center gap-2 text-xs text-zinc-500 justify-center sm:justify-start">
-            <span className="font-bold text-zinc-700 dark:text-zinc-300">
+        <div
+          className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-4 sm:px-6 py-3.5 sm:py-4 border-t"
+          style={{
+            background: "var(--card)",
+            borderColor: "var(--border)",
+          }}
+        >
+          <div className="flex items-center gap-2 text-xs justify-center sm:justify-start" style={{ color: "var(--muted)" }}>
+            <span className="font-bold" style={{ color: "var(--text)" }}>
               {questions.length} Question{questions.length === 1 ? "" : "s"}
             </span>
             <span>•</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+            <span className="font-semibold" style={{ color: "var(--accent)" }}>
               Ready to publish as live activity
             </span>
           </div>
@@ -933,7 +1152,12 @@ export default function AiQuizBuilderModal({
               variant="outline"
               onClick={onClose}
               disabled={isSaving}
-              className="flex-1 sm:flex-initial rounded-xl text-xs font-bold"
+              className="flex-1 sm:flex-initial rounded-xl text-xs font-bold cursor-pointer"
+              style={{
+                background: "var(--card2)",
+                borderColor: "var(--border)",
+                color: "var(--text)",
+              }}
             >
               Cancel
             </Button>
@@ -942,7 +1166,11 @@ export default function AiQuizBuilderModal({
               type="button"
               onClick={handleSaveQuiz}
               disabled={isSaving || !quizTitle.trim() || questions.length === 0}
-              className="flex-1 sm:flex-initial rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 sm:px-5 shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 sm:flex-initial rounded-xl text-white text-xs font-bold px-4 sm:px-5 flex items-center justify-center gap-2 disabled:opacity-50 hover:opacity-95 cursor-pointer border-0"
+              style={{
+                background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                boxShadow: "0 8px 20px -6px color-mix(in oklab, var(--accent) 55%, transparent)",
+              }}
             >
               {isSaving ? (
                 <>
@@ -951,15 +1179,15 @@ export default function AiQuizBuilderModal({
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 text-yellow-300" />
+                  <Sparkles className="w-4 h-4" />
                   <span>Add AI Activity</span>
                 </>
               )}
             </Button>
           </div>
         </div>
-
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

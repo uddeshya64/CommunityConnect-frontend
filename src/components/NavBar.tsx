@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User as UserIcon, LayoutDashboard, Settings, Bell, Sun, Moon } from "lucide-react";
+import { User as UserIcon, LayoutDashboard, Settings, Sun, Moon } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import NotificationBellIsland from "@/components/notifications/NotificationBellIsland";
 
 export default function Navbar({ theme }: { theme?: "light" | "dark" }) {
   const [isVisible, setIsVisible] = useState(true);
@@ -76,17 +77,7 @@ export default function Navbar({ theme }: { theme?: "light" | "dark" }) {
               <div
                 className={`h-8 w-px ${isDark ? "bg-white/10" : "bg-zinc-200"}`}
               />
-              <Link href="/notifications" title="Notifications">
-                <div
-                  className={`flex items-center justify-center w-9 h-9 rounded-full border cursor-pointer transition-all hover:scale-105 ${
-                    isDark
-                      ? "bg-white/5 border-white/10 text-zinc-200 hover:bg-white/10 hover:text-white"
-                      : "bg-zinc-100 border-zinc-200 text-zinc-800 hover:bg-zinc-200 hover:text-zinc-950"
-                  }`}
-                >
-                  <Bell className="w-4.5 h-4.5" />
-                </div>
-              </Link>
+              <NotificationBellIsland href="/notifications" />
               <button
                 type="button"
                 onClick={toggleTheme}

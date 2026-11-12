@@ -30,12 +30,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
   );
 
-  const [authorized, setAuthorized] = useState(() => {
-    if (!isProtected) return true;
-    return hasStoredSession();
-  });
+  // Keep SSR and initial client hydration in exact sync to prevent React hydration mismatch
+  const [isMounted, setIsMounted] = useState(false);
+  const [authorized, setAuthorized] = useState(true);
 
   useEffect(() => {
+    setIsMounted(true);
     if (isProtected && !hasStoredSession()) {
       setAuthorized(false);
       const redirectQuery = encodeURIComponent(pathname);
@@ -45,7 +45,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isProtected, pathname, router]);
 
-  if (isProtected && !authorized) {
+  // Only display the unauthenticated loader if mounted on the client and confirmed unauthorized
+  if (isMounted && isProtected && !authorized) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"

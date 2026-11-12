@@ -8,14 +8,17 @@ import {
   Trash2, Loader2, Calendar, Clock,
   Plus, AlertTriangle, MapPin, Share2, ExternalLink,
   Download, Mail, CheckCircle2,
-  CalendarPlus, SunMedium, UserPlus, Sparkles
+  CalendarPlus, SunMedium, UserPlus, Sparkles,
+  ChevronDown, ChevronUp, Copy
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { api } from "@/lib/axios";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import AppLayout from "@/components/layout/AppLayout";
+import BackButton from "@/components/ui/BackButton";
 import { API_BASE_URL } from "@/config/env";
 import PersonalizeAgendaModal from "@/components/agenda/PersonalizeAgendaModal";
+import ShareEventModal from "@/components/events/ShareEventModal";
 
 export default function TeamParticipantDashboard() {
   const { id } = useParams();
@@ -33,6 +36,7 @@ export default function TeamParticipantDashboard() {
 
   // Announcements State
   const [announcementsList, setAnnouncementsList] = useState<any[]>([]);
+  const [visibleAnnouncementsCount, setVisibleAnnouncementsCount] = useState<number>(3);
   const [isTogglingReaction, setIsTogglingReaction] = useState(false);
 
   // UI Action States
@@ -49,6 +53,7 @@ export default function TeamParticipantDashboard() {
   const [inviteToRevoke, setInviteToRevoke] = useState<any>(null);
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [showAgendaModal, setShowAgendaModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Project Submission State
   const [projTitle, setProjTitle] = useState("");
@@ -116,9 +121,9 @@ export default function TeamParticipantDashboard() {
     return Number(teamData?.event?.id || teamData?.event_id || 0);
   }, [teamData?.event?.id, teamData?.event_id]);
 
-  const fetchAgendaStatus = useCallback(async () => {
+  const fetchAgendaStatus = useCallback(async (overrideEventId?: number) => {
     try {
-      const evId = Number(teamData?.event?.id || teamData?.event_id);
+      const evId = overrideEventId || Number(teamData?.event?.id || teamData?.event_id);
       const url = evId ? `/agenda?eventId=${evId}` : "/agenda";
       const res = await api.get(url);
       if (res.data) {
@@ -469,7 +474,8 @@ export default function TeamParticipantDashboard() {
     const evId = targetEventId;
     const eventUserAgendas = (personalAgenda || []).filter((item: any) => {
       if (!evId) return true;
-      return Number(item.event_id || item.event?.id) === evId;
+      const itemEvId = Number(item.event_id || item.event?.id || item.timeline?.event_id);
+      return !itemEvId || itemEvId === evId;
     });
 
     // Check if user has explicitly personalized this event
@@ -483,18 +489,27 @@ export default function TeamParticipantDashboard() {
         (item: any) => item.status === "ACCEPTED"
       );
 
+      // Sort accepted sessions chronologically by start_time
+      acceptedSessions.sort((a: any, b: any) => {
+        const timeA = new Date(a.timeline?.start_time || a.start_time || 0).getTime();
+        const timeB = new Date(b.timeline?.start_time || b.start_time || 0).getTime();
+        return timeA - timeB;
+      });
+
       const mapped = acceptedSessions.map((item: any) => {
-        const t = item.timeline || {};
-        const start = t.start_time ? new Date(t.start_time) : null;
+        const tId = Number(item.timeline_id || item.timeline?.id || item.id);
+        const fallbackTl = eventDetails.timelines?.find((tl: any) => Number(tl.id) === tId);
+        const t = item.timeline || fallbackTl || {};
+        const start = t.start_time ? new Date(t.start_time) : (item.start_time ? new Date(item.start_time) : null);
         const tStr = start && !isNaN(start.getTime())
           ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
           : "TBA";
         return {
-          id: item.id || t.id,
+          id: item.id || t.id || tId,
           t: tStr,
-          title: t.title || "Agenda Session",
-          speaker: t.speaker_name || "",
-          room: t.location || eventDetails.location || "Main Hall",
+          title: t.title || item.title || "Agenda Session",
+          speaker: t.speaker_name || item.speaker_name || "",
+          room: t.location || item.location || eventDetails.location || "Main Hall",
           warn: Boolean(item.conflict),
           warnText: item.conflict_description
         };
@@ -505,7 +520,13 @@ export default function TeamParticipantDashboard() {
 
     // If not personalized yet, show full original event schedule
     if (eventDetails.timelines && eventDetails.timelines.length > 0) {
-      const mapped = eventDetails.timelines.map((t: any) => {
+      const sortedTimelines = [...eventDetails.timelines].sort((a: any, b: any) => {
+        const timeA = new Date(a.start_time || 0).getTime();
+        const timeB = new Date(b.start_time || 0).getTime();
+        return timeA - timeB;
+      });
+
+      const mapped = sortedTimelines.map((t: any) => {
         const start = t.start_time ? new Date(t.start_time) : null;
         const tStr = start && !isNaN(start.getTime())
           ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })
@@ -548,7 +569,26 @@ export default function TeamParticipantDashboard() {
             Loading Dashboard...
           </p>
         </div>
-      </AppLayout>
+  
+      {/* =========================================================
+          10. SHARE EVENT MODAL
+          ========================================================= */}
+      <ShareEventModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        event={{
+          id: targetEventId || (typeof id === "string" ? id : (Array.isArray(id) ? id[0] : 0)),
+          title: eventTitle,
+          description: teamData?.event?.description || eventDetails?.description || "Join this event on Eventrix!",
+          banner_url: bannerUrl,
+          start_date: eventStartDate,
+          location: eventDetails?.location,
+          mode: eventDetails?.mode,
+          category: teamData?.event?.category || (isSolo ? "Individual Pass" : "Team Space"),
+          url: typeof window !== "undefined" ? (targetEventId ? `${window.location.origin}/events/${targetEventId}` : window.location.href) : undefined,
+        }}
+      />
+    </AppLayout>
     );
   }
 
@@ -576,16 +616,25 @@ export default function TeamParticipantDashboard() {
   return (
     <AppLayout>
       <div className="w-full max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div data-screen-label="Ticket and team" className="flex flex-col gap-5 animate-in fade-in duration-300">
+        <div data-screen-label="Ticket and team" className="flex flex-col gap-6 animate-in fade-in duration-300">
+
+          {/* Back Navigation & Breadcrumb */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <BackButton fallbackHref="/events/mine" label="Back to My Events" />
+            <div className="text-[12px] font-mono text-[var(--subtle)] hidden sm:block">
+              Workspace &gt; Event Dashboard &gt; <span className="text-[var(--text)] font-semibold">{eventTitle}</span>
+            </div>
+          </div>
 
           {/* =========================================================
-              1. TOP TEAM & EVENT BANNER
+              1. UNIFIED COMMAND HERO BANNER
               ========================================================= */}
           <div
-            className="relative overflow-hidden rounded-[22px] p-6 sm:p-7 text-white flex flex-wrap items-end justify-between gap-5"
+            className="relative overflow-hidden rounded-[24px] p-6 sm:p-7 text-white flex flex-col gap-5"
             style={{
               background: "radial-gradient(90% 140% at 100% 0%, #7c3aed 0%, transparent 60%), linear-gradient(135deg, #1e1b4b, #0b0b1a)",
-              border: "1px solid var(--border)"
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 22px 44px -24px rgba(76,29,149,0.5)"
             }}
           >
             {/* Grid overlay pattern */}
@@ -597,183 +646,554 @@ export default function TeamParticipantDashboard() {
               }}
             />
 
-            {/* Left Info: Eyebrow + Team Name (Editable inline by leader) */}
-            <div className="relative flex-1 min-w-[260px] z-10">
-              <div className="text-[13px] text-white/70 font-medium">
-                {eventTitle} · {isSolo ? "Registration" : "Team"}
+            {/* Top Row: Event Category & Public Event Link + Live Status */}
+            <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="h-6 px-2.5 rounded-full bg-white/10 border border-white/20 text-[11.5px] font-mono font-semibold tracking-wider uppercase text-white/90 inline-flex items-center gap-1.5 backdrop-blur-md">
+                  <Sparkles className="w-3 h-3 text-purple-300" />
+                  {teamData?.event?.category || (isSolo ? "Individual Pass" : "Team Space")}
+                </span>
+                {targetEventId > 0 && (
+                  <a
+                    href={`/events/${targetEventId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="h-6 px-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-[11.5px] font-medium text-white/90 inline-flex items-center gap-1.5 transition-colors backdrop-blur-md"
+                  >
+                    <span>{eventTitle}</span>
+                    <ExternalLink className="w-3 h-3 opacity-70" />
+                  </a>
+                )}
               </div>
 
-              {isEditingName && !isSolo && isLeader ? (
-                <div className="flex items-center gap-2 mt-1.5 max-w-md">
-                  <input
-                    value={editNameStr}
-                    onChange={(e) => setEditNameStr(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleUpdateName();
-                      if (e.key === "Escape") setIsEditingName(false);
-                    }}
-                    autoFocus
-                    className="w-full bg-transparent text-white text-[32px] sm:text-[40px] font-bold tracking-tight outline-none border-b border-dashed border-white/50 pb-1"
-                    style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
-                  />
-                  <button
-                    onClick={handleUpdateName}
-                    disabled={actionLoading === "name"}
-                    className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition-colors cursor-pointer"
-                  >
-                    {actionLoading === "name" ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                  </button>
-                  <button
-                    onClick={() => setIsEditingName(false)}
-                    className="p-2 rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition-colors cursor-pointer"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  className={`flex items-center gap-3 mt-1.5 group ${!isSolo && isLeader ? "cursor-pointer" : ""}`}
-                  onClick={() => !isSolo && isLeader && setIsEditingName(true)}
+              {/* Status Pills */}
+              <div className="flex items-center gap-2">
+                <span className="h-[28px] px-3 rounded-full bg-white/12 border border-white/20 text-[12px] font-mono font-semibold text-white inline-flex items-center gap-1.5 whitespace-nowrap shadow-xs backdrop-blur-md">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  {countdown.isLive ? "Live Now" : countdown.isConcluded ? "Concluded" : `Starts in ${countdown.short}`}
+                </span>
+                <span
+                  className={`h-[28px] px-3 rounded-full text-[12px] font-semibold inline-flex items-center whitespace-nowrap shadow-xs backdrop-blur-md ${
+                    isCheckedIn
+                      ? "bg-blue-500/25 border border-blue-500/40 text-blue-200"
+                      : "bg-emerald-500/25 border border-emerald-500/40 text-emerald-200"
+                  }`}
                 >
-                  <h1
-                    className="text-white text-[32px] sm:text-[40px] font-bold tracking-tight border-b border-dashed border-white/30 pb-1 max-w-[460px] truncate"
-                    style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
+                  {isCheckedIn ? "Checked In" : "Registered"}
+                </span>
+              </div>
+            </div>
+
+            {/* Middle Row: Space Title & Actions (Fills previous empty right area) */}
+            <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div className="flex-1 min-w-[260px]">
+                <div className="text-[12.5px] text-white/60 font-medium">Participant Workspace</div>
+                {isEditingName && !isSolo && isLeader ? (
+                  <div className="flex items-center gap-2 mt-1 max-w-md">
+                    <input
+                      value={editNameStr}
+                      onChange={(e) => setEditNameStr(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleUpdateName();
+                        if (e.key === "Escape") setIsEditingName(false);
+                      }}
+                      autoFocus
+                      className="w-full bg-transparent text-white text-[28px] sm:text-[36px] font-bold tracking-tight outline-none border-b border-dashed border-white/50 pb-1"
+                      style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
+                    />
+                    <button
+                      onClick={handleUpdateName}
+                      disabled={actionLoading === "name"}
+                      className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition-colors cursor-pointer"
+                    >
+                      {actionLoading === "name" ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                    </button>
+                    <button
+                      onClick={() => setIsEditingName(false)}
+                      className="p-2 rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition-colors cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className={`flex items-center gap-3 mt-1 group ${!isSolo && isLeader ? "cursor-pointer" : ""}`}
+                    onClick={() => !isSolo && isLeader && setIsEditingName(true)}
                   >
-                    {currentTeamName}
-                  </h1>
-                  {!isSolo && isLeader && (
-                    <Edit3 className="w-4 h-4 text-white/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <h1
+                      className="text-white text-[28px] sm:text-[36px] font-bold tracking-tight border-b border-dashed border-white/20 hover:border-white/50 pb-0.5 truncate transition-colors"
+                      style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
+                    >
+                      {currentTeamName}
+                    </h1>
+                    {!isSolo && isLeader && (
+                      <Edit3 className="w-4 h-4 text-white/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Toolbar */}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setShowEntryPassModal(true)}
+                  className="h-9 px-3.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-[13px] font-semibold text-white inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs backdrop-blur-md active:scale-95"
+                >
+                  <QrCode className="w-3.5 h-3.5 text-purple-200" />
+                  <span>View Digital Pass</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadICS}
+                  className="h-9 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-[13px] font-semibold text-white inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs backdrop-blur-md active:scale-95"
+                  title="Download .ics Calendar File"
+                >
+                  <CalendarPlus className="w-3.5 h-3.5 text-purple-200" />
+                  <span>Add to Calendar</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowShareModal(true)}
+                  className="h-9 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-[13px] font-semibold text-white inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs backdrop-blur-md active:scale-95"
+                  title="Share Event"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Share</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Row: Metadata Strip */}
+            <div className="relative z-10 pt-3 border-t border-white/10 flex flex-wrap items-center gap-4 text-[12.5px] text-white/80">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-purple-300" />
+                <span>{formattedDate}</span>
+              </div>
+              <div className="w-1 h-1 rounded-full bg-white/30" />
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-purple-300" />
+                <span>Doors open {doorsTime}</span>
+              </div>
+              <div className="w-1 h-1 rounded-full bg-white/30" />
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-purple-300" />
+                <span>{gateLabel}</span>
+              </div>
+              <div className="w-1 h-1 rounded-full bg-white/30" />
+              <div className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-purple-300" />
+                <span>{isSolo ? "Solo Participant" : `${displayRoster.length} / ${maxTeamSize} Teammates`}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* =========================================================
+              2. TWO-COLUMN RESPONSIVE GRID
+              ========================================================= */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            {/* ----------------- LEFT COLUMN (My Agenda & Announcements) ----------------- */}
+            <div className="lg:col-span-7 flex flex-col gap-6">
+
+              {/* My Agenda Card */}
+              <div
+                className="rounded-[22px] p-5 sm:p-6 flex flex-col gap-4"
+                style={{
+                  background: "var(--card)",
+                  border: "1px solid var(--border)"
+                }}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-[var(--accent)]" />
+                    <h2
+                      className="text-[17px] font-bold tracking-tight text-[var(--text)]"
+                      style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
+                    >
+                      My agenda · {formattedDate}
+                    </h2>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAgendaModal(true)}
+                      className="h-[32px] px-3 rounded-[10px] text-[12.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 shadow-xs"
+                      style={{
+                        background: "linear-gradient(135deg, var(--accent), var(--accent2, var(--accent)))",
+                        color: "#fff"
+                      }}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{isPersonalized ? "Edit My Agenda" : "Personalize Agenda"}</span>
+                    </button>
+
+                    {isCalendarConnected ? (
+                      <span
+                        className="h-[32px] px-2.5 rounded-[10px] border text-[11.5px] font-semibold inline-flex items-center gap-1.5"
+                        style={{
+                          background: "var(--card2)",
+                          borderColor: "var(--border)",
+                          color: "#10b981"
+                        }}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Google Calendar</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleConnectCalendar}
+                        className="h-[32px] px-2.5 rounded-[10px] border text-[12px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                        style={{
+                          background: "var(--input)",
+                          borderColor: "var(--border)",
+                          color: "var(--text)"
+                        }}
+                      >
+                        <span>Connect Calendar</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadICS}
+                      className="h-[32px] px-2.5 rounded-[10px] border text-[12px] font-mono font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                      style={{
+                        background: "var(--input)",
+                        borderColor: "var(--border)",
+                        color: "var(--muted)"
+                      }}
+                      title="Download .ics File"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span>.ics</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Agenda Items List */}
+                <div className="flex flex-col gap-2.5">
+                  {displayAgenda.length > 0 ? (
+                    displayAgenda.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="flex items-start gap-3.5 p-3.5 rounded-[14px] transition-colors border"
+                        style={{
+                          background: "var(--input)",
+                          borderColor: "var(--border)"
+                        }}
+                      >
+                        <div
+                          className="font-mono text-[12.5px] font-semibold w-[52px] shrink-0 pt-0.5"
+                          style={{ color: "var(--muted)" }}
+                        >
+                          {item.t}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[14px] font-semibold text-[var(--text)] leading-snug">
+                            {item.title}
+                          </div>
+                          {(item.speaker || item.room) && (
+                            <div
+                              className="text-[12.5px] mt-1 flex items-center gap-1.5 flex-wrap"
+                              style={{ color: "var(--subtle)" }}
+                            >
+                              {item.speaker && <span>{item.speaker}</span>}
+                              {item.speaker && item.room && <span>·</span>}
+                              {item.room && <span>{item.room}</span>}
+                            </div>
+                          )}
+
+                          {item.warn && (
+                            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11.5px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>{item.warnText || "Conflicts with personal schedule"}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-10 text-center flex flex-col items-center justify-center gap-2" style={{ color: "var(--muted)" }}>
+                      <Calendar className="w-8 h-8 opacity-40 mb-1" />
+                      <p className="text-[13.5px] font-medium">No agenda sessions scheduled for this event yet.</p>
+                      <p className="text-[12px] text-[var(--subtle)] max-w-sm">
+                        When the organizer publishes timeline sessions, they will automatically appear here.
+                      </p>
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Right Status Pills: Live Countdown & Check-in Badge */}
-            <div className="relative flex items-center gap-2.5 z-10 shrink-0">
-              <span className="h-[30px] px-3 rounded-full bg-white/12 border border-white/20 text-[12.5px] font-semibold text-white inline-flex items-center gap-1.5 whitespace-nowrap shadow-xs backdrop-blur-md">
-                <Clock className="w-3.5 h-3.5 opacity-90" />
-                {countdown.short}
-              </span>
-              <span
-                className={`h-[30px] px-3 rounded-full text-[12.5px] font-semibold inline-flex items-center whitespace-nowrap shadow-xs backdrop-blur-md ${
-                  isCheckedIn
-                    ? "bg-blue-500/20 border border-blue-500/40 text-blue-300"
-                    : "bg-emerald-500/20 border border-emerald-500/40 text-emerald-300"
-                }`}
-              >
-                {isCheckedIn ? "Checked In" : "Registered"}
-              </span>
-            </div>
-          </div>
-
-          {/* =========================================================
-              2. HORIZONTAL ENTRY PASS CARD
-              ========================================================= */}
-          <div
-            onClick={() => setShowEntryPassModal(true)}
-            className="relative cursor-pointer flex rounded-[22px] overflow-hidden text-white transition-all duration-300 hover:-translate-y-0.5 hover:rotate-[-0.2deg] group"
-            style={{
-              background: "#14112b",
-              boxShadow: "0 22px 44px -24px rgba(76,29,149,.7)",
-              border: "1px solid rgba(255,255,255,0.08)"
-            }}
-          >
-            {/* Banner Background */}
-            {bannerUrl && (
+              {/* Announcements Card */}
               <div
-                className="absolute inset-0 bg-cover bg-center opacity-30 transition-transform duration-700 group-hover:scale-105"
-                style={{ backgroundImage: `url(${bannerUrl})` }}
-              />
-            )}
-            {/* Dark Scrim */}
-            <div
-              className="absolute inset-0"
-              style={{ background: "linear-gradient(110deg, #14112b 35%, rgba(20,17,43,.6) 100%)" }}
-            />
-            {/* Diagonal Sheen */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{ background: "linear-gradient(115deg, transparent 35%, rgba(255,255,255,.14) 45%, transparent 55%)" }}
-            />
-
-            {/* Left Content */}
-            <div className="relative flex-1 min-w-0 p-5 sm:p-6 pb-5 flex flex-col justify-between gap-3.5 z-10">
-              {/* Eyebrow */}
-              <div className="flex items-center gap-2 font-mono text-[10.5px] tracking-[0.16em] text-white/70 uppercase whitespace-nowrap">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#34d399] shadow-[0_0_8px_#34d399]" />
-                ENTRY PASS · ADMIT 1
-              </div>
-
-              {/* Title */}
-              <div
-                className="text-[20px] sm:text-[22px] font-bold tracking-tight leading-tight line-clamp-2"
-                style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
+                className="rounded-[22px] p-5 sm:p-6 flex flex-col gap-4"
+                style={{
+                  background: "var(--card)",
+                  border: "1px solid var(--border)"
+                }}
               >
-                {eventTitle}
+                {/* Header */}
+                <div
+                  className="text-[17px] font-bold tracking-tight text-[var(--text)] flex items-center justify-between"
+                  style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span>Announcements</span>
+                    {announcementsList.length > 0 && (
+                      <span
+                        className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border"
+                        style={{
+                          background: "var(--card2)",
+                          borderColor: "var(--border)",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        {announcementsList.length} {announcementsList.length === 1 ? "update" : "updates"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Announcements Items (Latest 3 by default with Load More) */}
+                <div className="flex flex-col">
+                  {announcementsList.length > 0 ? (
+                    <>
+                      {announcementsList.slice(0, visibleAnnouncementsCount).map((a: any, idx: number) => {
+                        const isLastInView = idx === Math.min(visibleAnnouncementsCount, announcementsList.length) - 1;
+                        return (
+                          <div
+                            key={a.id}
+                            className={`flex flex-col gap-2 py-3.5 ${
+                              !isLastInView ? "border-b" : ""
+                            }`}
+                            style={{ borderColor: "var(--border)" }}
+                          >
+                            {/* Meta */}
+                            <div
+                              className="flex justify-between text-[12.5px]"
+                              style={{ color: "var(--subtle)" }}
+                            >
+                              <span className="font-semibold">{a.author?.name || "Organizer"}</span>
+                              <span>{getRelativeTime(a.createdAt || a.created_at)}</span>
+                            </div>
+
+                            {/* Title */}
+                            <div className="text-[14.5px] font-semibold text-[var(--text)]">
+                              {a.title}
+                            </div>
+
+                            {/* Body */}
+                            <div
+                              className="text-[13.5px] leading-relaxed whitespace-pre-wrap"
+                              style={{ color: "var(--muted)" }}
+                            >
+                              {a.message || a.body || a.content}
+                            </div>
+
+                            {/* Emoji Reactions */}
+                            <div className="flex gap-1.5 flex-wrap pt-1">
+                              {["👍", "❤️", "🔥", "🎉", "💡", "🚀"].map((emoji) => {
+                                const rxData = a.reactions?.[emoji] || { count: 0, users: [] };
+                                const count = rxData.count || 0;
+                                const hasReacted = currentUserId && Array.isArray(rxData.users) && rxData.users.some(
+                                  (u: any) => (typeof u === "object" ? Number(u.id) : Number(u)) === Number(currentUserId)
+                                );
+
+                                return (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => handleToggleEmojiReaction(a.id, emoji)}
+                                    className="h-[28px] px-2.5 rounded-full text-[12.5px] inline-flex items-center gap-1 cursor-pointer transition-transform active:scale-95"
+                                    style={{
+                                      background: hasReacted
+                                        ? "color-mix(in oklab,var(--accent) 18%,transparent)"
+                                        : "var(--input)",
+                                      border: hasReacted
+                                        ? "1px solid var(--accent)"
+                                        : "1px solid var(--border)"
+                                    }}
+                                  >
+                                    <span>{emoji}</span>
+                                    {count > 0 && (
+                                      <span
+                                        className="text-[11.5px] font-semibold"
+                                        style={{ color: "var(--muted)" }}
+                                      >
+                                        {count}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Load More Older Announcements Toggle */}
+                      {announcementsList.length > 3 && (
+                        <div className="pt-3 border-t mt-1" style={{ borderColor: "var(--border)" }}>
+                          {visibleAnnouncementsCount < announcementsList.length ? (
+                            <button
+                              type="button"
+                              onClick={() => setVisibleAnnouncementsCount((prev) => Math.min(prev + 3, announcementsList.length))}
+                              className="w-full h-9 rounded-xl border flex items-center justify-center gap-2 text-xs font-semibold cursor-pointer transition-all hover:scale-[1.01] active:scale-95"
+                              style={{
+                                background: "var(--input)",
+                                borderColor: "var(--border)",
+                                color: "var(--text)",
+                              }}
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                              <span>Load more older announcements ({announcementsList.length - visibleAnnouncementsCount} remaining)</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setVisibleAnnouncementsCount(3)}
+                              className="w-full h-9 rounded-xl border flex items-center justify-center gap-2 text-xs font-semibold cursor-pointer transition-all hover:scale-[1.01] active:scale-95"
+                              style={{
+                                background: "var(--input)",
+                                borderColor: "var(--border)",
+                                color: "var(--muted)",
+                              }}
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                              <span>Show latest 3 only</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="py-8 text-center" style={{ color: "var(--muted)" }}>
+                      <p className="text-[13px] font-medium">No announcements published yet.</p>
+                      <p className="text-[11px] mt-0.5 opacity-70">Important updates from organizers will appear here.</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Meta Grid */}
-              <div className="flex gap-5 flex-wrap pt-1">
-                <div>
-                  <div className="font-mono text-[9.5px] tracking-[0.14em] text-white/55">DATE</div>
-                  <div className="font-semibold text-[13.5px] mt-0.5">{formattedDate}</div>
-                </div>
-                <div>
-                  <div className="font-mono text-[9.5px] tracking-[0.14em] text-white/55">GATE</div>
-                  <div className="font-semibold text-[13.5px] mt-0.5">{gateLabel}</div>
-                </div>
-                <div>
-                  <div className="font-mono text-[9.5px] tracking-[0.14em] text-white/55">IN</div>
-                  <div className="font-semibold text-[13.5px] mt-0.5">{countdown.short}</div>
-                </div>
-              </div>
             </div>
 
-            {/* Perforation Divider */}
-            <div className="relative w-0 border-l-2 border-dashed border-white/20 my-3.5 z-10" />
+            {/* ----------------- RIGHT COLUMN (Pass, Team, Submission & Venue) ----------------- */}
+            <div className="lg:col-span-5 flex flex-col gap-6">
 
-            {/* Cutout Notch Circles */}
-            <span
-              className="absolute right-[122px] -top-[11px] w-[22px] h-[22px] rounded-full z-20 pointer-events-none"
-              style={{ background: "var(--bg)" }}
-            />
-            <span
-              className="absolute right-[122px] -bottom-[11px] w-[22px] h-[22px] rounded-full z-20 pointer-events-none"
-              style={{ background: "var(--bg)" }}
-            />
-
-            {/* Right Ticket Stub */}
-            <div className="relative w-[132px] flex-none flex flex-col items-center justify-center gap-2 p-3.5 z-10">
-              <div className="w-[84px] h-[84px] p-1.5 rounded-[12px] bg-white flex items-center justify-center shadow-md">
-                <QRCodeSVG
-                  value={currentTicketCode}
-                  size={72}
-                  level="M"
-                  bgColor="#ffffff"
-                  fgColor="#09090b"
+              {/* 1. DIGITAL BOARDING PASS CARD (Authentic ticket proportions ~380-420px) */}
+              <div
+                onClick={() => setShowEntryPassModal(true)}
+                className="relative cursor-pointer rounded-[22px] overflow-hidden text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group"
+                style={{
+                  background: "#14112b",
+                  boxShadow: "0 22px 44px -24px rgba(76,29,149,0.7)",
+                  border: "1px solid rgba(255,255,255,0.08)"
+                }}
+              >
+                {/* Banner Background */}
+                {bannerUrl && (
+                  <div
+                    className="absolute inset-0 bg-cover bg-center opacity-30 transition-transform duration-700 group-hover:scale-105"
+                    style={{ backgroundImage: `url(${bannerUrl})` }}
+                  />
+                )}
+                {/* Dark Scrim */}
+                <div
+                  className="absolute inset-0"
+                  style={{ background: "linear-gradient(110deg, #14112b 35%, rgba(20,17,43,.6) 100%)" }}
                 />
+                {/* Diagonal Sheen */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(115deg, transparent 35%, rgba(255,255,255,.14) 45%, transparent 55%)" }}
+                />
+
+                {/* Top Section */}
+                <div className="relative p-5 pb-4 flex flex-col gap-3 z-10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-mono text-[10.5px] tracking-[0.16em] text-white/70 uppercase">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#34d399] shadow-[0_0_8px_#34d399]" />
+                      ENTRY PASS · ADMIT 1
+                    </div>
+                    <span className="text-[11px] font-mono text-white/50 tracking-wider">
+                      {isCheckedIn ? "CHECKED IN" : "VALID PASS"}
+                    </span>
+                  </div>
+
+                  <div
+                    className="text-[20px] font-bold tracking-tight leading-tight line-clamp-2"
+                    style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
+                  >
+                    {eventTitle}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <div className="font-mono text-[9.5px] tracking-[0.14em] text-white/55">DATE</div>
+                      <div className="font-semibold text-[13px] mt-0.5 truncate">{formattedDate}</div>
+                    </div>
+                    <div>
+                      <div className="font-mono text-[9.5px] tracking-[0.14em] text-white/55">GATE</div>
+                      <div className="font-semibold text-[13px] mt-0.5 truncate">{gateLabel}</div>
+                    </div>
+                    <div>
+                      <div className="font-mono text-[9.5px] tracking-[0.14em] text-white/55">IN</div>
+                      <div className="font-semibold text-[13px] mt-0.5 truncate">{countdown.short}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Perforation Line with Semicircular Cutout Notches */}
+                <div className="relative flex items-center my-1 z-10">
+                  <span
+                    className="absolute -left-[11px] w-[22px] h-[22px] rounded-full z-20 pointer-events-none"
+                    style={{ background: "var(--bg)" }}
+                  />
+                  <div className="w-full border-t-2 border-dashed border-white/20 mx-4" />
+                  <span
+                    className="absolute -right-[11px] w-[22px] h-[22px] rounded-full z-20 pointer-events-none"
+                    style={{ background: "var(--bg)" }}
+                  />
+                </div>
+
+                {/* Bottom Ticket Stub (QR & Code) */}
+                <div className="relative p-5 pt-3 flex items-center justify-between gap-4 z-10">
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="font-mono text-[9.5px] tracking-[0.14em] text-white/55">TICKET HOLDER</div>
+                    <div className="font-semibold text-[14px] text-white truncate">{currentHolderName}</div>
+                    <div className="font-mono text-[11px] font-bold tracking-wider text-emerald-400 mt-0.5">
+                      {currentTicketCode}
+                    </div>
+                    <div className="text-[11px] text-white/50 mt-1 flex items-center gap-1 group-hover:text-white/80 transition-colors">
+                      <QrCode className="w-3 h-3" />
+                      <span>Click to view full pass</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center gap-1.5 shrink-0">
+                    <div className="w-[84px] h-[84px] p-1.5 rounded-[12px] bg-white flex items-center justify-center shadow-md">
+                      <QRCodeSVG
+                        value={currentTicketCode}
+                        size={72}
+                        level="M"
+                        bgColor="#ffffff"
+                        fgColor="#09090b"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              {/* Compact Ticket Code formatted to fit stub */}
+
+              {/* 2. TEAM ROSTER / PARTICIPANT INFO CARD */}
               <div
-                className="font-mono text-[10px] sm:text-[10.5px] font-semibold tracking-wide text-white/90 truncate max-w-[110px] text-center"
-                title={currentTicketCode}
-              >
-                {currentTicketCode}
-              </div>
-            </div>
-          </div>
-
-          {/* =========================================================
-              3. TWO-COLUMN RESPONSIVE GRID
-              ========================================================= */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-
-            {/* ----------------- LEFT COLUMN (Team Roster & Submission) ----------------- */}
-            <div className="lg:col-span-5 flex flex-col gap-5">
-
-              {/* Team Roster Card */}
-              <div
-                className="rounded-[20px] p-5 flex flex-col gap-3"
+                className="rounded-[22px] p-5 sm:p-6 flex flex-col gap-3.5"
                 style={{
                   background: "var(--card)",
                   border: "1px solid var(--border)"
@@ -849,6 +1269,7 @@ export default function TeamParticipantDashboard() {
                         {/* Leader Remove Control (cannot remove themselves) */}
                         {isLeader && !m.isSelf && !isSolo && m.raw && (
                           <button
+                            type="button"
                             onClick={() => {
                               setMemberToRemove(m.raw);
                               setShowRemoveModal(true);
@@ -877,23 +1298,19 @@ export default function TeamParticipantDashboard() {
                     {rawInvites.map((inv: any) => (
                       <div
                         key={inv.id}
-                        className="flex items-center justify-between gap-3 p-2.5 rounded-[12px] text-[13px]"
+                        className="flex items-center justify-between gap-2 p-2.5 rounded-[12px] border border-dashed text-[12.5px]"
                         style={{
-                          border: "1px dashed var(--border)",
+                          borderColor: "var(--border)",
                           color: "var(--subtle)"
                         }}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span
-                            className="w-[30px] h-[30px] rounded-full grid place-items-center shrink-0"
-                            style={{ border: "1px dashed var(--border)" }}
-                          >
-                            <Mail className="w-3.5 h-3.5 opacity-75" />
-                          </span>
-                          <span className="truncate">{inv.email} · invite pending</span>
+                        <div className="flex items-center gap-2 truncate">
+                          <Mail className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{inv.email}</span>
                         </div>
                         {isLeader && (
                           <button
+                            type="button"
                             onClick={() => {
                               setInviteToRevoke(inv);
                               setShowRevokeModal(true);
@@ -909,9 +1326,9 @@ export default function TeamParticipantDashboard() {
                 )}
               </div>
 
-              {/* Project Submission Card */}
+              {/* 3. PROJECT SUBMISSION CARD */}
               <div
-                className="rounded-[20px] p-5 flex flex-col gap-2.5"
+                className="rounded-[22px] p-5 sm:p-6 flex flex-col gap-3.5"
                 style={{
                   background: "var(--card)",
                   border: "1px solid var(--border)"
@@ -926,7 +1343,8 @@ export default function TeamParticipantDashboard() {
                     Project submission
                   </div>
                   {isSubmitted && (
-                    <span className="h-[22px] px-2 rounded-[6px] bg-emerald-500/15 text-emerald-400 text-[11.5px] font-semibold inline-flex items-center">
+                    <span className="h-[22px] px-2 rounded-[6px] bg-emerald-500/15 text-emerald-400 text-[11.5px] font-semibold inline-flex items-center gap-1 border border-emerald-500/30">
+                      <Check className="w-3 h-3" />
                       Submitted
                     </span>
                   )}
@@ -937,290 +1355,69 @@ export default function TeamParticipantDashboard() {
                   value={projTitle}
                   onChange={(e) => setProjTitle(e.target.value)}
                   placeholder="Project title"
-                  className="h-[42px] px-3.5 rounded-[12px] text-[14px] outline-none transition-colors"
+                  className="h-[42px] px-3.5 rounded-[12px] text-[14px] outline-none transition-colors border"
                   style={{
                     background: "var(--input)",
-                    border: "1px solid var(--border)",
+                    borderColor: "var(--border)",
                     color: "var(--text)"
                   }}
                 />
 
-                {/* Repository URL Input */}
+                {/* Repo / Demo URL Input */}
                 <input
                   value={projUrl}
                   onChange={(e) => setProjUrl(e.target.value)}
                   placeholder="Repository URL (e.g. github.com/username/project)"
-                  className="h-[42px] px-3.5 rounded-[12px] font-mono text-[13px] outline-none transition-colors"
+                  className="h-[42px] px-3.5 rounded-[12px] text-[13px] font-mono outline-none transition-colors border"
                   style={{
                     background: "var(--input)",
-                    border: "1px solid var(--border)",
+                    borderColor: "var(--border)",
                     color: "var(--text)"
                   }}
                 />
 
-                {/* Submit Action Button */}
+                {/* Submit Button */}
                 <button
                   type="button"
-                  onClick={() => handleProjectSubmit()}
-                  disabled={actionLoading === "submit-project"}
-                  className="h-[42px] rounded-[12px] font-semibold text-[14px] cursor-pointer transition-opacity hover:opacity-90 active:scale-[0.99] flex items-center justify-center gap-2"
+                  onClick={handleProjectSubmit}
+                  disabled={actionLoading === "project" || !projTitle.trim() || !projUrl.trim()}
+                  className="h-[42px] rounded-[12px] font-semibold text-[14px] flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
                   style={{
                     background: "var(--text)",
-                    color: "var(--bg)",
-                    border: "none"
+                    color: "var(--bg)"
                   }}
                 >
-                  {actionLoading === "submit-project" ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                  {actionLoading === "project" ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving submission...</span>
+                    </>
                   ) : isSubmitted ? (
-                    "Update project"
+                    "Update submission"
                   ) : (
                     "Submit project"
                   )}
                 </button>
               </div>
 
-            </div>
-
-            {/* ----------------- RIGHT COLUMN (My Agenda & Announcements) ----------------- */}
-            <div className="lg:col-span-7 flex flex-col gap-5">
-
-              {/* My Agenda Card */}
+              {/* 4. VENUE & LOCATION QUICK CARD */}
               <div
-                className="rounded-[20px] p-5 flex flex-col gap-3"
+                className="rounded-[22px] p-5 sm:p-6 flex flex-col gap-3"
                 style={{
                   background: "var(--card)",
                   border: "1px solid var(--border)"
                 }}
               >
-                {/* Header */}
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="text-[17px] font-bold tracking-tight text-[var(--text)]"
-                      style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
-                    >
-                      My agenda · {formattedDate}
-                    </div>
-                    {isPersonalized && (
-                      <span className="h-[22px] px-2 rounded-[6px] bg-emerald-500/15 text-emerald-400 text-[11px] font-semibold inline-flex items-center border border-emerald-500/30">
-                        Personalized
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setShowAgendaModal(true)}
-                      className="h-[32px] px-3 rounded-[10px] text-[12.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-all shadow-xs hover:opacity-90"
-                      style={{
-                        background: isPersonalized ? "var(--input)" : "var(--accent)",
-                        border: isPersonalized ? "1px solid var(--border)" : "none",
-                        color: isPersonalized ? "var(--text)" : "#ffffff"
-                      }}
-                    >
-                      {isPersonalized ? (
-                        <>
-                          <Edit3 className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
-                          <span>Edit Agenda</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5" style={{ color: "#ffffff" }} />
-                          <span>Personalize Agenda</span>
-                        </>
-                      )}
-                    </button>
-
-                    {!isCalendarConnected ? (
-                      <button
-                        type="button"
-                        onClick={handleConnectCalendar}
-                        className="h-[32px] px-2.5 rounded-[10px] text-[12.5px] cursor-pointer transition-colors"
-                        style={{
-                          background: "var(--input)",
-                          border: "1px solid var(--border)",
-                          color: "var(--text)"
-                        }}
-                      >
-                        Connect Google Calendar
-                      </button>
-                    ) : (
-                      <span className="h-[32px] px-2.5 rounded-[10px] text-[12px] font-semibold inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                        <Check className="w-3.5 h-3.5" />
-                        Google Calendar Connected
-                      </span>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={handleDownloadICS}
-                      className="h-[32px] px-2.5 rounded-[10px] text-[12.5px] cursor-pointer transition-colors"
-                      style={{
-                        background: "var(--input)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text)"
-                      }}
-                      title="Export .ics Calendar File"
-                    >
-                      .ics
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2 text-[15px] font-bold text-[var(--text)]">
+                  <MapPin className="w-4 h-4 text-[var(--accent)]" />
+                  <span>Venue &amp; Check-In</span>
                 </div>
-
-                {/* Real Session Rows */}
-                <div className="flex flex-col gap-2.5">
-                  {displayAgenda.length > 0 ? (
-                    displayAgenda.map((x: any) => (
-                      <div
-                        key={x.id}
-                        className="flex gap-3.5 p-3 rounded-[14px]"
-                        style={{
-                          background: "var(--input)",
-                          border: "1px solid var(--border)"
-                        }}
-                      >
-                        {/* Time */}
-                        <div
-                          className="w-[46px] flex-none font-mono text-[12.5px] pt-0.5"
-                          style={{ color: "var(--muted)" }}
-                        >
-                          {x.t}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[14px] font-semibold text-[var(--text)]">
-                            {x.title}
-                          </div>
-                          <div
-                            className="text-[12.5px] mt-0.5"
-                            style={{ color: "var(--subtle)" }}
-                          >
-                            {x.speaker ? `${x.speaker} · ` : ""}{x.room}
-                          </div>
-
-                          {/* Conflict Warning */}
-                          {x.warn && (
-                            <div
-                              className="mt-2 inline-flex items-center gap-1.5 h-[24px] px-2.5 rounded-full text-[12px] font-semibold"
-                              style={{
-                                background: "rgba(245,158,11,.12)",
-                                color: "#f59e0b"
-                              }}
-                            >
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              {x.warnText || "Schedule conflict detected"}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="py-8 text-center" style={{ color: "var(--muted)" }}>
-                      <Calendar className="w-6 h-6 mx-auto mb-2 opacity-40" />
-                      <p className="text-[13px] font-medium">
-                        {isPersonalized
-                          ? "No sessions selected in your personalized agenda. Click 'Edit Agenda' to choose sessions."
-                          : "No agenda sessions scheduled for this event yet."}
-                      </p>
-                    </div>
-                  )}
+                <div className="text-[13.5px] leading-relaxed" style={{ color: "var(--muted)" }}>
+                  {eventDetails.location || "Location to be announced by the organizer."}
                 </div>
-              </div>
-
-              {/* Announcements Card */}
-              <div
-                className="rounded-[20px] p-5 flex flex-col gap-3"
-                style={{
-                  background: "var(--card)",
-                  border: "1px solid var(--border)"
-                }}
-              >
-                {/* Header */}
-                <div
-                  className="text-[17px] font-bold tracking-tight text-[var(--text)]"
-                  style={{ fontFamily: "var(--font-display, 'Bricolage Grotesque', sans-serif)" }}
-                >
-                  Announcements
-                </div>
-
-                {/* Real Announcement Items */}
-                <div className="flex flex-col">
-                  {announcementsList.length > 0 ? (
-                    announcementsList.map((a: any, idx: number) => (
-                      <div
-                        key={a.id}
-                        className={`flex flex-col gap-2 py-3 ${
-                          idx !== announcementsList.length - 1 ? "border-b" : ""
-                        }`}
-                        style={{ borderColor: "var(--border)" }}
-                      >
-                        {/* Meta */}
-                        <div
-                          className="flex justify-between text-[12.5px]"
-                          style={{ color: "var(--subtle)" }}
-                        >
-                          <span className="font-semibold">{a.author?.name || "Organizer"}</span>
-                          <span>{getRelativeTime(a.createdAt || a.created_at)}</span>
-                        </div>
-
-                        {/* Title */}
-                        <div className="text-[14.5px] font-semibold text-[var(--text)]">
-                          {a.title}
-                        </div>
-
-                        {/* Body */}
-                        <div
-                          className="text-[13.5px] leading-relaxed whitespace-pre-wrap"
-                          style={{ color: "var(--muted)" }}
-                        >
-                          {a.message || a.body}
-                        </div>
-
-                        {/* Reaction Bar */}
-                        <div className="flex gap-1.5 flex-wrap pt-1">
-                          {["👍", "❤️", "🔥", "🎉", "👏", "🚀"].map((emoji) => {
-                            const r = (a.reactionSummary || []).find((rx: any) => rx.emoji === emoji);
-                            const count = r?.count || 0;
-                            const hasReacted = Boolean(r?.hasReacted);
-
-                            return (
-                              <button
-                                key={emoji}
-                                type="button"
-                                onClick={() => handleToggleEmojiReaction(a.id, emoji)}
-                                className="h-[28px] px-2.5 rounded-full text-[12.5px] inline-flex items-center gap-1 cursor-pointer transition-transform active:scale-95"
-                                style={{
-                                  background: hasReacted
-                                    ? "color-mix(in oklab,var(--accent) 18%,transparent)"
-                                    : "var(--input)",
-                                  border: hasReacted
-                                    ? "1px solid var(--accent)"
-                                    : "1px solid var(--border)"
-                                }}
-                              >
-                                <span>{emoji}</span>
-                                {count > 0 && (
-                                  <span
-                                    className="text-[11.5px] font-semibold"
-                                    style={{ color: "var(--muted)" }}
-                                  >
-                                    {count}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="py-8 text-center" style={{ color: "var(--muted)" }}>
-                      <p className="text-[13px] font-medium">No announcements published yet.</p>
-                      <p className="text-[11px] mt-0.5 opacity-70">Important updates from organizers will appear here.</p>
-                    </div>
-                  )}
+                <div className="flex items-center gap-2 text-[12px] text-[var(--subtle)] pt-1 border-t" style={{ borderColor: "var(--border)" }}>
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Gate {gateLabel} · Doors open {doorsTime}</span>
                 </div>
               </div>
 
@@ -1231,7 +1428,7 @@ export default function TeamParticipantDashboard() {
         </div>
       </div>
 
-      {/* =========================================================
+{/* =========================================================
           4. EXPANDED ENTRY PASS MODAL
           ========================================================= */}
       <AnimatePresence>
@@ -1654,11 +1851,13 @@ export default function TeamParticipantDashboard() {
           isOpen={showAgendaModal}
           onClose={() => {
             setShowAgendaModal(false);
-            fetchAgendaStatus();
+            fetchAgendaStatus(targetEventId);
           }}
-          onSaved={() => {
-            fetchAgendaStatus();
-            fetchDashboardData();
+          onSaved={(savedData) => {
+            if (savedData && Array.isArray(savedData) && savedData.length > 0) {
+              setPersonalAgenda(savedData);
+            }
+            fetchAgendaStatus(targetEventId);
           }}
           timelinesFallback={eventDetails.timelines}
         />

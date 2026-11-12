@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Gamepad2, Plus, Play, Loader2, Sparkles, CheckCircle2,
   Clock, HelpCircle, ChevronDown, ChevronUp, Trophy, Trash2,
-  Pencil, X
+  Pencil, X, RotateCcw
 } from "lucide-react";
 import { api } from "@/lib/axios";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -20,6 +21,8 @@ interface ActivityManagerTabProps {
   isDark?: boolean;
 }
 
+const emptySubscribe = () => () => {};
+
 export default function ActivityManagerTab({
   eventId,
   eventTitle = "Event",
@@ -31,6 +34,11 @@ export default function ActivityManagerTab({
   const router = useRouter();
   const { toast } = useToast();
   const showToast = (msg: string, type: "success" | "error" = "success") => toast(msg, type);
+  const isClient = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
 
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -294,6 +302,21 @@ export default function ActivityManagerTab({
       showToast(error.response?.data?.message || error.response?.data?.error || "Failed to update activity", "error");
     } finally {
       setSubmittingEditQuiz(false);
+    }
+  };
+
+  const [resettingQuizId, setResettingQuizId] = useState<number | null>(null);
+
+  const handleResetQuiz = async (quizId: number) => {
+    try {
+      setResettingQuizId(quizId);
+      await api.post(`/events/${eventId}/quizzes/${quizId}/reset`);
+      showToast("Activity results reset! Ready for a fresh game.", "success");
+      fetchQuizzes();
+    } catch (error: any) {
+      showToast(error.response?.data?.message || error.response?.data?.error || "Failed to reset activity", "error");
+    } finally {
+      setResettingQuizId(null);
     }
   };
 
@@ -693,19 +716,38 @@ export default function ActivityManagerTab({
                     </div>
                   </div>
 
-                  {/* Bottom Action Button: Open live arena */}
-                  <div className="p-5 pt-0">
+                  {/* Bottom Action Button: Open live arena & Reset */}
+                  <div className="p-5 pt-0 flex items-center gap-2">
                     <button
                       onClick={() => handleStartQuiz(quiz.id)}
-                      className="w-full h-9 rounded-xl border flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm cursor-pointer transition-all hover:scale-[1.01] active:scale-95"
+                      className="flex-1 h-9 rounded-xl border flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm cursor-pointer transition-all hover:scale-[1.01] active:scale-95"
                       style={
                         isLive
                           ? { background: "rgba(16, 185, 129, 0.15)", borderColor: "rgba(16, 185, 129, 0.4)", color: "#10b981" }
-                          : { background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }
+                          : quiz.status === "COMPLETED"
+                            ? { background: "color-mix(in oklab, var(--accent) 15%, transparent)", borderColor: "color-mix(in oklab, var(--accent) 40%, transparent)", color: "var(--accent)" }
+                            : { background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }
                       }
                     >
-                      <Play className="w-3.5 h-3.5 fill-current" /> Open live arena
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      {quiz.status === "COMPLETED" ? "Play Again (Fresh Game)" : "Open live arena"}
                     </button>
+
+                    {quiz.status === "COMPLETED" && (
+                      <button
+                        onClick={() => handleResetQuiz(quiz.id)}
+                        disabled={resettingQuizId === quiz.id}
+                        className="h-9 px-3 rounded-xl border flex items-center justify-center gap-1.5 font-semibold text-xs cursor-pointer transition-all hover:scale-[1.01] active:scale-95 text-rose-500 border-rose-500/30 hover:bg-rose-500/10"
+                        title="Reset all results, scores, and participants"
+                      >
+                        {resettingQuizId === quiz.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        )}
+                        <span className="hidden sm:inline">Reset</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Expanded Questions Accordion */}
@@ -794,8 +836,12 @@ export default function ActivityManagerTab({
       />
 
       {/* EDIT QUESTION & OPTIONS MODAL */}
-      {editingQuestion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      {isClient && editingQuestion && createPortal(
+        <div
+          className={`fixed inset-0 z-[120] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200 ${
+            isDark ? "bg-black/75" : "bg-slate-950/40"
+          }`}
+        >
           <div
             className="w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
             style={{ background: "var(--card)", borderColor: "var(--border)" }}
@@ -959,12 +1005,17 @@ export default function ActivityManagerTab({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* EDIT ACTIVITY DETAILS MODAL */}
-      {editingQuiz && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      {isClient && editingQuiz && createPortal(
+        <div
+          className={`fixed inset-0 z-[120] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200 ${
+            isDark ? "bg-black/75" : "bg-slate-950/40"
+          }`}
+        >
           <div
             className="w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
             style={{ background: "var(--card)", borderColor: "var(--border)" }}
@@ -1045,7 +1096,8 @@ export default function ActivityManagerTab({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

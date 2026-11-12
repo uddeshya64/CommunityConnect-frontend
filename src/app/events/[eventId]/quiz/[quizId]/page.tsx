@@ -151,6 +151,16 @@ export default function ParticipantQuizPage() {
       setStatus("QUIZ_ENDED");
     });
 
+    newSocket.on("quiz_reset", () => {
+      setStatus("WAITING");
+      setCurrentQuestion(null);
+      setAnswerResult(null);
+      setSelectedOptionId(null);
+      setLeaderboard([]);
+      setStreak(0);
+      setEndedMessage("The host has concluded this live activity session.");
+    });
+
     return () => {
       newSocket.disconnect();
     };

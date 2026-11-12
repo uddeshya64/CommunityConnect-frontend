@@ -1,271 +1,95 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Zap,
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  CheckCircle2,
-  MapPin,
-  Users,
-  Ticket,
-  Layers,
-  Calendar,
-  Award,
-  Cpu,
-  Clock,
-  Radio,
-  Sun,
-  Moon,
-  Bell,
-  Plus,
-  QrCode,
-  Compass,
-  BarChart3,
-  Bot,
-  Flame,
-  Globe2,
-  Film,
-  PlayCircle,
-  Check,
-} from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import PageTransition from "@/components/layout/PageTransition";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { hasStoredSession } from "@/lib/auth";
+import RoleShowcase from "@/components/landing/RoleShowcase";
+import VideoTourSection from "@/components/landing/VideoTourSection";
+import {
+  FEATURES,
+  MARQUEE_WORDS,
+  PLATFORM_STATS,
+  PORTALS,
+  QR7,
+} from "@/components/landing/landingData";
 
-// 6 Curated Event Visual Themes from Section 7.3
-const EVENT_THEMES_PREVIEW = [
-  {
-    key: "Tech",
-    label: "Tech & AI",
-    badgeLabel: "HACKATHON • HYBRID",
-    bgDark: "radial-gradient(90% 120% at 100% 0%, #7c3aed 0%, transparent 55%), linear-gradient(135deg, #1e1b4b, #0b0b1a)",
-    bgLight: "radial-gradient(90% 120% at 100% 0%, #818cf8 0%, transparent 55%), linear-gradient(135deg, #312e81, #4338ca)",
-    wm: "import { hackathon } from 'eventrix'",
-    wmFont: "'JetBrains Mono', monospace",
-    wmSize: "16px",
-    cat: "Hackathon",
-    mode: "Hybrid",
-    title: "BuildCon AI Hackathon 2026",
-    city: "KTPO Convention Centre, Bengaluru",
-    day: "15",
-    mon: "NOV",
-    date: "Sat, 15 Nov – Sun, 16 Nov",
-    reg: "142",
-    cap: "200",
-    pct: "71%",
-    fee: "₹500",
-    tags: ["AI/ML", "Python", "React", "Next.js"],
-    accent: "#6366f1",
-    accent2: "#8b5cf6",
-    highlight: "24-hr build sprint • ₹1,00,000 Grand Prize",
-  },
-  {
-    key: "Corporate",
-    label: "Cloud Summit",
-    badgeLabel: "CONFERENCE • OFFLINE",
-    bgDark: "radial-gradient(100% 120% at 0% 0%, #0891b2 0%, transparent 60%), linear-gradient(135deg, #0f172a, #1e293b)",
-    bgLight: "radial-gradient(100% 120% at 0% 0%, #38bdf8 0%, transparent 60%), linear-gradient(135deg, #0369a1, #0284c7)",
-    wm: "SUMMIT / 2026 // KEYNOTE",
-    wmFont: "'JetBrains Mono', monospace",
-    wmSize: "32px",
-    cat: "Conference",
-    mode: "Offline",
-    title: "CloudNative Summit India",
-    city: "HICC International Arena, Hyderabad",
-    day: "22",
-    mon: "NOV",
-    date: "Sat, 22 Nov · 9:00 AM",
-    reg: "1,240",
-    cap: "1,500",
-    pct: "82%",
-    fee: "₹2,499",
-    tags: ["Cloud", "DevOps", "Kubernetes", "AWS"],
-    accent: "#06b6d4",
-    accent2: "#3b82f6",
-    highlight: "4 Stages • 40+ Staff & Cloud Engineers",
-  },
-  {
-    key: "Community",
-    label: "JS Meetup",
-    badgeLabel: "MEETUP • OFFLINE",
-    bgDark: "radial-gradient(90% 120% at 100% 0%, #fbbf24 0%, transparent 50%), linear-gradient(135deg, #451a03, #c2410c)",
-    bgLight: "radial-gradient(90% 120% at 100% 0%, #fde047 0%, transparent 50%), linear-gradient(135deg, #c2410c, #ea580c)",
-    wm: "meet · make · share",
-    wmFont: "'Bricolage Grotesque', sans-serif",
-    wmSize: "40px",
-    cat: "Meetup",
-    mode: "Offline",
-    title: "Bengaluru JS Community #48",
-    city: "Indiranagar, Bengaluru",
-    day: "06",
-    mon: "NOV",
-    date: "Thu, 6 Nov · 6:30 PM",
-    reg: "64",
-    cap: "80",
-    pct: "80%",
-    fee: "Free",
-    tags: ["Node.js", "React", "TypeScript", "Vite"],
-    accent: "#f59e0b",
-    accent2: "#ea580c",
-    highlight: "Lightning talks, networking & pizza",
-  },
-  {
-    key: "Sports",
-    label: "Sports Run",
-    badgeLabel: "SPORTS • OFFLINE",
-    bgDark: "radial-gradient(90% 120% at 100% 100%, #34d399 0%, transparent 50%), linear-gradient(135deg, #022c22, #047857)",
-    bgLight: "radial-gradient(90% 120% at 100% 100%, #6ee7b7 0%, transparent 50%), linear-gradient(135deg, #047857, #059669)",
-    wm: "ON YOUR MARKS // 2026",
-    wmFont: "'Bricolage Grotesque', sans-serif",
-    wmSize: "36px",
-    cat: "Sports",
-    mode: "Offline",
-    title: "Monsoon 10K Community Run",
-    city: "Cubbon Park, Bengaluru",
-    day: "29",
-    mon: "NOV",
-    date: "Sat, 29 Nov · 6:00 AM",
-    reg: "410",
-    cap: "500",
-    pct: "82%",
-    fee: "₹350",
-    tags: ["Fitness", "Marathon", "Outdoor", "Health"],
-    accent: "#10b981",
-    accent2: "#059669",
-    highlight: "RFID Chip Timing • Medals & Breakfast",
-  },
-  {
-    key: "Academic",
-    label: "Symposium",
-    badgeLabel: "SYMPOSIUM • OFFLINE",
-    bgDark: "radial-gradient(90% 120% at 0% 0%, #0891b2 0%, transparent 55%), linear-gradient(135deg, #042f2e, #164e63)",
-    bgLight: "radial-gradient(90% 120% at 0% 0%, #22d3ee 0%, transparent 55%), linear-gradient(135deg, #0e7490, #155e75)",
-    wm: "DISCOURSE // RESEARCH 2026",
-    wmFont: "'Bricolage Grotesque', sans-serif",
-    wmSize: "30px",
-    cat: "Academic",
-    mode: "Offline",
-    title: "National AI Ethics Symposium",
-    city: "IISc Auditorium, Bengaluru",
-    day: "12",
-    mon: "DEC",
-    date: "Fri, 12 Dec · 10:00 AM",
-    reg: "320",
-    cap: "350",
-    pct: "91%",
-    fee: "Free",
-    tags: ["Ethics", "Research", "Deep Learning"],
-    accent: "#06b6d4",
-    accent2: "#3b82f6",
-    highlight: "Peer-reviewed paper tracks & roundtables",
-  },
-  {
-    key: "Gala",
-    label: "Founders Gala",
-    badgeLabel: "NETWORKING • OFFLINE",
-    bgDark: "radial-gradient(100% 120% at 100% 0%, #fb7185 0%, transparent 50%), linear-gradient(135deg, #4c0519, #881337)",
-    bgLight: "radial-gradient(100% 120% at 100% 0%, #f43f5e 0%, transparent 50%), linear-gradient(135deg, #9f1239, #be123c)",
-    wm: "FOUNDERS // DEMO NIGHT",
-    wmFont: "'Playfair Display', serif",
-    wmSize: "38px",
-    cat: "Networking",
-    mode: "Offline",
-    title: "Techstars Demo Day & Gala",
-    city: "The Leela Palace, Bengaluru",
-    day: "18",
-    mon: "DEC",
-    date: "Thu, 18 Dec · 7:00 PM",
-    reg: "190",
-    cap: "200",
-    pct: "95%",
-    fee: "₹1,500",
-    tags: ["Startups", "VCs", "Pitch", "Angels"],
-    accent: "#f43f5e",
-    accent2: "#ec4899",
-    highlight: "12 Seed Pitch Teams • 50+ Top Angel Investors",
-  },
-];
+const COUNTDOWN_TARGET_MS = new Date("2026-11-15T09:00:00+05:30").getTime();
 
-const ACCENT_OPTIONS = [
-  { id: "indigo", name: "Indigo", color1: "#6366f1", color2: "#8b5cf6" },
-  { id: "violet", name: "Violet", color1: "#8b5cf6", color2: "#d946ef" },
-  { id: "emerald", name: "Emerald", color1: "#10b981", color2: "#14b8a6" },
-  { id: "rose", name: "Rose", color1: "#f43f5e", color2: "#ec4899" },
-  { id: "cyan", name: "Cyan", color1: "#06b6d4", color2: "#3b82f6" },
-  { id: "amber", name: "Amber", color1: "#f59e0b", color2: "#ea580c" },
-] as const;
+const pad = (n: number) => String(n).padStart(2, "0");
 
-const DEMO_VIDEOS = [
-  {
-    id: "full",
-    num: "00",
-    part: "Full Overview",
-    title: "Eventrix Full Platform Overview",
-    subtitle: "Complete Product Walkthrough",
-    description: "Discover the next-generation event operating system: intelligent planning, offline-first check-ins, dynamic portals, and gamified engagement.",
-    src: "/demo-videos/Full_Overview_Demo.mp4",
-    badge: "Full Overview",
-    role: "Complete Walkthrough",
-    desc: "End-to-end walkthrough across organizer, staff, and attendee modules",
-    icon: PlayCircle,
-  },
-  {
-    id: "part1",
-    num: "01",
-    part: "Part 1",
-    title: "Part 1: Organizer",
-    subtitle: "Organizer Command Center",
-    description: "Explore the organizer workspace: dynamic ticket tiers, attendee approval pipelines, AI-powered quiz builders, and real-time revenue analytics.",
-    src: "/demo-videos/Part_1_Organizer_demo.mp4",
-    badge: "Part 1 • Organizer",
-    role: "Organizer Command Center",
-    desc: "AI event builder, dynamic tickets, and financial analytics",
-    icon: Layers,
-  },
-  {
-    id: "part2",
-    num: "02",
-    part: "Part 2",
-    title: "Part 2: Volunteer",
-    subtitle: "Staff & Volunteer Operations",
-    description: "Tour the volunteer and staff interface: sub-second QR ticket scanning, offline verification engine, attendee check-ins, and shift checklists.",
-    src: "/demo-videos/Part_2_Volunteer_view_demo.mp4",
-    badge: "Part 2 • Volunteer",
-    role: "On-Ground Staff Desk",
-    desc: "Sub-second QR pass scanning and offline check-in logs",
-    icon: ShieldCheck,
-  },
-  {
-    id: "part3",
-    num: "03",
-    part: "Part 3",
-    title: "Part 3: Participant",
-    subtitle: "Participant & Attendee Experience",
-    description: "See the event from the attendee perspective: personalized digital tickets, live trivia battles, speaker schedules, and community hub.",
-    src: "/demo-videos/Part_3_Participants_demo.mp4",
-    badge: "Part 3 • Attendee",
-    role: "Attendee Experience",
-    desc: "Interactive event portals, live trivia quizzes, and passes",
-    icon: Users,
-  },
-] as const;
+const emptySubscribe = () => () => { };
+const subscribeToStorage = (onChange: () => void) => {
+  if (typeof window === "undefined") return () => { };
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+};
 
 export default function LandingPage() {
-  const { isDark, toggleTheme, settings, updateSetting } = useAppearance();
+  const { isDark, toggleTheme } = useAppearance();
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeThemeIdx, setActiveThemeIdx] = useState(0);
-  const [selectedVideoId, setSelectedVideoId] = useState<string>("full");
-  const activeVideo = DEMO_VIDEOS.find((v) => v.id === selectedVideoId) || DEMO_VIDEOS[0];
+
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+  const isLoggedIn = useSyncExternalStore(
+    subscribeToStorage,
+    () => hasStoredSession(),
+    () => false
+  );
+
+  // Interactive section state
+  const [activePortal, setActivePortal] = useState(0);
+  const [activeFeature, setActiveFeature] = useState(0);
+
+  // Deterministic initial values for SSR; ticked client-side in useEffect
+  const [countdown, setCountdown] = useState({
+    days: "02",
+    hrs: "21",
+    min: "00",
+    sec: "00",
+  });
+  const [liveTelemetry, setLiveTelemetry] = useState<[number, number, number, number]>([
+    18412,
+    1236,
+    90211,
+    24,
+  ]);
+
+  const passRef = useRef<HTMLDivElement>(null);
+  const sheenRef = useRef<HTMLDivElement>(null);
+  const spotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (hasStoredSession()) {
-      setIsLoggedIn(true);
-    }
+    const updateClock = () => {
+      const diff = Math.max(0, COUNTDOWN_TARGET_MS - Date.now());
+      const dd = Math.floor(diff / 86_400_000);
+      const hh = Math.floor(diff / 3_600_000) % 24;
+      const mm = Math.floor(diff / 60_000) % 60;
+      const ss = Math.floor(diff / 1_000) % 60;
+      setCountdown({
+        days: pad(dd),
+        hrs: pad(hh),
+        min: pad(mm),
+        sec: pad(ss),
+      });
+    };
+
+    const initTimer = setTimeout(updateClock, 0);
+    const secIv = setInterval(updateClock, 1000);
+    const pulseIv = setInterval(() => {
+      setLiveTelemetry((prev) => [
+        prev[0] + Math.ceil(Math.random() * 4),
+        prev[1] + (Math.random() < 0.3 ? 1 : 0),
+        prev[2] + Math.ceil(Math.random() * 12),
+        prev[3],
+      ]);
+    }, 1400);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -274,1157 +98,869 @@ export default function LandingPage() {
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+
+    return () => {
+      clearTimeout(initTimer);
+      clearInterval(secIv);
+      clearInterval(pulseIv);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [router]);
 
-  const currentTpl = EVENT_THEMES_PREVIEW[activeThemeIdx];
+  const handleHeroMove = (e: React.MouseEvent<HTMLElement>) => {
+    const pass = passRef.current;
+    if (!pass) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    pass.style.transform = `rotateY(${x * 22}deg) rotateX(${-y * 18}deg)`;
+    if (sheenRef.current) {
+      sheenRef.current.style.background = `radial-gradient(circle at ${50 + x * 120}% ${50 + y * 120
+        }%, oklch(1 0 0 / 0.6), transparent 45%)`;
+    }
+  };
+
+  const handleHeroLeave = () => {
+    if (passRef.current) {
+      passRef.current.style.transform = "rotateY(-8deg) rotateX(4deg)";
+    }
+  };
+
+  const handleCtaMove = (e: React.MouseEvent<HTMLElement>) => {
+    const spot = spotRef.current;
+    if (!spot) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    spot.style.transform = `translate(${e.clientX - r.left - r.width / 2}px, ${e.clientY - r.top - r.height / 2
+      }px)`;
+  };
+
+  const liveCards = [
+    {
+      label: "CHECK-INS TODAY",
+      value: liveTelemetry[0].toLocaleString("en-IN"),
+      sub: "across all live events",
+      dot: "oklch(0.64 0.16 155)",
+    },
+    {
+      label: "TEAMS FORMED",
+      value: liveTelemetry[1].toLocaleString("en-IN"),
+      sub: "via AI matching this month",
+      dot: "var(--etx-accent)",
+    },
+    {
+      label: "QUIZ ANSWERS",
+      value: liveTelemetry[2].toLocaleString("en-IN"),
+      sub: "in live arenas right now",
+      dot: "oklch(0.75 0.15 300)",
+    },
+    {
+      label: "EVENTS LIVE",
+      value: String(liveTelemetry[3]),
+      sub: "in 18 global hubs",
+      dot: "oklch(0.78 0.16 40)",
+    },
+  ];
 
   return (
     <PageTransition>
       <div
-        className="min-h-screen w-full relative overflow-x-clip selection:bg-indigo-500/30 selection:text-white transition-colors duration-300"
+        data-etx="1"
+        className="min-h-screen w-full relative overflow-x-clip transition-colors duration-300"
         style={{
-          background: "var(--bg)",
+          backgroundColor: "var(--bg)",
+          backgroundImage:
+            "radial-gradient(ellipse 68% 45% at 78% 12%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 72%), radial-gradient(ellipse 52% 40% at 15% 22%, color-mix(in oklab, var(--accent2) 14%, transparent), transparent 70%)",
+          backgroundRepeat: "no-repeat",
           color: "var(--text)",
         }}
       >
         {/* =========================================================
-            B1: BACKGROUND RADIAL GLOW ORBS & BLUEPRINT GRID
+            FLOATING FROSTED PILL NAVBAR (EVENTRIX LOGO & THEME/ACCENT)
             ========================================================= */}
-        <div
-          className="fixed top-[-100px] left-[-100px] w-[720px] h-[720px] rounded-full pointer-events-none blur-[140px] z-0 transition-all duration-700"
-          style={{
-            background: "radial-gradient(closest-side, color-mix(in oklab, var(--accent) 24%, transparent), transparent 75%)",
-          }}
-        />
-        <div
-          className="fixed bottom-[-100px] right-[-100px] w-[640px] h-[640px] rounded-full pointer-events-none blur-[140px] z-0 transition-all duration-700"
-          style={{
-            background: "radial-gradient(closest-side, color-mix(in oklab, var(--accent2) 16%, transparent), transparent 75%)",
-          }}
-        />
-        <div
-          className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-300"
-          style={{
-            opacity: isDark ? 0.08 : 0.45,
-            backgroundImage: isDark
-              ? `linear-gradient(to right, rgba(255, 255, 255, 0.12) 1px, transparent 1px),
-                 linear-gradient(to bottom, rgba(255, 255, 255, 0.12) 1px, transparent 1px)`
-              : `linear-gradient(to right, rgba(15, 23, 42, 0.08) 1px, transparent 1px),
-                 linear-gradient(to bottom, rgba(15, 23, 42, 0.08) 1px, transparent 1px)`,
-            backgroundSize: "32px 32px",
-          }}
-        />
-
-        {/* =========================================================
-            L3 & 4.2: STATIC FROSTED GLASS HEADER (STANDALONE PROTOTYPE)
-            Pinned at top (sticky top-0 z-50), content scrolls underneath
-            ========================================================= */}
-        <header
-          className="sticky top-0 z-50 w-full h-16 border-b transition-colors duration-300"
-          style={{
-            background: "var(--chrome)",
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
-            borderColor: "var(--border)",
-            boxShadow: isDark
-              ? "0 4px 24px -2px rgba(0, 0, 0, 0.45)"
-              : "0 4px 20px -2px rgba(15, 23, 42, 0.06)",
-          }}
-        >
-          <div className="max-w-7xl mx-auto h-full px-4 sm:px-7 flex items-center justify-between gap-3 sm:gap-6">
-
-            {/* Left: Brand Wordmark Block (Modern geometric vector mark + Eventrix) */}
-            <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+        <header className="fixed top-4 left-0 right-0 z-50 flex justify-center px-3 sm:px-4 pointer-events-none">
+          <div
+            className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 p-2 pl-3.5 sm:pl-4 rounded-full max-w-full border"
+            style={{
+              background: "var(--chrome)",
+              backdropFilter: "blur(24px) saturate(1.4)",
+              WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+              borderColor: "var(--border)",
+              boxShadow: isDark
+                ? "0 12px 32px -8px rgba(0, 0, 0, 0.55)"
+                : "0 10px 28px -8px rgba(15, 23, 42, 0.1)",
+            }}
+          >
+            <Link
+              href="/"
+              className="flex items-center gap-2.5 mr-1 sm:mr-3 shrink-0 group"
+              title="Eventrix Home"
+            >
               <div
-                className="w-8 h-8 rounded-[10px] flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-105"
+                className="w-8 h-8 shrink-0 rounded-[10px] flex items-center justify-center text-white font-extrabold text-sm shadow-md transition-transform group-hover:scale-105"
                 style={{
                   background: "linear-gradient(135deg, var(--accent), var(--accent2))",
                   boxShadow: "0 6px 18px -6px var(--accent)",
                 }}
               >
-                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  className="w-4 h-4 text-white"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M5 5h14M5 12h9M5 19h14" />
                   <circle cx="18" cy="12" r="1.5" fill="currentColor" />
                 </svg>
               </div>
               <span
-                className="font-bricolage text-[18px] font-bold tracking-tight whitespace-nowrap"
+                className="font-bricolage text-[17px] font-bold tracking-tight whitespace-nowrap"
                 style={{ color: "var(--text)" }}
               >
                 Event<span style={{ color: "var(--accent)" }}>rix</span>
               </span>
             </Link>
 
-            {/* Right: Controls & Actions (Host event 36px pill, Theme toggle 36px square, Notifications 36px square, Auth) */}
-            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            <nav
+              className="hidden md:flex items-center gap-0.5 text-[14px] font-medium"
+              style={{ color: "var(--muted)" }}
+            >
+              {[
+                { href: "#portals", label: "Portals" },
+                { href: "#roles", label: "Product" },
+                { href: "#features", label: "Features" },
+                { href: "#tour", label: "Tour" },
+              ].map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="px-3 py-1.5 rounded-full transition-colors hover:bg-[color-mix(in_oklab,var(--text)_7%,transparent)]"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
 
-              {/* 1. Host Event Gradient Pill Button (Hidden on tiny phone screens to prevent header cutoff) */}
-              <Link
-                href={isLoggedIn ? "/events/create" : "/login"}
-                className="hidden sm:inline-flex h-9 px-3.5 rounded-full text-[13px] font-semibold !text-white items-center gap-1.5 transition-all hover:translate-y-[-1px] active:translate-y-0 cursor-pointer shadow-sm hover:shadow-md"
-                style={{
-                  background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                  boxShadow: "0 8px 20px -8px var(--accent)",
-                }}
-              >
-                <Plus className="w-3.5 h-3.5 !text-white" />
-                <span className="!text-white font-semibold">Host event</span>
-              </Link>
-
-              {/* 2. Theme Toggle (32px-36px, Section 5-L3 & 6.1) */}
-              <button
-                type="button"
-                onClick={toggleTheme}
-                title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-[10px] border border-[var(--border)] bg-[var(--input)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--accent)] flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
-              >
-                {isDark ? (
-                  <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              title="Toggle theme"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium cursor-pointer whitespace-nowrap border transition-colors hover:opacity-85"
+              style={{
+                background: "var(--input)",
+                borderColor: "var(--border)",
+                color: "var(--text)",
+              }}
+            >
+              {mounted ? (
+                isDark ? (
+                  <Sun className="w-3.5 h-3.5 text-amber-400" />
                 ) : (
-                  <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
-                )}
-              </button>
+                  <Moon className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                )
+              ) : (
+                <Sun className="w-3.5 h-3.5 opacity-60" />
+              )}
+              <span className="hidden sm:inline">
+                {mounted ? (isDark ? "Light" : "Dark") : "Theme"}
+              </span>
+            </button>
 
-              {/* 3. Notifications Button (32px-36px, with 8px #ef4444 unread dot) */}
-              <Link
-                href={isLoggedIn ? "/notifications" : "/login"}
-                title="Notifications"
-                className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-[10px] border border-[var(--border)] bg-[var(--input)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--accent)] flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
-              >
-                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span
-                  className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#ef4444]"
-                  style={{
-                    boxShadow: "0 0 0 2px var(--bg)",
-                  }}
-                />
-              </Link>
-
-              {/* 4. Auth Buttons / Dashboard Access */}
-              {isLoggedIn ? (
+            {mounted && isLoggedIn ? (
+              <>
+                <Link
+                  href="/events/create"
+                  className="hidden sm:inline-block text-[13px] font-medium px-3 py-1.5 whitespace-nowrap transition-opacity hover:opacity-80"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Host
+                </Link>
                 <Link
                   href="/home"
-                  className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full text-xs font-bold !text-white flex items-center gap-1.5 transition-all hover:scale-[1.02] cursor-pointer shrink-0"
+                  className="text-[13px] sm:text-[14px] font-semibold px-4 sm:px-[18px] py-2 rounded-full whitespace-nowrap text-white transition-transform hover:scale-[1.02]"
                   style={{
                     background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                    boxShadow: "0 8px 20px -8px var(--accent)",
+                    boxShadow: "0 6px 18px -6px var(--accent)",
                   }}
                 >
-                  <span>Dashboard</span>
-                  <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 !text-white" />
+                  Dashboard
                 </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-[10px] text-xs font-semibold border border-[var(--border)] bg-[var(--input)] hover:bg-[var(--card2)] text-[var(--text)] flex items-center justify-center transition-all cursor-pointer shrink-0"
-                  >
-                    Log In
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full text-xs font-bold !text-white inline-flex items-center gap-1 transition-all hover:scale-[1.02] cursor-pointer shadow-xs shrink-0"
-                    style={{
-                      background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                      boxShadow: "0 8px 20px -8px var(--accent)",
-                    }}
-                  >
-                    <span>Sign Up</span>
-                    <ArrowRight className="w-3 h-3 !text-white" />
-                  </Link>
-                </>
-              )}
-
-            </div>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-[13px] sm:text-[14px] font-medium px-2.5 sm:px-3 py-1.5 whitespace-nowrap transition-opacity hover:opacity-80"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/register"
+                  className="text-[13px] sm:text-[14px] font-semibold px-4 sm:px-[18px] py-2 rounded-full whitespace-nowrap text-white transition-transform hover:scale-[1.02]"
+                  style={{
+                    background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                    boxShadow: "0 6px 18px -6px var(--accent)",
+                  }}
+                >
+                  Get started
+                </Link>
+              </>
+            )}
           </div>
         </header>
 
         {/* =========================================================
-            SECTION 3 & CT1-CT2: HERO SECTION
+            HERO SECTION + 3D EVENTRIX PASS + MARQUEE
             ========================================================= */}
-        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 pt-16 sm:pt-24 pb-20 flex flex-col items-center text-center">
+        <section
+          onMouseMove={handleHeroMove}
+          onMouseLeave={handleHeroLeave}
+          className="relative min-h-screen pt-[130px] sm:pt-[150px] pb-10 px-6 flex flex-col justify-center"
+        >
+          <div className="relative max-w-[1280px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-14 items-center">
+            {/* Left Copy & Countdown */}
+            <div className="lg:col-span-7">
+              <div
+                className="inline-flex items-center gap-2.5 font-mono text-[11px] font-bold tracking-[0.12em] px-3.5 py-1.5 rounded-full whitespace-nowrap border"
+                style={{
+                  background: "color-mix(in oklab, var(--accent) 10%, var(--card))",
+                  borderColor: "color-mix(in oklab, var(--accent) 28%, var(--border))",
+                  color: "var(--muted)",
+                }}
+              >
+                <span
+                  className="w-[7px] h-[7px] rounded-full animate-pulse"
+                  style={{ background: "var(--accent)" }}
+                />
+                THE EVENT OPERATING SYSTEM
+              </div>
 
-          {/* Page H1: Bricolage Grotesque, bold 700, negative tracking -.04em */}
-          <h1 className="font-bricolage text-4xl sm:text-6xl md:text-7xl font-black tracking-[-0.04em] leading-[1.05] max-w-4xl text-balance">
-            Where extraordinary tech communities{" "}
-            <span
-              className="text-transparent bg-clip-text"
-              style={{
-                backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent2))",
-              }}
-            >
-              gather, build & connect.
-            </span>
-          </h1>
+              <h1
+                className="font-bricolage text-[clamp(44px,6.4vw,88px)] leading-[0.98] tracking-tight font-extrabold mt-6 text-balance"
+                style={{ color: "var(--text)" }}
+              >
+                Host events people{" "}
+                <span
+                  className="bg-clip-text text-transparent"
+                  style={{
+                    backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                  }}
+                >
+                  can&apos;t stop
+                </span>{" "}
+                talking about.
+              </h1>
 
-          {/* Lead Paragraph: Geist 16-18px, var(--muted), line-height 1.5 */}
-          <p
-            className="text-base sm:text-lg max-w-2xl font-normal leading-relaxed text-balance mt-6"
-            style={{ color: "var(--muted)" }}
+              <p
+                className="text-[clamp(16px,1.35vw,19px)] leading-[1.6] max-w-[520px] mt-6 text-pretty"
+                style={{ color: "var(--muted)" }}
+              >
+                Hackathons, summits and meetups — built by AI in minutes, themed like a brand,
+                checked-in in under a second. Even when the Wi-Fi dies.
+              </p>
+
+              <div className="flex gap-3 mt-8 flex-wrap">
+                <Link
+                  href="/events/create/ai"
+                  className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-full font-semibold text-[15px] text-white whitespace-nowrap transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                  style={{
+                    background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                    boxShadow: "0 14px 36px -10px color-mix(in oklab, var(--accent) 65%, transparent)",
+                  }}
+                >
+                  <span>Host with AI</span>
+                  <span>→</span>
+                </Link>
+                <Link
+                  href="/home"
+                  className="px-6 py-3.5 rounded-full font-semibold text-[15px] whitespace-nowrap border transition-colors hover:opacity-85"
+                  style={{
+                    background: "var(--card)",
+                    borderColor: "var(--border)",
+                    color: "var(--text)",
+                  }}
+                >
+                  Explore live events
+                </Link>
+              </div>
+
+              {/* Countdown */}
+              <div className="mt-12">
+                <div
+                  className="font-mono text-[11px] font-bold tracking-[0.14em]"
+                  style={{ color: "var(--subtle)" }}
+                >
+                  T-MINUS · BUILDCON AI HACKATHON
+                </div>
+                <div className="flex gap-2.5 mt-3 flex-wrap">
+                  {[
+                    { v: countdown.days, l: "DAYS" },
+                    { v: countdown.hrs, l: "HRS" },
+                    { v: countdown.min, l: "MIN" },
+                    { v: countdown.sec, l: "SEC" },
+                  ].map((cd) => (
+                    <div
+                      key={cd.l}
+                      className="min-w-[76px] px-3.5 py-3 rounded-2xl border backdrop-blur-xl"
+                      style={{
+                        background: "var(--card)",
+                        borderColor: "var(--border)",
+                      }}
+                    >
+                      <div className="font-bricolage text-[28px] font-extrabold tracking-tight tabular-nums leading-none">
+                        {cd.v}
+                      </div>
+                      <div
+                        className="font-mono text-[10px] font-semibold tracking-[0.12em] mt-1.5"
+                        style={{ color: "var(--subtle)" }}
+                      >
+                        {cd.l}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Interactive 3D Eventrix Pass */}
+            <div className="lg:col-span-5 flex justify-center py-5 [perspective:1200px]">
+              <div style={{ animation: "etx-floaty 6s ease-in-out infinite" }}>
+                <div
+                  ref={passRef}
+                  className="relative w-[min(360px,86vw)] rounded-[28px] overflow-hidden border transition-transform duration-200 ease-out"
+                  style={{
+                    background: "var(--card)",
+                    borderColor: "var(--border)",
+                    color: "var(--text)",
+                    transformStyle: "preserve-3d",
+                    boxShadow: "0 40px 100px -24px var(--etx-shadow)",
+                  }}
+                >
+                  <div
+                    ref={sheenRef}
+                    className="absolute inset-0 pointer-events-none z-[2]"
+                    style={{
+                      background: "radial-gradient(circle at 50% 50%, rgba(255,255,255,0.45), transparent 45%)",
+                      mixBlendMode: "soft-light",
+                    }}
+                  />
+
+                  <div
+                    className="p-[26px] pb-[22px] text-white"
+                    style={{
+                      background: "linear-gradient(145deg, var(--accent), var(--accent2))",
+                    }}
+                  >
+                    <div className="flex justify-between items-center font-mono text-[11px] font-semibold tracking-[0.12em] opacity-90">
+                      <span>EVENTRIX PASS</span>
+                      <span>№ 0142</span>
+                    </div>
+                    <div className="font-bricolage font-extrabold text-[38px] leading-[1.02] tracking-tight mt-6">
+                      BuildCon
+                      <br />
+                      AI Hackathon
+                    </div>
+                    <div className="text-[13px] mt-2.5 font-medium opacity-90">
+                      KTPO Convention Centre, Bengaluru
+                    </div>
+                  </div>
+
+                  {/* Perforated Notch Divider */}
+                  <div
+                    className="relative h-0"
+                    style={{ borderTop: "2px dashed var(--border)" }}
+                  >
+                    <div
+                      className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full border"
+                      style={{ background: "var(--bg)", borderColor: "var(--border)" }}
+                    />
+                    <div
+                      className="absolute -right-3.5 -top-3.5 w-7 h-7 rounded-full border"
+                      style={{ background: "var(--bg)", borderColor: "var(--border)" }}
+                    />
+                  </div>
+
+                  <div className="p-[22px_26px_26px]">
+                    <div className="grid grid-cols-3 gap-3.5">
+                      <div>
+                        <div className="font-mono text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
+                          DATE
+                        </div>
+                        <div className="font-semibold text-[15px] mt-0.5">15 Nov</div>
+                      </div>
+                      <div>
+                        <div className="font-mono text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
+                          GATE
+                        </div>
+                        <div className="font-semibold text-[15px] mt-0.5">B · 09:00</div>
+                      </div>
+                      <div>
+                        <div className="font-mono text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
+                          TEAM
+                        </div>
+                        <div className="font-semibold text-[15px] mt-0.5">#42</div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-end mt-[22px] gap-4">
+                      <div>
+                        <div className="font-mono text-[10px] font-semibold tracking-[0.1em]" style={{ color: "var(--subtle)" }}>
+                          ATTENDEE
+                        </div>
+                        <div className="font-bricolage font-bold text-[20px] tracking-tight mt-0.5">
+                          Aarav Shah
+                        </div>
+                        <div className="text-[12px] mt-0.5" style={{ color: "var(--muted)" }}>
+                          Participant · Full-stack
+                        </div>
+                        <div
+                          className="inline-flex items-center gap-1.5 mt-3 font-mono text-[10px] font-bold tracking-[0.08em] px-2.5 py-1 rounded-full border"
+                          style={{
+                            background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                            borderColor: "color-mix(in oklab, var(--accent) 28%, transparent)",
+                            color: "var(--accent)",
+                          }}
+                        >
+                          <span
+                            className="w-[5px] h-[5px] rounded-full"
+                            style={{ background: "var(--accent)" }}
+                          />
+                          WORKS OFFLINE
+                        </div>
+                      </div>
+
+                      <div className="w-24 h-24 grid grid-cols-7 gap-0.5 shrink-0">
+                        {QR7.map((q, i) => (
+                          <div
+                            key={i}
+                            className="rounded-[1.5px]"
+                            style={{ background: q ? "var(--text)" : "transparent" }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Infinite App-Aligned Marquee */}
+          <div
+            className="relative mt-[72px] py-[22px] overflow-hidden border-y"
+            style={{
+              borderColor: "var(--border)",
+              maskImage: "linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent)",
+              WebkitMaskImage:
+                "linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent)",
+            }}
           >
-            The all-in-one ecosystem for hackathons, engineering summits, and creator meetups.
-            Intelligent skill-based team matchmaking, dynamic event portal themes, and offline-first QR check-ins.
-          </p>
-
-          {/* CTAs: 48px Pill Buttons (Section 6.1 & R1) */}
-          <div className="flex flex-col sm:flex-row items-center gap-3.5 mt-9 w-full sm:w-auto">
-            <Link
-              href="/home"
-              className="w-full sm:w-auto h-12 px-7 rounded-full text-sm font-bold !text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] cursor-pointer shadow-xl"
-              style={{
-                background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                boxShadow: "0 8px 24px -8px var(--accent)",
-              }}
-            >
-              <Compass className="w-4 h-4 !text-white" />
-              <span>Explore Live Events</span>
-              <ArrowRight className="w-4 h-4 !text-white" />
-            </Link>
-
-            <Link
-              href="/events/create/ai"
-              className="w-full sm:w-auto h-12 px-7 rounded-full text-sm font-bold flex items-center justify-center gap-2 transition-all hover:scale-[1.02] cursor-pointer"
-              style={{
-                background: "var(--input)",
-                border: "1px solid var(--border)",
-                color: "var(--text)",
-              }}
-            >
-              <Sparkles className="w-4 h-4" style={{ color: "var(--accent)" }} />
-              <span>Host with AI Assistant</span>
-            </Link>
-          </div>
-
-          {/* =========================================================
-              TRUST & STATS COUNTER BAR (Section 3.2, 4.1, 6.4 Stat Cards)
-              ========================================================= */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-5xl mt-16 sm:mt-20">
             <div
-              className="p-5 rounded-[18px] text-left transition-all hover:translate-y-[-2px]"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                backdropFilter: "blur(20px)",
-              }}
+              className="flex w-max"
+              style={{ animation: "etx-marquee 38s linear infinite" }}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
-                  Events Hosted
-                </span>
-                <div
-                  className="w-7 h-7 rounded-[9px] flex items-center justify-center"
-                  style={{
-                    background: "color-mix(in oklab, var(--accent) 14%, transparent)",
-                    color: "var(--accent)",
-                  }}
-                >
-                  <Calendar className="w-3.5 h-3.5" />
+              {[...MARQUEE_WORDS, ...MARQUEE_WORDS].map((word, idx) => (
+                <div key={`${word}-${idx}`} className="flex items-center gap-9 pr-9 whitespace-nowrap">
+                  <span className="font-bricolage text-[clamp(26px,2.8vw,40px)] font-bold tracking-tight">
+                    {word}
+                  </span>
+                  <span
+                    className="font-bricolage text-[clamp(24px,2.5vw,34px)] font-bold"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    ✳
+                  </span>
                 </div>
-              </div>
-              <div className="font-bricolage text-3xl sm:text-4xl font-black tabular-nums tracking-tight">
-                240+
-              </div>
-              <div className="text-[12px] mt-1" style={{ color: "var(--subtle)" }}>
-                Across 18 Global Hubs
-              </div>
-            </div>
-
-            <div
-              className="p-5 rounded-[18px] text-left transition-all hover:translate-y-[-2px]"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                backdropFilter: "blur(20px)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
-                  Active Attendees
-                </span>
-                <div
-                  className="w-7 h-7 rounded-[9px] flex items-center justify-center"
-                  style={{
-                    background: "color-mix(in oklab, var(--accent) 14%, transparent)",
-                    color: "var(--accent)",
-                  }}
-                >
-                  <Users className="w-3.5 h-3.5" />
-                </div>
-              </div>
-              <div className="font-bricolage text-3xl sm:text-4xl font-black tabular-nums tracking-tight">
-                45,000+
-              </div>
-              <div className="text-[12px] mt-1" style={{ color: "var(--subtle)" }}>
-                Engineers, Creators & Founders
-              </div>
-            </div>
-
-            <div
-              className="p-5 rounded-[18px] text-left transition-all hover:translate-y-[-2px]"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                backdropFilter: "blur(20px)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
-                  Check-in Speed
-                </span>
-                <div
-                  className="w-7 h-7 rounded-[9px] flex items-center justify-center"
-                  style={{
-                    background: "rgba(16, 185, 129, 0.14)",
-                    color: "#10b981",
-                  }}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                </div>
-              </div>
-              <div className="font-bricolage text-3xl sm:text-4xl font-black tabular-nums tracking-tight">
-                99.4%
-              </div>
-              <div className="text-[12px] mt-1" style={{ color: "var(--subtle)" }}>
-                Sub-second Offline Verification
-              </div>
-            </div>
-
-            <div
-              className="p-5 rounded-[18px] text-left transition-all hover:translate-y-[-2px]"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                backdropFilter: "blur(20px)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
-                  Visual Themes
-                </span>
-                <div
-                  className="w-7 h-7 rounded-[9px] flex items-center justify-center"
-                  style={{
-                    background: "color-mix(in oklab, var(--accent) 14%, transparent)",
-                    color: "var(--accent)",
-                  }}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                </div>
-              </div>
-              <div className="font-bricolage text-3xl sm:text-4xl font-black tabular-nums tracking-tight">
-                6+
-              </div>
-              <div className="text-[12px] mt-1" style={{ color: "var(--subtle)" }}>
-                Tailored Event Design Engines
-              </div>
+              ))}
             </div>
           </div>
-        </main>
+        </section>
 
         {/* =========================================================
-            SECTION 7.3 & 6.4: LIVE INTERACTIVE THEME SHOWCASE
+            LIVE TELEMETRY PULSE BAR
             ========================================================= */}
-        <section id="themes" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-20 border-t border-[var(--border)]">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+        <section className="max-w-[1280px] mx-auto px-6 pt-10 pb-[96px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {liveCards.map((lv) => (
+              <div
+                key={lv.label}
+                className="cc-event-card px-6 py-[22px]"
+              >
+                <div
+                  className="flex items-center gap-2 font-mono text-[11px] font-bold tracking-[0.1em]"
+                  style={{ color: "var(--subtle)" }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full animate-pulse"
+                    style={{ background: lv.dot }}
+                  />
+                  {lv.label}
+                </div>
+                <div className="font-bricolage text-[40px] font-extrabold tracking-tight mt-3 tabular-nums leading-none">
+                  {lv.value}
+                </div>
+                <div className="text-[13px] mt-2" style={{ color: "var(--muted)" }}>
+                  {lv.sub}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* =========================================================
+            INTERACTIVE PORTAL ENGINE SHOWCASE (6 PORTALS)
+            ========================================================= */}
+        <section id="portals" className="max-w-[1280px] mx-auto px-6 py-20">
+          <div className="flex justify-between items-end gap-8 flex-wrap">
             <div>
               <div
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10.5px] font-bold uppercase tracking-wider mb-3"
+                className="inline-flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.16em] px-3 py-1 rounded-full border mb-3"
                 style={{
-                  background: "var(--card2)",
-                  border: "1px solid var(--border)",
+                  background: "color-mix(in oklab, var(--accent) 10%, transparent)",
+                  borderColor: "color-mix(in oklab, var(--accent) 28%, transparent)",
                   color: "var(--accent)",
                 }}
               >
-                <Layers className="w-3.5 h-3.5" />
-                <span>DYNAMIC EVENT PORTALS</span>
+                DYNAMIC PORTALS
               </div>
-              <h2 className="font-bricolage text-3xl sm:text-4xl font-black tracking-tight">
-                Tailored Visual Engines for Every Gathering
+              <h2 className="font-bricolage text-[clamp(36px,5vw,68px)] leading-[1.02] tracking-tight font-extrabold max-w-[740px] text-balance">
+                Every event gets its{" "}
+                <span
+                  className="bg-clip-text text-transparent"
+                  style={{
+                    backgroundImage: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                  }}
+                >
+                  own
+                </span>{" "}
+                universe.
               </h2>
-              <p className="text-sm font-medium mt-2 max-w-xl" style={{ color: "var(--muted)" }}>
-                From high-intensity hackathons to cloud summits and community meetups, preview our dynamic event portal templates.
+            </div>
+            <p
+              className="max-w-[360px] text-[15px] sm:text-[16px] leading-[1.55]"
+              style={{ color: "var(--muted)" }}
+            >
+              Six visual engines — bloom, watermark, type and tags all adapt. Hover or tap a portal
+              to open it.
+            </p>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-2.5 mt-12 md:h-[540px]">
+            {PORTALS.map((p, idx) => {
+              const isOpen = idx === activePortal;
+              const bg = `oklch(0.22 0.05 ${p.hue})`;
+              const fg = `oklch(${p.lightness} 0.16 ${p.hue})`;
+              const glow = `oklch(${p.lightness} 0.16 ${p.hue} / 0.35)`;
+              const pct = `${Math.round((p.reg / p.cap) * 100)}%`;
+
+              return (
+                <div
+                  key={p.name}
+                  onMouseEnter={() => setActivePortal(idx)}
+                  onClick={() => setActivePortal(idx)}
+                  className="relative rounded-3xl overflow-hidden cursor-pointer transition-all duration-700 ease-out"
+                  style={{
+                    flex: isOpen ? "6 1 0%" : "1 1 0%",
+                    minWidth: "72px",
+                    minHeight: isOpen ? "380px" : "68px",
+                    background: bg,
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <div
+                    className="absolute -top-[30%] -right-[30%] w-[120%] aspect-square rounded-full pointer-events-none"
+                    style={{ background: `radial-gradient(closest-side, ${glow}, transparent)` }}
+                  />
+
+                  {/* Collapsed vertical label (desktop) & horizontal label (mobile) */}
+                  <div
+                    className="hidden md:flex absolute left-0 right-0 bottom-5 justify-center transition-opacity duration-300"
+                    style={{ opacity: isOpen ? 0 : 1 }}
+                  >
+                    <div
+                      className="font-bricolage text-[18px] font-bold tracking-[-0.01em] whitespace-nowrap"
+                      style={{
+                        writingMode: "vertical-rl",
+                        transform: "rotate(180deg)",
+                        color: fg,
+                      }}
+                    >
+                      {p.name}
+                    </div>
+                  </div>
+                  <div
+                    className="md:hidden px-6 py-4 flex items-center justify-between transition-opacity duration-300"
+                    style={{ display: isOpen ? "none" : "flex", color: fg }}
+                  >
+                    <span className="font-bricolage font-bold text-base">{p.name}</span>
+                    <span className="font-mono text-xs opacity-75">{p.kind}</span>
+                  </div>
+
+                  {/* Expanded Portal Content */}
+                  <div
+                    className="md:absolute md:inset-0 p-6 sm:p-[30px] flex flex-col justify-between md:min-w-[420px] h-full transition-opacity duration-400"
+                    style={{
+                      opacity: isOpen ? 1 : 0,
+                      transitionDelay: isOpen ? "0.2s" : "0s",
+                      pointerEvents: isOpen ? "auto" : "none",
+                      display: isOpen ? "flex" : undefined,
+                    }}
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex gap-1.5 flex-wrap">
+                        <span
+                          className="font-mono text-[11px] font-semibold tracking-[0.1em] px-[11px] py-1.5 rounded-full"
+                          style={{ background: fg, color: bg }}
+                        >
+                          {p.kind}
+                        </span>
+                        <span
+                          className="font-mono text-[11px] tracking-[0.1em] px-[11px] py-1.5 rounded-full"
+                          style={{
+                            border: "1px solid rgba(255,255,255,0.22)",
+                            color: "#f8fafc",
+                          }}
+                        >
+                          {p.format}
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0" style={{ color: "#f8fafc" }}>
+                        <div className="font-mono text-[11px] tracking-[0.1em] opacity-70">
+                          {p.month}
+                        </div>
+                        <div className="font-bricolage text-[40px] sm:text-[44px] font-extrabold tracking-[-0.04em] leading-none">
+                          {p.day}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      className="font-bricolage text-[88px] sm:text-[136px] font-extrabold tracking-[-0.06em] leading-[0.85] opacity-90 my-4"
+                      style={{ color: fg }}
+                    >
+                      {p.mark}
+                    </div>
+
+                    <div style={{ color: "#f8fafc" }}>
+                      <div className="font-bricolage font-extrabold text-[34px] sm:text-[42px] leading-none tracking-[-0.03em]">
+                        {p.title}
+                      </div>
+                      <div className="text-[14px] opacity-80 mt-2">
+                        {p.location} · {p.fee}
+                      </div>
+                      <div className="flex items-center gap-3.5 mt-5">
+                        <div
+                          className="flex-1 h-1.5 rounded-full overflow-hidden"
+                          style={{ background: "rgba(255,255,255,0.16)" }}
+                        >
+                          <div className="h-full rounded-full" style={{ width: pct, background: fg }} />
+                        </div>
+                        <div className="font-mono text-[12px] whitespace-nowrap">
+                          {p.reg}/{p.cap}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* =========================================================
+            ONE OS · THREE ROLES INTERACTIVE SHOWCASE
+            ========================================================= */}
+        <RoleShowcase />
+
+        {/* =========================================================
+            STICKY PLATFORM FEATURES ACCORDION
+            ========================================================= */}
+        <section id="features" className="max-w-[1280px] mx-auto px-6 py-[100px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+            <div className="lg:col-span-5 lg:sticky lg:top-[110px]">
+              <div
+                className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em]"
+                style={{ color: "var(--accent)" }}
+              >
+                PLATFORM
+              </div>
+              <h2 className="font-bricolage text-[clamp(38px,4.5vw,62px)] leading-[0.98] tracking-[-0.04em] font-extrabold mt-4 text-balance">
+                Built for{" "}
+                <span
+                  style={{
+                    background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  high-stakes
+                </span>{" "}
+                rooms.
+              </h2>
+              <p
+                className="text-[16px] leading-[1.6] mt-5 max-w-[380px]"
+                style={{ color: "var(--muted)" }}
+              >
+                Offline-first, role-aware and real-time by default — so the event runs even when
+                everything else doesn&apos;t.
               </p>
             </div>
 
-            {/* Template Selector Pills (Section 6.3) */}
-            <div className="flex flex-wrap items-center gap-2">
-              {EVENT_THEMES_PREVIEW.map((tpl, idx) => {
-                const isSelected = activeThemeIdx === idx;
+            <div className="lg:col-span-7 space-y-3">
+              {FEATURES.map((f, idx) => {
+                const isOpen = idx === activeFeature;
                 return (
-                  <button
-                    key={tpl.key}
-                    type="button"
-                    onClick={() => setActiveThemeIdx(idx)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${isSelected
-                        ? isDark
-                          ? "bg-white text-zinc-950 shadow-lg scale-105"
-                          : "bg-zinc-950 text-white shadow-md scale-105"
-                        : "border hover:border-[var(--accent)]"
-                      }`}
+                  <div
+                    key={f.title}
+                    onMouseEnter={() => setActiveFeature(idx)}
+                    onClick={() => setActiveFeature(idx)}
+                    className="rounded-2xl px-5 py-5 cursor-pointer transition-all duration-300"
                     style={{
-                      background: isSelected ? undefined : "var(--input)",
-                      borderColor: isSelected ? undefined : "var(--border)",
-                      color: isSelected ? undefined : "var(--muted)",
+                      background: isOpen ? "var(--card)" : "transparent",
+                      border: `1px solid ${
+                        isOpen
+                          ? "color-mix(in oklab, var(--accent) 32%, var(--border))"
+                          : "var(--border)"
+                      }`,
                     }}
                   >
-                    <span className="w-2 h-2 rounded-full" style={{ background: tpl.accent }} />
-                    <span>{tpl.label}</span>
-                  </button>
+                    <div className="flex items-baseline gap-4">
+                      <span
+                        className="font-mono text-[12px] font-semibold transition-colors duration-300"
+                        style={{ color: isOpen ? "var(--accent)" : "var(--subtle)" }}
+                      >
+                        {pad(idx + 1)}
+                      </span>
+                      <span
+                        className="font-bricolage flex-1 text-[clamp(20px,2.1vw,28px)] font-bold tracking-[-0.025em] transition-colors duration-300"
+                        style={{ color: isOpen ? "var(--text)" : "var(--muted)" }}
+                      >
+                        {f.title}
+                      </span>
+                      <span
+                        className="font-mono text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap px-2.5 py-1 rounded-full"
+                        style={{
+                          background: isOpen
+                            ? "color-mix(in oklab, var(--accent) 14%, transparent)"
+                            : "var(--card2)",
+                          color: isOpen ? "var(--accent)" : "var(--muted)",
+                        }}
+                      >
+                        {f.tag}
+                      </span>
+                    </div>
+
+                    <div
+                      className="grid transition-[grid-template-rows] duration-400 ease-out"
+                      style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
+                    >
+                      <div className="overflow-hidden">
+                        <p
+                          className="mt-3 ml-8 sm:ml-9 text-[15px] leading-[1.6] max-w-[540px]"
+                          style={{ color: "var(--muted)" }}
+                        >
+                          {f.body}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
             </div>
           </div>
+        </section>
 
-          {/* Interactive Event Card Preview Showcase */}
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
-            {/* Left: Template Feature Highlights */}
-            <div className="w-full lg:w-1/2 space-y-6">
+        {/* =========================================================
+            PLATFORM METRICS BAR
+            ========================================================= */}
+        <section className="max-w-[1280px] mx-auto px-6 pt-[40px] pb-[100px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {PLATFORM_STATS.map((s) => (
               <div
-                className="p-6 rounded-[22px] space-y-4 transition-all"
+                key={s.label}
+                className="cc-event-card rounded-3xl p-7"
                 style={{
                   background: "var(--card)",
                   border: "1px solid var(--border)",
-                  backdropFilter: "blur(20px)",
                 }}
               >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
-                    style={{ background: `linear-gradient(135deg, ${currentTpl.accent}, ${currentTpl.accent2})` }}
-                  >
-                    <Sparkles className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-bricolage text-xl font-bold tracking-tight">
-                      {currentTpl.title}
-                    </h3>
-                    <p className="text-xs font-mono uppercase tracking-wider" style={{ color: "var(--accent)" }}>
-                      {currentTpl.badgeLabel}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
-                  Each theme adapts its hero bloom, decorative watermark, custom typography, and tags while preserving the platform&apos;s unified glass-morphism aesthetic.
-                </p>
-
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--input)]">
-                    <span className="text-[11px] font-mono block uppercase" style={{ color: "var(--subtle)" }}>
-                      Location & Format
-                    </span>
-                    <span className="text-xs font-bold truncate block mt-0.5" style={{ color: "var(--text)" }}>
-                      {currentTpl.city}
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--input)]">
-                    <span className="text-[11px] font-mono block uppercase" style={{ color: "var(--subtle)" }}>
-                      Registration Fee
-                    </span>
-                    <span className="text-xs font-bold block mt-0.5" style={{ color: "var(--text)" }}>
-                      {currentTpl.fee} (Live Pass)
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-xs">
-                  <span className="flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
-                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    <span>Instant Digital Pass + QR Code</span>
-                  </span>
-                  <Link
-                    href="/home"
-                    className="font-bold flex items-center gap-1 hover:underline"
-                    style={{ color: "var(--accent)" }}
-                  >
-                    <span>View in Portal</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: The Live Event Card (Section 6.4 Specification) */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center">
-              <div
-                className="w-full max-w-[440px] rounded-[24px] overflow-hidden transition-all duration-500 cc-event-card border border-zinc-200/90 dark:border-white/12 bg-white dark:bg-zinc-900/90 shadow-2xl"
-                style={{
-                  background: isDark ? "rgba(24, 24, 27, 0.9)" : "#ffffff",
-                }}
-              >
-                {/* A. Thematic Hero Banner */}
                 <div
-                  className="relative h-44 sm:h-48 p-5 flex flex-col justify-between overflow-hidden transition-all duration-700 text-white"
-                  style={{
-                    background: isDark ? currentTpl.bgDark : currentTpl.bgLight,
-                  }}
+                  className="font-bricolage text-[clamp(52px,5.8vw,78px)] font-extrabold leading-[0.9] tracking-[-0.04em] tabular-nums"
+                  style={{ color: "var(--text)" }}
                 >
-                  {/* Thematic Watermark */}
-                  <div
-                    className="absolute right-[-10px] bottom-3 pointer-events-none whitespace-nowrap italic tracking-tight"
-                    style={{
-                      fontFamily: currentTpl.wmFont,
-                      fontSize: currentTpl.wmSize,
-                      color: "#ffffff",
-                      opacity: isDark ? 0.16 : 0.22,
-                    }}
-                  >
-                    {currentTpl.wm}
-                  </div>
-
-                  {/* Top row: Category & Mode Pills */}
-                  <div className="relative flex items-center justify-between z-10">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider shadow-xs backdrop-blur-md"
-                        style={{
-                          backgroundColor: "rgba(255, 255, 255, 0.25)",
-                          border: "1px solid rgba(255, 255, 255, 0.35)",
-                          color: "#ffffff",
-                        }}
-                      >
-                        {currentTpl.cat}
-                      </span>
-                      <span
-                        className="px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider shadow-xs backdrop-blur-md flex items-center gap-1.5"
-                        style={{
-                          backgroundColor: "rgba(15, 23, 42, 0.85)",
-                          border: "1px solid rgba(255, 255, 255, 0.25)",
-                          color: "#ffffff",
-                        }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                        <span className="font-bold text-white tracking-wide">{currentTpl.mode}</span>
-                      </span>
-                    </div>
-
-                    {/* Date Box */}
-                    <div
-                      className="px-2.5 py-1 rounded-xl text-center shadow-sm backdrop-blur-md"
-                      style={{
-                        backgroundColor: "rgba(255, 255, 255, 0.22)",
-                        border: "1px solid rgba(255, 255, 255, 0.35)",
-                        color: "#ffffff",
-                      }}
-                    >
-                      <p className="font-mono text-[9px] font-bold tracking-widest uppercase leading-none opacity-90">{currentTpl.mon}</p>
-                      <p className="font-bricolage text-sm font-black leading-none mt-0.5">{currentTpl.day}</p>
-                    </div>
-                  </div>
-
-                  {/* Bottom row: Title */}
-                  <div className="relative z-10">
-                    <h3 className="font-bricolage text-xl sm:text-2xl font-black text-white tracking-tight leading-snug drop-shadow-md">
-                      {currentTpl.title}
-                    </h3>
-                    <p className="text-white/90 text-xs font-medium mt-0.5 flex items-center gap-1 truncate">
-                      <MapPin className="w-3.5 h-3.5 text-white/80 shrink-0" />
-                      <span>{currentTpl.city}</span>
-                    </p>
-                  </div>
+                  {s.value}
                 </div>
-
-                {/* B. Card Body */}
-                <div className="p-5 sm:p-6 space-y-4 bg-white dark:bg-zinc-950/85 text-zinc-950 dark:text-zinc-50 transition-colors">
-                  <div className="p-3 rounded-2xl flex items-center justify-between text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                    <span className="font-medium truncate text-slate-700 dark:text-zinc-300">
-                      {currentTpl.highlight}
-                    </span>
-                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ml-2 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
-                      {currentTpl.fee}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-semibold">
-                      <span className="text-slate-500 dark:text-zinc-400">Seats Capacity</span>
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">
-                        {currentTpl.reg} / {currentTpl.cap} registered
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full overflow-hidden bg-slate-200 dark:bg-white/10">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          width: currentTpl.pct,
-                          background: `linear-gradient(90deg, ${currentTpl.accent}, ${currentTpl.accent2})`,
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    {currentTpl.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold bg-slate-100 dark:bg-white/10 border border-slate-300 dark:border-white/15 text-slate-800 dark:text-zinc-200"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="pt-3 flex items-center justify-between text-[11px] border-t border-slate-200 dark:border-white/10 text-slate-600 dark:text-zinc-400">
-                    <span className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-zinc-300">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Smart AI Team & Agenda Matching</span>
-                    </span>
-                    <span className="font-mono text-[10px] font-bold text-slate-400 dark:text-white/40">
-                      PREVIEW
-                    </span>
-                  </div>
+                <div className="font-semibold text-[15px] mt-4" style={{ color: "var(--text)" }}>
+                  {s.label}
+                </div>
+                <div className="font-mono text-[12px] mt-1" style={{ color: "var(--muted)" }}>
+                  {s.sub}
                 </div>
               </div>
-            </div>
+            ))}
           </div>
         </section>
 
         {/* =========================================================
-            SECTION 6.4: CORE FEATURES GRID
+            INTERACTIVE MULTI-VIDEO TOUR (ALL 4 FRONTEND VIDEOS PRESERVED)
             ========================================================= */}
-        <section id="features" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-20 border-t border-[var(--border)]">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <div
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10.5px] font-bold uppercase tracking-wider mb-3"
-              style={{
-                background: "var(--card2)",
-                border: "1px solid var(--border)",
-                color: "var(--accent)",
-              }}
-            >
-              <Cpu className="w-3.5 h-3.5" />
-              <span>PLATFORM ARCHITECTURE</span>
-            </div>
-            <h2 className="font-bricolage text-3xl sm:text-4xl font-black tracking-tight">
-              Built for High-Stakes Tech Gatherings
-            </h2>
-            <p className="text-sm font-medium mt-2" style={{ color: "var(--muted)" }}>
-              Engineered from the ground up with glass-morphic surfaces, offline-first reliability, and seamless teamwork automation.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Feature 1 */}
-            <div
-              className="p-6 rounded-[22px] transition-all hover:translate-y-[-3px] flex flex-col justify-between group"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                backdropFilter: "blur(20px)",
-              }}
-            >
-              <div>
-                <div
-                  className="w-11 h-11 rounded-2xl flex items-center justify-center mb-5 shadow-sm transition-transform group-hover:scale-105"
-                  style={{
-                    background: "color-mix(in oklab, var(--accent) 14%, transparent)",
-                    color: "var(--accent)",
-                  }}
-                >
-                  <Bot className="w-5 h-5" />
-                </div>
-                <h3 className="font-bricolage text-xl font-bold tracking-tight mb-2">
-                  Smart AI Teammate Matching
-                </h3>
-                <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
-                  Connect solo engineers, designers, and domain experts using GitHub tech stack analysis, complementary skills, and automated skill compatibility scoring.
-                </p>
-              </div>
-              <div className="pt-5 mt-5 border-t border-[var(--border)] flex items-center gap-2 text-xs font-mono font-bold" style={{ color: "var(--accent)" }}>
-                <span>94% MATCH ACCURACY</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            {/* Feature 2 */}
-            <div
-              className="p-6 rounded-[22px] transition-all hover:translate-y-[-3px] flex flex-col justify-between group"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                backdropFilter: "blur(20px)",
-              }}
-            >
-              <div>
-                <div
-                  className="w-11 h-11 rounded-2xl flex items-center justify-center mb-5 shadow-sm transition-transform group-hover:scale-105"
-                  style={{
-                    background: "rgba(16, 185, 129, 0.14)",
-                    color: "#10b981",
-                  }}
-                >
-                  <QrCode className="w-5 h-5" />
-                </div>
-                <h3 className="font-bricolage text-xl font-bold tracking-tight mb-2">
-                  Offline-First QR Passes
-                </h3>
-                <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
-                  High-speed attendee entry with encrypted QR tickets, emergency backup codes, and live check-in sync even in low-connectivity venue halls.
-                </p>
-              </div>
-              <div className="pt-5 mt-5 border-t border-[var(--border)] flex items-center gap-2 text-xs font-mono font-bold text-emerald-500">
-                <span>SUB-SECOND GATE SCANNING</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            {/* Feature 3 */}
-            <div
-              className="p-6 rounded-[22px] transition-all hover:translate-y-[-3px] flex flex-col justify-between group"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                backdropFilter: "blur(20px)",
-              }}
-            >
-              <div>
-                <div
-                  className="w-11 h-11 rounded-2xl flex items-center justify-center mb-5 shadow-sm transition-transform group-hover:scale-105"
-                  style={{
-                    background: "rgba(245, 158, 11, 0.14)",
-                    color: "#f59e0b",
-                  }}
-                >
-                  <Radio className="w-5 h-5" />
-                </div>
-                <h3 className="font-bricolage text-xl font-bold tracking-tight mb-2">
-                  Live Quiz & Engagement Arena
-                </h3>
-                <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
-                  Host live interactive trivia, technical lightning rounds, and real-time audience polls with real-time WebSocket leaderboards and reward points.
-                </p>
-              </div>
-              <div className="pt-5 mt-5 border-t border-[var(--border)] flex items-center gap-2 text-xs font-mono font-bold text-amber-500">
-                <span>REAL-TIME AUDIENCE VIBRANCY</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            {/* Feature 4 */}
-            <div
-              className="p-6 rounded-[22px] transition-all hover:translate-y-[-3px] flex flex-col justify-between group"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                backdropFilter: "blur(20px)",
-              }}
-            >
-              <div>
-                <div
-                  className="w-11 h-11 rounded-2xl flex items-center justify-center mb-5 shadow-sm transition-transform group-hover:scale-105"
-                  style={{
-                    background: "color-mix(in oklab, var(--accent) 14%, transparent)",
-                    color: "var(--accent)",
-                  }}
-                >
-                  <Clock className="w-5 h-5" />
-                </div>
-                <h3 className="font-bricolage text-xl font-bold tracking-tight mb-2">
-                  Interactive Agendas & Schedule
-                </h3>
-                <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
-                  Personalize attendee timelines with skill-tagged sessions, speaker bios, and one-click Google & iCal calendar synchronization.
-                </p>
-              </div>
-              <div className="pt-5 mt-5 border-t border-[var(--border)] flex items-center gap-2 text-xs font-mono font-bold" style={{ color: "var(--accent)" }}>
-                <span>CALENDAR SYNC READY</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            {/* Feature 5 */}
-            <div
-              className="p-6 rounded-[22px] transition-all hover:translate-y-[-3px] flex flex-col justify-between group"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                backdropFilter: "blur(20px)",
-              }}
-            >
-              <div>
-                <div
-                  className="w-11 h-11 rounded-2xl flex items-center justify-center mb-5 shadow-sm transition-transform group-hover:scale-105"
-                  style={{
-                    background: "rgba(6, 182, 212, 0.14)",
-                    color: "#06b6d4",
-                  }}
-                >
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <h3 className="font-bricolage text-xl font-bold tracking-tight mb-2">
-                  Staff Command Center
-                </h3>
-                <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
-                  Granular role-based permissions for Lead Organizers, Registration Desks, Mentors, and Judges with audit logs and 2FA protection.
-                </p>
-              </div>
-              <div className="pt-5 mt-5 border-t border-[var(--border)] flex items-center gap-2 text-xs font-mono font-bold text-cyan-500">
-                <span>ROLE-BASED GOVERNANCE</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            {/* Feature 6 */}
-            <div
-              className="p-6 rounded-[22px] transition-all hover:translate-y-[-3px] flex flex-col justify-between group"
-              style={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                backdropFilter: "blur(20px)",
-              }}
-            >
-              <div>
-                <div
-                  className="w-11 h-11 rounded-2xl flex items-center justify-center mb-5 shadow-sm transition-transform group-hover:scale-105"
-                  style={{
-                    background: "rgba(244, 63, 94, 0.14)",
-                    color: "#f43f5e",
-                  }}
-                >
-                  <BarChart3 className="w-5 h-5" />
-                </div>
-                <h3 className="font-bricolage text-xl font-bold tracking-tight mb-2">
-                  Real-time Analytics
-                </h3>
-                <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
-                  Monitor capacity utilization, ticket conversion, check-in velocity, and attendee demographics with exportable CSVs and post-event digests.
-                </p>
-              </div>
-              <div className="pt-5 mt-5 border-t border-[var(--border)] flex items-center gap-2 text-xs font-mono font-bold text-rose-500">
-                <span>EXPORTABLE METRICS</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
-          </div>
-        </section>
+        <VideoTourSection />
 
         {/* =========================================================
-            SECTION 1.2 & TH5: INTERACTIVE ACCENT PALETTE SWITCHER
+            MAGNETIC SPOTLIGHT CTA BANNER
             ========================================================= */}
-        <section id="palette" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-20 border-t border-[var(--border)]">
+        <section
+          onMouseMove={handleCtaMove}
+          className="relative max-w-[1280px] mx-auto px-6"
+        >
           <div
-            className="p-8 sm:p-12 rounded-[24px] flex flex-col md:flex-row items-center justify-between gap-8"
+            className="relative rounded-[32px] overflow-hidden text-center"
             style={{
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              backdropFilter: "blur(20px)",
+              background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+              color: "#ffffff",
+              padding: "clamp(60px, 9vw, 124px) 24px",
+              boxShadow: "0 24px 60px color-mix(in oklab, var(--accent) 28%, transparent)",
             }}
           >
-            <div className="space-y-2 text-left max-w-lg">
-              <div
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10.5px] font-bold uppercase tracking-wider"
-                style={{
-                  background: "var(--card2)",
-                  border: "1px solid var(--border)",
-                  color: "var(--accent)",
-                }}
-              >
-                <span>ACCENT THEME ENGINE</span>
-              </div>
-              <h3 className="font-bricolage text-2xl sm:text-3xl font-black tracking-tight">
-                Switch Your Eventrix Accent
-              </h3>
-              <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--muted)" }}>
-                Test our 6 switchable token pairs live on this page. All buttons, active indicators, and glows update seamlessly.
-              </p>
-            </div>
-
-            {/* 6 Accent Swatches */}
-            <div className="flex flex-wrap items-center gap-3">
-              {ACCENT_OPTIONS.map((opt) => {
-                const isActive = settings.accentColor === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => updateSetting("accentColor", opt.id)}
-                    className={`h-11 px-4 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-2.5 cursor-pointer shadow-xs ${isActive ? "ring-2 ring-offset-2 scale-105" : "hover:scale-102"
-                      }`}
-                    style={{
-                      background: "var(--input)",
-                      border: "1px solid var(--border)",
-                      color: isActive ? "var(--text)" : "var(--muted)",
-                      boxShadow: isActive ? `0 0 0 2px ${opt.color1}` : undefined,
-                    }}
-                  >
-                    <span
-                      className="w-3 h-3 rounded-full shadow-xs"
-                      style={{
-                        background: `linear-gradient(135deg, ${opt.color1}, ${opt.color2})`,
-                      }}
-                    />
-                    <span>{opt.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* =========================================================
-            SECTION: PLATFORM VIDEO TOUR & FULL OVERVIEW DEMO
-            ========================================================= */}
-        <section id="demo-tour" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-16 sm:py-20 border-t border-[var(--border)]">
-          <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10 space-y-2.5">
             <div
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-[10.5px] font-bold uppercase tracking-wider"
-              style={{
-                background: "var(--card2)",
-                border: "1px solid var(--border)",
-                color: "var(--accent)",
-              }}
-            >
-              <Film className="w-3.5 h-3.5" />
-              <span>INTERACTIVE PRODUCT TOUR</span>
-            </div>
-            <h2 className="font-bricolage text-3xl sm:text-4xl md:text-5xl font-black tracking-tight" style={{ color: "var(--text)" }}>
-              Watch Eventrix in Action
-            </h2>
-            <p className="text-xs sm:text-sm font-medium leading-relaxed max-w-xl mx-auto" style={{ color: "var(--muted)" }}>
-              Explore our full platform overview or pick a tour segment to see how Eventrix streamlines event creation, staff operations, and attendee engagement.
-            </p>
-          </div>
-
-          {/* Side-by-Side Grid: Left = Sized Video (Vertically fits on screen), Right = 3 Tour Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
-            {/* Left: Video Player Card */}
-            <div
-              className="lg:col-span-7 xl:col-span-8 flex flex-col justify-between rounded-[24px] p-3.5 sm:p-4 border shadow-xl relative overflow-hidden transition-all duration-300"
-              style={{
-                background: "var(--card)",
-                borderColor: "var(--border)",
-                boxShadow: "0 20px 50px -15px color-mix(in oklab, var(--accent) 15%, transparent)",
-              }}
-            >
-              {/* Top Bar inside Video Card */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b" style={{ borderColor: "var(--border)" }}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wide shrink-0"
-                      style={{
-                        background: "color-mix(in oklab, var(--accent) 15%, transparent)",
-                        color: "var(--accent)",
-                        border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
-                      }}
-                    >
-                      {activeVideo.badge}
-                    </span>
-                    <span className="font-bricolage font-bold text-xs sm:text-sm truncate" style={{ color: "var(--text)" }}>
-                      {activeVideo.title}
-                    </span>
-                  </div>
-
-                  {/* Quick Switch to Full Overview */}
-                  {activeVideo.id !== "full" ? (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedVideoId("full")}
-                      className="text-xs font-mono font-bold flex items-center gap-1.5 hover:underline cursor-pointer transition-colors shrink-0"
-                      style={{ color: "var(--accent)" }}
-                    >
-                      <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-                      <span>Watch Full Overview</span>
-                    </button>
-                  ) : (
-                    <span className="text-[11px] font-mono font-semibold" style={{ color: "var(--muted)" }}>
-                      Full Walkthrough
-                    </span>
-                  )}
-                </div>
-
-                {/* Seamless Video Frame: strictly aspect-[16/9] with object-cover, zero black borders */}
-                <div
-                  className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border flex-1"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  <video
-                    key={activeVideo.src}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    className="w-full h-full object-cover rounded-2xl"
-                  >
-                    <source src={activeVideo.src} type="video/mp4" />
-                    Your browser does not support the video tag.
-                  </video>
-                </div>
-              </div>
-
-              {/* Right: Three Tour Cards (Part 1 Organizer, Part 2 Volunteer, Part 3 Participant) */}
-              <div className="lg:col-span-5 xl:col-span-4 flex flex-col justify-between gap-3 h-full">
-                {/* Quick switch to Full Overview if not currently playing */}
-                {activeVideo.id !== "full" && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedVideoId("full")}
-                    className="rounded-2xl px-4 py-2.5 border transition-all flex items-center justify-between group cursor-pointer hover:scale-[1.01]"
-                    style={{
-                      background: "var(--card2)",
-                      borderColor: "var(--border)",
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <PlayCircle className="w-4 h-4 text-emerald-400 animate-pulse" />
-                      <span className="font-bricolage text-xs font-bold" style={{ color: "var(--text)" }}>
-                        Full Overview Demo
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono font-semibold" style={{ color: "var(--accent)" }}>
-                      Play Overview →
-                    </span>
-                  </button>
-                )}
-
-                {/* 3 Tour Part Cards */}
-                {DEMO_VIDEOS.slice(1).map((part) => {
-                  const isCurrent = activeVideo.id === part.id;
-                  return (
-                    <button
-                      key={part.id}
-                      type="button"
-                      onClick={() => setSelectedVideoId(part.id)}
-                      className={`relative overflow-hidden rounded-[20px] p-4 sm:p-5 text-left transition-all duration-300 cursor-pointer flex flex-col justify-between flex-1 group ${isCurrent
-                          ? "scale-[1.02] shadow-xl"
-                          : "hover:scale-[1.01] hover:border-[var(--accent)]"
-                        }`}
-                      style={{
-                        background: isCurrent
-                          ? "color-mix(in oklab, var(--accent) 12%, var(--card))"
-                          : "var(--card)",
-                        border: isCurrent
-                          ? "2px solid var(--accent)"
-                          : "1px solid var(--border)",
-                        boxShadow: isCurrent
-                          ? "0 12px 30px -10px var(--accent)"
-                          : undefined,
-                      }}
-                    >
-                      {/* Big Watermark Number with low opacity to fit card */}
-                      <span
-                        className="absolute right-3 -bottom-3 sm:-bottom-2 font-mono font-black text-6xl sm:text-7xl select-none pointer-events-none transition-all duration-300"
-                        style={{
-                          color: isCurrent ? "var(--accent)" : "var(--text)",
-                          opacity: isCurrent ? 0.22 : 0.08,
-                        }}
-                      >
-                        {part.num}
-                      </span>
-
-                      {/* Card Content: Name of part above */}
-                      <div className="relative z-10 space-y-1.5 w-full">
-                        <div className="flex items-center justify-between gap-2">
-                          <h4
-                            className="font-bricolage text-base sm:text-lg font-black tracking-tight"
-                            style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}
-                          >
-                            {part.title}
-                          </h4>
-
-                          {isCurrent ? (
-                            <span
-                              className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-xs"
-                              style={{
-                                background: "var(--accent)",
-                                color: "#fff",
-                              }}
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                              <span>Now Playing</span>
-                            </span>
-                          ) : (
-                            <div
-                              className="w-7 h-7 rounded-lg flex items-center justify-center opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all"
-                              style={{ background: "var(--card2)", color: "var(--muted)" }}
-                            >
-                              <part.icon className="w-3.5 h-3.5" />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Subtitle / Role */}
-                        <p className="text-xs font-semibold" style={{ color: isCurrent ? "var(--text)" : "var(--muted)" }}>
-                          {part.role}
-                        </p>
-
-                        {/* Description */}
-                        <p className="text-[11px] leading-relaxed line-clamp-2 max-w-[85%]" style={{ color: "var(--muted)" }}>
-                          {part.desc}
-                        </p>
-                      </div>
-
-                      {/* Bottom Status / Action */}
-                      <div className="relative z-10 mt-3 pt-2.5 border-t flex items-center justify-between text-[10px] font-mono" style={{ borderColor: isCurrent ? "color-mix(in oklab, var(--accent) 30%, transparent)" : "var(--border)" }}>
-                        <span style={{ color: isCurrent ? "var(--accent)" : "var(--muted)" }}>
-                          Interactive Tour Segment
-                        </span>
-                        <span className="font-bold flex items-center gap-1" style={{ color: isCurrent ? "var(--accent)" : "var(--text)" }}>
-                          <span>{isCurrent ? "Playing Video" : "Click to View"}</span>
-                          <span>→</span>
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-        </section>
-
-        {/* =========================================================
-            SECTION 6.4: SPOTLIGHT / FINAL CTA BANNER
-            ========================================================= */}
-        <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-16">
-          <div
-            className="relative rounded-[24px] p-8 sm:p-14 overflow-hidden text-center flex flex-col items-center justify-center text-white"
-            style={{
-              background: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 60%, #09090b 100%)",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
-              boxShadow: "0 24px 60px -20px var(--accent)",
-            }}
-          >
-            {/* Grid Pattern Overlay */}
-            <div
-              className="absolute inset-0 pointer-events-none opacity-10"
-              style={{
-                backgroundImage: `linear-gradient(to right, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
-                                   linear-gradient(to bottom, rgba(255, 255, 255, 0.2) 1px, transparent 1px)`,
-                backgroundSize: "32px 32px",
-              }}
+              ref={spotRef}
+              className="absolute w-[700px] h-[700px] left-1/2 top-1/2 -ml-[350px] -mt-[350px] rounded-full pointer-events-none transition-transform duration-200 ease-out"
+              style={{ background: "radial-gradient(closest-side, rgba(255,255,255,0.24), transparent)" }}
             />
-
-            <div className="relative z-10 max-w-2xl space-y-4">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-[11px] font-mono font-bold uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>EXPERIENCE EVENTRIX</span>
+            <div className="relative">
+              <div className="font-mono text-[12px] font-semibold tracking-[0.14em] opacity-90">
+                FREE TO START · NO CARD NEEDED
               </div>
-
-              <h2 className="font-bricolage text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
-                Ready to elevate your next gathering?
+              <h2 className="font-bricolage text-[clamp(48px,8vw,124px)] leading-[0.92] tracking-[-0.045em] font-extrabold mt-[20px] mx-auto max-w-[980px]">
+                Your next event starts{" "}
+                <span className="opacity-90 underline decoration-white/35 decoration-2 underline-offset-8">
+                  here.
+                </span>
               </h2>
-
-              <p className="text-white/80 text-sm sm:text-base font-medium max-w-xl mx-auto leading-relaxed">
-                Join thousands of creators, engineers, and organizers running real-time hackathons, summits, and local meetups.
-              </p>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+              <div className="flex gap-3 justify-center mt-10 flex-wrap">
                 <Link
                   href="/register"
-                  className="w-full sm:w-auto h-12 px-8 rounded-full text-sm font-bold !text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] cursor-pointer shadow-xl"
+                  className="px-7 py-4 rounded-2xl font-bold text-[15px] whitespace-nowrap transition-transform hover:scale-[1.02] shadow-lg"
                   style={{
-                    background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                    boxShadow: "0 8px 24px -8px var(--accent)",
+                    background: "#ffffff",
+                    color: "#0f172a",
                   }}
                 >
-                  <span>Create Account Free</span>
-                  <ArrowRight className="w-4 h-4 !text-white" />
+                  Create free account →
                 </Link>
-
                 <Link
                   href="/home"
-                  className="w-full sm:w-auto h-12 px-7 rounded-full text-sm font-bold bg-white/10 hover:bg-white/15 border border-white/20 text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02] cursor-pointer backdrop-blur-md"
+                  className="px-7 py-4 rounded-2xl font-semibold text-[15px] whitespace-nowrap transition-colors hover:bg-white/15"
+                  style={{
+                    border: "1.5px solid rgba(255,255,255,0.5)",
+                    color: "#ffffff",
+                    background: "rgba(255,255,255,0.08)",
+                  }}
                 >
-                  <Compass className="w-4 h-4 text-white" />
-                  <span>Browse Public Events</span>
+                  Browse public events
                 </Link>
               </div>
             </div>
@@ -1432,47 +968,62 @@ export default function LandingPage() {
         </section>
 
         {/* =========================================================
-            SECTION 1.1 TOKENS & L2: FOOTER
+            MINIMAL OPERATIONAL FOOTER + WORDMARK
             ========================================================= */}
-        <footer
-          className="relative z-10 w-full border-t border-[var(--border)] py-12 px-4 sm:px-8 transition-colors"
-          style={{ background: "var(--chrome)" }}
-        >
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-            {/* Left: Brand */}
-            <div className="flex items-center gap-2.5">
+        <footer className="max-w-[1280px] mx-auto px-6 pt-[68px] pb-10">
+          <div
+            className="flex items-center justify-between gap-5 flex-wrap text-[13px] pb-6"
+            style={{
+              color: "var(--muted)",
+              borderBottom: "1px solid var(--border)",
+            }}
+          >
+            <div className="flex items-center gap-3">
               <div
-                className="w-7 h-7 rounded-[8px] flex items-center justify-center text-white"
-                style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                className="w-7 h-7 rounded-[8px] flex items-center justify-center shrink-0"
+                style={{
+                  background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                }}
               >
-                <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 5h14M5 12h9M5 19h14" />
-                  <circle cx="18" cy="12" r="1.5" fill="currentColor" />
+                <svg
+                  className="w-3.5 h-3.5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M4 6h16M4 12h10m-10 6h16"
+                  />
+                  <circle cx="19" cy="12" r="2" fill="currentColor" />
                 </svg>
               </div>
-              <span className="font-bricolage text-sm font-bold tracking-tight" style={{ color: "var(--text)" }}>
+              <span className="font-bricolage text-[17px] font-extrabold tracking-tight" style={{ color: "var(--text)" }}>
                 Event<span style={{ color: "var(--accent)" }}>rix</span>
               </span>
-              <span className="text-xs font-mono" style={{ color: "var(--subtle)" }}>
-                — The Next-Gen Event Operating System
-              </span>
             </div>
-
-            {/* Middle: System Status */}
-            <div className="flex items-center gap-2 text-xs font-mono" style={{ color: "var(--muted)" }}>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span>All Systems Operational</span>
-              <span className="text-[var(--subtle)]">•</span>
-              <span>TLS 1.3 Encrypted</span>
-            </div>
-
-            {/* Right: Copyright */}
-            <div className="text-xs font-mono" style={{ color: "var(--subtle)" }}>
-              © 2026 Eventrix. All rights reserved.
+            <div className="flex gap-5 font-medium">
+              <Link href="/home" className="hover:opacity-80">
+                Events
+              </Link>
+              <Link href="/events/create/ai" className="hover:opacity-80">
+                Host
+              </Link>
+              <Link href="/login" className="hover:opacity-80">
+                Log in
+              </Link>
             </div>
           </div>
-        </footer>
 
+          <div
+            className="font-bricolage text-[clamp(76px,20vw,280px)] font-extrabold tracking-[-0.065em] leading-[0.85] mt-10 text-center select-none overflow-hidden"
+            style={{ color: "color-mix(in oklab, var(--text) 7%, transparent)" }}
+          >
+            Eventrix
+          </div>
+        </footer>
       </div>
     </PageTransition>
   );

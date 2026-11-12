@@ -2,7 +2,7 @@ import { api } from '@/lib/axios';
 
 export interface NotificationItem {
   id: string;
-  type: 'TEAM_INVITE' | 'STAFF_INVITE' | 'ROLE_UPDATE' | 'LIVE_QUIZ' | 'ANNOUNCEMENT' | 'REGISTRATION';
+  type: 'TEAM_INVITE' | 'STAFF_INVITE' | 'ROLE_UPDATE' | 'LIVE_QUIZ' | 'ANNOUNCEMENT' | 'REGISTRATION' | 'EVENT_REMINDER';
   title?: string;
   message?: string;
   token?: string;
