@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import BackButton from "@/components/ui/BackButton";
 import PageTransition from "@/components/layout/PageTransition";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 
@@ -12,13 +11,7 @@ export default function TermsOfService() {
     <PageTransition>
       <div className={`min-h-screen ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"} py-12 px-4 sm:px-6 lg:px-8`}>
         <div className="max-w-3xl mx-auto space-y-8">
-          <Link
-            href="/home"
-            className={`inline-flex items-center gap-2 text-sm font-medium ${isDark ? "text-zinc-400 hover:text-white" : "text-zinc-600 hover:text-zinc-900"} transition-colors`}
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Home
-          </Link>
+          <BackButton fallbackHref="/home" label="Back to Home" />
 
           <div className="space-y-4">
             <h1 className={`text-4xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-zinc-900"}`}>

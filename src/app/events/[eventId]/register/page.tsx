@@ -15,10 +15,13 @@ import {
   Mail,
   Phone,
   HelpCircle,
+  Bell,
+  BellRing,
   X
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import BackButton from "@/components/ui/BackButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { eventService } from "@/services/event.service";
@@ -26,6 +29,8 @@ import { useMyProfile } from "@/hooks/profileHooks";
 import { RAZORPAY_KEY_ID } from "@/config/env";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
+import EventFeeBadge from "@/components/events/EventFeeBadge";
+import { isFreeFee } from "@/lib/feeUtils";
 
 // Add Razorpay to the Window object for TypeScript
 declare global {
@@ -55,6 +60,9 @@ export default function EventRegistrationPage() {
 
   const [event, setEvent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [canRemind, setCanRemind] = useState(false);
+  const [hasReminder, setHasReminder] = useState(false);
+  const [isTogglingReminder, setIsTogglingReminder] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
   const [blockedReason, setBlockedReason] = useState("");
@@ -131,10 +139,18 @@ export default function EventRegistrationPage() {
         const now = new Date();
         const start = rawEvent.start_date || rawEvent.startDate ? new Date(rawEvent.start_date || rawEvent.startDate) : null;
         const end = rawEvent.end_date || rawEvent.endDate ? new Date(rawEvent.end_date || rawEvent.endDate) : null;
+        const regOpen = rawEvent.is_registration_open !== false;
+        setHasReminder(Boolean(rawEvent.user_context?.has_reminder));
 
-        if (end && now > end) {
+        if (!start || !end) {
+          setCanRemind(true);
+          setBlockedReason("Event dates are coming soon. Participation opens once dates are announced.");
+        } else if (!regOpen) {
+          setCanRemind(true);
+          setBlockedReason("The organizer has paused registrations for this event.");
+        } else if (now > end) {
           setBlockedReason("This event has already concluded. Registration is closed.");
-        } else if (start && now >= start) {
+        } else if (now >= start) {
           setBlockedReason("This event is underway / active now. Registration is closed.");
         } else if (rawEvent.capacity > 0 && rCount >= rawEvent.capacity) {
           setBlockedReason("This event is fully booked / sold out. No spots left.");
@@ -352,6 +368,43 @@ export default function EventRegistrationPage() {
               {blockedReason}
             </p>
           </div>
+          {canRemind && (
+            <Button
+              type="button"
+              disabled={isTogglingReminder}
+              onClick={async () => {
+                if (isTogglingReminder) return;
+                setIsTogglingReminder(true);
+                try {
+                  if (hasReminder) {
+                    await eventService.unsubscribeReminder(eventId);
+                    setHasReminder(false);
+                    showSuccess("Event reminder removed.");
+                  } else {
+                    await eventService.subscribeReminder(eventId);
+                    setHasReminder(true);
+                    showSuccess("Reminder set! We'll email and notify you when registrations open.");
+                  }
+                } catch (err: unknown) {
+                  const apiErr = err as { response?: { data?: { error?: string } } };
+                  showError(apiErr?.response?.data?.error || "Could not update reminder.");
+                } finally {
+                  setIsTogglingReminder(false);
+                }
+              }}
+              variant="outline"
+              className="w-full rounded-2xl py-5 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isTogglingReminder ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : hasReminder ? (
+                <BellRing className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <Bell className="w-4 h-4" />
+              )}
+              <span>{hasReminder ? "Reminder Active — Click to Cancel" : "Remind Me When Open"}</span>
+            </Button>
+          )}
           <Link href={`/events/${eventId}`} className="block">
             <Button className={`w-full rounded-2xl py-6 ${activeAccent.bg} hover:opacity-90 text-white font-bold text-sm transition-all`}>
               Back to Event Details
@@ -393,7 +446,7 @@ export default function EventRegistrationPage() {
 
       {/* Navigation Header */}
       <header
-        className="sticky top-0 z-50 w-full px-4 sm:px-7 h-16 border-b transition-colors duration-300 flex items-center justify-between shrink-0"
+        className="sticky top-0 z-50 w-full px-4 sm:px-7 h-14 border-b transition-colors duration-300 flex items-center justify-center shrink-0"
         style={{
           background: "var(--chrome)",
           borderColor: "var(--border)",
@@ -404,19 +457,17 @@ export default function EventRegistrationPage() {
             : "0 4px 20px -2px rgba(15, 23, 42, 0.06)",
         }}
       >
-        <Link href={`/events/${eventId}`}>
-          <Button variant="ghost" className="rounded-full hover:bg-zinc-150 font-bold text-zinc-500 hover:text-zinc-950 transition-all text-xs h-9 px-4">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Event Details
-          </Button>
-        </Link>
         <div className="flex items-center gap-2 font-black text-zinc-900 text-xs uppercase tracking-widest bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-full border border-emerald-100/80">
           <ShieldCheck className="w-4.5 h-4.5 text-emerald-600 shrink-0" /> Secure Checkout
         </div>
-        <div className="w-28 hidden md:block"></div>
       </header>
 
       {/* Main Workspace Frame */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-6 py-10 relative z-10">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-6 py-8 relative z-10">
+        <div className="mb-6 flex items-center">
+          <BackButton href={`/events/${eventId}`} label="Back to Event" />
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
           {/* LEFT COLUMN: Event branding, metadata & total price summary (sticky on desktop) */}
@@ -459,13 +510,15 @@ export default function EventRegistrationPage() {
                   Order Summary
                 </h3>
 
-                <div className="flex justify-between items-baseline">
+                <div className="flex justify-between items-center gap-4">
                   <span className="text-zinc-500 font-bold text-sm">
                     {event.registration_type === "team" ? "Team Registration" : "Individual Entry"}
                   </span>
-                  <span className="text-3xl font-black text-zinc-900">
-                    {event.registration_fee === 0 ? "Free" : `₹${event.registration_fee}`}
-                  </span>
+                  <EventFeeBadge
+                    fee={event.registration_fee}
+                    size="lg"
+                    paidClassName="text-3xl font-black text-zinc-900"
+                  />
                 </div>
 
                 {error && (
@@ -482,7 +535,7 @@ export default function EventRegistrationPage() {
                 >
                   {isProcessing ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : event.registration_fee === 0 ? (
+                  ) : isFreeFee(event.registration_fee) ? (
                     "Complete Registration"
                   ) : (
                     "Proceed to Payment"

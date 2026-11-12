@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 import { eventService } from "@/services/event.service";
 import EventCard from "@/components/events/EventCard";
-import ProfilePromptPopup from "@/components/ProfilePromptPopup";
+import { formatEventFee, getRawEventFee } from "@/lib/feeUtils";
+import ShareEventModal, { ShareEventData } from "@/components/events/ShareEventModal";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useUser } from "@/components/providers/UserProvider";
@@ -46,14 +47,16 @@ interface AppEvent {
   match?: string;
   bannerUrl?: string | null;
   photo?: string;
+  description?: string | null;
   createdBy?: number | string;
+  isRegistrationOpen?: boolean;
 }
 
 interface UpNextSlide {
   id: string;
   title: string;
   dateStr: string;
-  startDate: string;
+  startDate: string | null;
   endDate?: string | null;
   isLive?: boolean;
   roleBadge: string;
@@ -77,7 +80,7 @@ const DEFAULT_COVER_PHOTOS = [
 
 function computeSkillMatch(eventId = "", userSkills: string[] = [], eventTags: string[] = [], title = "", desc = ""): string {
   const normalizedUserSkills = (userSkills || []).map((s) => s.toLowerCase().trim()).filter(Boolean);
-  
+
   // Deterministic variance based on event identifier
   const salt = eventId
     ? Math.abs(eventId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % 9)
@@ -112,14 +115,38 @@ function computeSkillMatch(eventId = "", userSkills: string[] = [], eventTags: s
 }
 
 function isConcludedEvent(evt: any): boolean {
-  if (evt.status === "concluded" || evt.status === "completed") return true;
-  if (evt.end_date) {
-    return new Date(evt.end_date).getTime() < Date.now();
+  if (!evt) return true;
+  const status = (evt.status || "").toLowerCase();
+  // An explicitly live event is not concluded
+  if (status === "live") return false;
+  if (status === "concluded" || status === "completed" || status === "cancelled" || status === "ended") {
+    return true;
   }
-  if (evt.start_date) {
-    // If only start date is present, consider concluded 24 hours after start
-    return new Date(evt.start_date).getTime() + 24 * 60 * 60 * 1000 < Date.now();
+
+  const now = Date.now();
+  const startVal = evt.start_date || evt.startDate || evt.date;
+  const endVal = evt.end_date || evt.endDate;
+
+  const startMs = startVal ? new Date(startVal).getTime() : NaN;
+  const endMs = endVal ? new Date(endVal).getTime() : NaN;
+
+  // 1. If end_date is specified and valid
+  if (!isNaN(endMs)) {
+    if (!isNaN(startMs) && endMs > startMs) {
+      return now > endMs;
+    }
+    // If end_date <= start_date, fallback to 4 hours window from start
+    if (!isNaN(startMs)) {
+      return now > startMs + 4 * 60 * 60 * 1000;
+    }
+    return now > endMs;
   }
+
+  // 2. If only start_date is present, consider concluded after 4 hours from start
+  if (!isNaN(startMs)) {
+    return now > startMs + 4 * 60 * 60 * 1000;
+  }
+
   return false;
 }
 
@@ -127,17 +154,44 @@ export default function HomeContent() {
   const { activeAccent, isDark } = useAppearance();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { profile, refreshProfile } = useUser();
+  const { profile, refreshProfile, isLoading: isUserLoading } = useUser();
 
   const [mounted, setMounted] = useState(false);
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [contributedEvents, setContributedEvents] = useState<any[]>([]);
   const [savedIds, setSavedIds] = useState<Record<string, boolean>>({});
+  const [eventToShare, setEventToShare] = useState<ShareEventData | null>(null);
+
+  const handleShareEvent = (eventId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const ev = events.find((item) => String(item.id) === String(eventId));
+    if (ev) {
+      setEventToShare({
+        id: ev.id,
+        title: ev.title,
+        description: ev.description || null,
+        banner_url: ev.bannerUrl || ev.photo || null,
+        start_date: ev.date || null,
+        location: ev.location || ev.city || null,
+        mode: ev.mode || null,
+        category: ev.category || null,
+      });
+    }
+  };
   const [homeSearch, setHomeSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const EVENTS_PER_PAGE = 15;
+
+  // Real-time tick to auto-evaluate event lifecycle (every 10s)
+  const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const ticker = setInterval(() => setCurrentTime(Date.now()), 10000);
+    return () => clearInterval(ticker);
+  }, []);
 
   // Carousel & Countdown state
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
@@ -155,7 +209,7 @@ export default function HomeContent() {
     try {
       const stored = localStorage.getItem("cc_saved_events");
       if (stored) setSavedIds(JSON.parse(stored));
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // Fetch real events from backend feed, user contributed events, and saved events
@@ -204,23 +258,25 @@ export default function HomeContent() {
               mode: evt.mode || "In-person",
               date: evt.start_date
                 ? new Date(evt.start_date).toLocaleDateString("en-US", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })
-                : "TBA",
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })
+                : "Coming Soon",
               endDate: evt.end_date || null,
               location: evt.location || "Bengaluru",
               city: evt.city || evt.location?.split(/[•·,]/)[0]?.trim() || "Bengaluru",
-              fee: evt.ticket_price ? `₹${evt.ticket_price}` : "Free",
+              fee: formatEventFee(getRawEventFee(evt)),
               reg,
               cap,
               pct: `${pct}%`,
               regLabel: `${reg} / ${cap}`,
               match: matchScore,
               photo: evt.banner_url || DEFAULT_COVER_PHOTOS[i % DEFAULT_COVER_PHOTOS.length],
+              description: evt.description || null,
               bannerUrl: evt.banner_url || null,
               createdBy: evt.created_by,
+              isRegistrationOpen: evt.is_registration_open !== false,
             };
           });
           setEvents(formatted);
@@ -268,7 +324,7 @@ export default function HomeContent() {
       const next = { ...prev, [id]: willBeSaved };
       try {
         localStorage.setItem("cc_saved_events", JSON.stringify(next));
-      } catch (err) {}
+      } catch (err) { }
       return next;
     });
 
@@ -304,8 +360,8 @@ export default function HomeContent() {
     thisMonthRegistrations > 0
       ? `+${thisMonthRegistrations} this month`
       : registeredCount > 0
-      ? `${registeredCount} active pass${registeredCount === 1 ? '' : 'es'}`
-      : "0 active passes";
+        ? `${registeredCount} active pass${registeredCount === 1 ? '' : 'es'}`
+        : "0 active passes";
 
   // 2. Teammates Count & Teams Count
   const { teammatesCount, teamsCount } = useMemo(() => {
@@ -345,27 +401,30 @@ export default function HomeContent() {
   const aiAccuracy = skillsCount > 0 ? Math.min(99, Math.max(70, 70 + skillsCount * 3)) : 0;
 
   // -------------------------------------------------------------
-  // "UP NEXT" DYNAMIC SLIDES: ONLY EVENTS USER IS ACTUALLY PART OF
+  // "UP NEXT" DYNAMIC SLIDES: ONLY EVENTS USER IS ACTUALLY PART OF & NOT OVER
   // -------------------------------------------------------------
   const upNextSlides: UpNextSlide[] = useMemo(() => {
     const list: UpNextSlide[] = [];
 
     const checkIsLive = (startVal?: string, endVal?: string, statusVal?: string) => {
-      if (statusVal === "live") return true;
+      const status = (statusVal || "").toLowerCase();
+      if (status === "live") return true;
       if (!startVal) return false;
       const startMs = new Date(startVal).getTime();
-      const endMs = endVal ? new Date(endVal).getTime() : startMs + 24 * 60 * 60 * 1000;
+      if (isNaN(startMs)) return false;
+      const endMs = endVal ? new Date(endVal).getTime() : NaN;
+      const effectiveEndMs = !isNaN(endMs) && endMs > startMs ? endMs : startMs + 4 * 60 * 60 * 1000;
       const now = Date.now();
-      return now >= startMs && now <= endMs;
+      return now >= startMs && now <= effectiveEndMs;
     };
 
     const formatEventDateStr = (dateVal?: string, locVal?: string, regCount = 0, capVal = 200) => {
-      let dStr = "TBA";
+      let dStr = "Coming Soon";
       if (dateVal) {
         try {
           const d = new Date(dateVal);
           dStr = d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
-        } catch {}
+        } catch { }
       }
       let loc = locVal || "TBA";
       if (loc.length > 45) {
@@ -377,14 +436,14 @@ export default function HomeContent() {
       return `${dStr} • ${loc} • ${regCount} / ${capVal} registered`;
     };
 
-    // 1. Events user is organizing (events_created)
+    // 1. Events user is organizing (events_created) - exclude concluded/past events
     (profile?.events_created || []).forEach((evt: any) => {
-      if (!evt.id) return;
+      if (!evt.id || isConcludedEvent(evt)) return;
       const isLive = checkIsLive(evt.start_date, evt.end_date, evt.status);
       list.push({
         id: String(evt.id),
         title: evt.title || "Organized Event",
-        startDate: evt.start_date || new Date().toISOString(),
+        startDate: evt.start_date || null,
         endDate: evt.end_date || null,
         isLive,
         dateStr: formatEventDateStr(evt.start_date, evt.location, evt._count?.registrations || 0, evt.capacity || 200),
@@ -398,14 +457,15 @@ export default function HomeContent() {
       });
     });
 
-    // 2. Events user is staff/contributor for
+    // 2. Events user is staff/contributor for - exclude concluded/past events
     (contributedEvents || []).forEach((evt: any) => {
-      if (evt.id && !list.some((item) => item.id === String(evt.id))) {
+      if (!evt.id || isConcludedEvent(evt)) return;
+      if (!list.some((item) => item.id === String(evt.id))) {
         const isLive = checkIsLive(evt.date || evt.start_date, evt.end_date, evt.status);
         list.push({
           id: String(evt.id),
           title: evt.title || "Contributed Event",
-          startDate: evt.date || evt.start_date || new Date().toISOString(),
+          startDate: evt.date || evt.start_date || null,
           endDate: evt.end_date || null,
           isLive,
           dateStr: formatEventDateStr(evt.date || evt.start_date, evt.location, evt.attendees || 0, 200),
@@ -422,15 +482,16 @@ export default function HomeContent() {
       }
     });
 
-    // 3. Events user is an actively registered participant for
+    // 3. Events user is an actively registered participant for - exclude concluded/past events
     (profile?.registrations || []).forEach((reg: any) => {
-      if (reg.event && reg.event.id && !list.some((item) => item.id === String(reg.event.id))) {
-        const evt = reg.event;
+      const evt = reg.event;
+      if (!evt || !evt.id || isConcludedEvent(evt)) return;
+      if (!list.some((item) => item.id === String(evt.id))) {
         const isLive = checkIsLive(evt.start_date, evt.end_date, evt.status);
         list.push({
           id: String(evt.id),
           title: evt.title || "Registered Event",
-          startDate: evt.start_date || new Date().toISOString(),
+          startDate: evt.start_date || null,
           endDate: evt.end_date || null,
           isLive,
           dateStr: formatEventDateStr(evt.start_date, evt.location, evt._count?.registrations || 0, evt.capacity || 200),
@@ -445,15 +506,29 @@ export default function HomeContent() {
       }
     });
 
-    // Sort by startDate ascending (nearest to start first)
-    list.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    // Prioritize LIVE events first, then sort by nearest start date (TBA dates last)
+    list.sort((a, b) => {
+      if (a.isLive && !b.isLive) return -1;
+      if (!a.isLive && b.isLive) return 1;
+      if (!a.startDate && !b.startDate) return 0;
+      if (!a.startDate) return 1;
+      if (!b.startDate) return -1;
+      return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    });
 
     // ZERO DUMMY EVENTS: If user has no active events, list remains empty!
     return list;
-  }, [profile, contributedEvents]);
+  }, [profile, contributedEvents, currentTime]);
 
   const hasActiveEvents = upNextSlides.length > 0;
   const currentSlide = hasActiveEvents ? (upNextSlides[activeSlideIndex % upNextSlides.length] || upNextSlides[0]) : null;
+
+  // Keep activeSlideIndex within bounds if slide count changes
+  useEffect(() => {
+    if (activeSlideIndex >= upNextSlides.length && upNextSlides.length > 0) {
+      setActiveSlideIndex(0);
+    }
+  }, [upNextSlides.length, activeSlideIndex]);
 
   // Auto-slide interval (only runs when active events exist, pauses on hover)
   useEffect(() => {
@@ -464,13 +539,26 @@ export default function HomeContent() {
     return () => clearInterval(interval);
   }, [hasActiveEvents, upNextSlides.length, isHovered]);
 
-  // Real-time countdown timer to the active slide's startDate (only runs when active events exist)
+  // Real-time countdown timer to the active slide's startDate (only runs when active events with dates exist)
   useEffect(() => {
-    if (!hasActiveEvents || !currentSlide?.startDate) return;
+    if (!hasActiveEvents || !currentSlide?.startDate || currentSlide.isLive) return;
 
+    const targetStartDate = currentSlide.startDate;
     const updateCountdown = () => {
-      const targetTime = new Date(currentSlide.startDate).getTime();
-      const diff = Math.max(0, targetTime - Date.now());
+      const targetTime = new Date(targetStartDate).getTime();
+      const diff = targetTime - Date.now();
+
+      if (diff <= 0) {
+        // Countdown expired: trigger re-evaluation (transitions to LIVE or concludes)
+        setCurrentTime(Date.now());
+        setCountdown({
+          days: "00",
+          hours: "00",
+          mins: "00",
+          secs: "00",
+        });
+        return;
+      }
 
       const d = Math.floor(diff / (1000 * 60 * 60 * 24));
       const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
@@ -524,8 +612,6 @@ export default function HomeContent() {
   return (
     <AppLayout>
       <div className="w-full max-w-[1320px] mx-auto px-3.5 sm:px-6 md:px-8 py-5 sm:py-7 pb-20 flex flex-col gap-5 sm:gap-6 animate-ccin">
-        <ProfilePromptPopup />
-
         {/* HERO HEADER */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
@@ -663,7 +749,28 @@ export default function HomeContent() {
         {/* UP NEXT SECTION: TIMER ONLY SHOWN IF ACTIVELY PARTICIPATING/ORGANIZING */}
         {/* Fixed element dimensions: height never changes between events */}
         {/* ------------------------------------------------------------- */}
-        {hasActiveEvents && currentSlide ? (
+        {isUserLoading && !profile ? (
+          /* LOADING SKELETON WHILE USER PROFILE IS BEING RETRIEVED */
+          <div
+            data-theme-static="dark"
+            className="theme-static-dark relative overflow-hidden rounded-[20px] border px-6 sm:px-7 py-5 sm:py-6 h-auto md:h-[156px] min-h-[156px] flex flex-col md:flex-row items-start md:items-center justify-between gap-5 md:gap-7 shadow-2xl animate-pulse"
+            style={{
+              background: "radial-gradient(90% 140% at 100% 0%, color-mix(in oklab, var(--accent2) 55%, transparent) 0%, transparent 60%), linear-gradient(135deg, #1e1b4b, #0b0b1a)",
+              borderColor: "rgba(255, 255, 255, 0.12)",
+            }}
+          >
+            <div className="space-y-3 flex-1">
+              <div className="h-6 w-36 rounded-full bg-white/10" />
+              <div className="h-8 w-64 rounded-xl bg-white/10" />
+              <div className="h-4 w-80 rounded-lg bg-white/5" />
+            </div>
+            <div className="hidden sm:flex gap-2.5">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="w-[72px] h-[68px] rounded-[14px] bg-white/10 border border-white/5" />
+              ))}
+            </div>
+          </div>
+        ) : hasActiveEvents && currentSlide ? (
           /* USER HAS ACTIVE EVENTS: AUTO-SLIDE CAROUSEL WITH REAL COUNTDOWN TIMER */
           <div
             onMouseEnter={() => setIsHovered(true)}
@@ -711,15 +818,14 @@ export default function HomeContent() {
                         }}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            currentSlide.isLive
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${currentSlide.isLive
                               ? "bg-rose-500 animate-pulse shadow-[0_0_10px_#f43f5e]"
                               : currentSlide.userRole === "organizing"
-                              ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
-                              : currentSlide.userRole === "staff"
-                              ? "bg-purple-400 shadow-[0_0_8px_#c084fc]"
-                              : "bg-amber-400 shadow-[0_0_8px_#fbbf24]"
-                          }`}
+                                ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                                : currentSlide.userRole === "staff"
+                                  ? "bg-purple-400 shadow-[0_0_8px_#c084fc]"
+                                  : "bg-amber-400 shadow-[0_0_8px_#fbbf24]"
+                            }`}
                         />
                         <span className="truncate" style={{ color: "#ffffff" }}>
                           {currentSlide.roleBadge}
@@ -767,6 +873,19 @@ export default function HomeContent() {
                     <ArrowRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
                   </div>
                 </div>
+              ) : !currentSlide.startDate ? (
+                <div className="relative z-10 flex items-center gap-3 shrink-0">
+                  <div
+                    className="inline-flex items-center gap-2.5 h-12 px-6 rounded-full text-white font-semibold text-sm border shadow-xl"
+                    style={{
+                      background: "rgba(255, 255, 255, 0.1)",
+                      borderColor: "rgba(255, 255, 255, 0.18)",
+                    }}
+                  >
+                    <span>Coming Soon</span>
+                    <ArrowRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
+                  </div>
+                </div>
               ) : (
                 <div className="relative z-10 flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto shrink-0 justify-between sm:justify-start">
                   {[
@@ -811,11 +930,10 @@ export default function HomeContent() {
                       key={s.id}
                       onClick={() => setActiveSlideIndex(idx)}
                       title={`Slide ${idx + 1}: ${s.title}`}
-                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                        idx === activeSlideIndex % upNextSlides.length
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${idx === activeSlideIndex % upNextSlides.length
                           ? "w-6 bg-indigo-500"
                           : "w-1.5 bg-zinc-600/60 hover:bg-zinc-400"
-                      }`}
+                        }`}
                     />
                   ))}
                 </div>
@@ -885,13 +1003,13 @@ export default function HomeContent() {
                 className="font-bricolage text-xl sm:text-2xl md:text-[28px] font-bold tracking-tight truncate leading-tight"
                 style={{ color: "#ffffff" }}
               >
-                You&apos;re not participating in any upcoming events
+                No upcoming events scheduled
               </h2>
               <p
                 className="static-subtle text-xs sm:text-[13.5px] mt-1.5 truncate max-w-xl font-medium"
                 style={{ color: "rgba(255, 255, 255, 0.72)" }}
               >
-                Explore upcoming hackathons, conferences, and meetups from the community feed.
+                You&apos;re not organizing or registered for any upcoming events right now. Explore hackathons and meetups, or host one!
               </p>
             </div>
 
@@ -989,27 +1107,30 @@ export default function HomeContent() {
               {filteredEvents
                 .slice((currentPage - 1) * EVENTS_PER_PAGE, currentPage * EVENTS_PER_PAGE)
                 .map((ev) => (
-              <EventCard
-                key={ev.id}
-                id={ev.id}
-                title={ev.title}
-                category={ev.category}
-                mode={ev.mode}
-                date={ev.date}
-                location={ev.location}
-                city={ev.city}
-                fee={ev.fee}
-                reg={ev.reg}
-                cap={ev.cap}
-                pct={ev.pct}
-                regLabel={ev.regLabel}
-                match={ev.match}
-                photo={ev.photo}
-                bannerUrl={ev.bannerUrl}
-                isSaved={!!savedIds[ev.id]}
-                onToggleSave={toggleSave}
-              />
-              ))}
+                  <EventCard
+                    key={ev.id}
+                    id={ev.id}
+                    title={ev.title}
+                    category={ev.category}
+                    mode={ev.mode}
+                    date={ev.date}
+                    location={ev.location}
+                    city={ev.city}
+                    fee={ev.fee}
+                    reg={ev.reg}
+                    cap={ev.cap}
+                    pct={ev.pct}
+                    regLabel={ev.regLabel}
+                    match={ev.match}
+                    photo={ev.photo}
+                    bannerUrl={ev.bannerUrl}
+                    isSaved={!!savedIds[ev.id]}
+                    onToggleSave={toggleSave}
+                    description={ev.description}
+                    isRegistrationOpen={ev.isRegistrationOpen}
+                    onShare={handleShareEvent}
+                  />
+                ))}
             </div>
 
             {/* Pagination controls when events > 15 */}

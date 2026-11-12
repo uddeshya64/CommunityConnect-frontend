@@ -6,13 +6,12 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Sun,
   Moon,
-  Bell,
   ChevronRight,
   Menu,
 } from "lucide-react";
 import { useUser } from "@/components/providers/UserProvider";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
-import { notificationService } from "@/services/notification.service";
+import NotificationBellIsland from "@/components/notifications/NotificationBellIsland";
 
 interface NavbarProps {
   collapsed?: boolean;
@@ -38,7 +37,6 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
   const pathname = usePathname();
   const router = useRouter();
   const { profile } = useUser();
-  const [hasNotifications, setHasNotifications] = useState(false);
 
   // Compute breadcrumb screen title
   let screenTitle = "Home";
@@ -68,51 +66,6 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router]);
 
-  useEffect(() => {
-    let isMounted = true;
-    const checkUnreadNotifications = async () => {
-      if (!profile) return;
-      if (pathname === "/notifications") {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("cc_notifications_last_viewed", new Date().toISOString());
-        }
-        if (isMounted) setHasNotifications(false);
-        return;
-      }
-
-      try {
-        const notifs = await notificationService.getNotifications();
-        if (isMounted && Array.isArray(notifs)) {
-          const lastViewedStr =
-            typeof window !== "undefined"
-              ? localStorage.getItem("cc_notifications_last_viewed")
-              : null;
-          const lastViewedTime = lastViewedStr ? new Date(lastViewedStr).getTime() : 0;
-          const hasUnreadNew = notifs.some((n: any) => {
-            const notifTime = new Date(n.created_at || Date.now()).getTime();
-            return notifTime > lastViewedTime;
-          });
-          setHasNotifications(hasUnreadNew);
-        }
-      } catch (err) {
-        if (isMounted) setHasNotifications(false);
-      }
-    };
-
-    checkUnreadNotifications();
-    const handleNotificationsRead = () => {
-      if (isMounted) setHasNotifications(false);
-    };
-    if (typeof window !== "undefined") {
-      window.addEventListener("cc_notifications_read", handleNotificationsRead);
-    }
-    return () => {
-      isMounted = false;
-      if (typeof window !== "undefined") {
-        window.removeEventListener("cc_notifications_read", handleNotificationsRead);
-      }
-    };
-  }, [pathname, profile]);
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -185,25 +138,8 @@ export default function Navbar({ collapsed = false, onToggleMobile }: NavbarProp
           )}
         </button>
 
-        {/* Notifications Bell */}
-        <Link
-          href="/notifications"
-          title="Notifications"
-          className="relative w-9 h-9 rounded-xl border flex items-center justify-center transition-colors"
-          style={{
-            background: "var(--input)",
-            borderColor: "var(--border)",
-            color: "var(--muted)",
-          }}
-        >
-          <Bell className="w-4 h-4" />
-          {hasNotifications && (
-            <span
-              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-              style={{ backgroundColor: "var(--accent)", boxShadow: "0 0 0 2px var(--bg)" }}
-            />
-          )}
-        </Link>
+        {/* Notifications Bell with Apple Glass Dynamic Island */}
+        <NotificationBellIsland href="/notifications" />
 
         {/* Profile Avatar */}
         <Link

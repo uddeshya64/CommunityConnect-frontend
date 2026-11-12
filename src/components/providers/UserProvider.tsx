@@ -25,15 +25,8 @@ const UserContext = createContext<UserContextType>({
 import { getStoredTokens, clearStoredAuth } from "@/lib/auth";
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [profile, setProfile] = useState<Profile | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("cc_user_profile");
-        if (cached) return JSON.parse(cached);
-      } catch {}
-    }
-    return null;
-  });
+  // Keep initial SSR and client hydration state identical to avoid hydration mismatches
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +39,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
       setIsLoading(false);
       return null;
+    }
+
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("cc_user_profile");
+        if (cached) {
+          const parsed = JSON.parse(cached) as Profile;
+          setProfile((prev) => prev ?? parsed);
+        }
+      } catch {}
     }
 
     try {

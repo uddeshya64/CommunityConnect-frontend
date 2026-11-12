@@ -4,6 +4,8 @@ import { AppearanceProvider } from "@/components/providers/AppearanceProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import { UserProvider } from "@/components/providers/UserProvider";
 import NotificationPromptPopup from "@/components/NotificationPromptPopup";
+import ProfilePromptPopup from "@/components/ProfilePromptPopup";
+import DraftNotificationBridge from "@/components/events/DraftNotificationBridge";
 
 export const metadata: Metadata = {
   title: {
@@ -141,7 +143,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Playfair+Display:ital,wght@0,600;1,500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Playfair+Display:ital,wght@0,600;1,500&display=swap"
           rel="stylesheet"
         />
         <link
@@ -160,6 +162,8 @@ export default function RootLayout({
             <UserProvider>
               {children}
               <NotificationPromptPopup />
+              <ProfilePromptPopup />
+              <DraftNotificationBridge />
             </UserProvider>
           </ToastProvider>
         </AppearanceProvider>

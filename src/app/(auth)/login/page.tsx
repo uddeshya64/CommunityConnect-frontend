@@ -59,10 +59,24 @@ function LoginContent() {
 
   useEffect(() => {
     if (hasStoredSession()) {
-      const targetUrl = localStorage.getItem("returnUrl") || redirectParam || "/home";
-      router.replace(targetUrl);
+      const rawTarget = localStorage.getItem("returnUrl") || redirectParam;
+      let destination = "/home";
+      if (rawTarget) {
+        try {
+          const decoded = decodeURIComponent(rawTarget);
+          if (decoded.startsWith("/") && !decoded.startsWith("/login") && !decoded.startsWith("/register")) {
+            destination = decoded;
+          }
+        } catch {
+          if (rawTarget.startsWith("/") && !rawTarget.startsWith("/login") && !rawTarget.startsWith("/register")) {
+            destination = rawTarget;
+          }
+        }
+      }
+      localStorage.removeItem("returnUrl");
+      window.location.replace(destination);
     }
-  }, [redirectParam, router]);
+  }, [redirectParam]);
 
   const [view, setView] = useState<ViewState>("LOGIN");
   const [serverError, setServerError] = useState("");
@@ -132,13 +146,22 @@ function LoginContent() {
       localStorage.removeItem("cc_user_settings");
       setStoredTokens(result.accessToken, result.refreshToken);
 
-      const targetUrl = localStorage.getItem("returnUrl") || redirectParam;
-      if (targetUrl) {
-        localStorage.removeItem("returnUrl");
-        router.push(targetUrl);
-      } else {
-        router.push("/home");
+      const rawTarget = localStorage.getItem("returnUrl") || redirectParam;
+      let destination = "/home";
+      if (rawTarget) {
+        try {
+          const decoded = decodeURIComponent(rawTarget);
+          if (decoded.startsWith("/") && !decoded.startsWith("/login") && !decoded.startsWith("/register")) {
+            destination = decoded;
+          }
+        } catch {
+          if (rawTarget.startsWith("/") && !rawTarget.startsWith("/login") && !rawTarget.startsWith("/register")) {
+            destination = rawTarget;
+          }
+        }
       }
+      localStorage.removeItem("returnUrl");
+      window.location.replace(destination);
     } catch (error: any) {
       setServerError(error.message || "Failed to sign in. Please verify your credentials.");
     }
@@ -180,8 +203,24 @@ function LoginContent() {
 
       setSuccessMessage("2FA verification successful! Welcome back.");
       showSuccess("2FA verification successful! Welcome back.");
+
+      const rawTarget = localStorage.getItem("returnUrl") || redirectParam;
+      let destination = "/home";
+      if (rawTarget) {
+        try {
+          const decoded = decodeURIComponent(rawTarget);
+          if (decoded.startsWith("/") && !decoded.startsWith("/login") && !decoded.startsWith("/register")) {
+            destination = decoded;
+          }
+        } catch {
+          if (rawTarget.startsWith("/") && !rawTarget.startsWith("/login") && !rawTarget.startsWith("/register")) {
+            destination = rawTarget;
+          }
+        }
+      }
+      localStorage.removeItem("returnUrl");
       setTimeout(() => {
-        router.push("/home");
+        window.location.replace(destination);
       }, 500);
     } catch {
       setIsVerifying2FA(false);

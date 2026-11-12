@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -10,13 +10,14 @@ import {
   LayoutDashboard, Settings, Eye, Pencil, Trash2, AlertTriangle,
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
-  HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, CheckSquare, Megaphone, Send, Smile, MessageSquare, Gamepad2,
+  HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, Bell, BellRing, CheckSquare, Megaphone, Send, Smile, MessageSquare, Gamepad2,
   ChevronDown, ShieldAlert, Camera, Check
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { eventService } from "@/services/event.service";
 import { profileService } from "@/services/profile.service";
 import { api } from "@/lib/axios";
@@ -25,9 +26,17 @@ import { RichTextEditor } from "@/components/ui/RichTextEditor";
 import { useToast } from "@/components/providers/ToastProvider";
 import AppLayout from "@/components/layout/AppLayout";
 import Navbar from "@/components/layout/Navbar";
+import BackButton from "@/components/ui/BackButton";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import ActivityManagerTab from "@/components/gamification/ActivityManagerTab";
 import AiAgendaBuilderModal from "@/components/events/AiAgendaBuilderModal";
+import ShareEventModal from "@/components/events/ShareEventModal";
+import EventFeeBadge from "@/components/events/EventFeeBadge";
+import CheckInFeedbackModals, {
+  type AlreadyCheckedInInfo,
+  type WelcomeAttendeeInfo,
+} from "@/components/events/CheckInFeedbackModals";
+import { getRawEventFee, isFreeFee, parseNumericFee } from "@/lib/feeUtils";
 
 interface EventDetails {
   id: string;
@@ -36,8 +45,8 @@ interface EventDetails {
   mode: string;
   location: string;
   description: string;
-  startDate: string;
-  endDate: string;
+  startDate: string | null;
+  endDate: string | null;
   capacity: number;
   regType: string;
   fee: number;
@@ -50,6 +59,9 @@ interface EventDetails {
   tags?: string[];
   registeredCount: number;
   is_saved?: boolean;
+  isRegistrationOpen: boolean;
+  hasReminder?: boolean;
+  reminderCount?: number;
 }
 
 interface EventTheme {
@@ -153,19 +165,86 @@ export default function EventDetailsPage() {
 
   const theme = getEventTheme(isDark);
 
-  const isStarted = event ? (currentTime >= new Date(event.startDate)) : false;
-  const isConcluded = event ? (currentTime > new Date(event.endDate)) : false;
+  const [isTogglingReminder, setIsTogglingReminder] = useState(false);
+  const [isTogglingRegOpen, setIsTogglingRegOpen] = useState(false);
+
+  const hasDates = Boolean(event?.startDate && event?.endDate);
+  const isComingSoon = event ? !hasDates : false;
+  const isRegClosedByOrganizer = event ? !event.isRegistrationOpen : false;
+  const isStarted = event && event.startDate ? (currentTime >= new Date(event.startDate)) : false;
+  const isConcluded = event && event.endDate ? (currentTime > new Date(event.endDate)) : false;
   const isSoldOut = event ? (event.capacity > 0 && registeredCount >= event.capacity) : false;
-  const isRegistrationBlocked = isStarted || isConcluded || isSoldOut;
+  const isRegistrationBlocked = isComingSoon || isRegClosedByOrganizer || isStarted || isConcluded || isSoldOut;
 
   let ctaText = "Secure Your Spot";
-  if (isConcluded) {
+  if (isComingSoon) {
+    ctaText = "Dates Coming Soon";
+  } else if (isRegClosedByOrganizer) {
+    ctaText = "Registrations Closed";
+  } else if (isConcluded) {
     ctaText = "Event Concluded";
   } else if (isStarted) {
     ctaText = "Event Underway";
   } else if (isSoldOut) {
     ctaText = "Sold Out";
   }
+
+  const handleToggleReminder = async () => {
+    if (!event || isTogglingReminder) return;
+    setIsTogglingReminder(true);
+    try {
+      if (event.hasReminder) {
+        const res = await eventService.unsubscribeReminder(eventId);
+        const count = res?.data?.reminder_count ?? Math.max(0, (event.reminderCount || 1) - 1);
+        setEvent((prev) => prev ? { ...prev, hasReminder: false, reminderCount: count } : prev);
+        showSuccess("Event reminder removed.");
+      } else {
+        const res = await eventService.subscribeReminder(eventId);
+        const count = res?.data?.reminder_count ?? ((event.reminderCount || 0) + 1);
+        setEvent((prev) => prev ? { ...prev, hasReminder: true, reminderCount: count } : prev);
+        showSuccess("Reminder set! We'll email and notify you when dates are announced and registrations open.");
+      }
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { status?: number; data?: { error?: string } } };
+      if (apiErr?.response?.status === 401) {
+        showError("Please sign in to set an event reminder.");
+      } else {
+        showError(apiErr?.response?.data?.error || "Could not update reminder.");
+      }
+    } finally {
+      setIsTogglingReminder(false);
+    }
+  };
+
+  const handleToggleRegistrationOpen = async (nextOpen?: boolean) => {
+    if (!event || isTogglingRegOpen) return;
+    const targetOpen = typeof nextOpen === "boolean" ? nextOpen : !event.isRegistrationOpen;
+    setIsTogglingRegOpen(true);
+    try {
+      const res = await api.patch(`/events/${eventId}`, { is_registration_open: targetOpen });
+      setEvent((prev) => prev ? {
+        ...prev,
+        isRegistrationOpen: targetOpen,
+        reminderCount: targetOpen && prev.startDate && prev.endDate ? 0 : prev.reminderCount,
+      } : prev);
+      setEditData((prev: Record<string, unknown>) => ({ ...prev, is_registration_open: targetOpen }));
+      const sentCount = res?.data?.data?.reminders_sent || 0;
+      if (targetOpen) {
+        showSuccess(
+          sentCount > 0
+            ? `Registrations opened! Sent email & notification reminders to ${sentCount} waiting ${sentCount === 1 ? "person" : "people"}.`
+            : "Registrations are now open."
+        );
+      } else {
+        showSuccess("Registrations closed. Participants can set a reminder until you reopen.");
+      }
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: string } } };
+      showError(apiErr?.response?.data?.error || "Failed to update registration status.");
+    } finally {
+      setIsTogglingRegOpen(false);
+    }
+  };
 
   // --- PBAC & RBAC STATES ---
   const [isStaff, setIsStaff] = useState(false);
@@ -178,10 +257,13 @@ export default function EventDetailsPage() {
 
 
   useEffect(() => {
-    if (!event?.startDate) return;
+    if (!event?.startDate || !event?.endDate) {
+      setTimeLeftStr(event ? "Coming Soon" : "");
+      return;
+    }
     const calculateTimeLeft = () => {
       const now = new Date();
-      const start = new Date(event.startDate);
+      const start = new Date(event.startDate as string);
       const diffMs = start.getTime() - now.getTime();
 
       if (diffMs <= 0) {
@@ -296,12 +378,31 @@ export default function EventDetailsPage() {
   const [isCameraStarting, setIsCameraStarting] = useState(true);
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string; participantName?: string } | null>(null);
   const [isPerformingCheckIn, setIsPerformingCheckIn] = useState<number | null>(null);
-  const [welcomeAttendee, setWelcomeAttendee] = useState<string | null>(null);
-  const [alreadyCheckedInModal, setAlreadyCheckedInModal] = useState<{
-    message: string;
-    name?: string;
-    time?: string;
-  } | null>(null);
+  const [welcomeAttendee, setWelcomeAttendee] = useState<WelcomeAttendeeInfo | null>(null);
+  const [alreadyCheckedInModal, setAlreadyCheckedInModal] = useState<AlreadyCheckedInInfo | null>(null);
+  const checkInModalTimerRef = useRef<number | null>(null);
+
+  const clearCheckInModalTimer = () => {
+    if (checkInModalTimerRef.current !== null) {
+      window.clearTimeout(checkInModalTimerRef.current);
+      checkInModalTimerRef.current = null;
+    }
+  };
+
+  const closeCheckInModals = () => {
+    clearCheckInModalTimer();
+    setWelcomeAttendee(null);
+    setAlreadyCheckedInModal(null);
+  };
+
+  const handleScanNextTicket = () => {
+    closeCheckInModals();
+    setIsQrScanning(true);
+  };
+
+  useEffect(() => {
+    return () => clearCheckInModalTimer();
+  }, []);
 
   // --- ACTIONS & FILE UPLOAD STATES ---
   const [editData, setEditData] = useState<any>({});
@@ -370,28 +471,8 @@ export default function EventDetailsPage() {
   const [userDashboardId, setUserDashboardId] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/events/${eventId}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: event?.title || "Eventrix Event",
-          url: shareUrl,
-        });
-        return;
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return;
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2500);
-    } catch (err) {
-      console.error("Failed to copy share link:", err);
-    }
+  const handleShare = () => {
+    setIsShareModalOpen(true);
   };
 
   // --- DYNAMIC EVENT TYPES STATES ---
@@ -407,13 +488,13 @@ export default function EventDetailsPage() {
     permissions.includes(perm) ||
     (perm === "MANAGE_ATTENDEES" && permissions.includes("MANAGE_CHECK_IN"));
 
-  const formatFullDate = (isoString?: string) => {
-    if (!isoString) return "TBA";
+  const formatFullDate = (isoString?: string | null) => {
+    if (!isoString) return "Coming Soon";
     return new Date(isoString).toLocaleDateString("en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const formatTime = (isoString?: string) => {
-    if (!isoString) return "TBA";
+  const formatTime = (isoString?: string | null) => {
+    if (!isoString) return "Dates TBA";
     return new Date(isoString).toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' });
   };
 
@@ -461,11 +542,11 @@ export default function EventDetailsPage() {
           mode: rawEvent.mode || "offline",
           location: rawEvent.location || "Location TBA",
           description: rawEvent.description || "No description provided.",
-          startDate: rawEvent.start_date || rawEvent.date || new Date().toISOString(),
-          endDate: rawEvent.end_date || rawEvent.start_date || new Date().toISOString(),
+          startDate: rawEvent.start_date || rawEvent.date || null,
+          endDate: rawEvent.end_date || null,
           capacity: rawEvent.capacity || 0,
           regType: rawEvent.registration_type || "solo",
-          fee: rawEvent.registration_fee || 0,
+          fee: parseNumericFee(getRawEventFee(rawEvent)),
           minTeam: rawEvent.min_team_size || 1,
           maxTeam: rawEvent.max_team_size || 1,
           bannerUrl: currentBanner,
@@ -473,7 +554,10 @@ export default function EventDetailsPage() {
           organizerName: rawEvent.organizer?.name || rawEvent.creator?.name,
           timelines: rawEvent.timelines || [],
           registeredCount: rCount,
-          is_saved: rawEvent.user_context?.is_saved || false
+          is_saved: rawEvent.user_context?.is_saved || false,
+          isRegistrationOpen: rawEvent.is_registration_open !== false,
+          hasReminder: Boolean(rawEvent.user_context?.has_reminder),
+          reminderCount: Number(rawEvent.reminder_count || 0),
         });
 
         setTimelinesList(rawEvent.timelines || []);
@@ -520,12 +604,13 @@ export default function EventDetailsPage() {
           mode: rawEvent.mode || "offline",
           location: rawEvent.location || "",
           start_date: formatForInput(rawEvent.start_date || rawEvent.date),
-          end_date: formatForInput(rawEvent.end_date || rawEvent.start_date),
+          end_date: formatForInput(rawEvent.end_date),
           capacity: rawEvent.capacity?.toString() || "0",
           registration_type: rawEvent.registration_type || "solo",
           registration_fee: rawEvent.registration_fee?.toString() || "0",
           min_team_size: rawEvent.min_team_size?.toString() || "1",
           max_team_size: rawEvent.max_team_size?.toString() || "1",
+          is_registration_open: rawEvent.is_registration_open !== false,
         });
 
         if (rawEvent.user_context) {
@@ -645,7 +730,8 @@ export default function EventDetailsPage() {
       setIsUpdating(true);
       setUpdateMessage({ type: "", text: "" });
 
-      const fee = parseFloat(editData.registration_fee);
+      const rawFee = (editData.registration_fee ?? "").toString().trim();
+      const fee = rawFee === "" ? 0 : parseFloat(rawFee);
       if (isNaN(fee) || fee < 0) {
         throw new Error("Registration fee must be at least ₹0.");
       }
@@ -675,6 +761,15 @@ export default function EventDetailsPage() {
         updatedBannerUrl = bannerRes.data?.data?.banner_url || bannerRes.data?.banner_url || bannerPreview;
       }
 
+      const hasStart = Boolean(editData.start_date?.toString().trim());
+      const hasEnd = Boolean(editData.end_date?.toString().trim());
+      if (hasStart !== hasEnd) {
+        throw new Error("Please provide both start and end dates, or leave both blank for Coming Soon.");
+      }
+      if (hasStart && hasEnd && new Date(editData.end_date) <= new Date(editData.start_date)) {
+        throw new Error("End date & time must be after start date & time.");
+      }
+
       // 2. Update the rest of the event details
       const formData = new FormData();
       formData.append("title", editData.title);
@@ -682,8 +777,9 @@ export default function EventDetailsPage() {
       formData.append("type", resolvedType);
       formData.append("mode", editData.mode);
       formData.append("location", editData.mode === "online" ? "Online" : editData.location);
-      formData.append("start_date", new Date(editData.start_date).toISOString());
-      formData.append("end_date", new Date(editData.end_date).toISOString());
+      formData.append("start_date", hasStart ? new Date(editData.start_date).toISOString() : "");
+      formData.append("end_date", hasEnd ? new Date(editData.end_date).toISOString() : "");
+      formData.append("is_registration_open", String(editData.is_registration_open !== false));
       formData.append("capacity", (parseInt(editData.capacity) || 0).toString());
       formData.append("registration_type", editData.registration_type);
       formData.append("registration_fee", (parseFloat(editData.registration_fee) || 0).toString());
@@ -695,12 +791,17 @@ export default function EventDetailsPage() {
         formData.append("remove_banner", "true");
       }
 
-      await api.patch(`/events/${eventId}`, formData, {
+      const patchRes = await api.patch(`/events/${eventId}`, formData, {
         headers: { "Content-Type": "multipart/form-data" }
       });
 
-      setUpdateMessage({ type: "success", text: "Event updated successfully!" });
-      showSuccess("Event updated successfully!");
+      const remindersSent = patchRes?.data?.data?.reminders_sent || 0;
+      const successNote =
+        remindersSent > 0
+          ? `Event updated successfully! Sent email & notification reminders to ${remindersSent} waiting ${remindersSent === 1 ? "person" : "people"}.`
+          : "Event updated successfully!";
+      setUpdateMessage({ type: "success", text: successNote });
+      showSuccess(successNote);
 
       setEvent((prev: any) => {
         if (!prev) return prev;
@@ -711,8 +812,10 @@ export default function EventDetailsPage() {
           type: resolvedType,
           mode: editData.mode,
           location: editData.mode === "online" ? "Online" : editData.location,
-          startDate: new Date(editData.start_date).toISOString(),
-          endDate: new Date(editData.end_date).toISOString(),
+          startDate: hasStart ? new Date(editData.start_date).toISOString() : null,
+          endDate: hasEnd ? new Date(editData.end_date).toISOString() : null,
+          isRegistrationOpen: editData.is_registration_open !== false,
+          reminderCount: remindersSent > 0 ? 0 : prev.reminderCount,
           capacity: parseInt(editData.capacity) || 0,
           regType: editData.registration_type,
           fee: parseFloat(editData.registration_fee) || 0,
@@ -814,15 +917,25 @@ export default function EventDetailsPage() {
     }
     try {
       setIsPerformingCheckIn(participant.registrationId);
-      await api.post(`/events/${eventId}/manage/check-in`, {
+      const res = await api.post(`/events/${eventId}/manage/check-in`, {
         ticketCode: participant.ticketCode
       });
+      const checkedData = res.data?.data;
+      const displayName =
+        checkedData?.user?.name || participant.name || participant.user?.name || "Participant";
 
-      const displayName = participant.name || participant.user?.name || "Participant";
+      clearCheckInModalTimer();
       setAlreadyCheckedInModal(null);
-      setWelcomeAttendee(displayName);
-      setTimeout(() => {
+      setWelcomeAttendee({
+        name: displayName,
+        ticketCode: checkedData?.ticket_code || participant.ticketCode,
+        teamName: checkedData?.team?.name || participant.teamName || null,
+        checkedInAt: checkedData?.checked_in_at || new Date().toISOString(),
+        viaScanner: false,
+      });
+      checkInModalTimerRef.current = window.setTimeout(() => {
         setWelcomeAttendee(null);
+        checkInModalTimerRef.current = null;
       }, 4000);
 
       setParticipants(prev =>
@@ -839,14 +952,16 @@ export default function EventDetailsPage() {
         errMsg.toLowerCase().includes("already checked in")
       );
       if (isAlready) {
+        clearCheckInModalTimer();
         setWelcomeAttendee(null);
         setAlreadyCheckedInModal({
           message: errMsg,
           name: err.response?.data?.participantName || participant.name || participant.user?.name,
           time: err.response?.data?.checkedInAt
         });
-        setTimeout(() => {
+        checkInModalTimerRef.current = window.setTimeout(() => {
           setAlreadyCheckedInModal(null);
+          checkInModalTimerRef.current = null;
         }, 4500);
       } else {
         alert(errMsg);
@@ -910,15 +1025,24 @@ export default function EventDetailsPage() {
         ticketCode: scannedCode
       });
 
-      const attendeeName = res.data.data?.user?.name || "Participant";
+      const checkedData = res.data?.data;
+      const attendeeName = checkedData?.user?.name || "Participant";
 
+      clearCheckInModalTimer();
       setIsQrScanning(false);
       setScanResult(null);
       setAlreadyCheckedInModal(null);
-      setWelcomeAttendee(attendeeName);
+      setWelcomeAttendee({
+        name: attendeeName,
+        ticketCode: checkedData?.ticket_code || scannedCode,
+        teamName: checkedData?.team?.name || null,
+        checkedInAt: checkedData?.checked_in_at || new Date().toISOString(),
+        viaScanner: true,
+      });
 
-      setTimeout(() => {
+      checkInModalTimerRef.current = window.setTimeout(() => {
         setWelcomeAttendee(null);
+        checkInModalTimerRef.current = null;
         setIsQrScanning(true);
       }, 4000);
 
@@ -938,6 +1062,7 @@ export default function EventDetailsPage() {
         errMsg.toLowerCase().includes("already checked in")
       );
 
+      clearCheckInModalTimer();
       setIsQrScanning(false);
       setScanResult(null);
 
@@ -949,8 +1074,9 @@ export default function EventDetailsPage() {
           time: err.response?.data?.checkedInAt
         });
 
-        setTimeout(() => {
+        checkInModalTimerRef.current = window.setTimeout(() => {
           setAlreadyCheckedInModal(null);
+          checkInModalTimerRef.current = null;
           setIsQrScanning(true);
         }, 4500);
       } else {
@@ -1519,15 +1645,16 @@ export default function EventDetailsPage() {
     return (
       <AppLayout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 space-y-6">
-          {/* Top Breadcrumb */}
-          <div className="flex items-center gap-2 text-xs sm:text-sm font-medium" style={{ color: "var(--subtle)" }}>
-            <Link href="/home" className="hover:underline flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
-              <ArrowLeft className="w-3.5 h-3.5" /> Workspace
-            </Link>
-            <span>/</span>
-            <span className="font-semibold line-clamp-1" style={{ color: "var(--text)" }}>{event.title}</span>
-            <span>/</span>
-            <span>Organizer Console</span>
+          {/* Back Navigation & Breadcrumb */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <BackButton fallbackHref="/home" label="Back to Workspace" />
+            <div className="text-[12px] font-mono hidden sm:flex items-center gap-2" style={{ color: "var(--subtle)" }}>
+              <span>Workspace</span>
+              <span>/</span>
+              <span className="font-semibold line-clamp-1 max-w-[240px]" style={{ color: "var(--text)" }}>{event.title}</span>
+              <span>/</span>
+              <span>Organizer Console</span>
+            </div>
           </div>
 
           {/* Organizer Hero Banner */}
@@ -1668,6 +1795,78 @@ export default function EventDetailsPage() {
 
                   return (
                     <div className="animate-in fade-in duration-300 space-y-6">
+                      {/* OPEN REGISTRATION CONTROL BAR */}
+                      {(isOwner || hasPermission("MANAGE_EVENT") || hasPermission("EDIT_EVENT")) && (
+                        <div
+                          className="p-4 sm:p-5 rounded-[20px] border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                          style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
+                        >
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-black tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                                Open Registration
+                              </span>
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                                  event.isRegistrationOpen
+                                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                    : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                }`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${event.isRegistrationOpen ? "bg-emerald-500" : "bg-amber-500"}`} />
+                                {event.isRegistrationOpen ? "On" : "Off"}
+                              </span>
+                              {isComingSoon && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                  Dates Coming Soon
+                                </span>
+                              )}
+                              {(event.reminderCount || 0) > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                                  <BellRing className="w-3 h-3" />
+                                  {event.reminderCount} waiting for reminder
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                              {isComingSoon
+                                ? "Participation stays locked until dates are added. Turning registrations on with announced dates notifies all subscribed users."
+                                : event.isRegistrationOpen
+                                ? "Attendees can currently register. Switch off anytime to pause registrations and allow reminders."
+                                : "Registrations are paused. Users can subscribe for reminders and will receive an email & notification when reopened."}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={event.isRegistrationOpen}
+                            disabled={isTogglingRegOpen}
+                            onClick={() => handleToggleRegistrationOpen()}
+                            className="inline-flex items-center gap-3 shrink-0 px-3.5 py-2 rounded-xl border transition-all cursor-pointer disabled:opacity-60"
+                            style={{
+                              background: "var(--card2)",
+                              borderColor: "var(--border)",
+                            }}
+                          >
+                            <span className="text-xs font-bold" style={{ color: "var(--text)" }}>
+                              {isTogglingRegOpen ? "Updating..." : event.isRegistrationOpen ? "Registration Open" : "Registration Closed"}
+                            </span>
+                            <span
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                event.isRegistrationOpen ? "bg-emerald-500" : "bg-zinc-500/40"
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                  event.isRegistrationOpen ? "translate-x-6" : "translate-x-1"
+                                }`}
+                              />
+                            </span>
+                          </button>
+                        </div>
+                      )}
+
                       {/* 4 STATS CARDS */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Total Registrations */}
@@ -1718,11 +1917,17 @@ export default function EventDetailsPage() {
                               <Ticket className="w-4 h-4 text-amber-500" />
                             </div>
                           </div>
-                          <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
-                            {revenueVal ? `₹${revenueVal.toLocaleString("en-IN")}` : "Free"}
-                          </p>
+                          <div className="min-h-[36px] flex items-center">
+                            {isFreeFee(event.fee) ? (
+                              <EventFeeBadge fee={0} size="md" />
+                            ) : (
+                              <p className="text-3xl font-black tracking-tight" style={{ color: "var(--text)", fontFamily: "var(--font-display)" }}>
+                                {`₹${revenueVal.toLocaleString("en-IN")}`}
+                              </p>
+                            )}
+                          </div>
                           <div className="mt-3 flex items-center justify-between text-xs" style={{ color: "var(--subtle)" }}>
-                            <span>{revenueVal ? "via Payments" : "Free admission"}</span>
+                            <span>{isFreeFee(event.fee) ? "Free admission" : revenueVal ? "via Payments" : "No sales yet"}</span>
                             <span className="font-semibold" style={{ color: "var(--accent)" }}>{revenueVal ? "Active" : "Standard"}</span>
                           </div>
                           <div className="w-full h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background: "var(--card2)" }}>
@@ -2330,29 +2535,72 @@ export default function EventDetailsPage() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Start Date & Time</Label>
-                          <Input
-                            type="datetime-local"
-                            value={editData.start_date || ""}
-                            onChange={(e) => setEditData({ ...editData, start_date: e.target.value })}
-                            required
-                            className="py-6 rounded-xl text-xs font-mono"
-                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                          />
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>
+                              Start Date & Time <span className="font-normal opacity-70">(Optional — blank = Coming Soon)</span>
+                            </Label>
+                            <DateTimePicker
+                              value={editData.start_date || ""}
+                              onChange={(val) => setEditData({ ...editData, start_date: val })}
+                              placeholder="Select start date & time"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>
+                              End Date & Time <span className="font-normal opacity-70">(Optional)</span>
+                            </Label>
+                            <DateTimePicker
+                              value={editData.end_date || ""}
+                              onChange={(val) => setEditData({ ...editData, end_date: val })}
+                              minDate={editData.start_date || undefined}
+                              placeholder="Select end date & time"
+                              align="right"
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>End Date & Time</Label>
-                          <Input
-                            type="datetime-local"
-                            value={editData.end_date || ""}
-                            onChange={(e) => setEditData({ ...editData, end_date: e.target.value })}
-                            required
-                            className="py-6 rounded-xl text-xs font-mono"
-                            style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                          />
+                        {(editData.start_date || editData.end_date) && (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setEditData({ ...editData, start_date: "", end_date: "" })}
+                              className="text-xs font-semibold hover:underline cursor-pointer"
+                              style={{ color: "var(--muted)" }}
+                            >
+                              Clear dates (mark as Coming Soon)
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div
+                        className="p-4 rounded-xl border flex items-center justify-between gap-4"
+                        style={{ background: "var(--input)", borderColor: "var(--border)" }}
+                      >
+                        <div>
+                          <p className="text-xs font-bold" style={{ color: "var(--text)" }}>
+                            Open Registrations
+                          </p>
+                          <p className="text-[11px] font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                            Allow users to register once dates are announced. Turning this on with dates notifies waiting subscribers.
+                          </p>
                         </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={editData.is_registration_open !== false}
+                          onClick={() => setEditData({ ...editData, is_registration_open: editData.is_registration_open === false })}
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                            editData.is_registration_open !== false ? "bg-emerald-500" : "bg-zinc-500/40"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                              editData.is_registration_open !== false ? "translate-x-6" : "translate-x-1"
+                            }`}
+                          />
+                        </button>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2367,10 +2615,17 @@ export default function EventDetailsPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Registration Fee (₹)</Label>
+                          <div className="flex items-center justify-between gap-2">
+                            <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Registration Fee (₹)</Label>
+                            {isFreeFee(editData.registration_fee) && (
+                              <EventFeeBadge fee={0} size="xs" />
+                            )}
+                          </div>
                           <Input
                             type="number"
-                            value={editData.registration_fee || "0"}
+                            min={0}
+                            placeholder="0 (Leave blank for Free)"
+                            value={editData.registration_fee ?? ""}
                             onChange={(e) => setEditData({ ...editData, registration_fee: e.target.value })}
                             className="py-6 rounded-xl text-xs"
                             style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
@@ -3352,11 +3607,11 @@ export default function EventDetailsPage() {
 
                             <div className="space-y-2">
                               <Label className="text-xs font-extrabold text-zinc-900">Due Date</Label>
-                              <Input
-                                type="date"
+                              <DateTimePicker
+                                mode="date"
                                 value={taskForm.dueDate}
-                                onChange={(e) => setTaskForm(prev => ({ ...prev, dueDate: e.target.value }))}
-                                className="rounded-2xl h-11 border-zinc-200 text-xs font-bold"
+                                onChange={(val) => setTaskForm(prev => ({ ...prev, dueDate: val }))}
+                                placeholder="Select due date"
                               />
                             </div>
                           </div>
@@ -3709,37 +3964,61 @@ export default function EventDetailsPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
+              className={`fixed inset-0 z-50 backdrop-blur-xl flex items-center justify-center p-4 ${isDark ? "bg-black/80" : "bg-slate-950/35"}`}
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 15 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 15 }}
                 transition={{ type: "spring", duration: 0.35, bounce: 0.1 }}
-                className={`w-full max-w-md rounded-3xl p-6 shadow-2xl relative border ${isDark ? "bg-zinc-950 border-zinc-800 text-white" : "bg-white border-zinc-200 text-zinc-900"
-                  }`}
+                className="w-full max-w-md rounded-[28px] p-6 shadow-2xl relative border overflow-hidden"
+                style={{
+                  background: "var(--card)",
+                  borderColor: "var(--border)",
+                  color: "var(--text)",
+                }}
               >
+                <div
+                  className="absolute top-0 inset-x-0 h-1"
+                  style={{ background: "linear-gradient(90deg, var(--accent), var(--accent2))" }}
+                />
                 <button
                   onClick={handleCloseScanner}
                   type="button"
-                  className={`absolute right-4 top-4 p-2 rounded-full transition-colors ${isDark ? "text-zinc-400 hover:text-white hover:bg-zinc-900" : "text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
-                    }`}
+                  className="absolute right-4 top-4 w-8 h-8 rounded-full border flex items-center justify-center transition-colors cursor-pointer"
+                  style={{
+                    background: "var(--card2)",
+                    borderColor: "var(--border)",
+                    color: "var(--muted)",
+                  }}
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
 
-                <div className="text-center mb-4">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-bold mb-2 border border-indigo-500/20">
+                <div className="text-center mb-4 pt-1">
+                  <div
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-bold mb-2 border"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                      borderColor: "color-mix(in oklab, var(--accent) 30%, transparent)",
+                      color: "var(--accent)",
+                    }}
+                  >
                     <QrCode className="w-3.5 h-3.5" /> Ticket Gatekeeper
                   </div>
-                  <h3 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-zinc-900"}`}>Scan Ticket QR</h3>
-                  <p className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-500"} mt-1`}>
+                  <h3 className="font-bricolage text-xl font-extrabold" style={{ color: "var(--text)" }}>
+                    Scan Ticket QR
+                  </h3>
+                  <p className="text-xs font-medium mt-1" style={{ color: "var(--muted)" }}>
                     Position attendee&apos;s ticket QR code inside the camera frame.
                   </p>
                 </div>
 
                 {/* Camera Viewport with smooth loader overlay */}
-                <div className="overflow-hidden rounded-2xl border-2 border-zinc-800 bg-zinc-950 aspect-square flex items-center justify-center relative shadow-inner">
+                <div
+                  className="overflow-hidden rounded-2xl border-2 aspect-square flex items-center justify-center relative shadow-inner bg-zinc-950"
+                  style={{ borderColor: "var(--border)" }}
+                >
                   <div
                     id="qr-scanner-element"
                     className="w-full h-full relative [&_video]:w-full [&_video]:h-full [&_video]:object-cover [&_video]:rounded-2xl [&_canvas]:hidden [&_img]:hidden [&_select]:hidden [&_button]:hidden"
@@ -3749,10 +4028,22 @@ export default function EventDetailsPage() {
                   {isCameraStarting && (
                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-950 text-white p-6 text-center select-none animate-in fade-in duration-200">
                       <div className="relative mb-5">
-                        <div className="w-16 h-16 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin" />
-                        <div className="absolute inset-2 rounded-full border-2 border-violet-500/30 border-b-violet-500 animate-[spin_1.5s_linear_infinite_reverse]" />
+                        <div
+                          className="w-16 h-16 rounded-full border-2 animate-spin"
+                          style={{
+                            borderColor: "color-mix(in oklab, var(--accent) 22%, transparent)",
+                            borderTopColor: "var(--accent)",
+                          }}
+                        />
+                        <div
+                          className="absolute inset-2 rounded-full border-2 animate-[spin_1.5s_linear_infinite_reverse]"
+                          style={{
+                            borderColor: "color-mix(in oklab, var(--accent2) 25%, transparent)",
+                            borderBottomColor: "var(--accent2)",
+                          }}
+                        />
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <Camera className="w-6 h-6 text-indigo-400 animate-pulse" />
+                          <Camera className="w-6 h-6 animate-pulse" style={{ color: "var(--accent)" }} />
                         </div>
                       </div>
                       <h4 className="text-sm font-extrabold text-white tracking-wide">Starting Camera Scanner</h4>
@@ -3760,7 +4051,7 @@ export default function EventDetailsPage() {
                         Initializing video feed... Please allow camera access if prompted.
                       </p>
                       <div className="flex items-center gap-2 mt-4 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-semibold text-zinc-400">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--accent)" }} />
                         <span>Connecting Video Hardware</span>
                       </div>
                     </div>
@@ -3769,31 +4060,43 @@ export default function EventDetailsPage() {
                   {/* Target Frame Reticle (visible only when camera is active) */}
                   {!isCameraStarting && (
                     <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
-                      <div className="w-56 h-56 relative border-2 border-dashed border-indigo-400/40 rounded-2xl">
-                        <div className="absolute -top-1 -left-1 w-6 h-6 border-t-3 border-l-3 border-indigo-500 rounded-tl-lg" />
-                        <div className="absolute -top-1 -right-1 w-6 h-6 border-t-3 border-r-3 border-indigo-500 rounded-tr-lg" />
-                        <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-3 border-l-3 border-indigo-500 rounded-bl-lg" />
-                        <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-3 border-r-3 border-indigo-500 rounded-br-lg" />
-                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-transparent via-indigo-500/60 to-transparent animate-pulse" />
+                      <div
+                        className="w-56 h-56 relative border-2 border-dashed rounded-2xl"
+                        style={{ borderColor: "color-mix(in oklab, var(--accent) 45%, transparent)" }}
+                      >
+                        <div className="absolute -top-1 -left-1 w-6 h-6 border-t-3 border-l-3 rounded-tl-lg" style={{ borderColor: "var(--accent)" }} />
+                        <div className="absolute -top-1 -right-1 w-6 h-6 border-t-3 border-r-3 rounded-tr-lg" style={{ borderColor: "var(--accent)" }} />
+                        <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-3 border-l-3 rounded-bl-lg" style={{ borderColor: "var(--accent)" }} />
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-3 border-r-3 rounded-br-lg" style={{ borderColor: "var(--accent)" }} />
+                        <div
+                          className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 animate-pulse"
+                          style={{
+                            background: "linear-gradient(90deg, transparent, var(--accent), transparent)",
+                          }}
+                        />
                       </div>
                     </div>
                   )}
                 </div>
 
                 {scanResult && (
-                  <div className={`mt-4 p-3 rounded-xl text-xs font-bold text-center ${scanResult.success ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                  <div className={`mt-4 p-3 rounded-xl text-xs font-bold text-center ${scanResult.success ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/30" : "bg-red-500/10 text-red-500 border border-red-500/30"}`}>
                     {scanResult.message}
                   </div>
                 )}
 
-                <Button
+                <button
                   onClick={handleCloseScanner}
                   type="button"
-                  className={`w-full mt-4 rounded-xl font-bold py-3 transition-colors ${isDark ? "bg-zinc-900 hover:bg-zinc-800 text-white" : "bg-zinc-100 hover:bg-zinc-200 text-zinc-900"
-                    }`}
+                  className="w-full mt-4 h-11 rounded-2xl border font-bold text-xs sm:text-sm transition-colors cursor-pointer"
+                  style={{
+                    background: "var(--card2)",
+                    borderColor: "var(--border)",
+                    color: "var(--text)",
+                  }}
                 >
                   Close Scanner
-                </Button>
+                </button>
               </motion.div>
             </motion.div>
           )}
@@ -3852,21 +4155,20 @@ export default function EventDetailsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label className="font-bold text-zinc-700 text-sm">Start Time *</Label>
-                      <Input
-                        type="datetime-local"
+                      <DateTimePicker
                         value={agendaFormData.start_time}
-                        onChange={(e) => setAgendaFormData({ ...agendaFormData, start_time: e.target.value })}
-                        required
-                        className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                        onChange={(val) => setAgendaFormData({ ...agendaFormData, start_time: val })}
+                        placeholder="Select start time"
                       />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="font-bold text-zinc-700 text-sm">End Time (Optional)</Label>
-                      <Input
-                        type="datetime-local"
+                      <DateTimePicker
                         value={agendaFormData.end_time}
-                        onChange={(e) => setAgendaFormData({ ...agendaFormData, end_time: e.target.value })}
-                        className="py-5 rounded-xl bg-zinc-50 border-zinc-200"
+                        onChange={(val) => setAgendaFormData({ ...agendaFormData, end_time: val })}
+                        minDate={agendaFormData.start_time || undefined}
+                        placeholder="Select end time"
+                        align="right"
                       />
                     </div>
                   </div>
@@ -4024,133 +4326,16 @@ export default function EventDetailsPage() {
           )}
         </AnimatePresence>
 
-        {/* FULL HIGH-IMPACT WELCOME WINDOW MODAL */}
-        <AnimatePresence>
-          {welcomeAttendee && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
-            >
-              <motion.div
-                initial={{ scale: 0.85, y: 30, opacity: 0 }}
-                animate={{ scale: 1, y: 0, opacity: 1 }}
-                exit={{ scale: 0.85, y: 30, opacity: 0 }}
-                transition={{ type: "spring", damping: 18, stiffness: 120 }}
-                className="relative w-full max-w-lg bg-zinc-950 border border-zinc-800 p-8 sm:p-12 rounded-[2.5rem] text-center shadow-2xl flex flex-col items-center justify-center gap-6 text-white overflow-hidden"
-              >
-                {/* Background ambient glow */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-36 bg-emerald-500/20 rounded-full blur-[90px] pointer-events-none" />
-
-                <div className="w-20 h-20 bg-emerald-500/10 border-2 border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.25)]">
-                  <CheckCircle2 className="w-10 h-10 animate-bounce" />
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-emerald-400 text-xs sm:text-sm font-black uppercase tracking-[0.25em]">
-                    Check-In Successful
-                  </p>
-                  <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">
-                    {event?.title}
-                  </p>
-                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white mt-1">
-                    Welcome, <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">{welcomeAttendee}</span>! 👋
-                  </h2>
-                  <p className="text-zinc-400 text-xs sm:text-sm font-medium mt-1">
-                    Ticket verified seamlessly. Please enter and enjoy the event!
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3 w-full pt-2">
-                  <Button
-                    onClick={() => {
-                      setWelcomeAttendee(null);
-                      setIsQrScanning(true);
-                    }}
-                    className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-6 shadow-lg shadow-emerald-600/20 text-sm"
-                  >
-                    Scan Next Ticket
-                  </Button>
-                </div>
-
-                {/* Autoclose Progress Bar */}
-                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-zinc-850 rounded-b-[2.5rem] overflow-hidden">
-                  <motion.div
-                    initial={{ width: "100%" }}
-                    animate={{ width: "0%" }}
-                    transition={{ duration: 4, ease: "linear" }}
-                    className="h-full bg-emerald-500"
-                  />
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ALREADY CHECKED IN WINDOW MODAL */}
-        <AnimatePresence>
-          {alreadyCheckedInModal && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
-            >
-              <motion.div
-                initial={{ scale: 0.85, y: 30, opacity: 0 }}
-                animate={{ scale: 1, y: 0, opacity: 1 }}
-                exit={{ scale: 0.85, y: 30, opacity: 0 }}
-                transition={{ type: "spring", damping: 18, stiffness: 120 }}
-                className="relative w-full max-w-lg bg-zinc-950 border border-amber-500/40 p-8 sm:p-12 rounded-[2.5rem] text-center shadow-2xl flex flex-col items-center justify-center gap-6 text-white overflow-hidden"
-              >
-                {/* Background ambient glow */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-36 bg-amber-500/20 rounded-full blur-[90px] pointer-events-none" />
-
-                <div className="w-20 h-20 bg-amber-500/10 border-2 border-amber-500/30 text-amber-400 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(245,158,11,0.25)]">
-                  <ShieldAlert className="w-10 h-10 animate-pulse" />
-                </div>
-
-                <div className="space-y-2">
-                  <span className="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-black uppercase tracking-widest inline-block">
-                    Already Checked In
-                  </span>
-                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-1">
-                    Ticket Already Verified ⚠️
-                  </h2>
-                  <p className="text-amber-200 text-sm font-bold mt-2 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl leading-relaxed">
-                    {alreadyCheckedInModal.message}
-                  </p>
-                  <p className="text-zinc-400 text-xs font-medium pt-1">
-                    This ticket QR code has already been scanned and cannot be used again.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3 w-full pt-2">
-                  <Button
-                    onClick={() => {
-                      setAlreadyCheckedInModal(null);
-                      setIsQrScanning(true);
-                    }}
-                    className="w-full rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold py-6 shadow-lg shadow-amber-600/20 text-sm"
-                  >
-                    Scan Next Ticket
-                  </Button>
-                </div>
-
-                {/* Autoclose Progress Bar */}
-                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-zinc-850 rounded-b-[2.5rem] overflow-hidden">
-                  <motion.div
-                    initial={{ width: "100%" }}
-                    animate={{ width: "0%" }}
-                    transition={{ duration: 4.5, ease: "linear" }}
-                    className="h-full bg-amber-500"
-                  />
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* CHECK-IN WELCOME & DUPLICATE FEEDBACK MODALS */}
+        <CheckInFeedbackModals
+          welcomeAttendee={welcomeAttendee}
+          alreadyCheckedInModal={alreadyCheckedInModal}
+          eventTitle={event?.title}
+          eventMode={event?.mode}
+          isDark={isDark}
+          onScanNext={handleScanNextTicket}
+          onClose={closeCheckInModals}
+        />
 
         {/* DELETE CONFIRMATION MODAL */}
         <AnimatePresence>
@@ -4233,8 +4418,8 @@ export default function EventDetailsPage() {
           onClose={() => setIsAiAgendaModalOpen(false)}
           eventId={eventId}
           eventTitle={event.title}
-          eventStartDate={event.startDate}
-          eventEndDate={event.endDate}
+          eventStartDate={event.startDate || undefined}
+          eventEndDate={event.endDate || undefined}
           eventLocation={event.location}
           isDark={isDark}
           onSessionsCreated={(createdList) => {
@@ -4320,16 +4505,7 @@ export default function EventDetailsPage() {
 
           {/* TOP NAVIGATION BAR */}
           <header className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex justify-between items-center relative z-25">
-            <Link href="/home">
-              <Button
-                variant="ghost"
-                className="rounded-full shadow-xs font-bold transition-all text-xs h-9 px-4 border border-border bg-card/80 hover:bg-card text-foreground flex items-center gap-2 cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Back to Feed</span>
-                <span className="sm:hidden">Back</span>
-              </Button>
-            </Link>
+            <BackButton fallbackHref="/home" label="Back to Feed" />
             <div className="flex items-center gap-2.5">
               <Button
                 onClick={handleToggleSave}
@@ -4784,9 +4960,13 @@ export default function EventDetailsPage() {
                 {/* Pricing Tag */}
                 <div className="text-center pb-5 border-b border-dashed border-border">
                   <p className="font-mono text-[10.5px] font-black uppercase tracking-widest text-muted-foreground">TICKET PRICING</p>
-                  <h2 className="font-bricolage text-4xl sm:text-5xl font-black tracking-tight text-foreground mt-2">
-                    {event.fee === 0 ? "₹0" : `₹${event.fee}`}
-                  </h2>
+                  <div className="mt-2.5 flex justify-center">
+                    <EventFeeBadge
+                      fee={event.fee}
+                      size="lg"
+                      paidClassName="font-bricolage text-4xl sm:text-5xl font-black tracking-tight text-foreground"
+                    />
+                  </div>
                 </div>
 
                 {/* Time & location lists */}
@@ -4800,7 +4980,9 @@ export default function EventDetailsPage() {
                         {formatFullDate(event.startDate)}
                       </h4>
                       <p className="text-muted-foreground text-xs font-medium mt-0.5">
-                        {formatTime(event.startDate)} - {formatTime(event.endDate)}
+                        {event.startDate && event.endDate
+                          ? `${formatTime(event.startDate)} - ${formatTime(event.endDate)}`
+                          : "Dates will be announced soon"}
                       </p>
                     </div>
                   </div>
@@ -4825,9 +5007,21 @@ export default function EventDetailsPage() {
                   <div className="flex justify-between items-center font-mono text-[10.5px] font-black uppercase tracking-wider">
                     <span className="text-muted-foreground">Capacity Status</span>
                     {timeLeftStr && (
-                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-bold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {timeLeftStr}
+                      <span
+                        className={`flex items-center gap-1.5 font-bold ${
+                          isComingSoon || isRegClosedByOrganizer
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-emerald-600 dark:text-emerald-400"
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isComingSoon || isRegClosedByOrganizer
+                              ? "bg-amber-500"
+                              : "bg-emerald-500 animate-pulse"
+                          }`}
+                        />
+                        {isRegClosedByOrganizer && !isComingSoon ? "Registration Paused" : timeLeftStr}
                       </span>
                     )}
                   </div>
@@ -4919,11 +5113,51 @@ export default function EventDetailsPage() {
                       </Button>
                     </Link>
                   </div>
+                ) : isRegistrationBlocked ? (
+                  <div className="space-y-2.5">
+                    <Button
+                      disabled
+                      className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-sm font-bricolage text-[15px] flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
+                      style={{
+                        background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
+                      }}
+                    >
+                      <span>{ctaText}</span>
+                    </Button>
+                    {(isComingSoon || isRegClosedByOrganizer) && !isConcluded && !isStarted && (
+                      <div className="space-y-1.5">
+                        <Button
+                          type="button"
+                          onClick={handleToggleReminder}
+                          disabled={isTogglingReminder}
+                          variant="outline"
+                          className={`w-full rounded-2xl py-5 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                            event.hasReminder
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/15"
+                              : "border-border text-foreground hover:bg-muted/50"
+                          }`}
+                        >
+                          {isTogglingReminder ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : event.hasReminder ? (
+                            <BellRing className="w-4 h-4" />
+                          ) : (
+                            <Bell className="w-4 h-4" />
+                          )}
+                          <span>
+                            {event.hasReminder ? "Reminder Active — Click to Cancel" : "Remind Me When Open"}
+                          </span>
+                        </Button>
+                        <p className="text-[11px] text-center text-muted-foreground leading-snug px-2">
+                          Get an email & notification as soon as dates are announced and registrations open.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <Link href={`/events/${eventId}/register`} className="block">
                     <Button
-                      disabled={isRegistrationBlocked}
-                      className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-xl transition-all hover:-translate-y-0.5 font-bricolage text-[15px] flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                      className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-xl transition-all hover:-translate-y-0.5 font-bricolage text-[15px] flex items-center justify-center gap-2 cursor-pointer"
                       style={{
                         background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
                       }}
@@ -4975,53 +5209,21 @@ export default function EventDetailsPage() {
             </div>
           </section>
 
-          {/* SHARE MODAL COMPONENT */}
-          <AnimatePresence>
-            {isShareModalOpen && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
-              >
-                <motion.div
-                  initial={{ scale: 0.95, y: 15 }}
-                  animate={{ scale: 1, y: 0 }}
-                  exit={{ scale: 0.95, y: 15 }}
-                  className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative space-y-4 text-zinc-900"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setIsShareModalOpen(false)}
-                    className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-900 p-1.5 hover:bg-zinc-100 rounded-full transition-all"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-black tracking-tight">Share Event</h3>
-                    <p className="text-zinc-400 text-xs font-semibold">Copy link below to invite participants.</p>
-                  </div>
-
-                  <div className="flex gap-2 items-center bg-zinc-50 p-2.5 rounded-xl border border-zinc-200">
-                    <input
-                      type="text"
-                      value={typeof window !== "undefined" ? window.location.href : ""}
-                      readOnly
-                      className="flex-1 bg-transparent text-xs font-semibold text-zinc-600 focus:outline-none select-all min-w-0"
-                    />
-                    <Button
-                      onClick={handleCopyLink}
-                      size="sm"
-                      className={`rounded-lg ${activeAccent.bg} hover:opacity-90 text-white font-bold text-[10px] shrink-0`}
-                    >
-                      {copied ? "Copied!" : "Copy Link"}
-                    </Button>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* SHARE EVENT MODAL */}
+          <ShareEventModal
+            isOpen={isShareModalOpen}
+            onClose={() => setIsShareModalOpen(false)}
+            event={event ? {
+              id: event.id,
+              title: event.title,
+              description: event.description,
+              banner_url: event.bannerUrl || null,
+              start_date: event.startDate,
+              location: event.location,
+              mode: event.mode,
+              category: event.type,
+            } : null}
+          />
 
           {/* STAFF PREVIEW TOOLBAR */}
           {isStaff && viewMode === "PREVIEW" && (

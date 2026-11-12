@@ -1,21 +1,17 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Bookmark,
   ChevronDown,
-  CalendarX,
   Compass,
-  MapPin,
-  Filter,
 } from "lucide-react";
 
 import { eventService } from "@/services/event.service";
 import AppLayout from "@/components/layout/AppLayout";
-import { useAppearance } from "@/components/providers/AppearanceProvider";
 import EventCard from "@/components/events/EventCard";
+import { formatEventFee, getRawEventFee } from "@/lib/feeUtils";
 
 interface SavedEventItem {
   id: string;
@@ -34,21 +30,41 @@ interface SavedEventItem {
   bannerUrl?: string | null;
   photo?: string;
   is_saved: boolean;
+  isRegistrationOpen?: boolean;
+}
+
+interface RawSavedEvent {
+  id: string | number;
+  title?: string;
+  type?: { name?: string } | string;
+  category?: string;
+  mode?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  is_registration_open?: boolean;
+  location?: string | null;
+  city?: string | null;
+  capacity?: number | string | null;
+  registered_count?: number | string | null;
+  registrations_count?: number | string | null;
+  _count?: { registrations?: number };
+  banner_url?: string | null;
+  registration_fee?: unknown;
+  ticket_price?: unknown;
+  fee?: unknown;
 }
 
 export default function SavedEventsPage() {
-  const { isDark, activeAccent } = useAppearance();
   const [events, setEvents] = useState<SavedEventItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(12);
-  const [filterMode, setFilterMode] = useState<"all" | "In-person" | "Online" | "Hybrid">("all");
 
   useEffect(() => {
     const fetchSavedEvents = async () => {
       setIsLoading(true);
       try {
         const response = await eventService.getSavedEvents({ limit: 100 });
-        let rawEvents: any[] = [];
+        let rawEvents: RawSavedEvent[] = [];
         if (Array.isArray(response)) {
           rawEvents = response;
         } else if (response?.data && Array.isArray(response.data)) {
@@ -59,22 +75,24 @@ export default function SavedEventsPage() {
           rawEvents = response.data.events;
         }
 
-        const mapped: SavedEventItem[] = rawEvents.map((evt: any) => {
+        const mapped: SavedEventItem[] = rawEvents.map((evt) => {
           const cap = Number(evt.capacity || 200);
           const reg = Number(evt.registered_count ?? evt.registrations_count ?? evt._count?.registrations ?? 0);
           const pct = cap > 0 ? Math.min(100, Math.round((reg / cap) * 100)) : 0;
+          const eventType = typeof evt.type === "string" ? evt.type : evt.type?.name;
           return {
             id: String(evt.id),
             title: evt.title || "Untitled Event",
-            category: evt.type?.name || evt.type || evt.category || "Hackathon",
+            category: eventType || evt.category || "Hackathon",
             mode: evt.mode || "In-person",
             date: evt.start_date
               ? new Date(evt.start_date).toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })
-              : "TBA",
+              : "Coming Soon",
             endDate: evt.end_date || null,
+            isRegistrationOpen: evt.is_registration_open !== false,
             location: evt.location || "TBA",
             city: evt.city || evt.location?.split(/[,•·-]/)[0]?.trim() || "TBA",
-            fee: evt.ticket_price ? `₹${evt.ticket_price}` : "Free",
+            fee: formatEventFee(getRawEventFee(evt)),
             reg,
             cap,
             pct: `${pct}%`,
@@ -114,7 +132,7 @@ export default function SavedEventsPage() {
           delete parsed[id];
           localStorage.setItem("cc_saved_events", JSON.stringify(parsed));
         }
-      } catch (e) {}
+      } catch { }
     } catch (err) {
       console.error("Failed to unsave event:", err);
       // Revert if failed
@@ -123,11 +141,6 @@ export default function SavedEventsPage() {
       }
     }
   };
-
-  const filteredEvents = useMemo(() => {
-    if (filterMode === "all") return events;
-    return events.filter((e) => e.mode?.toLowerCase() === filterMode.toLowerCase());
-  }, [events, filterMode]);
 
   return (
     <AppLayout>
@@ -148,34 +161,6 @@ export default function SavedEventsPage() {
                 Keep track of all the meetups, hackathons, and conferences you have bookmarked for later.
               </p>
             </div>
-
-            {/* Filter Pills */}
-            {events.length > 0 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-                {[
-                  { id: "all", label: `All (${events.length})` },
-                  { id: "In-person", label: "In-Person" },
-                  { id: "Online", label: "Online" },
-                  { id: "Hybrid", label: "Hybrid" },
-                ].map((tab) => {
-                  const isSelected = filterMode === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setFilterMode(tab.id as any)}
-                      className="h-8 px-3.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-all cursor-pointer"
-                      style={
-                        isSelected
-                          ? { background: "var(--text)", color: "var(--bg)", borderColor: "var(--text)" }
-                          : { background: "var(--input)", color: "var(--muted)", borderColor: "var(--border)" }
-                      }
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
 
@@ -190,10 +175,10 @@ export default function SavedEventsPage() {
               />
             ))}
           </div>
-        ) : filteredEvents.length > 0 ? (
+        ) : events.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-2">
-              {filteredEvents.slice(0, visibleCount).map((event) => (
+              {events.slice(0, visibleCount).map((event) => (
                 <EventCard
                   key={event.id}
                   id={event.id}
@@ -212,13 +197,14 @@ export default function SavedEventsPage() {
                   photo={event.photo}
                   bannerUrl={event.bannerUrl}
                   isSaved={true}
+                  isRegistrationOpen={event.isRegistrationOpen}
                   onToggleSave={handleToggleSave}
                 />
               ))}
             </div>
 
             {/* Pagination / Show More */}
-            {filteredEvents.length > visibleCount && (
+            {events.length > visibleCount && (
               <div className="flex flex-col items-center gap-2 mt-8">
                 <button
                   onClick={() => setVisibleCount((c) => c + 12)}
@@ -229,7 +215,7 @@ export default function SavedEventsPage() {
                   <span>Show More Events</span>
                 </button>
                 <span className="text-xs font-mono" style={{ color: "var(--subtle)" }}>
-                  Showing {visibleCount} of {filteredEvents.length} events
+                  Showing {visibleCount} of {events.length} events
                 </span>
               </div>
             )}
@@ -250,12 +236,10 @@ export default function SavedEventsPage() {
               <Bookmark className="w-7 h-7" />
             </div>
             <h4 className="font-bricolage text-xl font-bold" style={{ color: "var(--text)" }}>
-              {filterMode !== "all" ? `No ${filterMode} Saved Events` : "No Saved Events"}
+              No Saved Events
             </h4>
             <p className="text-sm max-w-md" style={{ color: "var(--muted)" }}>
-              {filterMode !== "all"
-                ? `You don't have any saved events with the "${filterMode}" format.`
-                : "You haven't bookmarked any events yet. Explore open hackathons, meetups, and conferences to save them for later."}
+              You haven&apos;t bookmarked any events yet. Explore open hackathons, meetups, and conferences to save them for later.
             </p>
             <div className="flex items-center gap-3 mt-2">
               <Link
@@ -269,15 +253,6 @@ export default function SavedEventsPage() {
                 <Compass className="w-4 h-4" />
                 <span>Discover Events</span>
               </Link>
-              {filterMode !== "all" && (
-                <button
-                  onClick={() => setFilterMode("all")}
-                  className="h-10 px-4 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer"
-                  style={{ background: "var(--input)", borderColor: "var(--border)", color: "var(--text)" }}
-                >
-                  Reset Filter
-                </button>
-              )}
             </div>
           </div>
         )}

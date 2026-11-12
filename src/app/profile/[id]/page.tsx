@@ -28,6 +28,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import AppLayout from "@/components/layout/AppLayout";
+import BackButton from "@/components/ui/BackButton";
 import { useProfileById, MyProfile } from "@/hooks/profileHooks";
 import { useUser } from "@/components/providers/UserProvider";
 import PageTransition from "@/components/layout/PageTransition";
@@ -293,15 +294,7 @@ export default function PublicProfilePage() {
           <p className="text-[var(--muted)]">{error || "Profile not found."}</p>
         </div>
 
-        <Link href="/home">
-          <Button
-            variant="outline"
-            className="rounded-full border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
-        </Link>
+        <BackButton fallbackHref="/home" label="Back to Home" />
       </div>
     );
   }
@@ -346,20 +339,7 @@ export default function PublicProfilePage() {
         <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 relative z-10 space-y-6">
           {/* Back Button */}
           <div>
-            <Link href="/home">
-              <Button
-                variant="outline"
-                size="sm"
-                className={`rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all hover:scale-105 shadow-sm gap-2 ${
-                  isDark
-                    ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
-                    : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-                }`}
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back</span>
-              </Button>
-            </Link>
+            <BackButton fallbackHref="/home" label="Back" />
           </div>
           {/* ==============================
               HERO PROFILE CARD

@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Plus, Play, Loader2 } from "lucide-react";
 import { api } from "@/lib/axios";
+import BackButton from "@/components/ui/BackButton";
 
 export default function GamificationPage() {
   const { id: eventId } = useParams();
   const router = useRouter();
-  
+
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
@@ -58,7 +59,11 @@ export default function GamificationPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8">
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center">
+        <BackButton fallbackHref={`/events/${eventId}`} label="Back to Event" />
+      </div>
+
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Gamification & Quizzes</h1>
         <p className="text-gray-500 mt-2">Manage live interactive quizzes for your attendees.</p>
@@ -69,26 +74,26 @@ export default function GamificationPage() {
         <form onSubmit={createQuiz} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Quiz Title</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500" 
+              className="w-full px-4 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500"
               placeholder="e.g. Web3 Trivia"
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Description (Optional)</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500" 
+              className="w-full px-4 py-2 border rounded-lg dark:bg-zinc-800 dark:border-zinc-700 focus:ring-2 focus:ring-indigo-500"
               placeholder="A short description..."
             />
           </div>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition flex items-center gap-2"
           >
             <Plus size={18} /> Create Quiz
@@ -117,10 +122,10 @@ export default function GamificationPage() {
                   </div>
                 </div>
                 <div className="mt-6 flex justify-between items-center pt-4 border-t border-gray-100 dark:border-zinc-800">
-                  <button 
+                  <button
                     onClick={() => {
                       const text = prompt("Question Text?");
-                      if(text) {
+                      if (text) {
                         api.post(`/events/${eventId}/quizzes/${quiz.id}/questions`, {
                           text,
                           options: [
@@ -136,7 +141,7 @@ export default function GamificationPage() {
                   >
                     <Plus size={16} /> Quick Add Question
                   </button>
-                  <button 
+                  <button
                     onClick={() => startQuiz(quiz.id)}
                     className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm shadow-green-600/20"
                   >
