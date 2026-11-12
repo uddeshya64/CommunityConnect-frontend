@@ -1251,7 +1251,6 @@ function CreateEventPageInner() {
                       {/* Event Cover Banner (Upload or URL) */}
                       <FormRow icon={<ImageIcon className="w-4 h-4" />}>
                         <EventBannerPicker
-                          bannerUrl={formData.banner_url}
                           bannerUrl={formData.banner_url || ""}
                           bannerFile={bannerFile}
                           filePreviewUrl={bannerFilePreview}
