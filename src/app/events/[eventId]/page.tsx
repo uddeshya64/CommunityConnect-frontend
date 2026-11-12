@@ -11,7 +11,7 @@ import {
   Loader2, CheckCircle2, Shield, UserPlus, List, QrCode, XCircle,
   UploadCloud, ImageIcon, X, Laptop, MonitorSmartphone, Clock, Plus,
   HelpCircle, Copy, Tag, Sparkles, Bookmark, Mail, Bell, BellRing, CheckSquare, Megaphone, Send, Smile, MessageSquare, Gamepad2,
-  ChevronDown, ShieldAlert, Camera, Check
+  ChevronDown, ShieldAlert, Camera, Check, Globe, Award, ExternalLink, Layers
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -32,10 +32,12 @@ import ActivityManagerTab from "@/components/gamification/ActivityManagerTab";
 import AiAgendaBuilderModal from "@/components/events/AiAgendaBuilderModal";
 import ShareEventModal from "@/components/events/ShareEventModal";
 import EventFeeBadge from "@/components/events/EventFeeBadge";
+import EventBannerPicker from "@/components/events/EventBannerPicker";
 import CheckInFeedbackModals, {
   type AlreadyCheckedInInfo,
   type WelcomeAttendeeInfo,
 } from "@/components/events/CheckInFeedbackModals";
+import { getEventBannerInfo, getTemplateById, resolveTemplateId } from "@/lib/eventTemplates";
 import { getRawEventFee, isFreeFee, parseNumericFee } from "@/lib/feeUtils";
 
 interface EventDetails {
@@ -55,7 +57,20 @@ interface EventDetails {
   bannerUrl?: string;
   organizerId?: string;
   organizerName?: string;
-  timelines?: any[];
+  organizerAvatar?: string;
+  customFields?: Record<string, unknown>;
+  customFormSchema?: Array<{ key?: string; id?: string; label?: string }>;
+  rewards?: unknown;
+  timelines?: Array<{
+    id: number;
+    title: string;
+    start_time: string;
+    end_time?: string | null;
+    speaker_name?: string | null;
+    location?: string | null;
+    tags?: string[];
+    description?: string | null;
+  }>;
   tags?: string[];
   registeredCount: number;
   is_saved?: boolean;
@@ -408,6 +423,8 @@ export default function EventDetailsPage() {
   const [editData, setEditData] = useState<any>({});
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string>("");
+  const [bannerUrlInput, setBannerUrlInput] = useState<string>("");
+  const [bannerUrlError, setBannerUrlError] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -498,24 +515,6 @@ export default function EventDetailsPage() {
     return new Date(isoString).toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' });
   };
 
-  // File Upload Handlers
-  const handleBannerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size exceeds 5MB limit.");
-        return;
-      }
-      setBannerFile(file);
-      setBannerPreview(URL.createObjectURL(file));
-    }
-  };
-
-  const handleRemoveBanner = () => {
-    setBannerFile(null);
-    setBannerPreview("");
-  };
-
   // 1. INITIAL EVENT FETCH
   useEffect(() => {
     const fetchEventAndTypes = async () => {
@@ -535,6 +534,11 @@ export default function EventDetailsPage() {
         const rCount = rawEvent._count?.registrations || rawEvent.registeredCount || 0;
         setRegisteredCount(rCount);
 
+        const customFieldsObj =
+          rawEvent.custom_fields && typeof rawEvent.custom_fields === "object" && !Array.isArray(rawEvent.custom_fields)
+            ? rawEvent.custom_fields
+            : undefined;
+
         setEvent({
           id: rawEvent.id || rawEvent._id,
           title: rawEvent.title || "Untitled Event",
@@ -552,6 +556,11 @@ export default function EventDetailsPage() {
           bannerUrl: currentBanner,
           organizerId: rawEvent.organizerId || rawEvent.hostId || rawEvent.userId,
           organizerName: rawEvent.organizer?.name || rawEvent.creator?.name,
+          organizerAvatar: rawEvent.organizer?.avatar_url || rawEvent.creator?.avatar_url || "",
+          customFields: customFieldsObj,
+          customFormSchema: Array.isArray(rawEvent.custom_form_schema) ? rawEvent.custom_form_schema : undefined,
+          rewards: rawEvent.rewards,
+          tags: Array.isArray(rawEvent.tags) ? rawEvent.tags : undefined,
           timelines: rawEvent.timelines || [],
           registeredCount: rCount,
           is_saved: rawEvent.user_context?.is_saved || false,
@@ -561,10 +570,10 @@ export default function EventDetailsPage() {
         });
 
         setTimelinesList(rawEvent.timelines || []);
-
-        if (currentBanner) {
-          setBannerPreview(currentBanner);
-        }
+        setBannerFile(null);
+        setBannerPreview("");
+        setBannerUrlInput(currentBanner || "");
+        setBannerUrlError("");
 
         const formatForInput = (isoString: string) => {
           if (!isoString) return "";
@@ -747,18 +756,25 @@ export default function EventDetailsPage() {
         throw new Error("Please enter a custom event type.");
       }
 
+      const trimmedBannerUrl = bannerUrlInput.trim();
+      if (!bannerFile && trimmedBannerUrl) {
+        try {
+          const parsedUrl = new URL(trimmedBannerUrl);
+          if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+            setBannerUrlError("Banner URL must start with http:// or https://.");
+            throw new Error("Banner URL must start with http:// or https://.");
+          }
+        } catch (err) {
+          setBannerUrlError("Please enter a valid image URL.");
+          throw err instanceof Error ? err : new Error("Please enter a valid image URL.");
+        }
+      }
+
       // 1. Upload the banner using the dedicated API if a new file is selected
-      let updatedBannerUrl = bannerPreview;
+      let updatedBannerUrl = trimmedBannerUrl;
       if (bannerFile) {
-        const bannerFormData = new FormData();
-        bannerFormData.append("banner", bannerFile);
-
-        const bannerRes = await api.post(`/events/${eventId}/banner`, bannerFormData, {
-          headers: { "Content-Type": "multipart/form-data" }
-        });
-
-        // Update the banner URL based on the response from your new API
-        updatedBannerUrl = bannerRes.data?.data?.banner_url || bannerRes.data?.banner_url || bannerPreview;
+        const bannerRes = await eventService.uploadEventBanner(String(eventId), bannerFile);
+        updatedBannerUrl = bannerRes?.data?.banner_url || bannerRes?.banner_url || updatedBannerUrl;
       }
 
       const hasStart = Boolean(editData.start_date?.toString().trim());
@@ -786,8 +802,10 @@ export default function EventDetailsPage() {
       formData.append("min_team_size", (parseInt(editData.min_team_size) || 1).toString());
       formData.append("max_team_size", (parseInt(editData.max_team_size) || 1).toString());
 
-      // If the user removed the banner and didn't upload a new one, signal the backend to delete it
-      if (!bannerFile && !bannerPreview) {
+      // Update custom banner URL, or signal removal when cleared
+      if (!bannerFile && trimmedBannerUrl) {
+        formData.append("banner_url", trimmedBannerUrl);
+      } else if (!bannerFile && !trimmedBannerUrl) {
         formData.append("remove_banner", "true");
       }
 
@@ -802,6 +820,12 @@ export default function EventDetailsPage() {
           : "Event updated successfully!";
       setUpdateMessage({ type: "success", text: successNote });
       showSuccess(successNote);
+
+      if (bannerPreview.startsWith("blob:")) URL.revokeObjectURL(bannerPreview);
+      setBannerFile(null);
+      setBannerPreview("");
+      setBannerUrlInput(updatedBannerUrl || "");
+      setBannerUrlError("");
 
       setEvent((prev: any) => {
         if (!prev) return prev;
@@ -821,7 +845,7 @@ export default function EventDetailsPage() {
           fee: parseFloat(editData.registration_fee) || 0,
           minTeam: parseInt(editData.min_team_size) || 1,
           maxTeam: parseInt(editData.max_team_size) || 1,
-          bannerUrl: updatedBannerUrl
+          bannerUrl: updatedBannerUrl || ""
         };
       });
     } catch (err: any) {
@@ -1660,20 +1684,27 @@ export default function EventDetailsPage() {
           {/* Organizer Hero Banner */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 p-6 rounded-[24px] border shadow-xs" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}>
             <div className="flex items-start sm:items-center gap-4 min-w-0">
-              {/* Event Cover Image or Initials Avatar */}
-              <div
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl shrink-0 border overflow-hidden shadow-md flex items-center justify-center font-black text-xl text-white relative"
-                style={{
-                  background: event.bannerUrl || bannerPreview
-                    ? `url(${event.bannerUrl || bannerPreview}) center/cover no-repeat`
-                    : "linear-gradient(135deg, var(--accent), var(--accent2))",
-                  borderColor: "var(--border)"
-                }}
-              >
-                {!event.bannerUrl && !bannerPreview && (
-                  <span>{event.title.slice(0, 2).toUpperCase()}</span>
-                )}
-              </div>
+              {/* Event Cover Image or Template Fallback Thumbnail */}
+              {(() => {
+                const orgThumbUrl =
+                  bannerPreview ||
+                  getEventBannerInfo(bannerUrlInput || event.bannerUrl, event.type).url;
+                return (
+                  <div
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl shrink-0 border overflow-hidden shadow-md flex items-center justify-center font-black text-xl text-white relative"
+                    style={{
+                      background: orgThumbUrl
+                        ? `url(${orgThumbUrl}) center/cover no-repeat`
+                        : "linear-gradient(135deg, var(--accent), var(--accent2))",
+                      borderColor: "var(--border)"
+                    }}
+                  >
+                    {!orgThumbUrl && (
+                      <span>{event.title.slice(0, 2).toUpperCase()}</span>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap">
@@ -1808,8 +1839,8 @@ export default function EventDetailsPage() {
                               </span>
                               <span
                                 className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${event.isRegistrationOpen
-                                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                    : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                  : "bg-amber-500/10 text-amber-500 border-amber-500/20"
                                   }`}
                               >
                                 <span className={`w-1.5 h-1.5 rounded-full ${event.isRegistrationOpen ? "bg-emerald-500" : "bg-amber-500"}`} />
@@ -2385,87 +2416,34 @@ export default function EventDetailsPage() {
 
                     <form onSubmit={handleUpdate} className="space-y-6">
 
-                      {/* BANNER / IMAGE UPLOAD FIELD (FILE UPLOAD, FILE DETAILS, AND PREVIEW IMAGE) */}
-                      <div className="space-y-4">
-                        <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Event Cover Banner</Label>
-
-                        {/* STEP A: FILE UPLOAD DROPZONE */}
-                        <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-2xl cursor-pointer transition-all hover:border-[var(--accent)]" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
-                          <div className="flex flex-col items-center justify-center text-center px-4">
-                            <div className="p-2.5 rounded-xl mb-2" style={{ background: "var(--input)", color: "var(--accent)" }}>
-                              <UploadCloud className="w-5 h-5" />
-                            </div>
-                            <p className="text-sm font-bold" style={{ color: "var(--text)" }}>
-                              {bannerFile ? "Choose a different banner" : "Click to select or drag event banner"}
-                            </p>
-                            <p className="text-xs font-medium mt-1" style={{ color: "var(--subtle)" }}>Supports PNG, JPG, or WEBP (Max 5MB)</p>
-                          </div>
-                          <input
-                            type="file"
-                            accept="image/png, image/jpeg, image/webp"
-                            className="hidden"
-                            onChange={handleBannerSelect}
-                          />
-                        </label>
-
-                        {/* STEP B: SHOW SELECTED FILE DETAILS & NAME */}
-                        {bannerFile && (
-                          <div className="flex items-center justify-between p-3.5 rounded-xl border" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
-                            <div className="flex items-center gap-3 overflow-hidden">
-                              <div className="p-2 rounded-lg shrink-0" style={{ background: "color-mix(in oklab, var(--accent) 15%, transparent)", color: "var(--accent)" }}>
-                                <ImageIcon className="w-4 h-4" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold truncate" style={{ color: "var(--text)" }}>{bannerFile.name}</p>
-                                <p className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
-                                  {(bannerFile.size / (1024 * 1024)).toFixed(2)} MB
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={handleRemoveBanner}
-                              className="text-xs font-bold text-red-500 hover:text-red-600 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition-colors shrink-0"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        )}
-
-                        {/* STEP C: SHOW LIVE IMAGE PREVIEW */}
-                        {bannerPreview && (
-                          <div className="space-y-1.5">
-                            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                              Banner Image Preview
-                            </span>
-                            <div className="relative w-full h-56 rounded-2xl overflow-hidden border bg-zinc-900 group" style={{ borderColor: "var(--border)" }}>
-                              <img
-                                src={bannerPreview}
-                                alt="Event Banner Preview"
-                                className="w-full h-full object-cover"
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                <label className="cursor-pointer bg-white text-zinc-900 hover:bg-zinc-100 font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
-                                  <UploadCloud className="w-4 h-4" /> Swap Image
-                                  <input
-                                    type="file"
-                                    accept="image/png, image/jpeg, image/webp"
-                                    className="hidden"
-                                    onChange={handleBannerSelect}
-                                  />
-                                </label>
-                                <button
-                                  type="button"
-                                  onClick={handleRemoveBanner}
-                                  className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5"
-                                >
-                                  <X className="w-4 h-4" /> Delete
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      {/* BANNER / COVER IMAGE PICKER (FILE UPLOAD OR URL + TEMPLATE FALLBACK) */}
+                      <EventBannerPicker
+                        bannerUrl={bannerUrlInput}
+                        bannerFile={bannerFile}
+                        filePreviewUrl={bannerPreview}
+                        templateId={editData.type === "other" ? customType : (editData.type || event.type)}
+                        onFileSelect={(file) => {
+                          if (bannerPreview.startsWith("blob:")) URL.revokeObjectURL(bannerPreview);
+                          setBannerFile(file);
+                          setBannerPreview(URL.createObjectURL(file));
+                          setBannerUrlError("");
+                        }}
+                        onUrlChange={(url) => {
+                          if (bannerPreview.startsWith("blob:")) URL.revokeObjectURL(bannerPreview);
+                          setBannerFile(null);
+                          setBannerPreview("");
+                          setBannerUrlInput(url);
+                          setBannerUrlError("");
+                        }}
+                        onClear={() => {
+                          if (bannerPreview.startsWith("blob:")) URL.revokeObjectURL(bannerPreview);
+                          setBannerFile(null);
+                          setBannerPreview("");
+                          setBannerUrlInput("");
+                          setBannerUrlError("");
+                        }}
+                        error={bannerUrlError}
+                      />
 
                       <div className="space-y-2">
                         <Label className="font-bold text-xs" style={{ color: "var(--text)" }}>Event Title</Label>
@@ -4487,30 +4465,110 @@ export default function EventDetailsPage() {
   // ==========================================
   // VIEW 2: PUBLIC / ATTENDEE PREVIEW VIEW
   // ==========================================
+  const resolvedTplId = resolveTemplateId(event.type);
+  const matchedTemplate = getTemplateById(resolvedTplId);
+  const bannerInfo = getEventBannerInfo(event.bannerUrl, event.type);
+
+  const keywordTags = (() => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const addTag = (raw: string) => {
+      const clean = raw.trim().replace(/^#/, "");
+      if (clean && !seen.has(clean.toLowerCase())) {
+        seen.add(clean.toLowerCase());
+        out.push(clean);
+      }
+    };
+    if (Array.isArray(event.tags)) {
+      event.tags.forEach((t) => typeof t === "string" && addTag(t));
+    }
+    const kwRaw = event.customFields?.keywords;
+    if (typeof kwRaw === "string") {
+      kwRaw.split(",").forEach(addTag);
+    } else if (Array.isArray(kwRaw)) {
+      kwRaw.forEach((t) => typeof t === "string" && addTag(t));
+    }
+    return out;
+  })();
+
+  const blueprintHighlights = (() => {
+    const cf = event.customFields;
+    if (!cf || typeof cf !== "object") return [] as Array<{ key: string; label: string; value: string }>;
+    const skipKeys = new Set(["registration_form_schema", "keywords", "tags"]);
+    const labelMap = new Map<string, string>();
+    matchedTemplate?.fields.forEach((f) => labelMap.set(f.id, f.label));
+    if (Array.isArray(event.customFormSchema)) {
+      event.customFormSchema.forEach((f) => {
+        if (f?.key && f?.label) labelMap.set(String(f.key), String(f.label));
+      });
+    }
+    const items: Array<{ key: string; label: string; value: string }> = [];
+    for (const [k, rawVal] of Object.entries(cf)) {
+      if (skipKeys.has(k) || rawVal === null || rawVal === undefined) continue;
+      let formatted = "";
+      if (Array.isArray(rawVal)) {
+        formatted = rawVal.map((v) => String(v).trim()).filter(Boolean).join(", ");
+      } else if (typeof rawVal === "boolean") {
+        formatted = rawVal ? "Yes" : "No";
+      } else if (typeof rawVal === "object") {
+        continue;
+      } else {
+        formatted = String(rawVal).trim();
+      }
+      if (!formatted) continue;
+      const fallbackLabel = k
+        .replace(/[_-]+/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      items.push({
+        key: k,
+        label: labelMap.get(k) || fallbackLabel,
+        value: formatted,
+      });
+    }
+    return items;
+  })();
+
+  const spotsRemaining = event.capacity > 0 ? Math.max(0, event.capacity - registeredCount) : null;
+  const capacityProgressPct =
+    event.capacity > 0 ? Math.min(100, Math.round((registeredCount / event.capacity) * 100)) : 0;
+
   return (
     <div className={`min-h-screen transition-colors duration-500 w-full min-w-0 ${theme.bg}`}>
       <AppLayout>
-        <div className="flex-1 pb-20 relative select-none min-w-0">
+        <div className="flex-1 pb-24 relative min-w-0">
 
-          {/* BACKGROUND EFFECTS */}
-          <div className={`absolute top-0 left-0 w-full h-[60vh] bg-gradient-to-b ${theme.gradOverlay} pointer-events-none z-0`} />
+          {/* SOFT AMBIENT TOP WASH */}
+          <div
+            className="absolute top-0 left-0 right-0 h-[420px] pointer-events-none z-0 opacity-75"
+            style={{
+              background:
+                "radial-gradient(ellipse 80% 60% at 50% -10%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 72%)",
+            }}
+          />
 
-          {/* CUSTOM THEME GIMMICKS */}
-          {theme.gimmicks}
-
-          {/* TOP NAVIGATION BAR */}
-          <header className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex flex-wrap justify-between items-center gap-2 relative z-25">
+          {/* TOP NAVIGATION & UTILITY BAR */}
+          <header className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-3 flex flex-wrap justify-between items-center gap-3 relative z-25">
             <BackButton fallbackHref="/home" label="Back to Feed" />
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <Button
                 onClick={handleToggleSave}
                 variant="ghost"
-                className={`rounded-full shadow-xs font-bold transition-all text-xs h-9 px-4 border flex items-center gap-2 cursor-pointer ${event?.is_saved
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                  : "border-border bg-card/80 hover:bg-card text-foreground"
-                  }`}
+                className="rounded-full font-bold transition-all text-xs h-9 px-4 border flex items-center gap-2 cursor-pointer"
+                style={
+                  event?.is_saved
+                    ? {
+                      background: "color-mix(in oklab, var(--accent) 14%, var(--card))",
+                      borderColor: "color-mix(in oklab, var(--accent) 42%, transparent)",
+                      color: "var(--accent)",
+                    }
+                    : {
+                      background: "var(--card)",
+                      borderColor: "var(--border)",
+                      color: "var(--text)",
+                    }
+                }
               >
-                <Bookmark className={`w-3.5 h-3.5 ${event?.is_saved ? "fill-current text-emerald-500" : ""}`} />
+                <Bookmark className={`w-3.5 h-3.5 ${event?.is_saved ? "fill-current" : ""}`} />
                 <span className="hidden sm:inline">{event?.is_saved ? "Saved" : "Save Event"}</span>
                 <span className="sm:hidden">{event?.is_saved ? "Saved" : "Save"}</span>
               </Button>
@@ -4518,45 +4576,273 @@ export default function EventDetailsPage() {
               <Button
                 onClick={() => setIsShareModalOpen(true)}
                 variant="ghost"
-                className="rounded-full shadow-xs font-bold transition-all text-xs h-9 px-4 border border-border bg-card/80 hover:bg-card text-foreground flex items-center gap-2 cursor-pointer"
+                className="rounded-full font-bold transition-all text-xs h-9 px-4 border flex items-center gap-2 cursor-pointer"
+                style={{
+                  background: "var(--card)",
+                  borderColor: "var(--border)",
+                  color: "var(--text)",
+                }}
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Share Event</span>
-                <span className="sm:hidden">Share</span>
+                <span className="hidden sm:inline">Share</span>
               </Button>
             </div>
           </header>
 
-          {/* MAIN 2-COLUMN WORKSPACE GRID (UNIFIED REDESIGN LAYOUT WITH STICKY SCROLL) */}
-          <section className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 relative z-20 items-start">
+          {/* CINEMATIC FULL-WIDTH EVENT HERO BANNER */}
+          <section className="max-w-6xl mx-auto px-4 sm:px-6 mb-6 lg:mb-8 relative z-20">
+            <div
+              className="relative rounded-[28px] overflow-hidden border shadow-xl min-h-[270px] sm:min-h-[340px] lg:min-h-[380px] flex flex-col justify-between bg-zinc-950"
+              style={{ borderColor: "var(--border)" }}
+            >
+              {/* Resolved Cover Image (User Banner -> Template Cover Fallback) */}
+              {bannerInfo.url ? (
+                <img
+                  src={bannerInfo.url}
+                  alt={event.title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              ) : (
+                <div
+                  className="absolute inset-0 w-full h-full"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, color-mix(in oklab, var(--accent) 32%, #0b0d14) 0%, color-mix(in oklab, var(--accent2) 20%, #090b10) 100%)",
+                  }}
+                />
+              )}
 
-            {/* LEFT COLUMN: Media Banner + Details + Guidelines + Agenda + Location */}
-            <div className="lg:col-span-7 space-y-6 lg:space-y-8 min-w-0">
+              {/* Legibility Gradient Overlay */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    "linear-gradient(180deg, rgba(9,9,11,0.30) 0%, rgba(9,9,11,0.42) 38%, rgba(9,9,11,0.92) 100%)",
+                }}
+              />
 
-              {/* Cover Media Banner (16:9 responsive) */}
-              <div className="rounded-[26px] overflow-hidden border border-border shadow-lg relative w-full aspect-[16/9] min-h-[220px] max-h-[400px] bg-zinc-950">
-                {event.bannerUrl ? (
-                  <img
-                    src={event.bannerUrl}
-                    alt={event.title}
-                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.01]"
-                  />
-                ) : (
-                  <div className="w-full h-full relative overflow-hidden bg-gradient-to-br from-[#0c2e22] via-[#051c14] to-[#020a07] flex items-center justify-center">
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-500/25 via-transparent to-transparent pointer-events-none" />
-                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
-                  </div>
-                )}
+              {/* Top Overlay Row: Category, Mode & Live Status */}
+              <div className="relative z-10 p-5 sm:p-7 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider backdrop-blur-md border text-white"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 75%, rgba(0,0,0,0.45))",
+                      borderColor: "rgba(255,255,255,0.22)",
+                    }}
+                  >
+                    {event.type}
+                  </span>
+
+                  <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 backdrop-blur-md bg-black/45 border border-white/20 text-white/95">
+                    {event.mode === "online" ? (
+                      <Laptop className="w-3.5 h-3.5" />
+                    ) : event.mode === "hybrid" ? (
+                      <MonitorSmartphone className="w-3.5 h-3.5" />
+                    ) : (
+                      <Building2 className="w-3.5 h-3.5" />
+                    )}
+                    {event.mode} Event
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {bannerInfo.isTemplateFallback && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-black/45 border border-white/15 text-white/80">
+                      {matchedTemplate?.label || event.type} Theme Cover
+                    </span>
+                  )}
+
+                  {timeLeftStr && (
+                    <span className="px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 backdrop-blur-md bg-black/55 border border-white/20 text-white">
+                      <Clock className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                      <span>{isRegClosedByOrganizer && !isComingSoon ? "Registration Paused" : timeLeftStr}</span>
+                    </span>
+                  )}
+                </div>
               </div>
 
+              {/* Bottom Overlay Content: Title & Host */}
+              <div className="relative z-10 p-5 sm:p-7 lg:p-8 space-y-4">
+                <h1 className="font-bricolage text-2xl sm:text-4xl lg:text-[42px] font-black tracking-tight text-white leading-[1.12] max-w-4xl break-words drop-shadow-sm">
+                  {event.title}
+                </h1>
+
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 text-white/90 text-xs sm:text-sm font-semibold">
+                  <div className="flex items-center gap-2.5">
+                    {event.organizerAvatar ? (
+                      <img
+                        src={event.organizerAvatar}
+                        alt={event.organizerName || "Organizer"}
+                        className="w-8 h-8 rounded-full object-cover border border-white/30 shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center font-black text-xs text-white border border-white/30 shrink-0"
+                        style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))" }}
+                      >
+                        {(event.organizerName || "E").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span>
+                      Hosted by{" "}
+                      <strong className="text-white font-extrabold">
+                        {event.organizerName || "Eventrix Organizer"}
+                      </strong>
+                    </span>
+                  </div>
+
+                  <span className="hidden sm:inline text-white/35">•</span>
+
+                  <div className="flex items-center gap-1.5 text-white/85">
+                    <Calendar className="w-4 h-4 shrink-0" style={{ color: "var(--accent)" }} />
+                    <span>
+                      {event.startDate ? formatFullDate(event.startDate) : "Dates Coming Soon"}
+                    </span>
+                  </div>
+
+                  <span className="hidden sm:inline text-white/35">•</span>
+
+                  <div className="flex items-center gap-1.5 text-white/85 max-w-xs sm:max-w-sm">
+                    <MapPin className="w-4 h-4 shrink-0" style={{ color: "var(--accent)" }} />
+                    <span className="truncate">
+                      {event.mode === "online" ? "Virtual Event (Online Access)" : event.location}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* QUICK METRIC STRIP */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+              <div
+                className="p-3.5 sm:p-4 rounded-2xl border flex items-center gap-3"
+                style={{ background: "var(--card)", borderColor: "var(--border)" }}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{
+                    background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                    color: "var(--accent)",
+                  }}
+                >
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                    Schedule
+                  </p>
+                  <p className="text-xs sm:text-sm font-extrabold truncate" style={{ color: "var(--text)" }}>
+                    {event.startDate ? formatFullDate(event.startDate) : "Coming Soon"}
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className="p-3.5 sm:p-4 rounded-2xl border flex items-center gap-3"
+                style={{ background: "var(--card)", borderColor: "var(--border)" }}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{
+                    background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                    color: "var(--accent)",
+                  }}
+                >
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                    Venue / Format
+                  </p>
+                  <p className="text-xs sm:text-sm font-extrabold truncate capitalize" style={{ color: "var(--text)" }}>
+                    {event.mode === "online" ? "Online Stream" : event.location}
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className="p-3.5 sm:p-4 rounded-2xl border flex items-center gap-3"
+                style={{ background: "var(--card)", borderColor: "var(--border)" }}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{
+                    background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                    color: "var(--accent)",
+                  }}
+                >
+                  <Ticket className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--muted)" }}>
+                    Entry Pass
+                  </p>
+                  <EventFeeBadge fee={event.fee} size="sm" />
+                </div>
+              </div>
+
+              <div
+                className="p-3.5 sm:p-4 rounded-2xl border flex items-center gap-3"
+                style={{ background: "var(--card)", borderColor: "var(--border)" }}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{
+                    background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                    color: "var(--accent)",
+                  }}
+                >
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                    Participation
+                  </p>
+                  <p className="text-xs sm:text-sm font-extrabold truncate capitalize" style={{ color: "var(--text)" }}>
+                    {event.regType === "team" ? `Team (${event.minTeam}-${event.maxTeam})` : "Solo Entry"}
+                    {spotsRemaining !== null ? ` • ${spotsRemaining} left` : ""}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* MAIN 2-COLUMN WORKSPACE GRID */}
+          <section className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 relative z-20 items-start">
+
+            {/* LEFT COLUMN: Description, Blueprint Highlights, Guidelines, Agenda & Venue */}
+            <div className="lg:col-span-7 space-y-6 min-w-0">
+
               {/* Card Block 1: About this event */}
-              <div className="p-6 sm:p-8 rounded-[24px] border shadow-sm space-y-5 transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)", boxShadow: isDark ? "0 14px 34px -10px rgba(0,0,0,0.5), 0 2px 8px -2px rgba(0,0,0,0.3)" : "0 14px 34px -10px rgba(15,23,42,0.07), 0 2px 8px -2px rgba(15,23,42,0.04)" }}>
-                <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5 text-foreground">
-                  <Building2 className="w-5 h-5 shrink-0" style={{ color: "var(--accent)" }} />
+              <div
+                className="p-6 sm:p-8 rounded-[24px] border space-y-5 transition-all"
+                style={{
+                  background: "var(--card)",
+                  borderColor: "var(--border)",
+                  backdropFilter: "blur(20px)",
+                  boxShadow: isDark
+                    ? "0 14px 34px -10px rgba(0,0,0,0.45)"
+                    : "0 14px 34px -10px rgba(15,23,42,0.06)",
+                }}
+              >
+                <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5" style={{ color: "var(--text)" }}>
+                  <span
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                      color: "var(--accent)",
+                    }}
+                  >
+                    <Building2 className="w-4 h-4" />
+                  </span>
                   <span>About this Event</span>
                 </h2>
 
-                <div className="text-muted-foreground font-medium text-sm sm:text-[15px] leading-relaxed break-words [overflow-wrap:anywhere]">
+                <div
+                  className="prose prose-sm sm:prose-base dark:prose-invert max-w-none font-medium text-sm sm:text-[15px] leading-relaxed break-words [overflow-wrap:anywhere]"
+                  style={{ color: "var(--muted)" }}
+                >
                   {event.description.length > 500 && !isDescExpanded ? (
                     <>
                       <div
@@ -4565,8 +4851,10 @@ export default function EventDetailsPage() {
                         }}
                       />
                       <button
+                        type="button"
                         onClick={() => setIsDescExpanded(true)}
-                        className="mt-2.5 text-xs font-bold text-accent hover:underline flex items-center gap-1 cursor-pointer"
+                        className="mt-2.5 text-xs font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                        style={{ color: "var(--accent)" }}
                       >
                         Read More
                       </button>
@@ -4576,8 +4864,10 @@ export default function EventDetailsPage() {
                       <div dangerouslySetInnerHTML={{ __html: event.description }} />
                       {event.description.length > 500 && (
                         <button
+                          type="button"
                           onClick={() => setIsDescExpanded(false)}
-                          className="mt-2.5 text-xs font-bold text-accent hover:underline flex items-center gap-1 cursor-pointer"
+                          className="mt-2.5 text-xs font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                          style={{ color: "var(--accent)" }}
                         >
                           Read Less
                         </button>
@@ -4586,12 +4876,17 @@ export default function EventDetailsPage() {
                   )}
                 </div>
 
-                {event.tags && Array.isArray(event.tags) && event.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
-                    {event.tags.map((tag: string) => (
+                {keywordTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+                    {keywordTags.map((tag) => (
                       <span
                         key={tag}
-                        className="px-3 py-1 rounded-full text-xs font-bold border text-xs font-bold"
+                        className="px-3 py-1 rounded-full text-xs font-bold border"
+                        style={{
+                          background: "color-mix(in oklab, var(--accent) 10%, var(--card2))",
+                          borderColor: "color-mix(in oklab, var(--accent) 26%, var(--border))",
+                          color: "var(--accent)",
+                        }}
                       >
                         #{tag}
                       </span>
@@ -4600,72 +4895,207 @@ export default function EventDetailsPage() {
                 )}
               </div>
 
-              {/* Card Block 2: Participation Guidelines */}
-              <div className="p-6 sm:p-8 rounded-[24px] border shadow-sm space-y-5 transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)", boxShadow: isDark ? "0 14px 34px -10px rgba(0,0,0,0.5), 0 2px 8px -2px rgba(0,0,0,0.3)" : "0 14px 34px -10px rgba(15,23,42,0.07), 0 2px 8px -2px rgba(15,23,42,0.04)" }}>
-                <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5 text-foreground">
-                  <Users className="w-5 h-5 shrink-0" style={{ color: "var(--accent)" }} />
+              {/* Card Block 2: Template Blueprint Highlights (if populated) */}
+              {(blueprintHighlights.length > 0 || Boolean(event.rewards)) && (
+                <div
+                  className="p-6 sm:p-8 rounded-[24px] border space-y-5 transition-all"
+                  style={{
+                    background: "var(--card)",
+                    borderColor: "var(--border)",
+                    backdropFilter: "blur(20px)",
+                    boxShadow: isDark
+                      ? "0 14px 34px -10px rgba(0,0,0,0.45)"
+                      : "0 14px 34px -10px rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5" style={{ color: "var(--text)" }}>
+                      <span
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{
+                          background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        <Layers className="w-4 h-4" />
+                      </span>
+                      <span>Event Blueprint &amp; Highlights</span>
+                    </h2>
+                    {matchedTemplate && (
+                      <span
+                        className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border"
+                        style={{
+                          background: "var(--card2)",
+                          borderColor: "var(--border)",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        {matchedTemplate.label}
+                      </span>
+                    )}
+                  </div>
+
+                  {blueprintHighlights.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {blueprintHighlights.map((item) => (
+                        <div
+                          key={item.key}
+                          className="p-4 rounded-2xl border space-y-1"
+                          style={{ background: "var(--card2)", borderColor: "var(--border)" }}
+                        >
+                          <p className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                            {item.label}
+                          </p>
+                          <p className="font-bold text-sm leading-snug break-words" style={{ color: "var(--text)" }}>
+                            {item.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                    {
+                      Boolean(
+                        event.rewards &&
+                          (typeof event.rewards === "string"
+                            ? event.rewards.trim()
+                            : typeof event.rewards === "object" && Object.keys(event.rewards as Record<string, unknown>).length > 0)
+                  ) && (
+                      <div
+                        className="p-4 rounded-2xl border flex items-start gap-3"
+                        style={{
+                          background: "color-mix(in oklab, var(--accent) 8%, var(--card2))",
+                          borderColor: "color-mix(in oklab, var(--accent) 26%, var(--border))",
+                        }}
+                      >
+                        <Award className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "var(--accent)" }} />
+                        <div className="min-w-0">
+                          <p className="font-mono text-[10px] font-black uppercase tracking-wider" style={{ color: "var(--accent)" }}>
+                            Rewards &amp; Perks
+                          </p>
+                          <p className="text-sm font-bold mt-0.5 break-words" style={{ color: "var(--text)" }}>
+                            {typeof event.rewards === "string"
+                              ? event.rewards
+                              : Array.isArray(event.rewards)
+                                ? event.rewards.map((r) => String(r)).join(" • ")
+                                : JSON.stringify(event.rewards)}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                </div>
+              )}
+
+              {/* Card Block 3: Participation Guidelines */}
+              <div
+                className="p-6 sm:p-8 rounded-[24px] border space-y-5 transition-all"
+                style={{
+                  background: "var(--card)",
+                  borderColor: "var(--border)",
+                  backdropFilter: "blur(20px)",
+                  boxShadow: isDark
+                    ? "0 14px 34px -10px rgba(0,0,0,0.45)"
+                    : "0 14px 34px -10px rgba(15,23,42,0.06)",
+                }}
+              >
+                <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5" style={{ color: "var(--text)" }}>
+                  <span
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                      color: "var(--accent)",
+                    }}
+                  >
+                    <Users className="w-4 h-4" />
+                  </span>
                   <span>Participation Guidelines</span>
                 </h2>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-4 rounded-2xl border flex flex-col gap-2 transition-all" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
-                    <Users className="w-5 h-5 text-indigo-500 shrink-0" />
+                    <Users className="w-5 h-5 shrink-0" style={{ color: "var(--accent)" }} />
                     <div>
-                      <p className="font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Format</p>
-                      <p className="font-extrabold text-sm capitalize text-foreground mt-0.5">{event.regType} Entry</p>
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Format</p>
+                      <p className="font-extrabold text-sm capitalize mt-0.5" style={{ color: "var(--text)" }}>{event.regType} Entry</p>
                     </div>
                   </div>
 
-                  {event.regType === 'team' && (
+                  {event.regType === "team" && (
                     <div className="p-4 rounded-2xl border flex flex-col gap-2 transition-all" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
-                      <Users className="w-5 h-5 text-rose-500 shrink-0" />
+                      <Users className="w-5 h-5 shrink-0" style={{ color: "var(--accent)" }} />
                       <div>
-                        <p className="font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Team Size</p>
-                        <p className="font-extrabold text-sm text-foreground mt-0.5">{event.minTeam} - {event.maxTeam} members</p>
+                        <p className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Team Size</p>
+                        <p className="font-extrabold text-sm mt-0.5" style={{ color: "var(--text)" }}>{event.minTeam} - {event.maxTeam} members</p>
                       </div>
                     </div>
                   )}
 
                   <div className="p-4 rounded-2xl border flex flex-col gap-2 transition-all" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
-                    <Ticket className="w-5 h-5 text-amber-500 shrink-0" />
+                    <Ticket className="w-5 h-5 shrink-0" style={{ color: "var(--accent)" }} />
                     <div>
-                      <p className="font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Capacity Limit</p>
-                      <p className="font-extrabold text-sm text-foreground mt-0.5">
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Capacity Limit</p>
+                      <p className="font-extrabold text-sm mt-0.5" style={{ color: "var(--text)" }}>
                         {event.capacity === 0 ? "Unlimited Seats" : `${event.capacity} Spots Max`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl border flex flex-col gap-2 transition-all" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                    <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: "var(--accent)" }} />
+                    <div>
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Registration</p>
+                      <p className="font-extrabold text-sm mt-0.5" style={{ color: "var(--text)" }}>
+                        {isConcluded
+                          ? "Concluded"
+                          : isSoldOut
+                            ? "Sold Out"
+                            : isRegClosedByOrganizer
+                              ? "Paused"
+                              : isComingSoon
+                                ? "Opening Soon"
+                                : "Open Now"}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Card Block 3: Schedule & Agenda */}
+              {/* Card Block 4: Schedule & Agenda */}
               {event?.timelines && event.timelines.length > 0 && (
-                <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl space-y-6 ${theme.cardBg}`}>
-                  <h2 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${theme.textHeading}`}>
-                    <Calendar className={`w-5 h-5 ${theme.accent}`} /> Event Agenda & Schedule
-                  </h2>
-
-                  <style>{`
-                @keyframes sway {
-                  0%, 100% { transform: translateY(0) rotate(0deg); }
-                  50% { transform: translateY(-4px) rotate(4deg); }
-                }
-                @keyframes float {
-                  0%, 100% { transform: translateY(0); }
-                  50% { transform: translateY(-6px); }
-                }
-                .animate-sway {
-                  animation: sway 5s ease-in-out infinite;
-                }
-                .animate-float {
-                  animation: float 6s ease-in-out infinite;
-                }
-              `}</style>
+                <div
+                  className="p-6 sm:p-8 rounded-[24px] border space-y-6 transition-all"
+                  style={{
+                    background: "var(--card)",
+                    borderColor: "var(--border)",
+                    backdropFilter: "blur(20px)",
+                    boxShadow: isDark
+                      ? "0 14px 34px -10px rgba(0,0,0,0.45)"
+                      : "0 14px 34px -10px rgba(15,23,42,0.06)",
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5" style={{ color: "var(--text)" }}>
+                      <span
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{
+                          background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </span>
+                      <span>Event Agenda &amp; Schedule</span>
+                    </h2>
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full border" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--muted)" }}>
+                      {event.timelines.length} {event.timelines.length === 1 ? "session" : "sessions"}
+                    </span>
+                  </div>
 
                   <div className="space-y-6 pl-1">
                     {(() => {
-                      const groups: { [key: string]: any[] } = {};
-                      event.timelines.forEach((item: any) => {
+                      type TimelineEntry = NonNullable<EventDetails["timelines"]>[number];
+                      const groups: Record<string, TimelineEntry[]> = {};
+                      event.timelines.forEach((item) => {
                         const dateStr = new Date(item.start_time).toDateString();
                         if (!groups[dateStr]) groups[dateStr] = [];
                         groups[dateStr].push(item);
@@ -4676,11 +5106,11 @@ export default function EventDetailsPage() {
 
                       const allItems = sortedGroups.flatMap(([, items]) => items);
                       const visibleIdSet = new Set(
-                        allItems.slice(0, visibleEventAgendaCount).map((it: any) => it.id)
+                        allItems.slice(0, visibleEventAgendaCount).map((it) => it.id)
                       );
 
                       return sortedGroups
-                        .map(([dateStr, items]) => [dateStr, items.filter((it: any) => visibleIdSet.has(it.id))] as [string, any[]])
+                        .map(([dateStr, items]) => [dateStr, items.filter((it) => visibleIdSet.has(it.id))] as [string, TimelineEntry[]])
                         .filter(([, items]) => items.length > 0)
                         .map(([dateStr, items]) => {
                           const d = new Date(dateStr);
@@ -4689,21 +5119,21 @@ export default function EventDetailsPage() {
 
                           return (
                             <div key={dateStr} className="flex gap-4 items-start">
-                              <div className={`w-12 flex flex-col items-center shrink-0 py-2 border-r pr-3 ${theme.divider}`}>
-                                <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">{month}</span>
-                                <span className={`text-2xl font-black mt-0.5 ${theme.isDark ? "text-zinc-200" : "text-zinc-900"}`}>{day}</span>
+                              <div className="w-12 flex flex-col items-center shrink-0 py-2 border-r pr-3" style={{ borderColor: "var(--border)" }}>
+                                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--muted)" }}>{month}</span>
+                                <span className="text-2xl font-black mt-0.5" style={{ color: "var(--text)" }}>{day}</span>
                               </div>
 
                               <div className="flex-1 space-y-3">
-                                {items.map((timeline: any) => {
+                                {items.map((timeline) => {
                                   const tTitle = timeline.title.toLowerCase();
                                   let sessionStyle = {
                                     label: "Keynote / Session",
                                     leftBorder: "var(--accent)",
-                                    badgeBg: isDark ? "rgba(99, 102, 241, 0.18)" : "rgba(99, 102, 241, 0.12)",
-                                    badgeBorder: isDark ? "rgba(99, 102, 241, 0.35)" : "rgba(99, 102, 241, 0.28)",
-                                    badgeText: isDark ? "#c7d2fe" : "#4338ca",
-                                    cardBg: isDark ? "rgba(24, 24, 27, 0.65)" : "#f8fafc",
+                                    badgeBg: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                                    badgeBorder: "color-mix(in oklab, var(--accent) 32%, transparent)",
+                                    badgeText: "var(--accent)",
+                                    cardBg: "var(--card2)",
                                   };
 
                                   if (tTitle.includes("tea") || tTitle.includes("coffee") || tTitle.includes("networking") || tTitle.includes("break") || tTitle.includes("snack")) {
@@ -4746,7 +5176,7 @@ export default function EventDetailsPage() {
 
                                   const start = new Date(timeline.start_time);
                                   const end = timeline.end_time ? new Date(timeline.end_time) : null;
-                                  const formattedTime = `${start.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}${end ? ` - ${end.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}` : ''}`;
+                                  const formattedTime = `${start.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}${end ? ` - ${end.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : ""}`;
                                   const isLive = start <= currentTime && (end === null || currentTime <= end);
                                   const isExpanded = expandedTimelineId === timeline.id;
 
@@ -4855,12 +5285,12 @@ export default function EventDetailsPage() {
                         <Button
                           onClick={() => setVisibleEventAgendaCount((c) => c + 20)}
                           variant="outline"
-                          className="rounded-2xl border-current/20 bg-transparent text-current font-bold px-6 py-5 hover:opacity-80 shadow-sm flex items-center gap-2"
+                          className="rounded-2xl font-bold px-6 py-5 shadow-sm flex items-center gap-2 cursor-pointer"
                         >
                           <ChevronDown className="w-5 h-5" />
                           Show More Sessions
                         </Button>
-                        <p className="text-[10px] font-semibold opacity-60">
+                        <p className="text-[10px] font-semibold" style={{ color: "var(--muted)" }}>
                           Showing {Math.min(visibleEventAgendaCount, event.timelines.length)} of {event.timelines.length} sessions
                         </p>
                       </div>
@@ -4869,172 +5299,217 @@ export default function EventDetailsPage() {
                 </div>
               )}
 
-
-
-              {/* Card Block 4: Map Location Card with iframe embed */}
-              <div className="p-6 sm:p-8 rounded-[24px] border shadow-sm space-y-5 transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)", boxShadow: isDark ? "0 14px 34px -10px rgba(0,0,0,0.5), 0 2px 8px -2px rgba(0,0,0,0.3)" : "0 14px 34px -10px rgba(15,23,42,0.07), 0 2px 8px -2px rgba(15,23,42,0.04)" }}>
-                <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5 text-foreground">
-                  <MapPin className="w-5 h-5 text-rose-500 shrink-0" />
-                  <span>Location Details</span>
+              {/* Card Block 5: Venue / Online Access Card */}
+              <div
+                className="p-6 sm:p-8 rounded-[24px] border space-y-5 transition-all"
+                style={{
+                  background: "var(--card)",
+                  borderColor: "var(--border)",
+                  backdropFilter: "blur(20px)",
+                  boxShadow: isDark
+                    ? "0 14px 34px -10px rgba(0,0,0,0.45)"
+                    : "0 14px 34px -10px rgba(15,23,42,0.06)",
+                }}
+              >
+                <h2 className="text-xl sm:text-2xl font-bold font-bricolage tracking-tight flex items-center gap-2.5" style={{ color: "var(--text)" }}>
+                  <span
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                      color: "var(--accent)",
+                    }}
+                  >
+                    {event.mode === "online" ? <Globe className="w-4 h-4" /> : <MapPin className="w-4 h-4" />}
+                  </span>
+                  <span>{event.mode === "online" ? "Virtual Access" : "Location & Venue"}</span>
                 </h2>
 
-                <div className="flex flex-col gap-5">
-                  <div className="space-y-1.5">
-                    <h3 className="font-bricolage font-bold text-base capitalize text-foreground">{event.mode} Venue</h3>
-                    <p className="text-muted-foreground font-medium text-sm leading-relaxed">{event.location}</p>
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-accent hover:underline font-bold text-xs underline-offset-4 mt-1 cursor-pointer"
+                {event.mode === "online" ? (
+                  <div
+                    className="p-5 rounded-2xl border flex items-start gap-4"
+                    style={{ background: "var(--card2)", borderColor: "var(--border)" }}
+                  >
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                      style={{
+                        background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                        color: "var(--accent)",
+                      }}
                     >
-                      <span>View on Google Maps</span>
-                      <span>→</span>
-                    </a>
+                      <Laptop className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-sm" style={{ color: "var(--text)" }}>
+                        Online Live Experience
+                      </p>
+                      <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                        This event takes place remotely. Registered participants receive meeting links and access instructions directly in their Participant Dashboard and email.
+                      </p>
+                    </div>
                   </div>
+                ) : (
+                  <div className="flex flex-col gap-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <h3 className="font-bricolage font-bold text-base capitalize" style={{ color: "var(--text)" }}>
+                          {event.mode} Venue
+                        </h3>
+                        <p className="font-medium text-sm leading-relaxed break-words" style={{ color: "var(--muted)" }}>
+                          {event.location}
+                        </p>
+                      </div>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold shrink-0 w-fit transition-colors hover:opacity-90"
+                        style={{
+                          background: "color-mix(in oklab, var(--accent) 12%, var(--card2))",
+                          borderColor: "color-mix(in oklab, var(--accent) 30%, var(--border))",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        <span>Open Maps</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
 
-                  {/* Real Google Maps embed iframe preview */}
-                  <div className="w-full h-64 rounded-2xl overflow-hidden border border-border relative shadow-sm shrink-0 bg-muted/20">
-                    <iframe
-                      title="Event Location Map"
-                      width="100%"
-                      height="100%"
-                      style={{ border: 0 }}
-                      loading="lazy"
-                      allowFullScreen
-                      referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://maps.google.com/maps?q=${encodeURIComponent(event.location)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
-                    />
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* RIGHT COLUMN: STICKY CARDS (Sticky scroll design matching video & screenshot) */}
-            <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-6 self-start min-w-0">
-
-              {/* Right Card 1: Event Summary & Host Card */}
-              <div className="p-6 sm:p-7 rounded-[24px] border shadow-sm space-y-4 transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)", boxShadow: isDark ? "0 14px 34px -10px rgba(0,0,0,0.5), 0 2px 8px -2px rgba(0,0,0,0.3)" : "0 14px 34px -10px rgba(15,23,42,0.07), 0 2px 8px -2px rgba(15,23,42,0.04)" }}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-[10.5px] font-black uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
-                    {event.type}
-                  </span>
-                  <span className="px-3 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider flex items-center gap-1.5 border border-border bg-input/50 text-muted-foreground">
-                    {event.mode === 'online' ? <Laptop className="w-3.5 h-3.5" /> : event.mode === 'hybrid' ? <MonitorSmartphone className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
-                    {event.mode} Event
-                  </span>
-                </div>
-
-                <h1 className="font-bricolage text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground leading-tight break-words">
-                  {event.title}
-                </h1>
-
-                <div className="flex items-center gap-3.5 pt-1">
-                  <div className="w-11 h-11 rounded-full border border-border bg-input/50 flex items-center justify-center shrink-0 text-muted-foreground">
-                    <UserCircle2 className="w-7 h-7" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-mono text-[10px] font-black text-muted-foreground uppercase tracking-widest">HOSTED BY</p>
-                    <p className="font-bold text-sm sm:text-base text-foreground truncate">
-                      {event.organizerName || "Eventrix Organizer"}
-                    </p>
-                  </div>
-                </div>
-
-                {timeLeftStr && (
-                  <div className="flex items-center gap-2 text-xs font-bold w-fit px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300">
-                    <Clock className="w-3.5 h-3.5 animate-pulse" />
-                    <span>{timeLeftStr}</span>
+                    <div className="w-full h-64 rounded-2xl overflow-hidden border relative shadow-sm shrink-0 bg-muted/20" style={{ borderColor: "var(--border)" }}>
+                      <iframe
+                        title="Event Location Map"
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        allowFullScreen
+                        referrerPolicy="no-referrer-when-downgrade"
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(event.location)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* Right Card 2: Ticket Pricing, Schedule, Venue & Registration CTAs */}
-              <div className="p-6 sm:p-7 rounded-[24px] border shadow-xl space-y-6 transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)", boxShadow: isDark ? "0 16px 36px -10px rgba(0,0,0,0.55), 0 2px 8px -2px rgba(0,0,0,0.3)" : "0 16px 36px -10px rgba(15,23,42,0.09), 0 2px 8px -2px rgba(15,23,42,0.04)" }}>
-                {/* Pricing Tag */}
-                <div className="text-center pb-5 border-b border-dashed border-border">
-                  <p className="font-mono text-[10.5px] font-black uppercase tracking-widest text-muted-foreground">TICKET PRICING</p>
-                  <div className="mt-2.5 flex justify-center">
+            {/* RIGHT COLUMN: STICKY EVENTRIX PASS & REGISTRATION SIDEBAR */}
+            <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-5 self-start min-w-0">
+
+              <div
+                className="rounded-[26px] border overflow-hidden transition-all"
+                style={{
+                  background: "var(--card)",
+                  borderColor: "var(--border)",
+                  backdropFilter: "blur(20px)",
+                  boxShadow: isDark
+                    ? "0 20px 44px -12px rgba(0,0,0,0.6)"
+                    : "0 20px 44px -12px rgba(15,23,42,0.10)",
+                }}
+              >
+                {/* Ticket Pass Accent Top Header */}
+                <div
+                  className="p-6 text-center border-b border-dashed space-y-2.5 relative overflow-hidden"
+                  style={{
+                    borderColor: "var(--border)",
+                    background:
+                      "linear-gradient(135deg, color-mix(in oklab, var(--accent) 14%, var(--card)) 0%, color-mix(in oklab, var(--accent2, #8b5cf6) 8%, var(--card)) 100%)",
+                  }}
+                >
+                  <p className="font-mono text-[10.5px] font-black uppercase tracking-widest" style={{ color: "var(--muted)" }}>
+                    EVENTRIX PASS • TICKET PRICING
+                  </p>
+                  <div className="flex justify-center">
                     <EventFeeBadge
                       fee={event.fee}
                       size="lg"
                       paidClassName="font-bricolage text-4xl sm:text-5xl font-black tracking-tight text-foreground"
                     />
                   </div>
+                  <p className="text-[11px] font-semibold capitalize" style={{ color: "var(--muted)" }}>
+                    {event.regType === "team"
+                      ? `Team registration (${event.minTeam}–${event.maxTeam} members)`
+                      : "Individual solo admission"}
+                  </p>
                 </div>
 
-                {/* Time & location lists */}
-                <div className="space-y-4">
-                  <div className="flex gap-3.5 items-start">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
-                      <Calendar className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-sm leading-snug text-foreground">
-                        {formatFullDate(event.startDate)}
-                      </h4>
-                      <p className="text-muted-foreground text-xs font-medium mt-0.5">
-                        {event.startDate && event.endDate
-                          ? `${formatTime(event.startDate)} - ${formatTime(event.endDate)}`
-                          : "Dates will be announced soon"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3.5 items-start">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-rose-500/10 text-rose-500 border border-rose-500/20">
-                      <MapPin className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-bold text-sm leading-snug break-words text-foreground">
-                        {event.location}
-                      </h4>
-                      <p className="text-muted-foreground text-xs font-medium capitalize mt-0.5">
-                        {event.mode} Event
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Capacity Status progress card */}
-                <div className="p-4.5 rounded-2xl border space-y-3 transition-all" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
-                  <div className="flex justify-between items-center font-mono text-[10.5px] font-black uppercase tracking-wider">
-                    <span className="text-muted-foreground">Capacity Status</span>
-                    {timeLeftStr && (
-                      <span
-                        className={`flex items-center gap-1.5 font-bold ${isComingSoon || isRegClosedByOrganizer
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-emerald-600 dark:text-emerald-400"
-                          }`}
+                <div className="p-6 space-y-5">
+                  {/* Compact Schedule & Venue Breakdown */}
+                  <div className="space-y-3.5">
+                    <div className="flex gap-3 items-start">
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
+                        style={{
+                          background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                          borderColor: "color-mix(in oklab, var(--accent) 26%, transparent)",
+                          color: "var(--accent)",
+                        }}
                       >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${isComingSoon || isRegClosedByOrganizer
-                              ? "bg-amber-500"
-                              : "bg-emerald-500 animate-pulse"
-                            }`}
-                        />
-                        {isRegClosedByOrganizer && !isComingSoon ? "Registration Paused" : timeLeftStr}
-                      </span>
-                    )}
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm leading-snug" style={{ color: "var(--text)" }}>
+                          {formatFullDate(event.startDate)}
+                        </h4>
+                        <p className="text-xs font-medium mt-0.5" style={{ color: "var(--muted)" }}>
+                          {event.startDate && event.endDate
+                            ? `${formatTime(event.startDate)} - ${formatTime(event.endDate)}`
+                            : "Dates will be announced soon"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 items-start">
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
+                        style={{
+                          background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                          borderColor: "color-mix(in oklab, var(--accent) 26%, transparent)",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-sm leading-snug break-words" style={{ color: "var(--text)" }}>
+                          {event.mode === "online" ? "Virtual Event Access" : event.location}
+                        </h4>
+                        <p className="text-xs font-medium capitalize mt-0.5" style={{ color: "var(--muted)" }}>
+                          {event.mode} Event
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
+                  {/* Capacity & Live Registration Progress */}
+                  <div className="p-4 rounded-2xl border space-y-3" style={{ background: "var(--card2)", borderColor: "var(--border)" }}>
+                    <div className="flex justify-between items-center font-mono text-[10.5px] font-black uppercase tracking-wider">
+                      <span style={{ color: "var(--muted)" }}>Capacity Status</span>
+                      {timeLeftStr && (
+                        <span
+                          className={`flex items-center gap-1.5 font-bold ${isComingSoon || isRegClosedByOrganizer ? "text-amber-600 dark:text-amber-400" : ""}`}
+                          style={!(isComingSoon || isRegClosedByOrganizer) ? { color: "var(--accent)" } : undefined}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${isComingSoon || isRegClosedByOrganizer ? "bg-amber-500" : "animate-pulse"}`}
+                            style={!(isComingSoon || isRegClosedByOrganizer) ? { background: "var(--accent)" } : undefined}
+                          />
+                          {isRegClosedByOrganizer && !isComingSoon ? "Registration Paused" : timeLeftStr}
+                        </span>
+                      )}
+                    </div>
+
                     {event.capacity > 0 ? (
                       <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs font-bold text-muted-foreground">
-                          <span>Seats Capacity</span>
-                          <span className="text-primary font-black">
-                            {event.capacity - registeredCount > 0
-                              ? `${event.capacity - registeredCount} spots left`
-                              : "Sold Out"}
+                        <div className="flex justify-between text-xs font-bold" style={{ color: "var(--muted)" }}>
+                          <span>Seats Available</span>
+                          <span className="font-black" style={{ color: "var(--accent)" }}>
+                            {spotsRemaining && spotsRemaining > 0 ? `${spotsRemaining} spots left` : "Sold Out"}
                           </span>
                         </div>
                         <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all duration-500"
                             style={{
-                              width: `${Math.min(100, Math.round((registeredCount / event.capacity) * 100))}%`,
+                              width: `${capacityProgressPct}%`,
                               background: "linear-gradient(90deg, var(--accent), var(--accent2, #8b5cf6))",
                             }}
                           />
@@ -5042,162 +5517,199 @@ export default function EventDetailsPage() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <Ticket className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/25">
+                        <Ticket className="w-4 h-4 shrink-0" style={{ color: "var(--accent)" }} />
+                        <span
+                          className="text-xs font-black uppercase px-2.5 py-0.5 rounded-full border"
+                          style={{
+                            color: "var(--accent)",
+                            background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                            borderColor: "color-mix(in oklab, var(--accent) 28%, transparent)",
+                          }}
+                        >
                           Unlimited Spots Available
                         </span>
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2 text-muted-foreground font-medium text-xs border-t border-border/50 pt-2.5">
+                    <div className="flex items-center gap-2 font-medium text-xs border-t pt-2.5" style={{ color: "var(--muted)", borderColor: "var(--border)" }}>
                       <Users className="w-3.5 h-3.5 shrink-0" />
                       <span>{registeredCount} participants registered</span>
                     </div>
                   </div>
-                </div>
 
-                {/* Action CTAs */}
-                {isStaff || isOwner ? (
-                  <div className="space-y-3">
-                    <div className="p-4 rounded-2xl flex items-start gap-3 border bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300">
-                      <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-extrabold text-xs">Organizer Preview Mode</p>
-                        <p className="opacity-85 text-[11px] font-semibold mt-0.5 leading-relaxed">
-                          You are previewing this event as an organizer or staff member. Registration is restricted to regular participants.
-                        </p>
+                  {/* Registration Action CTAs */}
+                  {isStaff || isOwner ? (
+                    <div className="space-y-3">
+                      <div className="p-4 rounded-2xl flex items-start gap-3 border bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300">
+                        <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-extrabold text-xs">Organizer Preview Mode</p>
+                          <p className="opacity-85 text-[11px] font-semibold mt-0.5 leading-relaxed">
+                            You are previewing this event as an organizer or staff member. Registration is restricted to regular participants.
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <Button
-                      disabled
-                      className="w-full rounded-2xl py-6 bg-muted text-muted-foreground font-bold text-sm cursor-not-allowed shadow-none border border-border"
-                    >
-                      Registration Disabled (Preview Mode)
-                    </Button>
-                    {viewMode === "PREVIEW" && (
                       <Button
-                        onClick={() => setViewMode("DASHBOARD")}
-                        className="w-full rounded-2xl py-6 font-bold text-sm flex items-center justify-center gap-2 text-white shadow-lg transition-transform hover:-translate-y-0.5 cursor-pointer"
-                        style={{
-                          background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
-                        }}
+                        disabled
+                        className="w-full rounded-2xl py-6 bg-muted text-muted-foreground font-bold text-sm cursor-not-allowed shadow-none border border-border"
                       >
-                        <LayoutDashboard className="w-4 h-4" /> Return to Event Dashboard
+                        Registration Disabled (Preview Mode)
                       </Button>
-                    )}
-                  </div>
-                ) : isRegistered ? (
-                  <div className="space-y-3">
-                    <div className="p-4 rounded-2xl flex items-start gap-3 border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-extrabold text-xs">You are registered!</p>
-                        <p className="opacity-80 text-[11px] font-semibold mt-0.5">Your ticket check details are confirmed.</p>
-                      </div>
+                      {viewMode === "PREVIEW" && (
+                        <Button
+                          onClick={() => setViewMode("DASHBOARD")}
+                          className="w-full rounded-2xl py-6 font-bold text-sm flex items-center justify-center gap-2 text-white shadow-lg transition-transform hover:-translate-y-0.5 cursor-pointer"
+                          style={{
+                            background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
+                          }}
+                        >
+                          <LayoutDashboard className="w-4 h-4" /> Return to Event Dashboard
+                        </Button>
+                      )}
                     </div>
-                    <Link href={`/dashboard/team/${userDashboardId}`} className="block">
+                  ) : isRegistered ? (
+                    <div className="space-y-3">
+                      <div
+                        className="p-4 rounded-2xl flex items-start gap-3 border"
+                        style={{
+                          background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                          borderColor: "color-mix(in oklab, var(--accent) 32%, transparent)",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-extrabold text-xs">You are registered!</p>
+                          <p className="opacity-85 text-[11px] font-semibold mt-0.5" style={{ color: "var(--text)" }}>
+                            Your ticket &amp; pass details are confirmed.
+                          </p>
+                        </div>
+                      </div>
+                      <Link href={`/dashboard/team/${userDashboardId}`} className="block">
+                        <Button
+                          className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-xl transition-all hover:-translate-y-0.5 font-bricolage text-[15px] cursor-pointer"
+                          style={{
+                            background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
+                          }}
+                        >
+                          Go to Participant Dashboard
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : isRegistrationBlocked ? (
+                    <div className="space-y-2.5">
                       <Button
-                        className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-xl transition-all hover:-translate-y-0.5 font-bricolage text-[15px] cursor-pointer"
+                        disabled
+                        className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-sm font-bricolage text-[15px] flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
                         style={{
                           background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
                         }}
                       >
-                        Go to Participant Dashboard
+                        <span>{ctaText}</span>
+                      </Button>
+                      {(isComingSoon || isRegClosedByOrganizer) && !isConcluded && !isStarted && (
+                        <div className="space-y-1.5">
+                          <Button
+                            type="button"
+                            onClick={handleToggleReminder}
+                            disabled={isTogglingReminder}
+                            variant="outline"
+                            className="w-full rounded-2xl py-5 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+                            style={
+                              event.hasReminder
+                                ? {
+                                  borderColor: "color-mix(in oklab, var(--accent) 42%, transparent)",
+                                  background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                                  color: "var(--accent)",
+                                }
+                                : undefined
+                            }
+                          >
+                            {isTogglingReminder ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : event.hasReminder ? (
+                              <BellRing className="w-4 h-4" />
+                            ) : (
+                              <Bell className="w-4 h-4" />
+                            )}
+                            <span>
+                              {event.hasReminder ? "Reminder Active — Click to Cancel" : "Remind Me When Open"}
+                            </span>
+                          </Button>
+                          <p className="text-[11px] text-center leading-snug px-2" style={{ color: "var(--muted)" }}>
+                            Get an email &amp; notification as soon as dates are announced and registrations open.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <Link href={`/events/${eventId}/register`} className="block">
+                      <Button
+                        className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-xl transition-all hover:-translate-y-0.5 font-bricolage text-[15px] flex items-center justify-center gap-2 cursor-pointer"
+                        style={{
+                          background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
+                        }}
+                      >
+                        <span>{ctaText}</span>
+                        <ArrowRight className="w-4 h-4" />
                       </Button>
                     </Link>
-                  </div>
-                ) : isRegistrationBlocked ? (
-                  <div className="space-y-2.5">
-                    <Button
-                      disabled
-                      className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-sm font-bricolage text-[15px] flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
-                      style={{
-                        background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
-                      }}
-                    >
-                      <span>{ctaText}</span>
-                    </Button>
-                    {(isComingSoon || isRegClosedByOrganizer) && !isConcluded && !isStarted && (
-                      <div className="space-y-1.5">
-                        <Button
-                          type="button"
-                          onClick={handleToggleReminder}
-                          disabled={isTogglingReminder}
-                          variant="outline"
-                          className={`w-full rounded-2xl py-5 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all ${event.hasReminder
-                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/15"
-                              : "border-border text-foreground hover:bg-muted/50"
-                            }`}
-                        >
-                          {isTogglingReminder ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : event.hasReminder ? (
-                            <BellRing className="w-4 h-4" />
-                          ) : (
-                            <Bell className="w-4 h-4" />
-                          )}
-                          <span>
-                            {event.hasReminder ? "Reminder Active — Click to Cancel" : "Remind Me When Open"}
-                          </span>
-                        </Button>
-                        <p className="text-[11px] text-center text-muted-foreground leading-snug px-2">
-                          Get an email & notification as soon as dates are announced and registrations open.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <Link href={`/events/${eventId}/register`} className="block">
-                    <Button
-                      className="w-full rounded-2xl py-6 text-white font-bold text-sm shadow-xl transition-all hover:-translate-y-0.5 font-bricolage text-[15px] flex items-center justify-center gap-2 cursor-pointer"
-                      style={{
-                        background: "linear-gradient(135deg, var(--accent), var(--accent2, #8b5cf6))",
-                      }}
-                    >
-                      <span>{ctaText}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </Link>
-                )}
+                  )}
 
-                {/* Quick action save and share buttons */}
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
-                  <Button
-                    onClick={handleToggleSave}
-                    variant="outline"
-                    className="rounded-full border border-border text-foreground font-bold text-xs h-10 flex items-center justify-center gap-2 hover:bg-muted/50 cursor-pointer"
-                  >
-                    <Bookmark className={`w-4 h-4 ${event?.is_saved ? "fill-current text-primary" : ""}`} />
-                    <span>{event?.is_saved ? "Saved" : "Save Event"}</span>
-                  </Button>
-                  <Button
-                    onClick={() => setIsShareModalOpen(true)}
-                    variant="outline"
-                    className="rounded-full border border-border text-foreground font-bold text-xs h-10 flex items-center justify-center gap-2 hover:bg-muted/50 cursor-pointer"
-                  >
-                    <Share2 className="w-4 h-4" />
-                    <span>Share Event</span>
-                  </Button>
+                  {/* Save & Share Quick Row */}
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                    <Button
+                      onClick={handleToggleSave}
+                      variant="outline"
+                      className="rounded-full font-bold text-xs h-10 flex items-center justify-center gap-2 cursor-pointer"
+                      style={
+                        event?.is_saved
+                          ? {
+                            borderColor: "color-mix(in oklab, var(--accent) 42%, transparent)",
+                            background: "color-mix(in oklab, var(--accent) 12%, transparent)",
+                            color: "var(--accent)",
+                          }
+                          : undefined
+                      }
+                    >
+                      <Bookmark className={`w-4 h-4 ${event?.is_saved ? "fill-current" : ""}`} />
+                      <span>{event?.is_saved ? "Saved" : "Save Event"}</span>
+                    </Button>
+                    <Button
+                      onClick={() => setIsShareModalOpen(true)}
+                      variant="outline"
+                      className="rounded-full font-bold text-xs h-10 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>Share Event</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
 
-              {/* Quick link to Dashboard if host */}
+              {/* Quick link to Organizer Console */}
               {(isOwner || isStaff) && viewMode === "PREVIEW" && (
                 <div
                   onClick={() => setViewMode("DASHBOARD")}
-                  className="p-4 rounded-2xl border border-border bg-card hover:border-primary/50 transition-all cursor-pointer flex items-center gap-3 shadow-sm"
+                  className="p-4 rounded-2xl border hover:opacity-95 transition-all cursor-pointer flex items-center gap-3 shadow-sm"
+                  style={{ background: "var(--card)", borderColor: "var(--border)" }}
                 >
-                  <div className="w-10 h-10 rounded-xl bg-input/50 flex items-center justify-center text-primary shrink-0">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: "color-mix(in oklab, var(--accent) 14%, transparent)",
+                      color: "var(--accent)",
+                    }}
+                  >
                     <LayoutDashboard className="w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm text-foreground">Event Dashboard</p>
-                    <p className="text-xs text-muted-foreground truncate">You’re managing this event</p>
+                    <p className="font-bold text-sm" style={{ color: "var(--text)" }}>Event Dashboard</p>
+                    <p className="text-xs truncate" style={{ color: "var(--muted)" }}>You’re managing this event</p>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                  <ArrowRight className="w-4 h-4" style={{ color: "var(--muted)" }} />
                 </div>
               )}
-
             </div>
           </section>
 
@@ -5209,7 +5721,7 @@ export default function EventDetailsPage() {
               id: event.id,
               title: event.title,
               description: event.description,
-              banner_url: event.bannerUrl || null,
+              banner_url: bannerInfo.url || null,
               start_date: event.startDate,
               location: event.location,
               mode: event.mode,
@@ -5221,7 +5733,7 @@ export default function EventDetailsPage() {
           {isStaff && viewMode === "PREVIEW" && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-zinc-950/95 text-white px-4 py-3 sm:px-6 sm:py-4 rounded-2xl sm:rounded-3xl border border-zinc-850 shadow-2xl backdrop-blur-md flex items-center gap-2.5 sm:gap-4 animate-in fade-in slide-in-from-bottom-5 max-w-[92vw] w-auto">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full animate-pulse shrink-0" style={{ background: "var(--accent)" }} />
                 <p className="text-[10px] sm:text-xs font-bold text-zinc-200 whitespace-nowrap">
                   <span className="hidden sm:inline">Preview Mode: Organizer view</span>
                   <span className="sm:hidden">Organizer Preview</span>

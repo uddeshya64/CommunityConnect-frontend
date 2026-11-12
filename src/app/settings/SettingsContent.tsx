@@ -49,7 +49,6 @@ interface UserSettings {
   teamInvites: boolean;
   weeklyDigest: boolean;
   soundEffects: boolean;
-  notificationFrequency: "realtime" | "daily" | "weekly" | "muted";
   theme: "dark" | "light" | "system";
   accentColor: "indigo" | "violet" | "emerald" | "rose" | "cyan" | "amber";
   compactMode: boolean;
@@ -79,7 +78,6 @@ const DEFAULT_SETTINGS: UserSettings = {
   teamInvites: true,
   weeklyDigest: false,
   soundEffects: true,
-  notificationFrequency: "realtime",
   theme: "dark",
   accentColor: "indigo",
   compactMode: false,
@@ -155,17 +153,6 @@ const ACCENT_SWATCHES = [
   { key: "cyan", label: "Cyan", c1: "#06b6d4", c2: "#3b82f6" },
   { key: "amber", label: "Amber", c1: "#f59e0b", c2: "#ef4444" },
 ] as const;
-
-const FREQUENCY_OPTIONS: {
-  key: UserSettings["notificationFrequency"];
-  label: string;
-  desc: string;
-}[] = [
-  { key: "realtime", label: "Real-time", desc: "Instant delivery" },
-  { key: "daily", label: "Daily", desc: "Once per day" },
-  { key: "weekly", label: "Weekly", desc: "Monday summary" },
-  { key: "muted", label: "Muted", desc: "Essential only" },
-];
 
 const subscribeNoop = () => () => {};
 
@@ -1104,53 +1091,6 @@ export default function SettingsContent() {
                         </div>
                       );
                     })}
-                  </div>
-
-                  {/* Delivery Frequency Selector */}
-                  <div
-                    className="rounded-3xl border p-6 space-y-4 shadow-sm"
-                    style={{ background: "var(--card)", borderColor: "var(--border)" }}
-                  >
-                    <div>
-                      <h3 className="font-bricolage text-base sm:text-lg font-bold tracking-tight">
-                        Delivery Frequency
-                      </h3>
-                      <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--muted)" }}>
-                        Choose how frequently summary notifications are batched.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {FREQUENCY_OPTIONS.map((freq) => {
-                        const active = settings.notificationFrequency === freq.key;
-                        return (
-                          <button
-                            key={freq.key}
-                            type="button"
-                            onClick={() => updateSetting("notificationFrequency", freq.key)}
-                            className="p-3.5 rounded-2xl border text-left transition-all cursor-pointer"
-                            style={{
-                              background: active
-                                ? "color-mix(in oklab, var(--accent) 12%, var(--card2))"
-                                : "var(--card2)",
-                              borderColor: active
-                                ? "color-mix(in oklab, var(--accent) 50%, var(--border))"
-                                : "var(--border)",
-                            }}
-                          >
-                            <div
-                              className="text-xs font-bold"
-                              style={{ color: active ? "var(--accent)" : "var(--text)" }}
-                            >
-                              {freq.label}
-                            </div>
-                            <div className="text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>
-                              {freq.desc}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
 
                   {/* Native Browser Push Notifications Banner */}

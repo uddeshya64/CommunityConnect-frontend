@@ -28,6 +28,16 @@ export const eventService = {
     return response.data;
   },
 
+  // Upload an event banner image file
+  uploadEventBanner: async (eventId: string | number, file: File) => {
+    const formData = new FormData();
+    formData.append("banner", file);
+    const response = await api.post(`/events/${eventId}/banner`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
+
   // Fetch available event types (system & custom)
   getEventTypes: async () => {
     const response = await api.get('/events/types');
