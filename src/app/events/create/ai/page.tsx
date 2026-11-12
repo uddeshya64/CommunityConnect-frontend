@@ -33,6 +33,7 @@ import {
   Trash2,
   WifiOff,
   BookmarkCheck,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,10 +42,18 @@ import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import AppLayout from "@/components/layout/AppLayout";
 import BackButton from "@/components/ui/BackButton";
 import EventFeeBadge from "@/components/events/EventFeeBadge";
+import EventBannerPicker from "@/components/events/EventBannerPicker";
 import { isFreeFee } from "@/lib/feeUtils";
 import { useAppearance } from "@/components/providers/AppearanceProvider";
 import { useToast } from "@/components/providers/ToastProvider";
-import { PREDEFINED_EVENT_CATEGORIES, CUSTOM_TEMPLATE_ID } from "@/lib/eventTemplates";
+import {
+  PREDEFINED_EVENT_CATEGORIES,
+  CUSTOM_TEMPLATE_ID,
+  getDefaultQuestionsForTemplate,
+  getRecommendedQuestionsForTemplate,
+  getTemplateFormMeta,
+  resolveTemplateId,
+} from "@/lib/eventTemplates";
 import { AI_SPEECH_LANG } from "@/config/env";
 import { eventService } from "@/services/event.service";
 import {
@@ -72,14 +81,6 @@ import {
 
 const MODES = ["online", "offline", "hybrid"];
 const REG_TYPES = ["solo", "team"];
-
-const DEFAULT_REG_FORM_FIELDS: RegistrationFormField[] = [
-  { id: "reg_college", key: "college", label: "College / University", type: "text", required: true },
-  { id: "reg_branch", key: "branch", label: "Branch / Stream", type: "text", required: false },
-  { id: "reg_year", key: "year", label: "Graduation Year / Academic Year", type: "text", required: false },
-  { id: "reg_resume", key: "resume", label: "Resume Link", type: "text", required: false },
-  { id: "reg_why_join", key: "why_join", label: "Why Join?", type: "textarea", required: false },
-];
 
 const SAMPLE_PROMPTS = [
   "Create a two-day technical conference on AI and cloud computing at our Jaipur office on November 15, 2026 for 100 participants, asking for college and resume link.",
@@ -280,8 +281,8 @@ function generateClientDescription(d: AiEventDraft, userPrompt?: string): string
     mode === "online"
       ? "streamed live across interactive virtual stages"
       : location
-      ? `taking place in person at ${location}`
-      : "hosted live at our premier designated venue";
+        ? `taking place in person at ${location}`
+        : "hosted live at our premier designated venue";
 
   // Extract duration mention
   const durationMatch = lowerPrompt.match(/\b(\d{1,3})\s*(?:hours?|hrs?|days?)\b/i);
@@ -455,8 +456,11 @@ function AiEventCreatorPageInner() {
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const typeOptions = [...PREDEFINED_EVENT_CATEGORIES, CUSTOM_TEMPLATE_ID];
+  const hasCustomizedRegFieldsRef = useRef(false);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerFilePreview, setBannerFilePreview] = useState<string>("");
 
-  const [regFormFields, setRegFormFields] = useState<RegistrationFormField[]>(DEFAULT_REG_FORM_FIELDS);
+  const [regFormFields, setRegFormFields] = useState<RegistrationFormField[]>([]);
 
   const addRegFormField = (
     key: string,
@@ -464,6 +468,7 @@ function AiEventCreatorPageInner() {
     type: "text" | "textarea" | "number" | "select" | "checkbox",
     options?: string[]
   ) => {
+    hasCustomizedRegFieldsRef.current = true;
     const id = `reg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const cleanKey = (key || label).toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 30) || id;
     setRegFormFields((prev) => [
@@ -486,6 +491,7 @@ function AiEventCreatorPageInner() {
   };
 
   const updateRegFormField = (id: string, patch: Partial<RegistrationFormField>) => {
+    hasCustomizedRegFieldsRef.current = true;
     setRegFormFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
     setErrors((prev) => {
       if (!prev.reg_form_fields) return prev;
@@ -496,6 +502,7 @@ function AiEventCreatorPageInner() {
   };
 
   const removeRegFormField = (id: string) => {
+    hasCustomizedRegFieldsRef.current = true;
     setRegFormFields((prev) => prev.filter((f) => f.id !== id));
     setErrors((prev) => {
       if (!prev.reg_form_fields) return prev;
@@ -560,6 +567,14 @@ function AiEventCreatorPageInner() {
         setDraft(as.draft || {});
         if (Array.isArray(as.regFormFields) && as.regFormFields.length > 0) {
           setRegFormFields(as.regFormFields);
+          const restoredSig = as.regFormFields.map((r) => `${r.key}:${r.label}:${r.required}`).join("|");
+          const defaultSig = getDefaultQuestionsForTemplate(as.draft?.type)
+            .map((r) => `${r.key}:${r.label}:${r.required}`)
+            .join("|");
+          hasCustomizedRegFieldsRef.current = restoredSig !== defaultSig;
+        } else if (as.draft?.type) {
+          setRegFormFields(getDefaultQuestionsForTemplate(as.draft.type));
+          hasCustomizedRegFieldsRef.current = false;
         }
         setIsLocationSelected(Boolean(as.isLocationSelected || as.draft?.location));
         setLastDraftSavedAt(existing.updatedAt);
@@ -743,7 +758,11 @@ function AiEventCreatorPageInner() {
     setInterimTranscript("");
     setMessages([]);
     setDraft({});
-    setRegFormFields(DEFAULT_REG_FORM_FIELDS);
+    if (bannerFilePreview) URL.revokeObjectURL(bannerFilePreview);
+    setBannerFile(null);
+    setBannerFilePreview("");
+    hasCustomizedRegFieldsRef.current = false;
+    setRegFormFields([]);
     setErrors({});
     setMissingFields([]);
     setInput("");
@@ -798,6 +817,9 @@ function AiEventCreatorPageInner() {
       });
 
       const nextDraft = { ...(result.draft || {}) };
+      if (nextDraft.type) {
+        nextDraft.type = resolveTemplateId(nextDraft.type);
+      }
       if (!nextDraft.title || isGenericTitle(nextDraft.title)) {
         nextDraft.title = ensureCreativeTitle(nextDraft.title, nextDraft.type, message);
       }
@@ -810,7 +832,7 @@ function AiEventCreatorPageInner() {
         nextDraft.description = generateClientDescription(nextDraft, message);
       }
 
-      // Sync AI-generated / updated attendee questions if provided
+      // Sync AI-generated attendee questions if provided, otherwise hydrate theme defaults
       if (Array.isArray(result.draft?.registration_form_schema) && result.draft.registration_form_schema.length > 0) {
         const mapped = result.draft.registration_form_schema.map((f: any, idx: number) => ({
           id: f.id || `reg_${Date.now()}_${idx}`,
@@ -820,7 +842,10 @@ function AiEventCreatorPageInner() {
           required: Boolean(f.required),
           options: f.options,
         }));
+        hasCustomizedRegFieldsRef.current = true;
         setRegFormFields(mapped);
+      } else if (!hasCustomizedRegFieldsRef.current && nextDraft.type) {
+        setRegFormFields(getDefaultQuestionsForTemplate(nextDraft.type));
       }
 
       setMessages((prev) => [
@@ -1020,8 +1045,24 @@ function AiEventCreatorPageInner() {
 
   /* --------------------------------- Review form --------------------------------- */
 
+  const resolvedTemplateId = resolveTemplateId(draft.type);
+  const aiFormMeta = getTemplateFormMeta(resolvedTemplateId);
+  const aiRecommendedQuestions = getRecommendedQuestionsForTemplate(resolvedTemplateId);
+
   const updateDraft = (key: keyof AiEventDraft, value: unknown) => {
-    setDraft((prev) => ({ ...prev, [key]: value }));
+    const nextTemplateId =
+      key === "type" && typeof value === "string" ? resolveTemplateId(value) : null;
+    setDraft((prev) => {
+      const updated = { ...prev, [key]: value };
+      if (nextTemplateId && !prev.mode) {
+        updated.mode = getTemplateFormMeta(nextTemplateId).defaultMode;
+      }
+      return updated;
+    });
+    if (nextTemplateId && (!hasCustomizedRegFieldsRef.current || regFormFields.length === 0)) {
+      setRegFormFields(getDefaultQuestionsForTemplate(nextTemplateId));
+      hasCustomizedRegFieldsRef.current = false;
+    }
     setErrors((prev) => {
       if (!prev[key]) return prev;
       const next = { ...prev };
@@ -1197,7 +1238,7 @@ function AiEventCreatorPageInner() {
         max_team_size: Number(event.max_team_size ?? draft.max_team_size) || 1,
       };
 
-      if (draft.banner_url && typeof draft.banner_url === "string" && draft.banner_url.trim()) {
+      if (!bannerFile && draft.banner_url && typeof draft.banner_url === "string" && draft.banner_url.trim()) {
         payload.banner_url = draft.banner_url.trim();
       }
       if (draft.logo_url && typeof draft.logo_url === "string" && draft.logo_url.trim()) {
@@ -1231,990 +1272,1047 @@ function AiEventCreatorPageInner() {
       };
 
       const created = await eventService.createEvent(payload);
+      const id = created?.data?.id ?? created?.data?.eventId ?? created?.id;
+      if (id && bannerFile) {
+        try {
+          await eventService.uploadEventBanner(String(id), bannerFile);
+        } catch {
+          showError("Event created, but banner image upload failed. You can upload it from Event Details.");
+        }
+      }
       isPublishedRef.current = true;
       deleteEventDraft(draftIdRef.current);
       removeNotificationsForDraft(draftIdRef.current);
       showSuccess("Event created successfully!");
-      const id = created?.data?.id ?? created?.data?.eventId ?? created?.id;
       router.push(id ? `/events/${id}` : "/home");
     } catch (err: unknown) {
-      setIsCreating(false);
-      const isNetworkDown =
-        (typeof navigator !== "undefined" && !navigator.onLine) ||
-        !(err as { response?: unknown })?.response;
-      if (isNetworkDown && hasMeaningfulAiDraft(aiSnapshotRef.current)) {
-        const saved = saveAiDraft(draftIdRef.current, aiSnapshotRef.current, "offline");
-        setLastDraftSavedAt(saved.updatedAt);
-        notifyDraftSaved(saved, "error");
-        showError("Connection interrupted — your event was saved to Drafts.");
-        return;
+        setIsCreating(false);
+        const isNetworkDown =
+          (typeof navigator !== "undefined" && !navigator.onLine) ||
+          !(err as { response?: unknown })?.response;
+        if (isNetworkDown && hasMeaningfulAiDraft(aiSnapshotRef.current)) {
+          const saved = saveAiDraft(draftIdRef.current, aiSnapshotRef.current, "offline");
+          setLastDraftSavedAt(saved.updatedAt);
+          notifyDraftSaved(saved, "error");
+          showError("Connection interrupted — your event was saved to Drafts.");
+          return;
+        }
+        showError(extractErrorMessage(err, "Failed to create event."));
       }
-      showError(extractErrorMessage(err, "Failed to create event."));
-    }
-  };
+    };
 
-  const isLocationRequired = (draft.mode || "offline") !== "online";
+    const isLocationRequired = (draft.mode || "offline") !== "online";
 
-  const fieldClass = (key: string) =>
-    `${
-      errors[key]?.length
+    const fieldClass = (key: string) =>
+      `${errors[key]?.length
         ? "border-red-400 focus-visible:ring-red-400"
         : missingFields.includes(key)
-        ? "border-amber-400 focus-visible:ring-amber-400"
-        : ""
-    }`;
+          ? "border-amber-400 focus-visible:ring-amber-400"
+          : ""
+      }`;
 
-  return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"}`}>
-      <AppLayout>
-        <main className="flex-1 relative overflow-hidden pb-20 min-w-0">
-          <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[150px] pointer-events-none" />
-          <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-500/10 blur-[150px] pointer-events-none" />
+    return (
+      <div className={`min-h-screen transition-colors duration-300 ${isDark ? "bg-zinc-950 text-zinc-100" : "bg-zinc-50 text-zinc-900"}`}>
+        <AppLayout>
+          <main className="flex-1 relative overflow-hidden pb-20 min-w-0">
+            <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[150px] pointer-events-none" />
+            <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-500/10 blur-[150px] pointer-events-none" />
 
-          <div className="w-full max-w-[1320px] mx-auto px-4 sm:px-8 pt-7 pb-20 relative z-10 animate-ccin">
-            {/* Back Navigation */}
-            <div className="mb-5 flex items-center">
-              <BackButton href="/events/create" label="Exit Studio" />
-            </div>
+            <div className="w-full max-w-[1320px] mx-auto px-4 sm:px-8 pt-7 pb-20 relative z-10 animate-ccin">
+              {/* Back Navigation */}
+              <div className="mb-5 flex items-center">
+                <BackButton href="/events/create" label="Exit Studio" />
+              </div>
 
-            {/* Header */}
-            <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className={`w-10 h-10 rounded-2xl flex items-center justify-center ${activeAccent.bg} text-white shadow-lg`}>
-                  <Wand2 className="w-5 h-5" />
-                </span>
-                <div>
-                  <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                    AI Event Creator
-                  </h1>
-                  <p className={`text-xs font-semibold ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                    Describe your event — type it or speak it. Review, edit and publish.
-                  </p>
+              {/* Header */}
+              <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className={`w-10 h-10 rounded-2xl flex items-center justify-center ${activeAccent.bg} text-white shadow-lg`}>
+                    <Wand2 className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                      AI Event Creator
+                    </h1>
+                    <p className={`text-xs font-semibold ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                      Describe your event — type it or speak it. Review, edit and publish.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {isOffline ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border bg-amber-500/15 text-amber-500 border-amber-500/35"
+                      title="Offline mode — your AI draft is safely backed up locally"
+                    >
+                      <WifiOff className="w-3.5 h-3.5" />
+                      Offline • Saved in Drafts
+                    </span>
+                  ) : lastDraftSavedAt ? (
+                    <span
+                      className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border"
+                      style={{
+                        background: "var(--card)",
+                        borderColor: "var(--border)",
+                        color: "var(--muted)",
+                      }}
+                    >
+                      <BookmarkCheck className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                      Draft auto-saved
+                    </span>
+                  ) : null}
+
+                  <Button
+                    variant="outline"
+                    onClick={handleReset}
+                    className="rounded-2xl font-bold"
+                    title="Start over"
+                  >
+                    <RotateCcw className="w-4 h-4" /> Reset
+                  </Button>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
-                {isOffline ? (
-                  <span
-                    className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border bg-amber-500/15 text-amber-500 border-amber-500/35"
-                    title="Offline mode — your AI draft is safely backed up locally"
-                  >
-                    <WifiOff className="w-3.5 h-3.5" />
-                    Offline • Saved in Drafts
-                  </span>
-                ) : lastDraftSavedAt ? (
-                  <span
-                    className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border"
-                    style={{
-                      background: "var(--card)",
-                      borderColor: "var(--border)",
-                      color: "var(--muted)",
-                    }}
-                  >
-                    <BookmarkCheck className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
-                    Draft auto-saved
-                  </span>
-                ) : null}
-
-                <Button
-                  variant="outline"
-                  onClick={handleReset}
-                  className="rounded-2xl font-bold"
-                  title="Start over"
-                >
-                  <RotateCcw className="w-4 h-4" /> Reset
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-              {/* ------------------------------- LEFT: Chat ------------------------------- */}
-              <section className="lg:col-span-2 space-y-4">
-                <div className={`rounded-3xl border shadow-sm overflow-hidden flex flex-col ${isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-white border-zinc-200"}`}>
-                  <div className={`px-5 py-4 border-b flex items-center justify-between ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
-                    <div className="flex items-center gap-2 text-sm font-bold">
-                      <Bot className={`w-4 h-4 ${activeAccent.text}`} />
-                      AI Assistant
-                    </div>
-                    {isGenerating && (
-                      <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-500">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Thinking…
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Messages */}
-                  <div className="flex-1 min-h-[260px] max-h-[420px] overflow-y-auto p-5 space-y-4">
-                    {messages.length === 0 && !isGenerating ? (
-                      <div className="text-center py-6">
-                        <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-indigo-50 text-indigo-500"}`}>
-                          <Sparkles className="w-7 h-7" />
-                        </div>
-                        <p className={`text-sm font-bold mb-1 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
-                          How should I create your event?
-                        </p>
-                        <p className={`text-xs font-medium mb-4 ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                          Describe the event in plain language or use one of these examples.
-                        </p>
-                        <div className="space-y-2 text-left">
-                          {SAMPLE_PROMPTS.map((prompt) => (
-                            <button
-                              key={prompt}
-                              type="button"
-                              onClick={() => {
-                                if (isListening) stopListening();
-                                setInput(prompt);
-                                setInterimTranscript("");
-                              }}
-                              className={`w-full text-left text-xs font-semibold rounded-xl border px-3.5 py-2.5 transition-colors ${
-                                isDark
-                                  ? "bg-zinc-800/60 border-zinc-700 text-zinc-300 hover:border-indigo-500 hover:text-white"
-                                  : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:border-indigo-400 hover:text-zinc-900"
-                              }`}
-                            >
-                              {prompt}
-                            </button>
-                          ))}
-                        </div>
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+                {/* ------------------------------- LEFT: Chat ------------------------------- */}
+                <section className="lg:col-span-2 space-y-4">
+                  <div className={`rounded-3xl border shadow-sm overflow-hidden flex flex-col ${isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-white border-zinc-200"}`}>
+                    <div className={`px-5 py-4 border-b flex items-center justify-between ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
+                      <div className="flex items-center gap-2 text-sm font-bold">
+                        <Bot className={`w-4 h-4 ${activeAccent.text}`} />
+                        AI Assistant
                       </div>
-                    ) : (
-                      <>
-                        {messages.map((message, index) => (
-                          <div key={index} className={`flex gap-2.5 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                            {message.role === "assistant" && (
+                      {isGenerating && (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-500">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Thinking…
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Messages */}
+                    <div className="flex-1 min-h-[260px] max-h-[420px] overflow-y-auto p-5 space-y-4">
+                      {messages.length === 0 && !isGenerating ? (
+                        <div className="text-center py-6">
+                          <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-indigo-50 text-indigo-500"}`}>
+                            <Sparkles className="w-7 h-7" />
+                          </div>
+                          <p className={`text-sm font-bold mb-1 ${isDark ? "text-zinc-200" : "text-zinc-800"}`}>
+                            How should I create your event?
+                          </p>
+                          <p className={`text-xs font-medium mb-4 ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                            Describe the event in plain language or use one of these examples.
+                          </p>
+                          <div className="space-y-2 text-left">
+                            {SAMPLE_PROMPTS.map((prompt) => (
+                              <button
+                                key={prompt}
+                                type="button"
+                                onClick={() => {
+                                  if (isListening) stopListening();
+                                  setInput(prompt);
+                                  setInterimTranscript("");
+                                }}
+                                className={`w-full text-left text-xs font-semibold rounded-xl border px-3.5 py-2.5 transition-colors ${isDark
+                                    ? "bg-zinc-800/60 border-zinc-700 text-zinc-300 hover:border-indigo-500 hover:text-white"
+                                    : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:border-indigo-400 hover:text-zinc-900"
+                                  }`}
+                              >
+                                {prompt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {messages.map((message, index) => (
+                            <div key={index} className={`flex gap-2.5 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                              {message.role === "assistant" && (
+                                <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${activeAccent.bg} text-white`}>
+                                  <Bot className="w-4 h-4" />
+                                </span>
+                              )}
+                              <div
+                                className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap leading-relaxed ${message.role === "user"
+                                    ? isDark
+                                      ? "bg-indigo-600 text-white"
+                                      : "bg-indigo-600 text-white"
+                                    : isDark
+                                      ? "bg-zinc-800 text-zinc-200"
+                                      : "bg-zinc-100 text-zinc-800"
+                                  }`}
+                              >
+                                {message.content}
+                              </div>
+                              {message.role === "user" && (
+                                <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-200 text-zinc-600"}`}>
+                                  <User className="w-4 h-4" />
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                          {isGenerating && (
+                            <div className="flex flex-wrap items-center gap-2.5">
                               <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${activeAccent.bg} text-white`}>
                                 <Bot className="w-4 h-4" />
                               </span>
-                            )}
-                            <div
-                              className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap leading-relaxed ${
-                                message.role === "user"
-                                  ? isDark
-                                    ? "bg-indigo-600 text-white"
-                                    : "bg-indigo-600 text-white"
-                                  : isDark
-                                  ? "bg-zinc-800 text-zinc-200"
-                                  : "bg-zinc-100 text-zinc-800"
-                              }`}
-                            >
-                              {message.content}
-                            </div>
-                            {message.role === "user" && (
-                              <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-200 text-zinc-600"}`}>
-                                <User className="w-4 h-4" />
+                              <span className={`h-8 flex items-center gap-1 px-3 rounded-2xl text-xs font-semibold ${isDark ? "bg-zinc-800 text-zinc-400" : "bg-zinc-100 text-zinc-500"}`}>
+                                <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}>
+                                  Generating your event draft…
+                                </motion.span>
                               </span>
-                            )}
-                          </div>
-                        ))}
-                        {isGenerating && (
-                          <div className="flex flex-wrap items-center gap-2.5">
-                            <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${activeAccent.bg} text-white`}>
-                              <Bot className="w-4 h-4" />
-                            </span>
-                            <span className={`h-8 flex items-center gap-1 px-3 rounded-2xl text-xs font-semibold ${isDark ? "bg-zinc-800 text-zinc-400" : "bg-zinc-100 text-zinc-500"}`}>
-                              <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}>
-                                Generating your event draft…
-                              </motion.span>
-                            </span>
-                          </div>
-                        )}
-                        <div ref={messagesEndRef} />
-                      </>
-                    )}
-                  </div>
-
-                  {/* Input */}
-                  <div className={`border-t p-4 space-y-3 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
-                    <div>
-                      <textarea
-                        ref={textareaRef}
-                        rows={4}
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                            e.preventDefault();
-                            handleGenerate();
-                          }
-                        }}
-                        placeholder="Describe your event… (Ctrl + Enter to send)"
-                        aria-label="Describe your event"
-                        className={`w-full rounded-xl border px-3.5 py-3 text-sm resize-none focus:outline-none focus:ring-2 ${activeAccent.ring} ${
-                          isDark
-                            ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-500"
-                            : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
-                        }`}
-                      />
+                            </div>
+                          )}
+                          <div ref={messagesEndRef} />
+                        </>
+                      )}
                     </div>
 
-                    {isListening && (
-                      <div className="flex items-center justify-between gap-2 text-xs font-bold text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <span className="relative flex w-2 h-2 shrink-0">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                          </span>
-                          <span className="truncate">
-                            Listening… {interimTranscript && <em className="opacity-80 not-italic font-normal">“{interimTranscript}”</em>}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={stopListening}
-                          className="shrink-0 px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 text-[11px] font-semibold transition shadow-sm cursor-pointer"
-                        >
-                          Done speaking
-                        </button>
+                    {/* Input */}
+                    <div className={`border-t p-4 space-y-3 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
+                      <div>
+                        <textarea
+                          ref={textareaRef}
+                          rows={4}
+                          value={input}
+                          onChange={(e) => setInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                              e.preventDefault();
+                              handleGenerate();
+                            }
+                          }}
+                          placeholder="Describe your event… (Ctrl + Enter to send)"
+                          aria-label="Describe your event"
+                          className={`w-full rounded-xl border px-3.5 py-3 text-sm resize-none focus:outline-none focus:ring-2 ${activeAccent.ring} ${isDark
+                              ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-500"
+                              : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                            }`}
+                        />
                       </div>
-                    )}
 
-                    {speechError && (
-                      <div className="flex items-start gap-2 text-xs font-semibold text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
-                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                        <span>{speechError}</span>
-                      </div>
-                    )}
-
-                    <div className="pt-1 space-y-1.5">
-                      <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
-                        {/* Language & Voice Controls aligned on same row */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          {speechSupported && !isListening && (
-                            <select
-                              value={speechLang}
-                              onChange={(e) => setSpeechLang(e.target.value)}
-                              aria-label="Speech recognition language"
-                              title="Select speech recognition language"
-                              className={`h-9 text-xs font-medium rounded-xl border px-2.5 transition focus:outline-none cursor-pointer ${
-                                isDark
-                                  ? "bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-white"
-                                  : "bg-white border-zinc-200 text-zinc-700 hover:text-zinc-900 shadow-2xs"
-                              }`}
-                            >
-                              <option value="en-IN">EN (India)</option>
-                              <option value="en-US">EN (US)</option>
-                              <option value="hi-IN">हिन्दी (Hindi)</option>
-                            </select>
-                          )}
+                      {isListening && (
+                        <div className="flex items-center justify-between gap-2 text-xs font-bold text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <span className="relative flex w-2 h-2 shrink-0">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                            </span>
+                            <span className="truncate">
+                              Listening… {interimTranscript && <em className="opacity-80 not-italic font-normal">“{interimTranscript}”</em>}
+                            </span>
+                          </div>
                           <button
                             type="button"
-                            onClick={isListening ? stopListening : startListening}
-                            disabled={!speechSupported}
-                            aria-label={isListening ? "Stop recording" : "Start voice input"}
-                            title={isListening ? "Stop recording" : "Speak your event"}
-                            className={`h-9 px-3 rounded-xl flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap transition-all border cursor-pointer ${
-                              isListening
-                                ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/40 animate-pulse"
-                                : speechSupported
-                                ? isDark
-                                  ? "bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-600"
-                                  : "bg-white border-zinc-200 text-zinc-700 hover:text-zinc-900 hover:border-zinc-300 shadow-2xs"
-                                : "opacity-40 cursor-not-allowed text-zinc-400 border-zinc-200"
-                            }`}
+                            onClick={stopListening}
+                            className="shrink-0 px-2.5 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 text-[11px] font-semibold transition shadow-sm cursor-pointer"
                           >
-                            {isListening ? (
-                              <>
-                                <MicOff className="w-3.5 h-3.5 shrink-0" />
-                                <span>Stop</span>
-                              </>
-                            ) : (
-                              <>
-                                <Mic className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-                                <span>Voice Input</span>
-                              </>
-                            )}
+                            Done speaking
                           </button>
-                        </div>
-
-                        <Button
-                          onClick={handleGenerate}
-                          disabled={isGenerating || !input.trim()}
-                          className={`h-9 px-4 w-full sm:w-auto shrink-0 whitespace-nowrap rounded-xl ${activeAccent.bg} hover:opacity-90 text-white font-bold shadow-lg ${activeAccent.shadow}`}
-                        >
-                          {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                          Generate with AI
-                        </Button>
-                      </div>
-
-                      <p className={`text-[11px] font-medium ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
-                        {speechSupported ? "Speak or type • Ctrl + Enter to send" : "Type your event • Ctrl + Enter to send"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Status card */}
-                {hasDraft && (
-                  <div className={`rounded-3xl border p-4 shadow-sm ${isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-white border-zinc-200"}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                        Draft status
-                      </h3>
-                      <span className={`text-xs font-bold flex items-center gap-1 ${
-                        missingFields.length === 0 ? "text-emerald-500" : "text-amber-500"
-                      }`}>
-                        {missingFields.length === 0 ? (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Complete
-                          </>
-                        ) : (
-                          <>
-                            <Info className="w-3.5 h-3.5" /> {missingFields.length} missing
-                          </>
-                        )}
-                      </span>
-                    </div>
-                    {missingFields.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {missingFields.map((key) => (
-                          <span key={key} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide bg-amber-500/10 border border-amber-500/30 text-amber-600">
-                            {key.replace(/_/g, " ")}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {missingFields.length === 0 && (
-                      <p className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                        Everything looks ready. Review the details on the right, then hit Create Event.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </section>
-
-              {/* ----------------------------- RIGHT: Preview ----------------------------- */}
-              <section className="lg:col-span-3">
-                <div className={`rounded-3xl border shadow-sm overflow-hidden ${isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-white border-zinc-200"}`}>
-                  <div className={`px-4 sm:px-6 py-4 border-b flex flex-wrap items-center justify-between gap-2 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
-                    <div className="flex items-center gap-2 text-sm font-bold">
-                      <AlignLeft className={`w-4 h-4 shrink-0 ${activeAccent.text}`} />
-                      <span>Editable Event Preview</span>
-                    </div>
-                    {hasDraft && (
-                      <button
-                        type="button"
-                        onClick={handleValidate}
-                        disabled={isValidating}
-                        className={`text-xs font-bold rounded-lg px-3 py-1.5 border flex items-center gap-1.5 transition-colors ${
-                          isDark
-                            ? "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-                            : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                        }`}
-                      >
-                        {isValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                        Validate
-                      </button>
-                    )}
-                  </div>
-
-                  {!hasDraft ? (
-                    <div className="p-6 sm:p-10 text-center">
-                      <div className={`w-16 h-16 mx-auto rounded-3xl flex items-center justify-center mb-4 ${isDark ? "bg-zinc-800" : "bg-indigo-50"}`}>
-                        <Calendar className={`w-8 h-8 ${activeAccent.text}`} />
-                      </div>
-                      <h3 className={`font-extrabold text-lg mb-1 ${isDark ? "text-white" : "text-zinc-800"}`}>
-                        Your AI-generated event will appear here
-                      </h3>
-                      <p className={`text-sm font-medium max-w-md mx-auto ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                        Tell the assistant what you&apos;re planning on the left. Every field below stays editable so you can correct anything before publishing.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-h-[700px] overflow-y-auto">
-                      {Object.keys(errors).length > 0 && (
-                        <div className="flex items-start gap-2.5 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-600">
-                          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                          <span>Please fix the highlighted fields below before creating the event.</span>
                         </div>
                       )}
 
-                      {/* Title */}
-                      <div className="space-y-1.5">
-                        <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                          Title <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          value={draft.title || ""}
-                          onChange={(e) => updateDraft("title", e.target.value)}
-                          placeholder="Event title"
-                          className={`py-6 text-base font-bold ${fieldClass("title")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
-                        />
-                        {errors.title && <FieldError message={errors.title[0]} />}
-                      </div>
-
-                      {/* Category + Mode */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            Category <span className="text-red-500">*</span>
-                          </Label>
-                          <select
-                            value={draft.type || ""}
-                            onChange={(e) => updateDraft("type", e.target.value)}
-                            className={`h-11 w-full rounded-lg border px-3 text-sm font-semibold focus:outline-none focus:ring-2 ${activeAccent.ring} ${fieldClass("type")} ${
-                              isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"
-                            }`}
-                          >
-                            <option value="" disabled>Select a category</option>
-                            {typeOptions.map((type) => (
-                              <option key={type} value={type}>{type}</option>
-                            ))}
-                          </select>
-                          {errors.type && <FieldError message={errors.type[0]} />}
+                      {speechError && (
+                        <div className="flex items-start gap-2 text-xs font-semibold text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
+                          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          <span>{speechError}</span>
                         </div>
+                      )}
 
-                        <div className="space-y-1.5">
-                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            Mode <span className="text-red-500">*</span>
-                          </Label>
-                          <div className="flex gap-2">
-                            {MODES.map((mode) => (
-                              <button
-                                key={mode}
-                                type="button"
-                                onClick={() => updateDraft("mode", mode)}
-                                className={`flex-1 h-11 rounded-lg border font-bold text-sm capitalize transition-all ${
-                                  draft.mode === mode
-                                    ? `${activeAccent.bg} text-white border-transparent shadow-sm`
-                                    : isDark
-                                    ? "bg-zinc-950 text-zinc-300 border-zinc-700 hover:bg-zinc-800"
-                                    : "bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100"
-                                } ${fieldClass("mode")}`}
+                      <div className="pt-1 space-y-1.5">
+                        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
+                          {/* Language & Voice Controls aligned on same row */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {speechSupported && !isListening && (
+                              <select
+                                value={speechLang}
+                                onChange={(e) => setSpeechLang(e.target.value)}
+                                aria-label="Speech recognition language"
+                                title="Select speech recognition language"
+                                className={`h-9 text-xs font-medium rounded-xl border px-2.5 transition focus:outline-none cursor-pointer ${isDark
+                                    ? "bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-white"
+                                    : "bg-white border-zinc-200 text-zinc-700 hover:text-zinc-900 shadow-2xs"
+                                  }`}
                               >
-                                {mode}
-                              </button>
-                            ))}
-                          </div>
-                          {errors.mode && <FieldError message={errors.mode[0]} />}
-                        </div>
-                      </div>
-
-                      {/* Dates */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            <Clock className="w-3 h-3 inline mr-1" /> Start date &amp; time
-                          </Label>
-                          <DateTimePicker
-                            value={isoToLocalInput(draft.start_date as string)}
-                            onChange={(val) => updateDraft("start_date", localInputToIso(val))}
-                            error={!!errors.start_date}
-                            placeholder="Select start date & time"
-                          />
-                          {errors.start_date && <FieldError message={errors.start_date[0]} />}
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            <Clock className="w-3 h-3 inline mr-1" /> End date &amp; time
-                          </Label>
-                          <DateTimePicker
-                            value={isoToLocalInput(draft.end_date as string)}
-                            onChange={(val) => updateDraft("end_date", localInputToIso(val))}
-                            minDate={isoToLocalInput(draft.start_date as string) || undefined}
-                            error={!!errors.end_date}
-                            placeholder="Select end date & time"
-                            align="right"
-                          />
-                          {errors.end_date && <FieldError message={errors.end_date[0]} />}
-                        </div>
-                      </div>
-
-                      {/* Location with Accurate Location API Autocomplete & GPS */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            <MapPin className="w-3 h-3 inline mr-1 text-red-500" /> Location / Meeting link {isLocationRequired && <span className="text-red-500">*</span>}
-                          </Label>
-                          {draft.mode !== "online" && (
+                                <option value="en-IN">EN (India)</option>
+                                <option value="en-US">EN (US)</option>
+                                <option value="hi-IN">हिन्दी (Hindi)</option>
+                              </select>
+                            )}
                             <button
                               type="button"
-                              onClick={handleDetectLocation}
-                              disabled={isDetectingLocation}
-                              className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all ${
-                                isDark
-                                  ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20"
-                                  : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                              }`}
-                              title="Detect your accurate current location via GPS"
+                              onClick={isListening ? stopListening : startListening}
+                              disabled={!speechSupported}
+                              aria-label={isListening ? "Stop recording" : "Start voice input"}
+                              title={isListening ? "Stop recording" : "Speak your event"}
+                              className={`h-9 px-3 rounded-xl flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap transition-all border cursor-pointer ${isListening
+                                  ? "bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/40 animate-pulse"
+                                  : speechSupported
+                                    ? isDark
+                                      ? "bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-600"
+                                      : "bg-white border-zinc-200 text-zinc-700 hover:text-zinc-900 hover:border-zinc-300 shadow-2xs"
+                                    : "opacity-40 cursor-not-allowed text-zinc-400 border-zinc-200"
+                                }`}
                             >
-                              {isDetectingLocation ? (
+                              {isListening ? (
                                 <>
-                                  <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
-                                  <span>Detecting…</span>
+                                  <MicOff className="w-3.5 h-3.5 shrink-0" />
+                                  <span>Stop</span>
                                 </>
                               ) : (
                                 <>
-                                  <Crosshair className="w-3 h-3 text-indigo-500" />
-                                  <span>Use Accurate Location</span>
+                                  <Mic className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                                  <span>Voice Input</span>
                                 </>
                               )}
                             </button>
-                          )}
-                        </div>
-
-                        <div className="relative" ref={locationWrapperRef}>
-                          <Input
-                            ref={locationInputRef}
-                            value={draft.location || ""}
-                            onChange={(e) => {
-                              updateDraft("location", e.target.value);
-                              setIsLocationSelected(false);
-                              if (e.target.value.trim().length >= 3) {
-                                setIsLocationDropdownOpen(true);
-                              } else {
-                                setIsLocationDropdownOpen(false);
-                              }
-                            }}
-                            onFocus={() => {
-                              if (locationSuggestions.length > 0 && !isLocationSelected) {
-                                setIsLocationDropdownOpen(true);
-                              }
-                            }}
-                            onBlur={(e) => {
-                              if (!locationWrapperRef.current?.contains(e.relatedTarget as Node)) {
-                                setIsLocationDropdownOpen(false);
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Escape") {
-                                setIsLocationDropdownOpen(false);
-                              }
-                            }}
-                            placeholder={draft.mode === "online" ? "e.g. Zoom / Google Meet URL" : "e.g. Auditorium Hall, Jaipur (type 3+ chars)"}
-                            className={`h-11 pr-20 ${fieldClass("location")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"}`}
-                          />
-                          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                            {isLoadingLocation && (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-                            )}
-                            {(draft.location || "").toString().trim() && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  updateDraft("location", "");
-                                  setIsLocationSelected(false);
-                                  setLocationSuggestions([]);
-                                  setIsLocationDropdownOpen(false);
-                                }}
-                                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
-                                title="Clear location"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            )}
                           </div>
 
-                          {/* Suggestions Dropdown positioned strictly under the Input */}
-                          {isLocationDropdownOpen && locationSuggestions.length > 0 && (
-                            <div className={`absolute left-0 top-full mt-1.5 w-full z-50 rounded-2xl border shadow-2xl max-h-56 overflow-y-auto divide-y backdrop-blur-md ${
-                              isDark
-                                ? "bg-zinc-900/95 border-zinc-700 divide-zinc-800 text-zinc-100"
-                                : "bg-white/95 border-zinc-200 divide-zinc-100 text-zinc-800"
-                            }`}>
-                              <div className="px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-zinc-400 bg-zinc-100/50 dark:bg-zinc-950/70 flex items-center justify-between">
-                                <span>Suggested Locations (Mapbox)</span>
-                                <span className="text-[9px] font-normal lowercase opacity-70">press to select</span>
-                              </div>
-                              {locationSuggestions.map((s, idx) => (
+                          <Button
+                            onClick={handleGenerate}
+                            disabled={isGenerating || !input.trim()}
+                            className={`h-9 px-4 w-full sm:w-auto shrink-0 whitespace-nowrap rounded-xl ${activeAccent.bg} hover:opacity-90 text-white font-bold shadow-lg ${activeAccent.shadow}`}
+                          >
+                            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            Generate with AI
+                          </Button>
+                        </div>
+
+                        <p className={`text-[11px] font-medium ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+                          {speechSupported ? "Speak or type • Ctrl + Enter to send" : "Type your event • Ctrl + Enter to send"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status card */}
+                  {hasDraft && (
+                    <div className={`rounded-3xl border p-4 shadow-sm ${isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-white border-zinc-200"}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                          Draft status
+                        </h3>
+                        <span className={`text-xs font-bold flex items-center gap-1 ${missingFields.length === 0 ? "text-emerald-500" : "text-amber-500"
+                          }`}>
+                          {missingFields.length === 0 ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Complete
+                            </>
+                          ) : (
+                            <>
+                              <Info className="w-3.5 h-3.5" /> {missingFields.length} missing
+                            </>
+                          )}
+                        </span>
+                      </div>
+                      {missingFields.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {missingFields.map((key) => (
+                            <span key={key} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide bg-amber-500/10 border border-amber-500/30 text-amber-600">
+                              {key.replace(/_/g, " ")}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {missingFields.length === 0 && (
+                        <p className={`text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                          Everything looks ready. Review the details on the right, then hit Create Event.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                {/* ----------------------------- RIGHT: Preview ----------------------------- */}
+                <section className="lg:col-span-3">
+                  <div className={`rounded-3xl border shadow-sm overflow-hidden ${isDark ? "bg-zinc-900/60 border-zinc-800" : "bg-white border-zinc-200"}`}>
+                    <div className={`px-4 sm:px-6 py-4 border-b flex flex-wrap items-center justify-between gap-2 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
+                      <div className="flex items-center gap-2 text-sm font-bold">
+                        <AlignLeft className={`w-4 h-4 shrink-0 ${activeAccent.text}`} />
+                        <span>Editable Event Preview</span>
+                      </div>
+                      {hasDraft && (
+                        <button
+                          type="button"
+                          onClick={handleValidate}
+                          disabled={isValidating}
+                          className={`text-xs font-bold rounded-lg px-3 py-1.5 border flex items-center gap-1.5 transition-colors ${isDark
+                              ? "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                              : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                            }`}
+                        >
+                          {isValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                          Validate
+                        </button>
+                      )}
+                    </div>
+
+                    {!hasDraft ? (
+                      <div className="p-6 sm:p-10 text-center">
+                        <div className={`w-16 h-16 mx-auto rounded-3xl flex items-center justify-center mb-4 ${isDark ? "bg-zinc-800" : "bg-indigo-50"}`}>
+                          <Calendar className={`w-8 h-8 ${activeAccent.text}`} />
+                        </div>
+                        <h3 className={`font-extrabold text-lg mb-1 ${isDark ? "text-white" : "text-zinc-800"}`}>
+                          Your AI-generated event will appear here
+                        </h3>
+                        <p className={`text-sm font-medium max-w-md mx-auto ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                          Tell the assistant what you&apos;re planning on the left. Every field below stays editable so you can correct anything before publishing.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-4 sm:p-6 md:p-8 space-y-6 max-h-[700px] overflow-y-auto">
+                        {Object.keys(errors).length > 0 && (
+                          <div className="flex items-start gap-2.5 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-600">
+                            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                            <span>Please fix the highlighted fields below before creating the event.</span>
+                          </div>
+                        )}
+
+                        {/* Title */}
+                        <div className="space-y-1.5">
+                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                            Title <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            value={draft.title || ""}
+                            onChange={(e) => updateDraft("title", e.target.value)}
+                            placeholder={aiFormMeta.titlePlaceholder}
+                            className={`py-6 text-base font-bold ${fieldClass("title")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
+                          />
+                          {errors.title && <FieldError message={errors.title[0]} />}
+                        </div>
+
+                        {/* Category + Mode */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              Category <span className="text-red-500">*</span>
+                            </Label>
+                            <select
+                              value={draft.type || ""}
+                              onChange={(e) => updateDraft("type", e.target.value)}
+                              className={`h-11 w-full rounded-lg border px-3 text-sm font-semibold focus:outline-none focus:ring-2 ${activeAccent.ring} ${fieldClass("type")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"
+                                }`}
+                            >
+                              <option value="" disabled>Select a category</option>
+                              {typeOptions.map((type) => (
+                                <option key={type} value={type}>{type}</option>
+                              ))}
+                            </select>
+                            {errors.type && <FieldError message={errors.type[0]} />}
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              Mode <span className="text-red-500">*</span>
+                            </Label>
+                            <div className="flex gap-2">
+                              {MODES.map((mode) => (
                                 <button
-                                  key={`${s.mapboxId || idx}-${s.name}`}
+                                  key={mode}
                                   type="button"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    handleSelectLocation(s);
-                                  }}
-                                  className={`w-full text-left px-3.5 py-2.5 flex items-start gap-2.5 transition-colors ${
-                                    isDark
-                                      ? "hover:bg-indigo-600/20 text-zinc-200 hover:text-white"
-                                      : "hover:bg-indigo-50 text-zinc-800 hover:text-indigo-950"
-                                  }`}
+                                  onClick={() => updateDraft("mode", mode)}
+                                  className={`flex-1 h-11 rounded-lg border font-bold text-sm capitalize transition-all ${draft.mode === mode
+                                      ? `${activeAccent.bg} text-white border-transparent shadow-sm`
+                                      : isDark
+                                        ? "bg-zinc-950 text-zinc-300 border-zinc-700 hover:bg-zinc-800"
+                                        : "bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100"
+                                    } ${fieldClass("mode")}`}
                                 >
-                                  <MapPin className="w-4 h-4 mt-0.5 text-indigo-500 shrink-0" />
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-xs font-bold truncate">{s.name}</p>
-                                    {s.address && (
-                                      <p className="text-[11px] text-zinc-400 truncate">{s.address}</p>
-                                    )}
-                                  </div>
+                                  {mode}
                                 </button>
                               ))}
                             </div>
-                          )}
-                        </div>
-
-                        {errors.location && <FieldError message={errors.location[0]} />}
-                        {!errors.location && isLocationRequired && !(draft.location || "").toString().trim() && (
-                          <p className="text-[11px] font-semibold text-amber-600">
-                            Required for offline/hybrid events. Type to search or click &quot;Use Accurate Location&quot;.
-                          </p>
-                        )}
-                      </div>
-
-
-                      {/* Capacity + Fee */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            <Users className="w-3 h-3 inline mr-1" /> Capacity
-                          </Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={draft.capacity ?? ""}
-                            onChange={(e) => updateDraft("capacity", e.target.value)}
-                            placeholder="0 (no limit)"
-                            className={`h-11 ${fieldClass("capacity")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
-                          />
-                          {errors.capacity && <FieldError message={errors.capacity[0]} />}
-                        </div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                              <Ticket className="w-3 h-3 inline mr-1" /> Registration fee (₹)
-                            </Label>
-                            {isFreeFee(draft.registration_fee) && (
-                              <EventFeeBadge fee={0} size="xs" />
-                            )}
-                          </div>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={draft.registration_fee ?? ""}
-                            onChange={(e) => updateDraft("registration_fee", e.target.value)}
-                            placeholder="0 (Leave blank for Free)"
-                            className={`h-11 ${fieldClass("registration_fee")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
-                          />
-                          {errors.registration_fee && <FieldError message={errors.registration_fee[0]} />}
-                        </div>
-                      </div>
-
-                      {/* Registration type */}
-                      <div className="space-y-1.5">
-                        <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                          <ListPlus className="w-3 h-3 inline mr-1" /> Registration type <span className="text-red-500">*</span>
-                        </Label>
-                        <div className="flex gap-2 max-w-sm">
-                          {REG_TYPES.map((type) => (
-                            <button
-                              key={type}
-                              type="button"
-                              onClick={() => updateDraft("registration_type", type)}
-                              className={`flex-1 h-11 rounded-lg border font-bold text-sm capitalize transition-all ${
-                                draft.registration_type === type
-                                  ? `${activeAccent.bg} text-white border-transparent shadow-sm`
-                                  : isDark
-                                  ? "bg-zinc-950 text-zinc-300 border-zinc-700 hover:bg-zinc-800"
-                                  : "bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100"
-                              } ${fieldClass("registration_type")}`}
-                            >
-                              {type}
-                            </button>
-                          ))}
-                        </div>
-                        {errors.registration_type && <FieldError message={errors.registration_type[0]} />}
-                      </div>
-
-                      {/* Team sizes */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            Min team size <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={draft.min_team_size ?? ""}
-                            onChange={(e) => updateDraft("min_team_size", e.target.value)}
-                            className={`h-11 ${fieldClass("min_team_size")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
-                          />
-                          {errors.min_team_size && <FieldError message={errors.min_team_size[0]} />}
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            Max team size <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={draft.max_team_size ?? ""}
-                            onChange={(e) => updateDraft("max_team_size", e.target.value)}
-                            className={`h-11 ${fieldClass("max_team_size")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
-                          />
-                          {errors.max_team_size && <FieldError message={errors.max_team_size[0]} />}
-                        </div>
-                      </div>
-
-                      {/* Description */}
-                      <div className="space-y-1.5">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            Description <span className="text-red-500">*</span>
-                          </Label>
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={handleAutoGenerateDescription}
-                              className={`text-[11px] font-bold flex items-center gap-1 transition-opacity hover:opacity-80 ${activeAccent.text}`}
-                              title="Auto-evaluate and fill AI description"
-                            >
-                              <Wand2 className="w-3 h-3" /> Auto-Fill AI Description
-                            </button>
-                            {typeof draft.description === "string" && draft.description.length > 0 && (
-                              <span className={`text-[11px] font-bold ${(draft.description as string).length >= 20 ? "text-emerald-500" : "text-amber-500"}`}>
-                                {(draft.description as string).length} / Min 20
-                              </span>
-                            )}
+                            {errors.mode && <FieldError message={errors.mode[0]} />}
                           </div>
                         </div>
-                        <textarea
-                          rows={5}
-                          value={draft.description || ""}
-                          onChange={(e) => updateDraft("description", e.target.value)}
-                          placeholder="Describe the purpose, highlights and schedule…"
-                          className={`w-full rounded-xl border px-3.5 py-3 text-sm resize-y focus:outline-none focus:ring-2 ${activeAccent.ring} ${fieldClass("description")} ${
-                            isDark ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
-                          }`}
+
+                        {/* Cover Banner */}
+                        <EventBannerPicker
+                          compact
+                          bannerUrl={typeof draft.banner_url === "string" ? draft.banner_url : ""}
+                          bannerFile={bannerFile}
+                          filePreviewUrl={bannerFilePreview}
+                          templateId={resolveTemplateId(String(draft.type || "Custom"))}
+                          onFileSelect={(file) => {
+                            if (bannerFilePreview) URL.revokeObjectURL(bannerFilePreview);
+                            setBannerFile(file);
+                            setBannerFilePreview(URL.createObjectURL(file));
+                          }}
+                          onUrlChange={(url) => {
+                            if (bannerFilePreview) URL.revokeObjectURL(bannerFilePreview);
+                            setBannerFile(null);
+                            setBannerFilePreview("");
+                            updateDraft("banner_url", url);
+                          }}
+                          onClear={() => {
+                            if (bannerFilePreview) URL.revokeObjectURL(bannerFilePreview);
+                            setBannerFile(null);
+                            setBannerFilePreview("");
+                            updateDraft("banner_url", "");
+                          }}
+                          error={errors.banner_url?.[0]}
                         />
-                        {errors.description && <FieldError message={errors.description[0]} />}
-                      </div>
 
-                      {/* Attendee Custom Questionnaire */}
-                      <div className="space-y-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-xl flex items-center justify-center shrink-0 border border-blue-500/20 shadow-xs">
-                            <FileText className="w-5 h-5" />
+                        {/* Dates */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              <Clock className="w-3 h-3 inline mr-1" /> Start date &amp; time
+                            </Label>
+                            <DateTimePicker
+                              value={isoToLocalInput(draft.start_date as string)}
+                              onChange={(val) => updateDraft("start_date", localInputToIso(val))}
+                              error={!!errors.start_date}
+                              placeholder="Select start date & time"
+                            />
+                            {errors.start_date && <FieldError message={errors.start_date[0]} />}
                           </div>
-                          <div>
-                            <h3 className={`text-base font-black ${isDark ? "text-white" : "text-zinc-900"} tracking-tight`}>
-                              Attendee Custom Questionnaire
-                            </h3>
-                            <p className={`${isDark ? "text-zinc-400" : "text-zinc-500"} text-xs font-semibold`}>
-                              Build forms attendees answer during checkout registration.
-                            </p>
+                          <div className="space-y-1.5">
+                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              <Clock className="w-3 h-3 inline mr-1" /> End date &amp; time
+                            </Label>
+                            <DateTimePicker
+                              value={isoToLocalInput(draft.end_date as string)}
+                              onChange={(val) => updateDraft("end_date", localInputToIso(val))}
+                              minDate={isoToLocalInput(draft.start_date as string) || undefined}
+                              error={!!errors.end_date}
+                              placeholder="Select end date & time"
+                              align="right"
+                            />
+                            {errors.end_date && <FieldError message={errors.end_date[0]} />}
                           </div>
                         </div>
 
-                        {/* Fixed Profile Fields Notice */}
-                        <div className={`p-3 rounded-xl ${isDark ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300" : "bg-indigo-50/70 border-indigo-100 text-indigo-900"} border space-y-0.5`}>
-                          <div className="flex items-center gap-1.5 font-bold text-xs">
-                            <Lock className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> Fixed Profile Fields
-                          </div>
-                          <p className={`text-xs ${isDark ? "text-zinc-300" : "text-indigo-800"} font-medium`}>
-                            These fields are mandatory: <span className="font-bold">Full Name, Email Address, Phone Number</span>.
-                          </p>
-                        </div>
-
-                        {/* Quick Presets & Blank */}
-                        <div className="space-y-2">
-                          <label className={`text-[11px] font-black uppercase tracking-wider ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                            Quick Presets & Blank
-                          </label>
-                          <div className="flex flex-wrap gap-1.5">
-                            {[
-                              { label: "College / University", key: "college", type: "text" },
-                              { label: "Graduation Year", key: "year", type: "text" },
-                              { label: "Branch / Stream", key: "branch", type: "text" },
-                              { label: "Resume Link", key: "resume", type: "text" },
-                              { label: "Why Join?", key: "why_join", type: "textarea" },
-                            ].map((p) => (
+                        {/* Location with Accurate Location API Autocomplete & GPS */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              <MapPin className="w-3 h-3 inline mr-1 text-red-500" /> Location / Meeting link {isLocationRequired && <span className="text-red-500">*</span>}
+                            </Label>
+                            {draft.mode !== "online" && (
                               <button
-                                key={p.label}
                                 type="button"
-                                onClick={() => addRegFormField(p.key, p.label, p.type as any)}
-                                className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all shadow-xs ${
-                                  isDark
-                                    ? "bg-zinc-800 border-zinc-700 text-zinc-200 hover:bg-zinc-700 hover:text-white"
-                                    : "bg-zinc-100 border-zinc-200 text-zinc-800 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200"
-                                }`}
+                                onClick={handleDetectLocation}
+                                disabled={isDetectingLocation}
+                                className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all ${isDark
+                                    ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20"
+                                    : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                  }`}
+                                title="Detect your accurate current location via GPS"
                               >
-                                + {p.label}
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={() => addRegFormField(`custom_${Date.now()}`, "", "text")}
-                              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1"
-                            >
-                              <Plus className="w-3.5 h-3.5" /> Blank Question
-                            </button>
-                          </div>
-                        </div>
-
-                        {errors.reg_form_fields && (
-                          <p className="text-xs text-red-500 font-semibold bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
-                            {errors.reg_form_fields[0]}
-                          </p>
-                        )}
-
-                        {/* Horizontal rows for questionnaire fields */}
-                        <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-                          {regFormFields.length === 0 && (
-                            <p className={`text-center py-6 ${isDark ? "text-zinc-500" : "text-zinc-400"} italic text-xs font-medium`}>
-                              No dynamic checkout questions added. Click presets above or ask AI in chat!
-                            </p>
-                          )}
-                          {regFormFields.map((field) => (
-                            <div
-                              key={field.id}
-                              className={`flex flex-col md:flex-row items-center gap-2.5 p-3 rounded-xl border ${
-                                isDark
-                                  ? "bg-zinc-950/70 border-zinc-800"
-                                  : "bg-zinc-50 border-zinc-200"
-                              }`}
-                            >
-                              <div className="w-full md:w-1/3">
-                                <Input
-                                  value={field.label}
-                                  onChange={(e) => updateRegFormField(field.id, { label: e.target.value })}
-                                  placeholder="Question Label (e.g. Laptop Brand)"
-                                  className={`h-9 rounded-lg text-xs font-semibold ${
-                                    isDark
-                                      ? "bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
-                                      : "bg-white border-zinc-200 text-zinc-900"
-                                  }`}
-                                />
-                              </div>
-                              <div className="w-full md:w-1/4">
-                                <select
-                                  value={field.type}
-                                  onChange={(e) =>
-                                    updateRegFormField(field.id, {
-                                      type: e.target.value as any,
-                                      options:
-                                        e.target.value === "select"
-                                          ? field.options || ["Option 1", "Option 2"]
-                                          : undefined,
-                                    })
-                                  }
-                                  className={`w-full h-9 py-1 px-2.5 rounded-lg border text-xs font-bold focus:outline-none ${
-                                    isDark
-                                      ? "border-zinc-700 bg-zinc-900 text-white"
-                                      : "border-zinc-200 bg-white text-zinc-800"
-                                  }`}
-                                >
-                                  <option value="text">Short Text</option>
-                                  <option value="textarea">Long Text</option>
-                                  <option value="number">Number</option>
-                                  <option value="select">Dropdown Options</option>
-                                  <option value="checkbox">Checkbox Toggle</option>
-                                </select>
-                              </div>
-                              <div className="flex-1 w-full">
-                                {field.type === "select" ? (
-                                  <Input
-                                    value={(field.options || []).join(", ")}
-                                    onChange={(e) =>
-                                      updateRegFormField(field.id, {
-                                        options: e.target.value
-                                          .split(",")
-                                          .map((o) => o.trim())
-                                          .filter(Boolean),
-                                      })
-                                    }
-                                    placeholder="e.g. S, M, L, XL"
-                                    className={`h-9 rounded-lg text-xs font-semibold px-2.5 ${
-                                      isDark
-                                        ? "bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
-                                        : "bg-white border-zinc-200 text-zinc-900"
-                                    }`}
-                                  />
+                                {isDetectingLocation ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
+                                    <span>Detecting…</span>
+                                  </>
                                 ) : (
-                                  <div
-                                    className={`text-xs ${
-                                      isDark ? "text-zinc-400" : "text-zinc-500"
-                                    } font-semibold italic text-center md:text-left`}
-                                  >
-                                    No additional configuration
-                                  </div>
+                                  <>
+                                    <Crosshair className="w-3 h-3 text-indigo-500" />
+                                    <span>Use Accurate Location</span>
+                                  </>
                                 )}
-                              </div>
-                              <div className="shrink-0 flex items-center gap-3">
-                                <label
-                                  className={`flex items-center gap-1.5 text-xs font-bold ${
-                                    isDark ? "text-white" : "text-zinc-800"
-                                  } cursor-pointer uppercase select-none`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={field.required}
-                                    onChange={(e) =>
-                                      updateRegFormField(field.id, { required: e.target.checked })
-                                    }
-                                    className="w-3.5 h-3.5 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
-                                  />
-                                  Req
-                                </label>
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="relative" ref={locationWrapperRef}>
+                            <Input
+                              ref={locationInputRef}
+                              value={draft.location || ""}
+                              onChange={(e) => {
+                                updateDraft("location", e.target.value);
+                                setIsLocationSelected(false);
+                                if (e.target.value.trim().length >= 3) {
+                                  setIsLocationDropdownOpen(true);
+                                } else {
+                                  setIsLocationDropdownOpen(false);
+                                }
+                              }}
+                              onFocus={() => {
+                                if (locationSuggestions.length > 0 && !isLocationSelected) {
+                                  setIsLocationDropdownOpen(true);
+                                }
+                              }}
+                              onBlur={(e) => {
+                                if (!locationWrapperRef.current?.contains(e.relatedTarget as Node)) {
+                                  setIsLocationDropdownOpen(false);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape") {
+                                  setIsLocationDropdownOpen(false);
+                                }
+                              }}
+                              placeholder={draft.mode === "online" ? aiFormMeta.onlinePlaceholder : aiFormMeta.venuePlaceholder}
+                              className={`h-11 pr-20 ${fieldClass("location")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"}`}
+                            />
+                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                              {isLoadingLocation && (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                              )}
+                              {(draft.location || "").toString().trim() && (
                                 <button
                                   type="button"
-                                  onClick={() => removeRegFormField(field.id)}
-                                  className="p-1.5 rounded hover:text-red-400 text-zinc-400 hover:bg-red-500/10 transition-colors shrink-0"
-                                  aria-label="Remove field"
-                                  title="Remove question"
+                                  onClick={() => {
+                                    updateDraft("location", "");
+                                    setIsLocationSelected(false);
+                                    setLocationSuggestions([]);
+                                    setIsLocationDropdownOpen(false);
+                                  }}
+                                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                                  title="Clear location"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <X className="w-3.5 h-3.5" />
                                 </button>
+                              )}
+                            </div>
+
+                            {/* Suggestions Dropdown positioned strictly under the Input */}
+                            {isLocationDropdownOpen && locationSuggestions.length > 0 && (
+                              <div className={`absolute left-0 top-full mt-1.5 w-full z-50 rounded-2xl border shadow-2xl max-h-56 overflow-y-auto divide-y backdrop-blur-md ${isDark
+                                  ? "bg-zinc-900/95 border-zinc-700 divide-zinc-800 text-zinc-100"
+                                  : "bg-white/95 border-zinc-200 divide-zinc-100 text-zinc-800"
+                                }`}>
+                                <div className="px-3.5 py-2 text-[10px] font-black uppercase tracking-wider text-zinc-400 bg-zinc-100/50 dark:bg-zinc-950/70 flex items-center justify-between">
+                                  <span>Suggested Locations (Mapbox)</span>
+                                  <span className="text-[9px] font-normal lowercase opacity-70">press to select</span>
+                                </div>
+                                {locationSuggestions.map((s, idx) => (
+                                  <button
+                                    key={`${s.mapboxId || idx}-${s.name}`}
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleSelectLocation(s);
+                                    }}
+                                    className={`w-full text-left px-3.5 py-2.5 flex items-start gap-2.5 transition-colors ${isDark
+                                        ? "hover:bg-indigo-600/20 text-zinc-200 hover:text-white"
+                                        : "hover:bg-indigo-50 text-zinc-800 hover:text-indigo-950"
+                                      }`}
+                                  >
+                                    <MapPin className="w-4 h-4 mt-0.5 text-indigo-500 shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-xs font-bold truncate">{s.name}</p>
+                                      {s.address && (
+                                        <p className="text-[11px] text-zinc-400 truncate">{s.address}</p>
+                                      )}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {errors.location && <FieldError message={errors.location[0]} />}
+                          {!errors.location && isLocationRequired && !(draft.location || "").toString().trim() && (
+                            <p className="text-[11px] font-semibold text-amber-600">
+                              Required for offline/hybrid events. Type to search or click &quot;Use Accurate Location&quot;.
+                            </p>
+                          )}
+                        </div>
+
+
+                        {/* Capacity + Fee */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              <Users className="w-3 h-3 inline mr-1" /> Capacity
+                            </Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={draft.capacity ?? ""}
+                              onChange={(e) => updateDraft("capacity", e.target.value)}
+                              placeholder="0 (no limit)"
+                              className={`h-11 ${fieldClass("capacity")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
+                            />
+                            {errors.capacity && <FieldError message={errors.capacity[0]} />}
+                          </div>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                                <Ticket className="w-3 h-3 inline mr-1" /> Registration fee (₹)
+                              </Label>
+                              {isFreeFee(draft.registration_fee) && (
+                                <EventFeeBadge fee={0} size="xs" />
+                              )}
+                            </div>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={draft.registration_fee ?? ""}
+                              onChange={(e) => updateDraft("registration_fee", e.target.value)}
+                              placeholder="0 (Leave blank for Free)"
+                              className={`h-11 ${fieldClass("registration_fee")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
+                            />
+                            {errors.registration_fee && <FieldError message={errors.registration_fee[0]} />}
+                          </div>
+                        </div>
+
+                        {/* Registration type */}
+                        <div className="space-y-1.5">
+                          <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                            <ListPlus className="w-3 h-3 inline mr-1" /> Registration type <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="flex gap-2 max-w-sm">
+                            {REG_TYPES.map((type) => (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => updateDraft("registration_type", type)}
+                                className={`flex-1 h-11 rounded-lg border font-bold text-sm capitalize transition-all ${draft.registration_type === type
+                                    ? `${activeAccent.bg} text-white border-transparent shadow-sm`
+                                    : isDark
+                                      ? "bg-zinc-950 text-zinc-300 border-zinc-700 hover:bg-zinc-800"
+                                      : "bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100"
+                                  } ${fieldClass("registration_type")}`}
+                              >
+                                {type}
+                              </button>
+                            ))}
+                          </div>
+                          {errors.registration_type && <FieldError message={errors.registration_type[0]} />}
+                        </div>
+
+                        {/* Team sizes */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              Min team size <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={draft.min_team_size ?? ""}
+                              onChange={(e) => updateDraft("min_team_size", e.target.value)}
+                              className={`h-11 ${fieldClass("min_team_size")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
+                            />
+                            {errors.min_team_size && <FieldError message={errors.min_team_size[0]} />}
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              Max team size <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={draft.max_team_size ?? ""}
+                              onChange={(e) => updateDraft("max_team_size", e.target.value)}
+                              className={`h-11 ${fieldClass("max_team_size")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"}`}
+                            />
+                            {errors.max_team_size && <FieldError message={errors.max_team_size[0]} />}
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        <div className="space-y-1.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <Label className={`text-[11px] font-black uppercase tracking-widest ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              Description <span className="text-red-500">*</span>
+                            </Label>
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={handleAutoGenerateDescription}
+                                className={`text-[11px] font-bold flex items-center gap-1 transition-opacity hover:opacity-80 ${activeAccent.text}`}
+                                title="Auto-evaluate and fill AI description"
+                              >
+                                <Wand2 className="w-3 h-3" /> Auto-Fill AI Description
+                              </button>
+                              {typeof draft.description === "string" && draft.description.length > 0 && (
+                                <span className={`text-[11px] font-bold ${(draft.description as string).length >= 20 ? "text-emerald-500" : "text-amber-500"}`}>
+                                  {(draft.description as string).length} / Min 20
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <textarea
+                            rows={5}
+                            value={draft.description || ""}
+                            onChange={(e) => updateDraft("description", e.target.value)}
+                            placeholder={aiFormMeta.descriptionPlaceholder}
+                            className={`w-full rounded-xl border px-3.5 py-3 text-sm resize-y focus:outline-none focus:ring-2 ${activeAccent.ring} ${fieldClass("description")} ${isDark ? "bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-500" : "bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400"
+                              }`}
+                          />
+                          {errors.description && <FieldError message={errors.description[0]} />}
+                        </div>
+
+                        {/* Attendee Custom Questionnaire */}
+                        <div className="space-y-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                          <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-xl flex items-center justify-center shrink-0 border border-blue-500/20 shadow-xs">
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h3 className={`text-base font-black ${isDark ? "text-white" : "text-zinc-900"} tracking-tight`}>
+                                  Attendee Custom Questionnaire
+                                </h3>
+                                <p className={`${isDark ? "text-zinc-400" : "text-zinc-500"} text-xs font-semibold`}>
+                                  {aiFormMeta.questionnaireSubtitle}
+                                </p>
                               </div>
                             </div>
-                          ))}
+                            <div className="flex items-center gap-3">
+                              {resolvedTemplateId !== CUSTOM_TEMPLATE_ID && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    hasCustomizedRegFieldsRef.current = false;
+                                    setRegFormFields(getDefaultQuestionsForTemplate(resolvedTemplateId));
+                                  }}
+                                  className="text-[11px] font-bold hover:underline cursor-pointer"
+                                  style={{ color: "var(--accent)" }}
+                                >
+                                  Load Theme Defaults
+                                </button>
+                              )}
+                              {regFormFields.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    hasCustomizedRegFieldsRef.current = true;
+                                    setRegFormFields([]);
+                                  }}
+                                  className="text-[11px] font-bold text-red-500 hover:underline cursor-pointer"
+                                >
+                                  Clear All
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Fixed Profile Fields Notice */}
+                          <div className={`p-3 rounded-xl ${isDark ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300" : "bg-indigo-50/70 border-indigo-100 text-indigo-900"} border space-y-0.5`}>
+                            <div className="flex items-center gap-1.5 font-bold text-xs">
+                              <Lock className="w-3.5 h-3.5 text-indigo-400 shrink-0" /> Fixed Profile Fields
+                            </div>
+                            <p className={`text-xs ${isDark ? "text-zinc-300" : "text-indigo-800"} font-medium`}>
+                              These fields are mandatory: <span className="font-bold">Full Name, Email Address, Phone Number</span>.
+                            </p>
+                          </div>
+
+                          {/* Recommended Theme Presets & Blank */}
+                          <div className="space-y-2">
+                            <label className={`text-[11px] font-black uppercase tracking-wider ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                              {resolvedTemplateId === CUSTOM_TEMPLATE_ID
+                                ? "Recommended Questions & Blank"
+                                : `Recommended Questions (${resolvedTemplateId})`}
+                            </label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {aiRecommendedQuestions.map((p) => {
+                                const isAdded = regFormFields.some(
+                                  (f) => f.label.toLowerCase() === p.label.toLowerCase() || (p.key && f.key === p.key)
+                                );
+                                return (
+                                  <button
+                                    key={p.label}
+                                    type="button"
+                                    onClick={() => {
+                                      if (!isAdded) {
+                                        addRegFormField(p.key, p.label, p.type, p.options);
+                                      }
+                                    }}
+                                    className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all shadow-xs flex items-center gap-1 ${isAdded
+                                        ? isDark
+                                          ? "bg-indigo-500/15 border-indigo-500/35 text-indigo-300"
+                                          : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                                        : isDark
+                                          ? "bg-zinc-800 border-zinc-700 text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                                          : "bg-zinc-100 border-zinc-200 text-zinc-800 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200"
+                                      }`}
+                                  >
+                                    {isAdded ? (
+                                      <>
+                                        <Check className="w-3 h-3 shrink-0" />
+                                        <span>{p.label}</span>
+                                      </>
+                                    ) : (
+                                      <span>+ {p.label}</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                              <button
+                                type="button"
+                                onClick={() => addRegFormField(`custom_${Date.now()}`, "", "text")}
+                                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> Blank Question
+                              </button>
+                            </div>
+                          </div>
+
+                          {errors.reg_form_fields && (
+                            <p className="text-xs text-red-500 font-semibold bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+                              {errors.reg_form_fields[0]}
+                            </p>
+                          )}
+
+                          {/* Horizontal rows for questionnaire fields */}
+                          <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                            {regFormFields.length === 0 && (
+                              <p className={`text-center py-6 ${isDark ? "text-zinc-500" : "text-zinc-400"} italic text-xs font-medium`}>
+                                No dynamic checkout questions added. Click presets above or ask AI in chat!
+                              </p>
+                            )}
+                            {regFormFields.map((field) => (
+                              <div
+                                key={field.id}
+                                className={`flex flex-col md:flex-row items-center gap-2.5 p-3 rounded-xl border ${isDark
+                                    ? "bg-zinc-950/70 border-zinc-800"
+                                    : "bg-zinc-50 border-zinc-200"
+                                  }`}
+                              >
+                                <div className="w-full md:w-1/3">
+                                  <Input
+                                    value={field.label}
+                                    onChange={(e) => updateRegFormField(field.id, { label: e.target.value })}
+                                    placeholder={aiFormMeta.questionLabelPlaceholder}
+                                    className={`h-9 rounded-lg text-xs font-semibold ${isDark
+                                        ? "bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
+                                        : "bg-white border-zinc-200 text-zinc-900"
+                                      }`}
+                                  />
+                                </div>
+                                <div className="w-full md:w-1/4">
+                                  <select
+                                    value={field.type}
+                                    onChange={(e) =>
+                                      updateRegFormField(field.id, {
+                                        type: e.target.value as any,
+                                        options:
+                                          e.target.value === "select"
+                                            ? field.options || ["Option 1", "Option 2"]
+                                            : undefined,
+                                      })
+                                    }
+                                    className={`w-full h-9 py-1 px-2.5 rounded-lg border text-xs font-bold focus:outline-none ${isDark
+                                        ? "border-zinc-700 bg-zinc-900 text-white"
+                                        : "border-zinc-200 bg-white text-zinc-800"
+                                      }`}
+                                  >
+                                    <option value="text">Short Text</option>
+                                    <option value="textarea">Long Text</option>
+                                    <option value="number">Number</option>
+                                    <option value="select">Dropdown Options</option>
+                                    <option value="checkbox">Checkbox Toggle</option>
+                                  </select>
+                                </div>
+                                <div className="flex-1 w-full">
+                                  {field.type === "select" ? (
+                                    <Input
+                                      value={(field.options || []).join(", ")}
+                                      onChange={(e) =>
+                                        updateRegFormField(field.id, {
+                                          options: e.target.value
+                                            .split(",")
+                                            .map((o) => o.trim())
+                                            .filter(Boolean),
+                                        })
+                                      }
+                                      placeholder="e.g. S, M, L, XL"
+                                      className={`h-9 rounded-lg text-xs font-semibold px-2.5 ${isDark
+                                          ? "bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
+                                          : "bg-white border-zinc-200 text-zinc-900"
+                                        }`}
+                                    />
+                                  ) : (
+                                    <div
+                                      className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"
+                                        } font-semibold italic text-center md:text-left`}
+                                    >
+                                      No additional configuration
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="shrink-0 flex items-center gap-3">
+                                  <label
+                                    className={`flex items-center gap-1.5 text-xs font-bold ${isDark ? "text-white" : "text-zinc-800"
+                                      } cursor-pointer uppercase select-none`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={field.required}
+                                      onChange={(e) =>
+                                        updateRegFormField(field.id, { required: e.target.checked })
+                                      }
+                                      className="w-3.5 h-3.5 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+                                    />
+                                    Req
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeRegFormField(field.id)}
+                                    className="p-1.5 rounded hover:text-red-400 text-zinc-400 hover:bg-red-500/10 transition-colors shrink-0"
+                                    aria-label="Remove field"
+                                    title="Remove question"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Schedule readout */}
+                        <div className={`flex items-center gap-2 text-xs font-semibold rounded-xl px-3.5 py-2.5 ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
+                          <Globe className="w-3.5 h-3.5 shrink-0" />
+                          <span>
+                            {draft.start_date
+                              ? `Runs ${formatDisplayDate(draft.start_date as string)}${draft.end_date ? ` → ${formatDisplayDate(draft.end_date as string)}` : ""}`
+                              : "Dates Coming Soon (can be added later in the Organizer Dashboard)"}
+                          </span>
+                        </div>
+
+                        {/* Footer actions */}
+                        <div className={`border-t pt-5 flex flex-col sm:flex-row items-center gap-3 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
+                          <Button
+                            variant="outline"
+                            onClick={handleValidate}
+                            disabled={isValidating}
+                            className="w-full sm:w-auto rounded-xl font-bold"
+                          >
+                            {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                            Validate
+                          </Button>
+                          <Button
+                            onClick={handleCreate}
+                            disabled={isCreating || isValidating}
+                            className={`w-full sm:w-auto rounded-xl ${activeAccent.bg} hover:opacity-90 text-white font-bold shadow-lg ${activeAccent.shadow}`}
+                          >
+                            {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            {isCreating ? "Creating…" : "Create Event"}
+                          </Button>
                         </div>
                       </div>
-
-                      {/* Schedule readout */}
-                      <div className={`flex items-center gap-2 text-xs font-semibold rounded-xl px-3.5 py-2.5 ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
-                        <Globe className="w-3.5 h-3.5 shrink-0" />
-                        <span>
-                          {draft.start_date
-                            ? `Runs ${formatDisplayDate(draft.start_date as string)}${draft.end_date ? ` → ${formatDisplayDate(draft.end_date as string)}` : ""}`
-                            : "Dates Coming Soon (can be added later in the Organizer Dashboard)"}
-                        </span>
-                      </div>
-
-                      {/* Footer actions */}
-                      <div className={`border-t pt-5 flex flex-col sm:flex-row items-center gap-3 ${isDark ? "border-zinc-800" : "border-zinc-100"}`}>
-                        <Button
-                          variant="outline"
-                          onClick={handleValidate}
-                          disabled={isValidating}
-                          className="w-full sm:w-auto rounded-xl font-bold"
-                        >
-                          {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                          Validate
-                        </Button>
-                        <Button
-                          onClick={handleCreate}
-                          disabled={isCreating || isValidating}
-                          className={`w-full sm:w-auto rounded-xl ${activeAccent.bg} hover:opacity-90 text-white font-bold shadow-lg ${activeAccent.shadow}`}
-                        >
-                          {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                          {isCreating ? "Creating…" : "Create Event"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </section>
+                    )}
+                  </div>
+                </section>
+              </div>
             </div>
+          </main>
+        </AppLayout>
+      </div>
+    );
+  }
+
+  function FieldError({ message }: { message: string }) {
+    return <p className="text-xs font-semibold text-red-500 mt-1">{message}</p>;
+  }
+
+  export default function AiEventCreatorPage() {
+    return (
+      <Suspense
+        fallback={
+          <div className="h-screen flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--accent)" }} />
           </div>
-        </main>
-      </AppLayout>
-    </div>
-  );
-}
-
-function FieldError({ message }: { message: string }) {
-  return <p className="text-xs font-semibold text-red-500 mt-1">{message}</p>;
-}
-
-export default function AiEventCreatorPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="h-screen flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--accent)" }} />
-        </div>
-      }
-    >
-      <AiEventCreatorPageInner />
-    </Suspense>
-  );
-}
+        }
+      >
+        <AiEventCreatorPageInner />
+      </Suspense>
+    );
+  }

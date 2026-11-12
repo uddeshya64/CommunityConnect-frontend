@@ -9,11 +9,11 @@ export default function VideoTourSection() {
   const activeVideo = DEMO_VIDEOS.find((v) => v.id === selectedVideoId) || DEMO_VIDEOS[0];
 
   return (
-    <section id="tour" className="max-w-[1280px] mx-auto px-6 pt-14 pb-[96px]">
-      <div className="flex justify-between items-end gap-6 flex-wrap">
+    <section id="tour" className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-16 sm:pb-[96px]">
+      <div className="flex flex-col items-center text-center lg:flex-row lg:items-end lg:justify-between lg:text-left gap-4 lg:gap-6">
         <div>
           <h2
-            className="font-bricolage text-[clamp(36px,5vw,68px)] leading-[1.02] tracking-tight font-extrabold"
+            className="font-bricolage text-[clamp(34px,8vw,68px)] sm:text-[clamp(36px,5vw,68px)] leading-[1.02] tracking-tight font-extrabold"
             style={{ color: "var(--text)" }}
           >
             See it{" "}
@@ -27,7 +27,7 @@ export default function VideoTourSection() {
             </span>
           </h2>
           <p
-            className="text-[15px] sm:text-[16px] leading-[1.55] mt-3 max-w-xl"
+            className="text-[15px] sm:text-[16px] leading-[1.55] mt-3 max-w-xl mx-auto lg:mx-0"
             style={{ color: "var(--muted)" }}
           >
             Explore the full platform walkthrough or jump into organizer, staff, and attendee
