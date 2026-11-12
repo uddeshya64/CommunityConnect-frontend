@@ -119,7 +119,7 @@ export default function MyProfilePage() {
             }
 
             // Call upload API
-           
+
             const response = await fetch(
 
                 `${API_BASE_URL}/image/upload`,
@@ -271,376 +271,376 @@ export default function MyProfilePage() {
                         {/* Background */}
                         <div className={`fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] ${isDark ? "from-zinc-900/20 via-zinc-950 to-zinc-950" : "from-zinc-200/50 via-zinc-50 to-zinc-50"} pointer-events-none`} />
 
-                <main className="max-w-3xl mx-auto px-6 pt-6 pb-20 relative z-10">
-                    {/* Header Action Bar: Back button + Profile controls */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-                        <BackButton fallbackHref="/home" label="Back" />
+                            <main className="max-w-[1160px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20 relative z-10">
+                                {/* Header Action Bar: Back button + Profile controls */}
+                                <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                                    <BackButton fallbackHref="/home" label="Back" />
 
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            <Link href="/settings">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={`rounded-full ${isDark ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"} font-semibold px-4 gap-2 transition-all hover:scale-105`}
-                                >
-                                    <Settings className="w-3.5 h-3.5" />
-                                    Settings
-                                </Button>
-                            </Link>
-
-                            <Link href="/profile/edit">
-                                <Button
-                                    size="sm"
-                                    className="rounded-full text-white font-bold px-5 py-2 gap-2 transition-all hover:scale-105 shadow-lg flex items-center" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
-                                >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                    Edit Profile
-                                </Button>
-                            </Link>
-                        </div>
-                    </div>
-                    {/* HERO */}
-                    <motion.div
-                        initial={{
-                            opacity: 0,
-                            y: 20,
-                        }}
-                        animate={{
-                            opacity: 1,
-                            y: 0,
-                        }}
-                        transition={{
-                            duration: 0.5,
-                        }}
-                        className="flex flex-col items-center text-center"
-                    >
-                        {/* ============================= */}
-                        {/* Avatar + Upload Button */}
-                        {/* ============================= */}
-
-                        <div className="relative mb-6">
-                            {/* Avatar */}
-                            <div
-                                className="w-28 h-28 rounded-full p-[3px] shadow-2xl transition-all duration-300"
-                                style={{
-                                    background: "linear-gradient(135deg, var(--accent), var(--accent2))",
-                                    boxShadow: "0 20px 40px -12px color-mix(in oklab, var(--accent) 40%, transparent)",
-                                }}
-                            >
-                                <div
-                                    className="w-full h-full rounded-full flex items-center justify-center overflow-hidden border-[3px]"
-                                    style={{
-                                        background: "var(--card2)",
-                                        borderColor: "var(--card)",
-                                    }}
-                                >
-                                    {hasAvatar ? (
-                                        <img
-                                            src={
-                                                profile!.avatar_url
-                                            }
-                                            alt={
-                                                profile!.name ||
-                                                "Avatar"
-                                            }
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <span
-                                            className="text-3xl font-black"
-                                            style={{ color: "var(--text)" }}
-                                        >
-                                            {initials}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Upload Icon */}
-                            <button
-                                type="button"
-                                onClick={handleUploadClick}
-                                disabled={isUploading}
-                                title="Upload profile picture"
-                                className="absolute bottom-0 right-0 w-10 h-10 rounded-full border-4 flex items-center justify-center text-white transition-all hover:scale-105 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                style={{
-                                    background: "var(--accent)",
-                                    borderColor: "var(--card)",
-                                }}
-                            >
-                                {isUploading ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <Camera className="w-4 h-4" />
-                                )}
-                            </button>
-
-                            {/* Hidden File Input */}
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                onChange={
-                                    handleImageUpload
-                                }
-                                className="hidden"
-                            />
-                        </div>
-
-                        {/* Upload Error */}
-                        {error && (
-                            <p className="text-red-400 text-sm font-medium mb-4">
-                                {error}
-                            </p>
-                        )}
-
-                        {/* Name */}
-                        <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--text)] tracking-tight">
-                            {profile?.name ||
-                                "Unnamed User"}
-                        </h1>
-
-                        {/* Profession & Location */}
-                        <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
-                            {profile?.profession && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}>
-                                    <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
-
-                                    {profile.profession}
-                                </span>
-                            )}
-
-                            {profile?.location && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}>
-                                    <MapPin className="w-3.5 h-3.5 text-rose-400" />
-
-                                    {profile.location}
-                                </span>
-                            )}
-                        </div>
-
-                        {/* Bio */}
-                        {profile?.bio && (
-                            <p className={`mt-6 ${isDark ? "text-[var(--muted)]" : "text-zinc-700"} font-medium text-base leading-relaxed max-w-lg`}>
-                                {profile.bio}
-                            </p>
-                        )}
-                    </motion.div>
-
-                    {/* DETAILS SECTIONS */}
-                    <div className="mt-12 space-y-4">
-                        {/* Contact Row */}
-                        <motion.div
-                            initial={{
-                                opacity: 0,
-                                y: 15,
-                            }}
-                            animate={{
-                                opacity: 1,
-                                y: 0,
-                            }}
-                            transition={{
-                                duration: 0.4,
-                                delay: 0.1,
-                            }}
-                            className="rounded-[20px] p-6 border shadow-sm transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
-                        >
-                            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-4">
-                                Contact
-                            </h2>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {profile?.email && (
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
-                                            <Mail className="w-4 h-4 text-indigo-400" />
-                                        </div>
-
-                                        <div>
-                                            <p className="text-xs text-[var(--subtle)] font-medium">
-                                                Email
-                                            </p>
-
-                                            <p className={`text-sm ${isDark ? "text-zinc-200" : "text-zinc-900"} font-semibold truncate`}>
-                                                {profile.email}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {profile?.phone && (
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                                            <Phone className="w-4 h-4 text-emerald-400" />
-                                        </div>
-
-                                        <div>
-                                            <p className="text-xs text-[var(--subtle)] font-medium">
-                                                Phone
-                                            </p>
-
-                                            <p className={`text-sm ${isDark ? "text-zinc-200" : "text-zinc-900"} font-semibold`}>
-                                                {profile.phone}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {!profile?.email &&
-                                    !profile?.phone && (
-                                        <p className="text-sm text-[var(--subtle)] font-medium col-span-2">
-                                            No contact info
-                                            added yet.
-                                        </p>
-                                    )}
-                            </div>
-                        </motion.div>
-
-                        {/* Social Links */}
-                        <motion.div
-                            initial={{
-                                opacity: 0,
-                                y: 15,
-                            }}
-                            animate={{
-                                opacity: 1,
-                                y: 0,
-                            }}
-                            transition={{
-                                duration: 0.4,
-                                delay: 0.15,
-                            }}
-                            className="rounded-[20px] p-6 border shadow-sm transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
-                        >
-                            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-4">
-                                Social
-                            </h2>
-
-                            <div className="flex flex-wrap gap-3">
-                                {profile?.linkedin && (
-                                    <a
-                                        href={
-                                            profile.linkedin
-                                        }
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0077B5]/10 border border-[#0077B5]/20 text-[#0077B5] hover:bg-[#0077B5]/20 transition-all text-sm font-semibold group"
-                                    >
-                                        <Linkedin className="w-4 h-4" />
-
-                                        LinkedIn
-
-                                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    </a>
-                                )}
-
-                                {profile?.github && (
-                                    <a
-                                        href={
-                                            profile.github
-                                        }
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl ${isDark ? "bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10" : "bg-zinc-100 border border-zinc-300 text-zinc-900 hover:bg-zinc-200"} transition-all text-sm font-semibold group`}
-                                    >
-                                        <Github className="w-4 h-4" />
-
-                                        GitHub
-
-                                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    </a>
-                                )}
-
-                                {!profile?.linkedin &&
-                                    !profile?.github && (
-                                        <p className="text-sm text-[var(--subtle)] font-medium">
-                                            No social links
-                                            added yet.
-                                        </p>
-                                    )}
-                            </div>
-                        </motion.div>
-
-                        {/* Skills */}
-                        <motion.div
-                            initial={{
-                                opacity: 0,
-                                y: 15,
-                            }}
-                            animate={{
-                                opacity: 1,
-                                y: 0,
-                            }}
-                            transition={{
-                                duration: 0.4,
-                                delay: 0.2,
-                            }}
-                            className="rounded-[20px] p-6 border shadow-sm transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
-                        >
-                            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-4">
-                                Skills
-                            </h2>
-
-                            {profile?.skills &&
-                                profile.skills.length > 0 ? (
-                                <div className="flex flex-wrap gap-2">
-                                    {profile.skills.map(
-                                        (skill, i) => (
-                                            <span
-                                                key={i}
-                                                className="px-3.5 py-1.5 rounded-full border text-xs font-semibold tracking-wide" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
+                                    <div className="flex items-center gap-2 sm:gap-3">
+                                        <Link href="/settings">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className={`rounded-full ${isDark ? "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"} font-semibold px-4 gap-2 transition-all hover:scale-105`}
                                             >
-                                                {skill}
+                                                <Settings className="w-3.5 h-3.5" />
+                                                Settings
+                                            </Button>
+                                        </Link>
+
+                                        <Link href="/profile/edit">
+                                            <Button
+                                                size="sm"
+                                                className="rounded-full text-white font-bold px-5 py-2 gap-2 transition-all hover:scale-105 shadow-lg flex items-center" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                                Edit Profile
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                </div>
+                                {/* HERO */}
+                                <motion.div
+                                    initial={{
+                                        opacity: 0,
+                                        y: 20,
+                                    }}
+                                    animate={{
+                                        opacity: 1,
+                                        y: 0,
+                                    }}
+                                    transition={{
+                                        duration: 0.5,
+                                    }}
+                                    className="flex flex-col items-center text-center"
+                                >
+                                    {/* ============================= */}
+                                    {/* Avatar + Upload Button */}
+                                    {/* ============================= */}
+
+                                    <div className="relative mb-6">
+                                        {/* Avatar */}
+                                        <div
+                                            className="w-28 h-28 rounded-full p-[3px] shadow-2xl transition-all duration-300"
+                                            style={{
+                                                background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+                                                boxShadow: "0 20px 40px -12px color-mix(in oklab, var(--accent) 40%, transparent)",
+                                            }}
+                                        >
+                                            <div
+                                                className="w-full h-full rounded-full flex items-center justify-center overflow-hidden border-[3px]"
+                                                style={{
+                                                    background: "var(--card2)",
+                                                    borderColor: "var(--card)",
+                                                }}
+                                            >
+                                                {hasAvatar ? (
+                                                    <img
+                                                        src={
+                                                            profile!.avatar_url
+                                                        }
+                                                        alt={
+                                                            profile!.name ||
+                                                            "Avatar"
+                                                        }
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <span
+                                                        className="text-3xl font-black"
+                                                        style={{ color: "var(--text)" }}
+                                                    >
+                                                        {initials}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Upload Icon */}
+                                        <button
+                                            type="button"
+                                            onClick={handleUploadClick}
+                                            disabled={isUploading}
+                                            title="Upload profile picture"
+                                            className="absolute bottom-0 right-0 w-10 h-10 rounded-full border-4 flex items-center justify-center text-white transition-all hover:scale-105 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            style={{
+                                                background: "var(--accent)",
+                                                borderColor: "var(--card)",
+                                            }}
+                                        >
+                                            {isUploading ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <Camera className="w-4 h-4" />
+                                            )}
+                                        </button>
+
+                                        {/* Hidden File Input */}
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={
+                                                handleImageUpload
+                                            }
+                                            className="hidden"
+                                        />
+                                    </div>
+
+                                    {/* Upload Error */}
+                                    {error && (
+                                        <p className="text-red-400 text-sm font-medium mb-4">
+                                            {error}
+                                        </p>
+                                    )}
+
+                                    {/* Name */}
+                                    <h1 className="text-3xl md:text-4xl font-extrabold text-[var(--text)] tracking-tight">
+                                        {profile?.name ||
+                                            "Unnamed User"}
+                                    </h1>
+
+                                    {/* Profession & Location */}
+                                    <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+                                        {profile?.profession && (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}>
+                                                <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
+
+                                                {profile.profession}
                                             </span>
-                                        )
+                                        )}
+
+                                        {profile?.location && (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}>
+                                                <MapPin className="w-3.5 h-3.5 text-rose-400" />
+
+                                                {profile.location}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Bio */}
+                                    {profile?.bio && (
+                                        <p className={`mt-6 ${isDark ? "text-[var(--muted)]" : "text-zinc-700"} font-medium text-base leading-relaxed max-w-lg`}>
+                                            {profile.bio}
+                                        </p>
+                                    )}
+                                </motion.div>
+
+                                {/* DETAILS SECTIONS */}
+                                <div className="mt-12 space-y-4">
+                                    {/* Contact Row */}
+                                    <motion.div
+                                        initial={{
+                                            opacity: 0,
+                                            y: 15,
+                                        }}
+                                        animate={{
+                                            opacity: 1,
+                                            y: 0,
+                                        }}
+                                        transition={{
+                                            duration: 0.4,
+                                            delay: 0.1,
+                                        }}
+                                        className="rounded-[20px] p-6 border shadow-sm transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
+                                    >
+                                        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-4">
+                                            Contact
+                                        </h2>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {profile?.email && (
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-9 h-9 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
+                                                        <Mail className="w-4 h-4 text-indigo-400" />
+                                                    </div>
+
+                                                    <div>
+                                                        <p className="text-xs text-[var(--subtle)] font-medium">
+                                                            Email
+                                                        </p>
+
+                                                        <p className={`text-sm ${isDark ? "text-zinc-200" : "text-zinc-900"} font-semibold truncate`}>
+                                                            {profile.email}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {profile?.phone && (
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                                                        <Phone className="w-4 h-4 text-emerald-400" />
+                                                    </div>
+
+                                                    <div>
+                                                        <p className="text-xs text-[var(--subtle)] font-medium">
+                                                            Phone
+                                                        </p>
+
+                                                        <p className={`text-sm ${isDark ? "text-zinc-200" : "text-zinc-900"} font-semibold`}>
+                                                            {profile.phone}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {!profile?.email &&
+                                                !profile?.phone && (
+                                                    <p className="text-sm text-[var(--subtle)] font-medium col-span-2">
+                                                        No contact info
+                                                        added yet.
+                                                    </p>
+                                                )}
+                                        </div>
+                                    </motion.div>
+
+                                    {/* Social Links */}
+                                    <motion.div
+                                        initial={{
+                                            opacity: 0,
+                                            y: 15,
+                                        }}
+                                        animate={{
+                                            opacity: 1,
+                                            y: 0,
+                                        }}
+                                        transition={{
+                                            duration: 0.4,
+                                            delay: 0.15,
+                                        }}
+                                        className="rounded-[20px] p-6 border shadow-sm transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
+                                    >
+                                        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-4">
+                                            Social
+                                        </h2>
+
+                                        <div className="flex flex-wrap gap-3">
+                                            {profile?.linkedin && (
+                                                <a
+                                                    href={
+                                                        profile.linkedin
+                                                    }
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0077B5]/10 border border-[#0077B5]/20 text-[#0077B5] hover:bg-[#0077B5]/20 transition-all text-sm font-semibold group"
+                                                >
+                                                    <Linkedin className="w-4 h-4" />
+
+                                                    LinkedIn
+
+                                                    <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                </a>
+                                            )}
+
+                                            {profile?.github && (
+                                                <a
+                                                    href={
+                                                        profile.github
+                                                    }
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl ${isDark ? "bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10" : "bg-zinc-100 border border-zinc-300 text-zinc-900 hover:bg-zinc-200"} transition-all text-sm font-semibold group`}
+                                                >
+                                                    <Github className="w-4 h-4" />
+
+                                                    GitHub
+
+                                                    <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                </a>
+                                            )}
+
+                                            {!profile?.linkedin &&
+                                                !profile?.github && (
+                                                    <p className="text-sm text-[var(--subtle)] font-medium">
+                                                        No social links
+                                                        added yet.
+                                                    </p>
+                                                )}
+                                        </div>
+                                    </motion.div>
+
+                                    {/* Skills */}
+                                    <motion.div
+                                        initial={{
+                                            opacity: 0,
+                                            y: 15,
+                                        }}
+                                        animate={{
+                                            opacity: 1,
+                                            y: 0,
+                                        }}
+                                        transition={{
+                                            duration: 0.4,
+                                            delay: 0.2,
+                                        }}
+                                        className="rounded-[20px] p-6 border shadow-sm transition-all" style={{ background: "var(--card)", borderColor: "var(--border)", backdropFilter: "blur(20px)" }}
+                                    >
+                                        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-4">
+                                            Skills
+                                        </h2>
+
+                                        {profile?.skills &&
+                                            profile.skills.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {profile.skills.map(
+                                                    (skill, i) => (
+                                                        <span
+                                                            key={i}
+                                                            className="px-3.5 py-1.5 rounded-full border text-xs font-semibold tracking-wide" style={{ background: "var(--card2)", borderColor: "var(--border)", color: "var(--text)" }}
+                                                        >
+                                                            {skill}
+                                                        </span>
+                                                    )
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-[var(--subtle)] font-medium">
+                                                No skills added yet.{" "}
+                                                <Link
+                                                    href="/profile/edit"
+                                                    className="text-indigo-400 hover:text-indigo-300 transition-colors"
+                                                >
+                                                    Add some →
+                                                </Link>
+                                            </p>
+                                        )}
+                                    </motion.div>
+
+                                    {/* Member Since */}
+                                    {(profile as any)?.created_at && (
+                                        <motion.div
+                                            initial={{
+                                                opacity: 0,
+                                            }}
+                                            animate={{
+                                                opacity: 1,
+                                            }}
+                                            transition={{
+                                                duration: 0.4,
+                                                delay: 0.25,
+                                            }}
+                                            className="flex items-center justify-center gap-2 pt-6 text-zinc-600 text-sm font-medium"
+                                        >
+                                            <Calendar className="w-3.5 h-3.5" />
+
+                                            Member since{" "}
+
+                                            {new Date(
+                                                (profile as any)
+                                                    .created_at
+                                            ).toLocaleDateString(
+                                                "en-US",
+                                                {
+                                                    month: "long",
+                                                    year: "numeric",
+                                                }
+                                            )}
+                                        </motion.div>
                                     )}
                                 </div>
-                            ) : (
-                                <p className="text-sm text-[var(--subtle)] font-medium">
-                                    No skills added yet.{" "}
-                                    <Link
-                                        href="/profile/edit"
-                                        className="text-indigo-400 hover:text-indigo-300 transition-colors"
-                                    >
-                                        Add some →
-                                    </Link>
-                                </p>
-                            )}
-                        </motion.div>
-
-                        {/* Member Since */}
-                        {(profile as any)?.created_at && (
-                            <motion.div
-                                initial={{
-                                    opacity: 0,
-                                }}
-                                animate={{
-                                    opacity: 1,
-                                }}
-                                transition={{
-                                    duration: 0.4,
-                                    delay: 0.25,
-                                }}
-                                className="flex items-center justify-center gap-2 pt-6 text-zinc-600 text-sm font-medium"
-                            >
-                                <Calendar className="w-3.5 h-3.5" />
-
-                                Member since{" "}
-
-                                {new Date(
-                                    (profile as any)
-                                        .created_at
-                                ).toLocaleDateString(
-                                    "en-US",
-                                    {
-                                        month: "long",
-                                        year: "numeric",
-                                    }
-                                )}
-                            </motion.div>
-                        )}
-                    </div>
-                </main>
+                            </main>
                     </div>
                 </AppLayout>
             </div>

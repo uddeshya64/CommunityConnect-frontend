@@ -664,7 +664,41 @@ function CreateEventPageInner() {
         showError("Connection interrupted — your event was saved to Drafts.");
         return;
       }
-      showError(err?.message || "Failed to create event. Please check inputs and try again.");
+      const resData = err?.response?.data;
+      let errMsg = err?.message || "Failed to create event. Please check inputs and try again.";
+      if (Array.isArray(resData?.error) && resData.error.length > 0) {
+        const nextErrs: Partial<Record<keyof FormErrors, string>> = {};
+        const validKeys = new Set<keyof FormErrors>([
+          "title",
+          "category",
+          "start_date",
+          "end_date",
+          "location",
+          "description",
+          "registration_fee",
+          "capacity",
+          "min_team_size",
+          "max_team_size",
+          "custom_fields",
+          "reg_form_fields",
+        ]);
+        const msgs: string[] = [];
+        for (const issue of resData.error) {
+          const msg = issue?.message;
+          const field = Array.isArray(issue?.path) ? String(issue.path[0] || "") : "";
+          if (msg) msgs.push(msg);
+          if (field && validKeys.has(field as keyof FormErrors)) {
+            nextErrs[field as keyof FormErrors] = msg || "Invalid value";
+          }
+        }
+        if (Object.keys(nextErrs).length > 0) setFieldErrors((prev) => ({ ...prev, ...nextErrs }));
+        if (msgs.length > 0) errMsg = msgs.join(" ");
+      } else if (typeof resData?.error === "string") {
+        errMsg = resData.error;
+      } else if (typeof resData?.message === "string") {
+        errMsg = resData.message;
+      }
+      showError(errMsg);
     }
   };
 
@@ -1173,7 +1207,7 @@ function CreateEventPageInner() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
                           <div className="space-y-1.5">
                             <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                              Start Date & Time <span className="font-normal opacity-75">(Optional — blank = Coming Soon)</span>
+                              Start Date &amp; Time
                             </label>
                             <DateTimePicker
                               value={formData.start_date}
@@ -1186,7 +1220,7 @@ function CreateEventPageInner() {
 
                           <div className="space-y-1.5">
                             <label className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: "var(--muted)" }}>
-                              End Date & Time <span className="font-normal opacity-75">(Optional)</span>
+                              End Date &amp; Time
                             </label>
                             <DateTimePicker
                               value={formData.end_date}
