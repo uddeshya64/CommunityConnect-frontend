@@ -327,8 +327,8 @@ export default function MyEventsPage() {
           </div>
 
           {/* Relationship Role Filter Pills */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-mono font-medium hidden md:inline" style={{ color: "var(--subtle)" }}>
+          <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap overflow-x-auto no-scrollbar py-0.5">
+            <span className="text-xs font-mono font-medium hidden md:inline shrink-0" style={{ color: "var(--subtle)" }}>
               ROLE:
             </span>
             {[

@@ -121,7 +121,7 @@ export default function GamificationPage() {
                     Questions: {quiz.questions?.length || 0}
                   </div>
                 </div>
-                <div className="mt-6 flex justify-between items-center pt-4 border-t border-gray-100 dark:border-zinc-800">
+                <div className="mt-6 flex flex-wrap justify-between items-center gap-3 pt-4 border-t border-gray-100 dark:border-zinc-800">
                   <button
                     onClick={() => {
                       const text = prompt("Question Text?");

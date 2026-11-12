@@ -351,14 +351,14 @@ export default function ParticipantQuizPage() {
       >
         {/* TOP STATUS HEADER */}
         <div
-          className="border-b p-4 px-6 flex items-center justify-between z-20"
+          className="border-b px-4 py-3 sm:p-4 sm:px-6 flex flex-wrap items-center justify-between gap-2 z-20"
           style={{
             background: "color-mix(in oklab, var(--card) 90%, transparent)",
             borderColor: "var(--border)",
             backdropFilter: "blur(20px)"
           }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span
               className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-white"
               style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}
